@@ -1,8 +1,7 @@
-import type { Plugin } from 'esbuild'
 import { builtinModules } from 'node:module'
 import path from 'node:path'
 import { isNativePackage } from './native.ts'
-import { readDependencies, resolveModule, resolvePackageDir } from './resolve.ts'
+import { resolvePackageDir } from './resolve.ts'
 
 /** A package that must live in `node_modules/` at runtime instead of the bundle. */
 export interface ExternalPackage {
@@ -19,15 +18,12 @@ const NODE_BUILTINS = new Set<string>([
   ...builtinModules.map((id) => `node:${id}`)
 ])
 
-/** Matches bare package specifiers (skips relative, absolute and `node:` ids). */
-const BARE_SPECIFIER = /^(?!\.{1,2}(?:[/\\]|$))(@[^/\\]+[/\\][^/\\]+|[^@/\\][^/\\]*)(?:[/\\]|$)/
-
 /**
- * esbuild's `onResolve` filter is compiled to a Go regexp, which has no
- * lookahead. The filter stays intentionally broad; {@link packageNameOf} does
- * the real (lookahead-based) check inside the callback.
+ * Matches bare package specifiers (skips relative, absolute and `node:` ids).
+ * The lookahead is fine here because this regexp runs in JS, not in a bundler's
+ * native regexp engine.
  */
-const RESOLVE_FILTER = /^[^./\\]/
+const BARE_SPECIFIER = /^(?!\.{1,2}(?:[/\\]|$))(@[^/\\]+[/\\][^/\\]+|[^@/\\][^/\\]*)(?:[/\\]|$)/
 
 /** Returns the package name of a bare specifier, or `undefined`. */
 export const packageNameOf = (id: string): string | undefined => {
@@ -38,54 +34,50 @@ export const packageNameOf = (id: string): string | undefined => {
 /** Does the id refer to a Node.js built-in module? */
 export const isBuiltin = (id: string): boolean => NODE_BUILTINS.has(id)
 
-const matches = (patterns: readonly (string | RegExp)[], name: string): boolean =>
-  patterns.some((pattern) => (pattern instanceof RegExp ? pattern.test(name) : pattern === name))
+/** True for relative (`./x`), absolute (`/x`) and builtin specifiers. */
+export const isBareSpecifier = (id: string): boolean =>
+  !id.startsWith('.') && !path.isAbsolute(id) && !isBuiltin(id) && packageNameOf(id) !== undefined
 
 /**
- * esbuild plugin that mirrors Nitro's `externals` plugin.
+ * Decides whether a bare import must stay external, and records it for tracing.
  *
- * Resolution order:
- * 1. `node:*` / builtin ids are always external and untouched.
- * 2. Packages matched by `external` (config list + auto-detected natives) are
- *    marked external and recorded in `externals` for the tracer.
- * 3. Everything else is handed back to esbuild and bundled.
+ * Shared by both bundler backends so resolution semantics never drift:
  *
- * Returning `{ external: true }` keeps the bare specifier in the output, which
- * is exactly what the tracer needs to relocate into `node_modules/`.
+ * 1. Builtins are always external and untouched.
+ * 2. Packages matched by the `external` config list are external.
+ * 3. Packages that ship a native addon are external (auto-detected).
+ * 4. Everything else is bundled.
  */
-export const externalsPlugin = (options: {
+export const classifyExternal = (options: {
+  readonly id: string
+  readonly importer: string | undefined
   readonly rootDir: string
   readonly conditions: readonly string[]
   readonly external: readonly (string | RegExp)[]
   readonly externals: Map<string, ExternalPackage>
-}): Plugin => ({
-  name: 'builder:externals',
-  setup(build) {
-    build.onResolve({ filter: RESOLVE_FILTER }, (args) => {
-      if (isBuiltin(args.path)) return { path: args.path, external: true }
+}): ExternalPackage | undefined => {
+  const { id, importer, rootDir, conditions, external, externals } = options
+  if (isBuiltin(id)) return undefined
 
-      const name = packageNameOf(args.path)
-      if (!name) return null
+  const name = packageNameOf(id)
+  if (!name) return undefined
 
-      // `args.importer` is a file path; resolution must start from its directory.
-      const fromDir = args.importer ? path.dirname(args.importer) : options.rootDir
-      const dir = resolvePackageDir(name, fromDir, options.conditions)
-      if (!dir) return null
+  const cached = externals.get(name)
+  if (cached) return cached
 
-      const configured = matches(options.external, name)
-      const native = !configured && isNativePackage(dir)
-      if (!configured && !native) return null
+  // `importer` is a file path; resolution must start from its directory.
+  const fromDir = importer ? path.dirname(importer) : rootDir
+  const dir = resolvePackageDir(name, fromDir, conditions)
+  if (!dir) return undefined
 
-      options.externals.set(name, { name, dir, reason: configured ? 'config' : 'native' })
+  const configured = matches(external, name)
+  const native = !configured && isNativePackage(dir)
+  if (!configured && !native) return undefined
 
-      return { path: args.path, external: true }
-    })
-  }
-})
+  const pkg: ExternalPackage = { name, dir, reason: configured ? 'config' : 'native' }
+  externals.set(name, pkg)
+  return pkg
+}
 
-/** Reads the resolved entry's package.json to discover its own dependencies. */
-export const readDeclaredDependencies = (rootDir: string): Record<string, string> =>
-  readDependencies(path.join(rootDir, 'package.json'))
-
-/** Re-exported so callers can resolve a package without re-implementing it. */
-export { resolveModule }
+const matches = (patterns: readonly (string | RegExp)[], name: string): boolean =>
+  patterns.some((pattern) => (pattern instanceof RegExp ? pattern.test(name) : pattern === name))

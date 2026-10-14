@@ -1,4 +1,5 @@
 import path from 'node:path'
+import type { BuildOptions } from 'rolldown'
 
 /** A single asset copied verbatim into the build output. */
 export interface BuilderAsset {
@@ -6,6 +7,14 @@ export interface BuilderAsset {
   readonly from: string
   /** Path relative to `serverDir` in the output. */
   readonly to: string
+}
+
+/** A named code-splitting group. */
+export interface ChunkGroup {
+  /** Chunk name; also replaces `[name]` in `chunkFileNames`. */
+  readonly name: string
+  /** Regex (or string) matched against module ids. */
+  readonly test: RegExp | string
 }
 
 /** Fully resolved builder configuration. */
@@ -20,20 +29,37 @@ export interface BuilderConfig {
   readonly serverDir: string
   /** Name of the emitted entry file. */
   readonly entryFileName: string
-  /** esbuild `target`, e.g. `node24`. */
+  /** Pattern for split chunks, relative to `serverDir`. */
+  readonly chunkFileNames: string
+  /** rolldown `platform`, e.g. `node`. */
+  readonly platform: 'node' | 'browser' | 'neutral'
+  /** Output `target` language level, e.g. `node24`. */
   readonly target: string
-  /** Minify the emitted bundle. */
+  /** Split shared code into chunks instead of one `index.mjs`. Default `true`. */
+  readonly splitting: boolean
+  /** Chunk groups applied during splitting, before the built-in `vendor` group. */
+  readonly chunkGroups: readonly ChunkGroup[]
+  /** Minify the emitted bundles. Off by default. */
   readonly minify: boolean
-  /** Emit source maps next to the bundle. */
+  /** Obfuscate the emitted bundles. Off by default. */
+  readonly obfuscate: boolean
+  /** Obfuscator preset name; only used when `obfuscate` is on. */
+  readonly obfuscatePreset: 'low' | 'medium' | 'high'
+  /** Emit source maps next to the bundles. */
   readonly sourcemap: boolean
   /** Conditions used when resolving package exports. */
   readonly conditions: readonly string[]
   /** Packages (or patterns) kept external and traced into the output. */
   readonly external: readonly (string | RegExp)[]
-  /** Extra packages to trace, on top of auto-detected native ones. */
-  readonly traceDeps: readonly (string | RegExp)[]
   /** Asset files/directories copied into `serverDir`. */
   readonly assets: readonly BuilderAsset[]
+  /**
+   * Escape hatch merged into the rolldown config (deep-merged over the
+   * builder's own options). Use it for anything not surfaced as a first-class
+   * field — extra plugins, `resolve.alias`, `define`, `treeshake`, a custom
+   * `output` (e.g. `minify` tuning or `comments`), and so on.
+   */
+  readonly rolldownOptions: BuildOptions
 }
 
 /** User-supplied configuration; everything is optional. */
@@ -42,7 +68,7 @@ export type BuilderConfigInput = Partial<BuilderConfig> & { readonly rootDir?: s
 /**
  * Known packages that ship a native addon and therefore cannot be bundled.
  *
- * Kept deliberately short: `builder/` also auto-detects native packages by
+ * Kept deliberately short: the builder also auto-detects native packages by
  * inspecting `binding.gyp`, `prebuilds/` and `gypfile`, so this list only needs
  * the packages that hide their addon behind a loader.
  */
@@ -58,19 +84,33 @@ export const NATIVE_PACKAGES: readonly string[] = [
   'sqlite3'
 ]
 
-/** Built-in defaults, mirroring Nitro's `node-server` preset layout. */
+/**
+ * Built-in defaults, mirroring Nitro's `node-server` preset layout.
+ *
+ * `splitting` is **on by default**; set it to `false` (or pass `--no-splitting`)
+ * to emit one self-contained `index.mjs`.
+ *
+ * `minify` and `obfuscate` are **off by default** — turn them on per project or
+ * with the `--minify` / `--obfuscate` CLI flags.
+ */
 export const BUILDER_DEFAULTS: Omit<BuilderConfig, 'rootDir'> = {
   entry: 'src/main.ts',
   outDir: 'dist',
   serverDir: 'server',
   entryFileName: 'index.mjs',
+  chunkFileNames: 'chunks/[name]-[hash].mjs',
+  platform: 'node',
   target: 'node24',
+  splitting: true,
+  chunkGroups: [],
   minify: false,
+  obfuscate: false,
+  obfuscatePreset: 'medium',
   sourcemap: false,
   conditions: ['node', 'import', 'production'],
   external: NATIVE_PACKAGES,
-  traceDeps: [],
-  assets: []
+  assets: [],
+  rolldownOptions: {}
 }
 
 /**
@@ -88,8 +128,8 @@ export const resolveBuilderConfig = (input: BuilderConfigInput = {}): BuilderCon
     ...input,
     rootDir,
     external: [...new Set(input.external ?? BUILDER_DEFAULTS.external)],
-    traceDeps: [...new Set(input.traceDeps ?? BUILDER_DEFAULTS.traceDeps)],
     assets: input.assets ?? BUILDER_DEFAULTS.assets,
+    chunkGroups: input.chunkGroups ?? BUILDER_DEFAULTS.chunkGroups,
     conditions: input.conditions ?? BUILDER_DEFAULTS.conditions
   }
 

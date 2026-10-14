@@ -15,7 +15,7 @@ export interface AppConfig {
  * with a typed `ConfigError` while the layer is being built.
  */
 const schema = Config.all({
-  databaseFile: Config.String('DATABASE_FILE').pipe(Config.withDefault('./storage/data/app.db')),
+  databaseFile: Config.String('DATABASE_FILE').pipe(Config.withDefault('./storage/data/edgy.db')),
   host: Config.String('HOST').pipe(Config.withDefault('0.0.0.0')),
   port: Config.Port('PORT').pipe(Config.withDefault(3000))
 })
