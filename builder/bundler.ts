@@ -98,8 +98,13 @@ const externalsPlugin = (options: BundleOptions): Plugin => ({
  *
  * `config.rolldownOptions` is applied on top by {@link mergeRolldownOptions},
  * so users can extend or override anything here without editing the builder.
+ *
+ * @param overrides per-run output tweaks (used by the SEA/CJS pass)
  */
-const baseRolldownOptions = (options: BundleOptions): BuildOptions => {
+const baseRolldownOptions = (
+  options: BundleOptions,
+  overrides: OutputOptions = {}
+): BuildOptions => {
   const { config } = options
 
   const output: OutputOptions = {
@@ -110,7 +115,8 @@ const baseRolldownOptions = (options: BundleOptions): BuildOptions => {
     minify: config.minify,
     sourcemap: config.sourcemap,
     banner: (chunk) => (chunk.isEntry ? '#!/usr/bin/env node' : ''),
-    codeSplitting: config.splitting ? { groups: [...chunkGroups(config)] } : false
+    codeSplitting: config.splitting ? { groups: [...chunkGroups(config)] } : false,
+    ...overrides
   }
 
   return {
@@ -152,6 +158,39 @@ const mergeRecords = (base: unknown, override: unknown): unknown => {
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
+
+/**
+ * Bundles the server as a **single CommonJS file**, for the SEA pass.
+ *
+ * Node's single-executable application support only runs one embedded script
+ * using the CommonJS module system, so this pass forces `format: 'cjs'` and
+ * disables code splitting. `import.meta` is replaced with an empty object
+ * (rolldown's default for CJS) — defined explicitly to silence the warning.
+ *
+ * User `rolldownOptions` is intentionally **not** merged here: those options
+ * target the ESM server build, and a stray `format`/`codeSplitting` would break
+ * the executable.
+ */
+export const bundleSea = async (options: BundleOptions & { outFile: string }): Promise<string> => {
+  const { config, outFile } = options
+
+  const base = baseRolldownOptions(options, {
+    dir: path.dirname(outFile),
+    format: 'cjs',
+    entryFileNames: path.basename(outFile),
+    chunkFileNames: path.basename(outFile),
+    codeSplitting: false,
+    sourcemap: false,
+    banner: () => ''
+  })
+
+  await rolldownBuild({
+    ...base,
+    transform: { target: config.target, define: { 'import.meta': '({})' } }
+  })
+
+  return outFile
+}
 
 /**
  * Bundles the server with rolldown.

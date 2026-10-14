@@ -12,6 +12,7 @@ interface CliFlags {
   readonly minify?: boolean | undefined
   readonly obfuscate?: boolean | undefined
   readonly splitting?: boolean | undefined
+  readonly exe?: boolean | undefined
 }
 
 /**
@@ -28,7 +29,8 @@ const parseFlags = (argv: readonly string[]): CliFlags => {
   return {
     minify: toggle('minify'),
     obfuscate: toggle('obfuscate'),
-    splitting: toggle('splitting')
+    splitting: toggle('splitting'),
+    exe: toggle('exe')
   }
 }
 
@@ -41,7 +43,8 @@ const parseFlags = (argv: readonly string[]): CliFlags => {
 const definedOnly = (flags: CliFlags): BuilderConfigInput => ({
   ...(flags.minify === undefined ? {} : { minify: flags.minify }),
   ...(flags.obfuscate === undefined ? {} : { obfuscate: flags.obfuscate }),
-  ...(flags.splitting === undefined ? {} : { splitting: flags.splitting })
+  ...(flags.splitting === undefined ? {} : { splitting: flags.splitting }),
+  ...(flags.exe === undefined ? {} : { seaConfig: { enable: flags.exe } })
 })
 
 /**
@@ -81,7 +84,8 @@ const main = async (): Promise<void> => {
         : 'splitting:vendor'
       : undefined,
     config.minify ? 'minify' : undefined,
-    config.obfuscate ? `obfuscate:${config.obfuscatePreset}` : undefined
+    config.obfuscate ? `obfuscate:${config.obfuscatePreset}` : undefined,
+    config.seaConfig.enable ? 'exe (experimental)' : undefined
   ].filter(Boolean)
 
   process.stdout.write(
@@ -94,15 +98,26 @@ const main = async (): Promise<void> => {
   const entry = path.relative(rootDir, path.join(result.serverDir, config.entryFileName))
   const externals = result.externals.length === 0 ? 'none' : result.externals.join(', ')
 
-  process.stdout.write(
-    [
-      `Server built in ${Date.now() - started}ms`,
-      `  entry:     ${entry} (${size} kB)`,
-      `  chunks:    ${result.files.length}`,
-      `  externals: ${externals}`,
-      `Preview:   node ${entry} serve`
-    ].join('\n') + '\n'
-  )
+  const lines = [
+    `Server built in ${Date.now() - started}ms`,
+    `  entry:     ${entry} (${size} kB)`,
+    `  chunks:    ${result.files.length}`,
+    `  externals: ${externals}`,
+    `Preview:   node ${entry} serve`
+  ]
+
+  if (result.executable) {
+    const exe = path.relative(rootDir, result.executable.outputPath)
+    const exeSize = (result.executable.bytes / 1024 / 1024).toFixed(1)
+    lines.push(
+      '',
+      `Executable (experimental, ${result.executable.platform}):`,
+      `  ${exe} (${exeSize} MB)`,
+      `Run:       ./${exe} serve`
+    )
+  }
+
+  process.stdout.write(lines.join('\n') + '\n')
 }
 
 main().catch((error: unknown) => {

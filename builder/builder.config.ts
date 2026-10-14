@@ -12,6 +12,7 @@ import { defineBuilderConfig } from './config.ts'
  *   pnpm build --minify              # oxc minifier
  *   pnpm build --obfuscate           # javascript-obfuscator
  *   pnpm build --minify --obfuscate  # both
+ *   pnpm build --exe                 # compile a single executable (SEA)
  */
 export default defineBuilderConfig({
   entry: 'src/main.ts',
@@ -22,7 +23,6 @@ export default defineBuilderConfig({
 
   // Code splitting is on by default: shared code goes to chunks.
   // Set `splitting: false` (or pass --no-splitting) for one big index.mjs.
-  // Set it to `false` for one combined vendor chunk.
   splitting: true,
   splitPackages: true,
 
@@ -41,6 +41,15 @@ export default defineBuilderConfig({
   // `node_modules/` instead of being bundled. This project uses `node:sqlite`,
   // so the traced folder stays empty.
   assets: [],
+
+  // Compile a Node.js single-executable application (EXPERIMENTAL) next to the
+  // server bundle: `dist/edgy`. Set `seaConfig.enable` (or pass --exe). The
+  // result is self-contained but large (~120 MB, it embeds the Node binary) and
+  // only runs on the platform that built it.
+  seaConfig: {
+    enable: false,
+    fileName: 'edgy'
+  },
 
   // Escape hatch: anything here is deep-merged over the builder's rolldown
   // config (arrays concatenate, so extra `plugins` are appended). Example:

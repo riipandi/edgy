@@ -22,3 +22,4 @@
 - https://h3.dev/guide/api/h3
 - https://h3.dev/guide/api/h3event
 - https://h3.dev/utils
+- https://yao-pkg.github.io/pkg/guide/vs-bun-deno

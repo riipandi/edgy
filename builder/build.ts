@@ -1,6 +1,7 @@
 import { rmSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { bundle } from './bundler.ts'
+import { compileExecutable, type CompileResult } from './compiler.ts'
 import type { BuilderConfig } from './config.ts'
 import { copyPath, writeText } from './copy.ts'
 import type { ExternalPackage } from './externals.ts'
@@ -14,6 +15,8 @@ export interface BuildResult {
   readonly bytes: number
   readonly externals: readonly string[]
   readonly obfuscated: readonly string[]
+  /** Present only when `exe` is enabled. */
+  readonly executable?: CompileResult
 }
 
 /**
@@ -29,6 +32,8 @@ export interface BuildResult {
  * 4. Copy every traced external into `<serverDir>/node_modules`.
  * 5. Copy declared assets (e.g. a `migrations/` folder) into the output.
  * 6. Emit a `package.json` so the directory is a valid, runnable Node project.
+ * 7. When `exe` is on, additionally build a Node single-executable application
+ *    (**experimental**) into `<outDir>/<exeFileName>`.
  */
 export const runBuild = async (config: BuilderConfig): Promise<BuildResult> => {
   const externals = new Map<string, ExternalPackage>()
@@ -61,12 +66,17 @@ export const runBuild = async (config: BuilderConfig): Promise<BuildResult> => {
     [...externals.values()].map((pkg) => pkg.name)
   )
 
+  const executable = config.seaConfig.enable
+    ? await compileExecutable({ config, externals })
+    : undefined
+
   return {
     serverDir: config.serverDir,
     files: output.files,
     bytes,
     externals: traced.packages,
-    obfuscated
+    obfuscated,
+    ...(executable === undefined ? {} : { executable })
   }
 }
 
