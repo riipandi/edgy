@@ -1,13 +1,26 @@
-import { Layer, Logger, ManagedRuntime } from 'effect'
-import { ConfigLayer } from './config.ts'
+import { Config, Effect, Layer, Logger, ManagedRuntime, References } from 'effect'
+import { ConfigLayer, ConfigService } from './config.ts'
 import { DatabaseLayer as DatabaseConnectionLayer } from './database/runtime.ts'
 import { UserCacheLayer } from './service/user_service.ts'
 
 /**
- * Cross-cutting observability services: pretty console logging with
- * annotations and log spans enabled.
+ * Cross-cutting observability services.
+ *
+ * The pretty console logger and the minimum log level are both derived from
+ * configuration, so `LOG_LEVEL` controls how verbose the process is. Reading
+ * `ConfigService` here (rather than at each call site) means the level is
+ * applied once, for the whole runtime — including logs emitted by middleware.
  */
-export const ObservabilityLayer = Logger.layer([Logger.consolePretty()])
+export const ObservabilityLayer: Layer.Layer<never, Config.ConfigError> = Layer.unwrap(
+  Effect.gen(function* () {
+    const { logLevel } = yield* ConfigService
+
+    return Layer.merge(
+      Logger.layer([Logger.consolePretty()]),
+      Layer.succeed(References.MinimumLogLevel, logLevel)
+    )
+  })
+).pipe(Layer.provide(ConfigLayer))
 
 /** Database layer, with configuration supplied from the environment. */
 export const DatabaseLayer = DatabaseConnectionLayer.pipe(Layer.provide(ConfigLayer))

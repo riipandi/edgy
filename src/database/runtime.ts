@@ -32,13 +32,13 @@ export const DatabaseLayer: Layer.Layer<DatabaseService, DatabaseError, ConfigSe
   Layer.effect(
     DatabaseService,
     Effect.gen(function* () {
-      const { databaseFile } = yield* ConfigService
+      const { databasePath } = yield* ConfigService
 
       return yield* Effect.acquireRelease(
         Effect.try({
           try: () => {
-            mkdirSync(dirname(databaseFile), { recursive: true })
-            const sqlite = new DatabaseSync(databaseFile)
+            mkdirSync(dirname(databasePath), { recursive: true })
+            const sqlite = new DatabaseSync(databasePath)
             const db = new Kysely<Database>({
               dialect: new NodeSQLiteDialect(sqlite)
             })
