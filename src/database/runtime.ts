@@ -1,11 +1,12 @@
-import BetterSqlite3 from 'better-sqlite3'
 import { Context, Effect, Layer } from 'effect'
-import { Kysely, SqliteDialect } from 'kysely'
+import { Kysely } from 'kysely'
 import { mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
+import { DatabaseSync } from 'node:sqlite'
 import { ConfigService } from '../config.ts'
 import { DatabaseError } from '../httputils/errors.ts'
 import type { Database } from '../schemas/database.ts'
+import { NodeSQLiteDialect } from './dialect/sqlite-dialect.ts'
 
 /**
  * Database service. Handlers, services and seeders depend on this key instead
@@ -22,6 +23,10 @@ export class DatabaseService extends Context.Service<
 /**
  * Opens the SQLite connection once per process and destroys it on scope close.
  * Schema creation is owned by the migrator, not by this layer.
+ *
+ * Backed by Node's built-in `node:sqlite` module (through the local
+ * {@link NodeSQLiteDialect}), so no native module has to be compiled or
+ * shipped alongside the bundle.
  */
 export const DatabaseLayer: Layer.Layer<DatabaseService, DatabaseError, ConfigService> =
   Layer.effect(
@@ -33,16 +38,19 @@ export const DatabaseLayer: Layer.Layer<DatabaseService, DatabaseError, ConfigSe
         Effect.try({
           try: () => {
             mkdirSync(dirname(databaseFile), { recursive: true })
+            const sqlite = new DatabaseSync(databaseFile)
             const db = new Kysely<Database>({
-              dialect: new SqliteDialect({
-                database: new BetterSqlite3(databaseFile)
-              })
+              dialect: new NodeSQLiteDialect(sqlite)
             })
-            return { db }
+            return { db, sqlite }
           },
           catch: (cause) => new DatabaseError({ cause })
         }),
-        ({ db }) => Effect.promise(() => db.destroy())
+        ({ db, sqlite }) =>
+          Effect.promise(async () => {
+            await db.destroy()
+            sqlite.close()
+          })
       )
     })
   )
