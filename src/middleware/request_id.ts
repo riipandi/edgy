@@ -1,4 +1,4 @@
-import { type H3Event, type Middleware, onRequest } from 'h3'
+import { definePlugin, type H3Event, onRequest } from 'h3'
 import { typeid } from 'typeid-js'
 
 /** Response header that carries the request id. */
@@ -32,7 +32,7 @@ export const requestIdOf = (event: H3Event): string | undefined => {
 }
 
 /**
- * Request id middleware.
+ * Request id plugin.
  *
  * Honours an inbound `x-request-id` (useful for distributed tracing) and
  * otherwise mints a fresh TypeID — a UUIDv7-based, sortable, prefixed id —
@@ -43,12 +43,17 @@ export const requestIdOf = (event: H3Event): string | undefined => {
  * `event.res.errHeaders`: h3 discards the former when an error response is
  * built (status >= 400 or a thrown error), merging only the latter, so setting
  * both keeps the id on every response.
+ *
+ * Register it before any middleware that reads {@link requestIdOf}.
  */
-export const requestId = (): Middleware =>
-  onRequest((event) => {
-    const id = inboundRequestId(event) ?? typeid(REQUEST_ID_PREFIX).toString()
+export const requestId = definePlugin((app) => {
+  app.use(
+    onRequest((event) => {
+      const id = inboundRequestId(event) ?? typeid(REQUEST_ID_PREFIX).toString()
 
-    event.context.requestId = id
-    event.res.headers.set(REQUEST_ID_HEADER, id)
-    event.res.errHeaders.set(REQUEST_ID_HEADER, id)
-  })
+      event.context.requestId = id
+      event.res.headers.set(REQUEST_ID_HEADER, id)
+      event.res.errHeaders.set(REQUEST_ID_HEADER, id)
+    })
+  )
+})

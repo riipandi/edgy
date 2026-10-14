@@ -1,5 +1,5 @@
 import { Effect } from 'effect'
-import { type H3Event, type Middleware, onError, onResponse } from 'h3'
+import { definePlugin, type H3Event, onError, onResponse } from 'h3'
 import { AppRuntime } from '../runtime.ts'
 import { requestIdOf } from './request_id.ts'
 
@@ -40,7 +40,7 @@ const logRequest = (event: H3Event, status: number): void => {
 }
 
 /**
- * HTTP request logger middleware.
+ * HTTP request logger plugin.
  *
  * Wraps every request and reports the final status and latency through the
  * application's Effect logger (`ObservabilityLayer`), so request logs share the
@@ -55,7 +55,7 @@ const logRequest = (event: H3Event, status: number): void => {
  * Register it after {@link requestId}, which provides the `requestId`
  * annotation.
  */
-export const requestLogger = (): Middleware => {
+export const requestLogger = definePlugin((app) => {
   const onSuccess = onResponse((response, event) => {
     logRequest(event, response.status)
   })
@@ -64,8 +64,8 @@ export const requestLogger = (): Middleware => {
     logRequest(event, error.status)
   })
 
-  return (event, next) => {
+  app.use((event, next) => {
     event.context[STARTED_AT] = performance.now()
     return onSuccess(event, () => onFailure(event, next))
-  }
-}
+  })
+})
