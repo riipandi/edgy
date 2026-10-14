@@ -1,27 +1,24 @@
 import { Effect } from 'effect'
-import { FileMigrationProvider, Migrator } from 'kysely/migration'
-import type { MigrationResult } from 'kysely/migration'
-import { promises as fs } from 'node:fs'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { Migrator } from 'kysely/migration'
+import type { Migration, MigrationProvider, MigrationResult } from 'kysely/migration'
 import { DatabaseError } from '../httputils/errors.ts'
+import { migrations } from './migrations/index.ts'
 import { DatabaseService } from './runtime.ts'
 
-const MIGRATIONS_DIR = fileURLToPath(new URL('./migrations', import.meta.url))
-
 /**
- * Kysely migrator bound to the migrations folder. Migrations are discovered at
- * runtime from `*.ts` / `*.js` files, ordered by filename.
+ * Migration provider backed by the static registry in `./migrations/index.ts`.
+ *
+ * Using an in-memory provider instead of `FileMigrationProvider` keeps the
+ * migrations inside the bundle: there is no runtime `readdir` and no
+ * `migrations/` directory to deploy alongside the server.
  */
+const staticMigrationProvider: MigrationProvider = {
+  getMigrations: (): Promise<Record<string, Migration>> => Promise.resolve(migrations)
+}
+
+/** Kysely migrator bound to the static migration registry. */
 const makeMigrator = (db: DatabaseService['Service']['db']): Migrator =>
-  new Migrator({
-    db,
-    provider: new FileMigrationProvider({
-      fs: { readdir: (dir) => fs.readdir(dir) },
-      path: { join: (...segments) => path.join(...segments) },
-      migrationFolder: MIGRATIONS_DIR
-    })
-  })
+  new Migrator({ db, provider: staticMigrationProvider })
 
 /** Runs every migration that has not been applied yet. */
 export const migrateToLatest: Effect.Effect<
