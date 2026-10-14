@@ -75,7 +75,11 @@ const main = async (): Promise<void> => {
 
   const started = Date.now()
   const extras = [
-    config.splitting ? 'splitting' : undefined,
+    config.splitting
+      ? config.splitPackages
+        ? 'splitting:per-package'
+        : 'splitting:vendor'
+      : undefined,
     config.minify ? 'minify' : undefined,
     config.obfuscate ? `obfuscate:${config.obfuscatePreset}` : undefined
   ].filter(Boolean)

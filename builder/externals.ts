@@ -31,6 +31,28 @@ export const packageNameOf = (id: string): string | undefined => {
   return match ? match[1] : undefined
 }
 
+/**
+ * Matches the package segment that follows a `node_modules` directory.
+ *
+ * Applied with {@link packageFromPath} it takes the **last** match, so pnpm's
+ * nested store layout
+ * (`…/node_modules/.pnpm/<pkg>@<ver>/node_modules/<pkg>/…`) resolves to the real
+ * package instead of the `.pnpm` folder.
+ */
+const PACKAGE_IN_PATH = /[\\/]node_modules[\\/](@[^\\/]+[\\/][^\\/]+|[^\\/]+)/g
+
+/**
+ * Returns the package that owns an absolute module path, or `undefined`.
+ *
+ * Used by per-package code splitting: a module id like
+ * `/proj/node_modules/h3/dist/index.mjs` yields `h3`.
+ */
+export const packageFromPath = (id: string): string | undefined => {
+  let name: string | undefined
+  for (const match of id.matchAll(PACKAGE_IN_PATH)) name = match[1]
+  return name
+}
+
 /** Does the id refer to a Node.js built-in module? */
 export const isBuiltin = (id: string): boolean => NODE_BUILTINS.has(id)
 

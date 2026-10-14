@@ -11,10 +11,21 @@ export interface BuilderAsset {
 
 /** A named code-splitting group. */
 export interface ChunkGroup {
-  /** Chunk name; also replaces `[name]` in `chunkFileNames`. */
-  readonly name: string
+  /**
+   * Chunk name; also replaces `[name]` in `chunkFileNames`.
+   *
+   * A function receives each module id and returns the group name to place it
+   * in (or `null`/`undefined` to leave it to the next group). Every distinct
+   * returned name becomes its own chunk — this is how {@link BuilderConfig.splitPackages}
+   * emits one chunk per dependency.
+   */
+  readonly name: string | ((moduleId: string) => string | undefined | null)
   /** Regex (or string) matched against module ids. */
   readonly test: RegExp | string
+  /** Higher priority wins when groups overlap. Default `0`. */
+  readonly priority?: number
+  /** Group name used in the bundler timing report for function `name`. */
+  readonly debugName?: string
 }
 
 /** Fully resolved builder configuration. */
@@ -29,7 +40,11 @@ export interface BuilderConfig {
   readonly serverDir: string
   /** Name of the emitted entry file. */
   readonly entryFileName: string
-  /** Pattern for split chunks, relative to `serverDir`. */
+  /**
+   * Pattern for split chunks, relative to `serverDir`. Chunk names are
+   * flattened (path separators become `-`), so the output never nests — e.g.
+   * `@effect/platform-node` becomes `chunks/@effect-platform-node-<hash>.mjs`.
+   */
   readonly chunkFileNames: string
   /** rolldown `platform`, e.g. `node`. */
   readonly platform: 'node' | 'browser' | 'neutral'
@@ -37,6 +52,12 @@ export interface BuilderConfig {
   readonly target: string
   /** Split shared code into chunks instead of one `index.mjs`. Default `true`. */
   readonly splitting: boolean
+  /**
+   * Emit **one chunk per dependency** during splitting (e.g. `h3`, `effect`,
+   * `kysely` instead of a single `vendor`). Only used when `splitting` is on.
+   * Default `true`.
+   */
+  readonly splitPackages: boolean
   /** Chunk groups applied during splitting, before the built-in `vendor` group. */
   readonly chunkGroups: readonly ChunkGroup[]
   /** Minify the emitted bundles. Off by default. */
@@ -88,7 +109,9 @@ export const NATIVE_PACKAGES: readonly string[] = [
  * Built-in defaults, mirroring Nitro's `node-server` preset layout.
  *
  * `splitting` is **on by default**; set it to `false` (or pass `--no-splitting`)
- * to emit one self-contained `index.mjs`.
+ * to emit one self-contained `index.mjs`. When splitting is on,
+ * `splitPackages` is also **on by default**, emitting one chunk per dependency;
+ * set it to `false` to fall back to a single `vendor` chunk.
  *
  * `minify` and `obfuscate` are **off by default** — turn them on per project or
  * with the `--minify` / `--obfuscate` CLI flags.
@@ -102,6 +125,7 @@ export const BUILDER_DEFAULTS: Omit<BuilderConfig, 'rootDir'> = {
   platform: 'node',
   target: 'node24',
   splitting: true,
+  splitPackages: true,
   chunkGroups: [],
   minify: false,
   obfuscate: false,

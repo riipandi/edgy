@@ -3,7 +3,7 @@ import type { BuildOptions, OutputOptions, Plugin } from 'rolldown'
 import { build as rolldownBuild } from 'rolldown'
 import type { BuilderConfig, ChunkGroup } from './config.ts'
 import type { ExternalPackage } from './externals.ts'
-import { classifyExternal, isBuiltin } from './externals.ts'
+import { classifyExternal, isBuiltin, packageFromPath } from './externals.ts'
 
 /** Options for a bundler run. */
 export interface BundleOptions {
@@ -15,8 +15,6 @@ export interface BundleOptions {
 export interface BundleResult {
   /** Emitted files, relative to `rootDir`. */
   readonly files: readonly string[]
-  /** Emitted bytes of the entry chunk (0 when unknown). */
-  readonly bytes: number
 }
 
 /**
@@ -27,6 +25,50 @@ export interface BundleResult {
  * entry. User groups from `config.chunkGroups` are evaluated first.
  */
 const DEFAULT_GROUPS: readonly ChunkGroup[] = [{ name: 'vendor', test: /node_modules[\\/]/ }]
+
+/**
+ * One chunk per dependency, e.g. `h3`, `effect`, `@effect/platform-node`.
+ *
+ * Uses a dynamic `name` so every distinct package becomes its own group, and a
+ * higher priority than the `vendor` fallback so packages are pulled out of it.
+ */
+const PER_PACKAGE_GROUP: ChunkGroup = {
+  name: (moduleId) => packageFromPath(moduleId),
+  test: /node_modules[\\/]/,
+  priority: 10,
+  debugName: 'per-package'
+}
+
+/** Replaces path separators in a chunk name so chunks never nest. */
+const flattenChunkName = (name: string): string => name.replace(/[\\/]+/g, '-')
+
+/** Wraps a group so its resolved name can never introduce a directory. */
+const flattenGroup = (group: ChunkGroup): ChunkGroup => {
+  const { name } = group
+  if (typeof name !== 'function') return { ...group, name: flattenChunkName(name) }
+
+  return {
+    ...group,
+    name: (moduleId: string) => {
+      const resolved = name(moduleId)
+      return resolved == null ? resolved : flattenChunkName(resolved)
+    }
+  }
+}
+
+/**
+ * Resolves the group list for the current config.
+ *
+ * Order decides precedence for equal priorities, so `splitPackages` (highest
+ * priority) wins first, then user groups, then the `vendor` fallback. Names are
+ * flattened so the output stays a flat `chunks/` directory.
+ */
+const chunkGroups = (config: BuilderConfig): readonly ChunkGroup[] =>
+  [
+    ...(config.splitPackages ? [PER_PACKAGE_GROUP] : []),
+    ...config.chunkGroups,
+    ...DEFAULT_GROUPS
+  ].map(flattenGroup)
 
 /**
  * Keeps builtins, configured packages and auto-detected native packages
@@ -68,7 +110,7 @@ const baseRolldownOptions = (options: BundleOptions): BuildOptions => {
     minify: config.minify,
     sourcemap: config.sourcemap,
     banner: (chunk) => (chunk.isEntry ? '#!/usr/bin/env node' : ''),
-    codeSplitting: config.splitting ? { groups: [...config.chunkGroups, ...DEFAULT_GROUPS] } : false
+    codeSplitting: config.splitting ? { groups: [...chunkGroups(config)] } : false
   }
 
   return {
@@ -129,7 +171,5 @@ export const bundle = async (options: BundleOptions): Promise<BundleResult> => {
     .filter((item) => item.type === 'chunk')
     .map((item) => path.relative(config.rootDir, path.join(config.serverDir, item.fileName)))
 
-  const entry = result.output.find((item) => item.type === 'chunk' && item.isEntry)
-
-  return { files, bytes: entry?.type === 'chunk' ? entry.code.length : 0 }
+  return { files }
 }

@@ -1,4 +1,4 @@
-import { rmSync } from 'node:fs'
+import { rmSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { bundle } from './bundler.ts'
 import type { BuilderConfig } from './config.ts'
@@ -43,6 +43,8 @@ export const runBuild = async (config: BuilderConfig): Promise<BuildResult> => {
   }
 
   const { obfuscated } = postProcess({ config, files: output.files })
+  const entryPath = path.resolve(config.serverDir, config.entryFileName)
+  const bytes = statSync(entryPath).size
 
   const traced = traceExternals({
     externals,
@@ -62,7 +64,7 @@ export const runBuild = async (config: BuilderConfig): Promise<BuildResult> => {
   return {
     serverDir: config.serverDir,
     files: output.files,
-    bytes: output.bytes,
+    bytes,
     externals: traced.packages,
     obfuscated
   }

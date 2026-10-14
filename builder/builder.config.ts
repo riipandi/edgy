@@ -10,7 +10,8 @@ import { defineBuilderConfig } from './config.ts'
  * Flags (override any of the below per run):
  *   pnpm build --no-splitting        # single self-contained index.mjs
  *   pnpm build --minify              # oxc minifier
- *   pnpm build --minify --obfuscate  # + javascript-obfuscator
+ *   pnpm build --obfuscate           # javascript-obfuscator
+ *   pnpm build --minify --obfuscate  # both
  */
 export default defineBuilderConfig({
   entry: 'src/main.ts',
@@ -19,9 +20,15 @@ export default defineBuilderConfig({
   platform: 'node',
   target: 'node24',
 
-  // Code splitting is on by default: shared code goes to a `vendor` chunk.
+  // Code splitting is on by default: shared code goes to chunks.
   // Set `splitting: false` (or pass --no-splitting) for one big index.mjs.
+  // Set it to `false` for one combined vendor chunk.
   splitting: true,
+  splitPackages: true,
+
+  // Extra, project-specific chunk groups. `name` may be a function to group
+  // dynamically; group names are flattened so chunks never nest. These are
+  // evaluated before the built-in `vendor` fallback.
   chunkGroups: [],
 
   // Both off by default.
