@@ -12,8 +12,9 @@
     "main": "src/main.ts",
     "scripts": {
         "app": "node ./src/main.ts",
-        "build": "node ./builder/cli.ts",
         "start": "node ./bin/edgy.mjs serve",
+        "build": "node ./builder/cli.ts build",
+        "compile": "node ./builder/cli.ts compile",
         "watch": "node --watch ./src/main.ts serve",
         "cleanup": "pnpm --silent cleanup:dist && pnpm --silent cleanup:deps",
         "cleanup:dist": "pnpm dlx del-cli dist storybook-static e2e-result",

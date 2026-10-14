@@ -7,12 +7,40 @@ import { resolveBuilderConfig, type BuilderConfigInput } from './config.ts'
 
 const CONFIG_CANDIDATES = ['builder.config.ts', 'builder.config.mjs', 'builder.config.js']
 
+/** Subcommands understood by this CLI. */
+const COMMANDS = ['build', 'compile'] as const
+
+type Command = (typeof COMMANDS)[number]
+
 /** CLI flags that override the config file. */
 interface CliFlags {
   readonly minify?: boolean | undefined
   readonly obfuscate?: boolean | undefined
   readonly splitting?: boolean | undefined
-  readonly exe?: boolean | undefined
+}
+
+/** Parsed command line: the subcommand plus its flags. */
+interface ParsedArgv {
+  readonly command: Command
+  readonly flags: readonly string[]
+}
+
+const isCommand = (value: string): value is Command =>
+  (COMMANDS as readonly string[]).includes(value)
+
+/**
+ * Splits `argv` into a subcommand and its flags.
+ *
+ * The first non-flag argument is the command; it defaults to `build` so a bare
+ * `pnpm build` keeps working. Flags are parsed separately so their position
+ * relative to the command does not matter.
+ */
+const parseArgv = (argv: readonly string[]): ParsedArgv => {
+  const command = argv.find((arg) => !arg.startsWith('--')) ?? 'build'
+  return {
+    command: isCommand(command) ? command : 'build',
+    flags: argv.filter((arg) => arg.startsWith('--'))
+  }
 }
 
 /**
@@ -29,8 +57,7 @@ const parseFlags = (argv: readonly string[]): CliFlags => {
   return {
     minify: toggle('minify'),
     obfuscate: toggle('obfuscate'),
-    splitting: toggle('splitting'),
-    exe: toggle('exe')
+    splitting: toggle('splitting')
   }
 }
 
@@ -43,8 +70,7 @@ const parseFlags = (argv: readonly string[]): CliFlags => {
 const definedOnly = (flags: CliFlags): BuilderConfigInput => ({
   ...(flags.minify === undefined ? {} : { minify: flags.minify }),
   ...(flags.obfuscate === undefined ? {} : { obfuscate: flags.obfuscate }),
-  ...(flags.splitting === undefined ? {} : { splitting: flags.splitting }),
-  ...(flags.exe === undefined ? {} : { seaConfig: { enable: flags.exe } })
+  ...(flags.splitting === undefined ? {} : { splitting: flags.splitting })
 })
 
 /**
@@ -69,12 +95,27 @@ const loadUserConfig = async (rootDir: string): Promise<BuilderConfigInput> => {
 const isModuleWithDefault = (value: unknown): value is { default: BuilderConfigInput } =>
   typeof value === 'object' && value !== null && 'default' in value
 
-/** Entry point used by the `build` npm script. */
+/**
+ * Builds the project.
+ *
+ * `build` bundles the server only. `compile` additionally turns the result into
+ * a Node single-executable application — a much slower, platform-locked step
+ * that belongs to release, not to the dev loop. The subcommand is authoritative:
+ * it overrides `seaConfig.enable`, so the same config file serves both.
+ */
 const main = async (): Promise<void> => {
   const rootDir = process.cwd()
-  const flags = parseFlags(process.argv.slice(2))
+  const { command, flags: rawFlags } = parseArgv(process.argv.slice(2))
+  const flags = parseFlags(rawFlags)
   const userConfig = await loadUserConfig(rootDir)
-  const config = resolveBuilderConfig({ ...userConfig, ...definedOnly(flags), rootDir })
+
+  const compileExe = command === 'compile'
+  const config = resolveBuilderConfig({
+    ...userConfig,
+    ...definedOnly(flags),
+    rootDir,
+    seaConfig: { ...userConfig.seaConfig, enable: compileExe }
+  })
 
   const started = Date.now()
   const extras = [
@@ -84,12 +125,12 @@ const main = async (): Promise<void> => {
         : 'splitting:vendor'
       : undefined,
     config.minify ? 'minify' : undefined,
-    config.obfuscate ? `obfuscate:${config.obfuscatePreset}` : undefined,
-    config.seaConfig.enable ? 'exe (experimental)' : undefined
+    config.obfuscate ? `obfuscate:${config.obfuscatePreset}` : undefined
   ].filter(Boolean)
 
+  const action = compileExe ? 'Compiling server + executable' : 'Building server'
   process.stdout.write(
-    `Building server (target: ${config.target}, ${extras.join(' + ') || 'no extras'})\n`
+    `${action} (target: ${config.target}, ${extras.join(' + ') || 'no extras'})\n`
   )
 
   const result = await runBuild(config)

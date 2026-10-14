@@ -12,7 +12,10 @@ import { defineBuilderConfig } from './config.ts'
  *   pnpm build --minify              # oxc minifier
  *   pnpm build --obfuscate           # javascript-obfuscator
  *   pnpm build --minify --obfuscate  # both
- *   pnpm build --exe                 # compile a single executable (SEA)
+ *
+ * Commands:
+ *   pnpm build                       # bundle the server into dist/server
+ *   pnpm compile                     # compile a single executable (SEA)
  */
 export default defineBuilderConfig({
   entry: 'src/main.ts',
@@ -42,10 +45,9 @@ export default defineBuilderConfig({
   // so the traced folder stays empty.
   assets: [],
 
-  // Compile a Node.js single-executable application (EXPERIMENTAL) next to the
-  // server bundle: `dist/edgy`. Set `seaConfig.enable` (or pass --exe). The
-  // result is self-contained but large (~120 MB, it embeds the Node binary) and
-  // only runs on the platform that built it.
+  // EXPERIMENTAL: Compile a Node.js single-executable application into
+  // `dist/edgy`. Enabled by the `compile` command (pnpm compile); `build`
+  // leaves it off regardless of this value.
   seaConfig: {
     enable: false,
     fileName: 'edgy'
