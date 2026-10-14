@@ -1,0 +1,54 @@
+{
+    "name": "edgy",
+    "version": "1.0.0",
+    "description": "",
+    "keywords": [],
+    "license": "ISC",
+    "author": "",
+    "bin": {
+        "edgy": "./bin/app.ts"
+    },
+    "type": "module",
+    "main": "src/main.ts",
+    "scripts": {
+        "runapp": "node ./bin/app.ts",
+        "start": "node ./bin/app.ts serve",
+        "watch": "node --watch ./bin/app.ts serve",
+        "build": "echo \"Not yet implemented\" && exit 0",
+        "cleanup": "pnpm --silent cleanup:dist && pnpm --silent cleanup:deps",
+        "cleanup:dist": "pnpm dlx del-cli dist storybook-static e2e-result",
+        "cleanup:deps": "pnpm dlx del-cli .{output,wrangler} pnpm-lock.yaml node_modules",
+        "update-deps": "npm-check-updates --configFileName .ncurc.json",
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "check": "oxfmt --check && oxlint",
+        "format": "oxfmt --write .",
+        "lint": "oxlint --fix .",
+        "typecheck": "tsc -b --noEmit"
+    },
+    "dependencies": {
+        "@effect/platform-node": "4.0.4",
+        "better-sqlite3": "^13.0.3",
+        "effect": "^4.0.4",
+        "h3": "^2.0.2",
+        "kysely": "^0.29.6"
+    },
+    "devDependencies": {
+        "@types/better-sqlite3": "^9.6.0",
+        "@types/node": "^26.6.5",
+        "npm-check-updates": "^23.1.1",
+        "oxfmt": "^0.73.0",
+        "oxlint": "^1.88.0",
+        "oxlint-tsgolint": "^7.0.2004",
+        "typescript": "catalog:"
+    },
+    "devEngines": {
+        "packageManager": {
+            "name": "pnpm",
+            "version": "12.11.2",
+            "onFail": "download"
+        }
+    },
+    "engines": {
+        "node": ">=24.21.0"
+    }
+}

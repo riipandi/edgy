@@ -1,0 +1,97 @@
+/.delta
+/.husky
+/.atlas
+/.idea
+/.task
+/.pnp
+.pnp.js
+.DS_Store
+.DS_Store?
+.sentryclirc
+coverage.out
+/coverage
+/[Tt]emp/
+/[Tt]mp/
+/vendor/
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+node_modules/
+*tsbuildinfo
+npm-debug.log*
+.unikraft
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/launch.json
+!.vscode/mcp.json
+!.vscode/tasks.json
+.claude/worktrees/
+*.bak
+
+# SQLite
+*.sqlite*
+*.sqlite3*
+*.db
+
+# Envars
+.env.*
+compose.env*
+!compose.env.example
+.*.vars
+
+# Output directory
+build/
+dist/
+release/
+.react-email/
+.tanstack/
+.vitest/
+.cache
+.output
+.wrangler
+.netlify
+.wireit
+
+# Vite & Vitest config
+vite.config.*
+!vite.config.ts
+vitest.config.*
+!vitest.config.ts
+vitest.workspace.*
+!vitest.workspace.ts
+
+# Disable this line in your real app
+/playwright/.cache/
+/playwright-report/
+/test-results/
+/e2e-tests/.auth/
+/e2e-tests/.output/
+/tests-results/
+/blob-report/
+.playwright/
+
+# Storybook
+*storybook.log
+storybook-static/
+
+# Application data
+/.storage/
+/storage/
+
+# Miscellaneous
+pnpm-exec-summary.json
+slim.report.json
+RELEASE.md
+audit.json
+sbom-*
+
+# Infrastructure
+.terraform/
+.terraform.lock.hcl
+terraform.tfstate*
+terraform.tfvars*
+!terraform.tfvars.example
+fly*.toml*
+!fly*.toml.example

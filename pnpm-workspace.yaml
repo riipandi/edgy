@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://www.schemastore.org/pnpm-workspace.json
+
+catalogMode: manual
+
+minimumReleaseAge: 0
+
+verifyDepsBeforeRun: false
+
+catalog:
+  typescript: ^7.0.2

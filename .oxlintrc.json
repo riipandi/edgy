@@ -1,0 +1,69 @@
+{
+    "$schema": "./node_modules/oxlint/configuration_schema.json",
+    "plugins": ["typescript", "unicorn", "import", "jsx-a11y", "vitest", "eslint", "oxc"],
+    "options": {
+        "typeAware": true,
+        "typeCheck": true
+    },
+    "env": {
+        "browser": true,
+        "builtin": true,
+        "vitest": true
+    },
+    "categories": {
+        "correctness": "error",
+        "suspicious": "error"
+    },
+    "rules": {
+        "import/default": "warn",
+        "import/no-absolute-path": "allow",
+        "import/no-cycle": "warn",
+        "import/no-unassigned-import": "off",
+        "jsx-a11y/heading-has-content": "off",
+        "no-console": "off",
+        "no-debugger": "warn",
+        "no-underscore-dangle": "off",
+        "no-empty": [
+            "error",
+            {
+                "allowEmptyCatch": true
+            }
+        ],
+        "no-unused-vars": [
+            "error",
+            {
+                "args": "after-used"
+            }
+        ],
+        "sort-imports": "off",
+        "typescript/consistent-type-definitions": ["error", "interface"],
+        "typescript/no-explicit-any": "error",
+        "typescript/no-floating-promises": "error",
+        "typescript/no-misused-promises": "error",
+        "typescript/no-unnecessary-type-constraint": "off",
+        "typescript/triple-slash-reference": "allow"
+    },
+    "overrides": [
+        {
+            "files": ["**/*.test.ts", "**/*.spec.ts"],
+            "plugins": ["vitest"],
+            "rules": {
+                "no-console": "off",
+                "vitest/no-focused-tests": "error",
+                "vitest/no-disabled-tests": "warn"
+            }
+        }
+    ],
+    "ignorePatterns": [
+        ".output",
+        ".tanstack",
+        ".wrangler",
+        "**/*.md",
+        "**/*.mdx",
+        "**/*.yml",
+        "**/*.yaml",
+        "**/*.toml",
+        "/public/**",
+        "/temp/**"
+    ]
+}
