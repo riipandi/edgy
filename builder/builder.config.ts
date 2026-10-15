@@ -48,7 +48,7 @@ export default defineBuilderConfig({
   // (binding.gyp / prebuilds / *.node) and copied into the output's
   // `node_modules/` instead of being bundled. This project uses `node:sqlite`,
   // so the traced folder stays empty. (The Redis client is bundled, and its
-  // module only runs when RATE_LIMIT_STORE=redis imports it.)
+  // module only runs when RATE_LIMIT_STORE=redis with the limiter enabled imports it.)
   assets: [],
 
   // EXPERIMENTAL: Compile a Node.js single-executable application into

@@ -6,6 +6,8 @@ import { D1Binding, D1DatabaseLayer, isD1Database } from './database/d1.ts'
 import { migrateToLatest } from './database/migrator.ts'
 import { ConfigLayer, ConfigService } from './kernel/config/service.ts'
 import { makeHttpRuntime } from './kernel/http/runtime.ts'
+import type { RateCheck } from './middleware/rate_limit.ts'
+import { isRateLimitBinding, makeBindingRateCheck } from './middleware/rate_limit_binding.ts'
 import { ErrorReporterLayer } from './observer/error_reporter.ts'
 import { ConsoleLoggerLayer } from './observer/logger.ts'
 import { TelemetryRuntimeLayer } from './observer/telemetry.ts'
@@ -76,8 +78,37 @@ const buildApp = async (env: WorkerEnv): Promise<WorkerApp> => {
       if (config.database.autoMigrate) yield* migrateToLatest
       const http = yield* makeHttpRuntime
       const { flush } = yield* OtlpExporter.Flusher
+      const { security } = config
+
+      // Fail the build of the isolate, not each request, when the store cannot work here.
+      if (security.rateLimitEnabled && security.rateLimitStore === 'redis') {
+        return yield* Effect.die(
+          new Error('RATE_LIMIT_STORE=redis is not available on Workers (use memory or cloudflare)')
+        )
+      }
+      let rateCheck: RateCheck | undefined
+      if (security.rateLimitEnabled && security.rateLimitStore === 'cloudflare') {
+        const limiter = env[security.rateLimitBinding]
+        if (!isRateLimitBinding(limiter)) {
+          return yield* Effect.die(
+            new Error(
+              `No rate limit binding named "${security.rateLimitBinding}" (check "ratelimits" in wrangler.jsonc / RATE_LIMIT_BINDING)`
+            )
+          )
+        }
+        rateCheck = makeBindingRateCheck({
+          binding: limiter,
+          windowMs: Duration.toMillis(security.rateLimitWindow),
+          warn: (message, cause) => http.runSync(Effect.logWarning(message, cause))
+        })
+      }
+
       return {
-        app: createApp({ runtime: http, config }),
+        app: createApp({
+          runtime: http,
+          config,
+          ...(rateCheck === undefined ? {} : { rateCheck })
+        }),
         flush: () =>
           runtime.runPromise(flush.pipe(Effect.timeoutOption('2 seconds'), Effect.asVoid)),
         flushEvery: Duration.toMillis(config.observability.exportInterval)
@@ -92,7 +123,11 @@ const apps = new WeakMap<object, Promise<WorkerApp>>()
 const appFor = (env: WorkerEnv): Promise<WorkerApp> => {
   let app = apps.get(env)
   if (app === undefined) {
-    app = buildApp(env)
+    // A `ConfigError` is not an `Error`: left as it is, the runtime prints it as
+    // "[object Object]" and the reason (an invalid variable) never reaches the log.
+    app = buildApp(env).catch((cause: unknown) => {
+      throw cause instanceof Error ? cause : new Error(String(cause))
+    })
     apps.set(env, app)
     // A failed build must not poison the isolate: retry on the next request.
     app.catch(() => apps.delete(env))

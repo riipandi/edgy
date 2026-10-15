@@ -18,7 +18,8 @@ describe('configuration', () => {
     const config = await parse({})
     expect(config.server.port).toBe(3000)
     expect(config.database.driver).toBe('sqlite')
-    expect(config.security.rateLimitMax).toBe(0)
+    expect(config.security.rateLimitEnabled).toBe(false)
+    expect(config.security.rateLimitMax).toBe(100)
     expect(config.observability.metricsEnabled).toBe(false)
     expect(config.logging.transport).toEqual(['console'])
     expect(config.logging.rotation).toBe('daily')
@@ -103,6 +104,18 @@ describe('configuration', () => {
     expect(Redacted.value(config.observability.otlpHeaders)).toBe('authorization=real-secret')
   })
 
+  it('refuses an enabled limiter with no allowance, and an unknown store', async () => {
+    await expect(parse({ RATE_LIMIT_ENABLED: 'true', RATE_LIMIT_MAX: '0' })).rejects.toThrow(
+      /RATE_LIMIT_MAX/
+    )
+    await expect(parse({ RATE_LIMIT_STORE: 'kv' })).rejects.toThrow(/RATE_LIMIT_STORE/)
+    // a disabled limiter, or a store that takes its limit from wrangler, ignores the maximum
+    await expect(parse({ RATE_LIMIT_MAX: '0' })).resolves.toBeDefined()
+    await expect(
+      parse({ RATE_LIMIT_ENABLED: 'true', RATE_LIMIT_STORE: 'cloudflare', RATE_LIMIT_MAX: '0' })
+    ).resolves.toBeDefined()
+  })
+
   it('rejects an unknown or empty LOG_TRANSPORT', async () => {
     await expect(parse({ LOG_TRANSPORT: 'console,syslog' })).rejects.toThrow(/LOG_TRANSPORT/)
     await expect(parse({ LOG_TRANSPORT: ',' })).rejects.toThrow(/LOG_TRANSPORT/)
@@ -113,6 +126,8 @@ describe('configuration', () => {
       PORT: '4100',
       DATABASE_DRIVER: 'd1',
       LOG_FORMAT: 'json',
+      RATE_LIMIT_ENABLED: 'true',
+      RATE_LIMIT_STORE: 'cloudflare',
       RATE_LIMIT_MAX: '50',
       METRICS_ENABLED: 'true'
     })
@@ -120,6 +135,8 @@ describe('configuration', () => {
     expect(config.database.driver).toBe('d1')
     expect(config.logging.format).toBe('json')
     expect(config.security.rateLimitMax).toBe(50)
+    expect(config.security.rateLimitEnabled).toBe(true)
+    expect(config.security.rateLimitStore).toBe('cloudflare')
     expect(config.observability.metricsEnabled).toBe(true)
   })
 

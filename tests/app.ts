@@ -7,6 +7,7 @@ import type { DatabaseService } from '../src/database/service.ts'
 import { SqliteDatabaseLayer } from '../src/database/sqlite.ts'
 import { ConfigLayer, ConfigService } from '../src/kernel/config/service.ts'
 import { type HttpRuntime, makeHttpRuntime } from '../src/kernel/http/runtime.ts'
+import type { RateCheck } from '../src/middleware/rate_limit.ts'
 import type { UserRepository } from '../src/modules/user/user_repo.ts'
 import type { UserService } from '../src/modules/user/user_service.ts'
 import { ErrorReporterLayer } from '../src/observer/error_reporter.ts'
@@ -52,7 +53,7 @@ export interface TestApp {
  */
 export const makeTestApp = async (
   env: Readonly<Record<string, string>> = {},
-  options: { readonly fetch?: typeof globalThis.fetch } = {}
+  options: { readonly fetch?: typeof globalThis.fetch; readonly rateCheck?: RateCheck } = {}
 ): Promise<TestApp> => {
   const provider = ConfigProvider.fromEnvRecord({ ...BASE_ENV, ...env })
 
@@ -80,7 +81,14 @@ export const makeTestApp = async (
       const config = yield* ConfigService
       yield* migrateToLatest
       const httpRuntime = yield* makeHttpRuntime
-      return { app: createApp({ runtime: httpRuntime, config }), http: httpRuntime }
+      return {
+        app: createApp({
+          runtime: httpRuntime,
+          config,
+          ...(options.rateCheck === undefined ? {} : { rateCheck: options.rateCheck })
+        }),
+        http: httpRuntime
+      }
     })
   )
 

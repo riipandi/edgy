@@ -24,12 +24,12 @@ export const serveHttp = Effect.gen(function* () {
   const { host, port, shutdownTimeout, shutdownDrainDelay } = config.server
   const runtime = yield* makeHttpRuntime
   const limiter = yield* RateLimiter.RateLimiter
-  const { rateLimitMax, rateLimitWindow, rateLimitStore } = config.security
+  const { rateLimitEnabled, rateLimitMax, rateLimitWindow, rateLimitStore } = config.security
   const app = createApp({
     runtime,
     config,
     // Shared counting only when asked for; otherwise the in-process counter serves.
-    ...(rateLimitStore === 'redis' && rateLimitMax > 0
+    ...(rateLimitEnabled && rateLimitStore === 'redis'
       ? {
           rateCheck: makeSharedRateCheck({
             limiter,

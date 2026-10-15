@@ -5,8 +5,12 @@ import type { ApiRateLimit } from '../kernel/http/envelope.ts'
 /** Outcome of counting one request against a client's allowance. */
 export interface RateDecision {
   readonly allowed: boolean
-  readonly limit: number
-  readonly remaining: number
+  /**
+   * The allowance and what is left of it. A store that only answers yes or no (the Workers
+   * binding) leaves them out, and the response then carries no `x-ratelimit-*` headers.
+   */
+  readonly limit?: number
+  readonly remaining?: number
   /** When the window ends, in epoch milliseconds. */
   readonly resetAt: number
 }
@@ -19,8 +23,6 @@ export interface RateDecision {
 export type RateCheck = (key: string) => RateDecision | Promise<RateDecision>
 
 export interface RateLimitOptions {
-  /** Requests allowed per client per window; `0` or less disables the limiter. */
-  readonly max: number
   /** How a request is counted: {@link makeMemoryRateCheck} or a shared store's. */
   readonly check: RateCheck
   /** Read the client address from proxy headers instead of the socket. */
@@ -46,8 +48,8 @@ const MAX_TRACKED_CLIENTS = 50_000
  * Fixed-window counter in the memory of this process (or Worker isolate): the default,
  * with no network hop and no dependency. With several instances each keeps its own
  * counts, so the effective limit is `max` times the number of instances; that blunts
- * abuse from one client, and `RATE_LIMIT_STORE=redis` is the answer when a strict global
- * quota is required. Memory is bounded: expired buckets are swept once per window, and
+ * abuse from one client, and `RATE_LIMIT_STORE=redis` (Node.js) or `cloudflare` (Workers)
+ * is the answer when the limit must be shared. Memory is bounded: expired buckets are swept once per window, and
  * past {@link MAX_TRACKED_CLIENTS} the oldest are dropped.
  */
 export const makeMemoryRateCheck = (options: {
@@ -111,29 +113,26 @@ const clientOf = (event: H3Event, trustProxy: boolean): string => {
  * `x-ratelimit-remaining` and `x-ratelimit-reset`, and the same values reach the
  * success envelope. An exhausted allowance answers `429` with `retry-after`.
  * Register it on the API group, not globally: probes and `/.well-known` must stay
- * reachable.
+ * reachable. Whether it is registered at all is `RATE_LIMIT_ENABLED`, decided by the caller.
  */
 export const rateLimit = definePlugin<RateLimitOptions>((app, options) => {
-  if (options.max <= 0) return
-
   app.use(async (event, next) => {
     const decision = await options.check(clientOf(event, options.trustProxy))
 
-    const info: ApiRateLimit = {
-      limit: decision.limit,
-      remaining: decision.remaining,
-      reset: Math.ceil(decision.resetAt / 1000)
-    }
-    event.context.rateLimit = info
+    const { limit, remaining } = decision
+    if (limit !== undefined && remaining !== undefined) {
+      const info: ApiRateLimit = { limit, remaining, reset: Math.ceil(decision.resetAt / 1000) }
+      event.context.rateLimit = info
 
-    const headers: Record<string, string> = {
-      'x-ratelimit-limit': String(info.limit),
-      'x-ratelimit-remaining': String(info.remaining),
-      'x-ratelimit-reset': String(info.reset)
-    }
-    for (const [name, value] of Object.entries(headers)) {
-      event.res.headers.set(name, value)
-      event.res.errHeaders.set(name, value)
+      const headers: Record<string, string> = {
+        'x-ratelimit-limit': String(info.limit),
+        'x-ratelimit-remaining': String(info.remaining),
+        'x-ratelimit-reset': String(info.reset)
+      }
+      for (const [name, value] of Object.entries(headers)) {
+        event.res.headers.set(name, value)
+        event.res.errHeaders.set(name, value)
+      }
     }
 
     if (!decision.allowed) {

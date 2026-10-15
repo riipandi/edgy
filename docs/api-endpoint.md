@@ -105,14 +105,14 @@ of your own trace; the same id then comes back.
 
 ## Rate limiting
 
-When `RATE_LIMIT_MAX` is set, every `/api` response reports the caller's allowance, in headers and
+When rate limiting is enabled (`RATE_LIMIT_ENABLED`), every `/api` response reports the caller's allowance, in headers and
 in `metadata.rate_limit`:
 
 ```json
 "rate_limit": { "limit": 100, "remaining": 97, "reset": 1792077446 }
 ```
 
-`reset` is a Unix timestamp. Probes (`/health`, `/`) and `/.well-known` are never limited.
+`reset` is a Unix timestamp. On Cloudflare Workers with `RATE_LIMIT_STORE=cloudflare` the store only says allowed or refused, so the allowance, the headers and `rate_limit` are left out; a refusal is still `429` with `Retry-After`. Probes (`/health`, `/`) and `/.well-known` are never limited.
 
 ## Security headers
 

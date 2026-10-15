@@ -91,16 +91,26 @@ logs go to the platform's stream.
 
 | Variable            | Default    | Description                                                              |
 | ------------------- | ---------- | ------------------------------------------------------------------------ |
-| `RATE_LIMIT_MAX`    | `0`        | Requests per client per window on `/api`; `0` turns rate limiting off    |
+| `RATE_LIMIT_ENABLED` | `false`   | Turns rate limiting on `/api` on or off                                  |
+| `RATE_LIMIT_MAX`    | `100`      | Requests per client per window (`memory` and `redis`); at least `1`      |
 | `RATE_LIMIT_WINDOW` | `60000`    | Length of the rate-limit window, in milliseconds                         |
-| `RATE_LIMIT_STORE`  | `memory`   | Where counters live: `memory` (per process) or `redis` (shared by every instance, Node.js only) |
+| `RATE_LIMIT_STORE`  | `memory`   | Where counters live: `memory` (per process), `redis` (shared by every instance, Node.js only) or `cloudflare` (Workers only) |
+| `RATE_LIMIT_BINDING` | `RATE_LIMITER` | Name of the Workers rate-limit binding, used when `RATE_LIMIT_STORE=cloudflare` |
 | `REDIS_URL`         | `redis://:securedb@localhost:6379` | Redis or Valkey URL, used when `RATE_LIMIT_STORE=redis`. Secret; the default is the Valkey of `pnpm compose:up` |
 
 With `memory` each running instance keeps its own counts, so the effective limit is `RATE_LIMIT_MAX`
 times the number of instances. With `redis` every instance counts against one allowance, which makes
 `RATE_LIMIT_MAX` the real global limit. If Redis is slow or down the limiter lets requests through
 instead of refusing them (it gives up on a call after a fraction of a second and skips Redis for ten
-seconds), because a rate limiter must not take the API down with it. Set `TRUST_PROXY=true` behind a
+seconds), because a rate limiter must not take the API down with it.
+
+With `cloudflare` the count is kept by Cloudflare's rate-limit binding, per location and eventually
+consistent: it holds back abuse but is not an exact global quota. The allowance and the period (10 or
+60 seconds) are declared under `ratelimits` in `wrangler.jsonc`, so `RATE_LIMIT_MAX` is not read;
+`RATE_LIMIT_WINDOW` only sets the `Retry-After` a refused client is told, so keep it equal to the
+period. The binding does not report what is left, so those responses carry no `X-RateLimit-*` headers.
+A store that is not available on the running platform (`redis` on Workers, `cloudflare` on Node.js)
+stops startup with a message instead of failing quietly. Set `TRUST_PROXY=true` behind a
 proxy, otherwise every client appears to have the proxy's address.
 
 `MAX_IN_FLIGHT` is the overload guard: past that many requests at once the server answers `503` with
@@ -161,7 +171,7 @@ The development key and password above belong to the local Docker stack. Product
 On Workers the same variables go under `vars` in `wrangler.jsonc` (secrets through
 `wrangler secret put`). A Worker always uses D1, so `DATABASE_DRIVER` and `DATABASE_PATH` have no
 effect there; the binding is the one named by `D1_BINDING`. `LOG_TRANSPORT` can be `console`, `otlp` or
-both (`file` has no meaning there), and `RATE_LIMIT_STORE=redis` is not available on Workers.
+both (`file` has no meaning there), and `RATE_LIMIT_STORE=redis` is not available on Workers (use `memory` or `cloudflare`).
 Telemetry is flushed after a response, at most once per `OTEL_EXPORT_INTERVAL`, so the last
 requests before an idle period are sent when the next one arrives.
 

@@ -16,7 +16,7 @@ One application, two runtimes. Node.js (`node:sqlite`) and Cloudflare Workers (D
 
 - **Layers, not singletons.** Services are `Context.Service` classes with a `static layer`. `ServicesLayer` (portable) wires every module's repositories and services over a `DatabaseService`; Node adds the configured database and the rate-limit store (`layers.ts`), the Worker adds D1 (`worker.ts`). `CoreLayer` (config, logger, telemetry, error reporter, platform services) is provided once, in `main.ts`; commands add their own layers.
 - **Vertical modules.** `src/modules/<resource>/` holds schema, repository, service, handler, routes and tests. `routes/route.ts` and `services.ts` are the only files that list modules. The kernel (`src/kernel/`) knows h3 and Effect but no resource.
-- **Limits of the Worker target.** D1 has no interactive transactions, its introspector cannot read columns, rate-limit counters are per isolate, and the Worker's import graph must stay free of Node-only modules (checked by running `pnpm preview`, not by the compiler).
+- **Limits of the Worker target.** D1 has no interactive transactions, its introspector cannot read columns, rate-limit counters are per isolate (or per Cloudflare location with the binding), and the Worker's import graph must stay free of Node-only modules (checked by running `pnpm preview`, not by the compiler).
 
 ## HTTP layer
 
@@ -53,7 +53,7 @@ All environment parsing is in `src/kernel/config/`. Each variable is declared on
 ## Security and resilience
 
 - **Baseline.** Fixed security headers on every response, JSON-only bodies (`415`), body limit (`413`), CORS (credentials with a wildcard origin refused at startup), no authentication (no policy exists to enforce).
-- **Rate limiting** on `/api`, off by default. `memory` counts in the process; `redis` counts through Effect's `RateLimiter` over Redis/Valkey so the limit is global (Node only). The shared check has a 250 ms budget and a 10 s cooldown after a failure: it fails open, so a store outage never becomes an API outage or a per-request delay.
+- **Rate limiting** on `/api`, switched by `RATE_LIMIT_ENABLED` (off by default) and backed by `RATE_LIMIT_STORE`. `memory` counts in the process; `redis` counts through Effect's `RateLimiter` over Redis/Valkey so the limit is global (Node only); `cloudflare` asks Workers' Rate Limiting binding, which is per location, eventually consistent and configured in `wrangler.jsonc` (Workers only). Every shared store has a 250 ms budget and a 10 s cooldown after a failure: it fails open, so a store outage never becomes an API outage or a per-request delay.
 - **Overload.** `MAX_IN_FLIGHT` refuses early with `503` + `Retry-After`, exempting `/health` and `/metrics`.
 - **Telemetry outages** cost a gap in data, never latency or memory.
 

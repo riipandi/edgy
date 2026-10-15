@@ -93,7 +93,8 @@ as soon as `pnpm dev` runs. Two things stay opt-in, for example in `.env.local`:
 
 ```bash
 LOG_TRANSPORT=console,otlp   # also ship logs
-RATE_LIMIT_STORE=redis       # counters shared by several instances (with RATE_LIMIT_MAX above 0)
+RATE_LIMIT_ENABLED=true      # turn rate limiting on
+RATE_LIMIT_STORE=redis       # counters shared by several instances
 ```
 
 To run without the stack, set `OTEL_SDK_DISABLED=true` (otherwise the exporters retry quietly in the

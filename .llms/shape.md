@@ -29,7 +29,7 @@ src/
   observer/          # logger.ts (batched stdout for Node, console for Workers), log_file.ts (rotating JSON-lines file sink), log_json.ts (fixed-order JSON formatter), telemetry.ts (OTLP traces/metrics/log sink, Flusher), error_reporter.ts, metrics.ts, metrics_handler.ts (/metrics), http_observer.ts
   command/           # effect/cli commands (cli.ts + one file per command + helper.ts)
   routes/            # route.ts: the route table (root, /api, /.well-known, catch-all; registration order)
-  middleware/        # cors, request_id, security_headers, load_shedding, body_limit, cache_control, rate_limit (+ rate_limit_shared: Redis-backed check)
+  middleware/        # cors, request_id, security_headers, load_shedding, body_limit, cache_control, rate_limit (+ rate_limit_shared: Redis-backed check, rate_limit_binding: Workers binding check)
   modules/           # one vertical slice per resource
     user/            # user_schema, user_repo, user_service, user_handler, user_routes (+ tests)
     health/          # health_handler

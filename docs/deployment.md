@@ -70,7 +70,7 @@ Before the first deploy:
 Differences from the Node.js server:
 
 - D1 has no interactive transactions, so code that needs one fails with a database error.
-- Rate limiting is counted per isolate, not globally.
+- Rate limiting is counted per isolate with `memory`, and per Cloudflare location with `RATE_LIMIT_STORE=cloudflare`, which uses the `ratelimits` binding in `wrangler.jsonc` (allowance and period are set there). Neither is an exact global quota.
 - Logs go straight to the platform's log stream (`console`), without batching.
 - Set `TRUST_PROXY=true`: Cloudflare always sets `CF-Connecting-IP`, and without it every client shares
   one rate-limit bucket.
@@ -95,7 +95,7 @@ request costs a few percent of throughput (about 7% on a laptop at full sampling
 is rarely a loss. If the collector is unreachable, export pauses and drops its buffer; requests are
 unaffected.
 
-Behind several instances, set `RATE_LIMIT_STORE=redis` with a `REDIS_URL` so the rate limit is shared,
+Rate limiting is off until `RATE_LIMIT_ENABLED=true`. Behind several instances, set `RATE_LIMIT_STORE=redis` with a `REDIS_URL` so the rate limit is shared,
 not multiplied. `MAX_IN_FLIGHT` caps the requests one process handles at once; past it the server answers
 `503` straight away, which lets a load balancer retry elsewhere instead of every request slowing down.
 

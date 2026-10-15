@@ -7,13 +7,19 @@ import { ServicesLayer } from './services.ts'
 /**
  * Effect's `RateLimiter` over the store `RATE_LIMIT_STORE` names. `memory` is provided so
  * the service always exists; the in-process counter in `rate_limit.ts` is what serves
- * requests then. `redis` connects when the layer is built, so a wrong `REDIS_URL` stops
+ * requests then, and it is all a disabled limiter gets: Redis is not contacted unless the
+ * limiter is on. `redis` connects when the layer is built, so a wrong `REDIS_URL` stops
  * `serve` at startup instead of failing open on every request.
  */
 const RateLimiterLayer = Layer.unwrap(
   Effect.gen(function* () {
     const { security } = yield* ConfigService
-    if (security.rateLimitStore !== 'redis') {
+    if (security.rateLimitEnabled && security.rateLimitStore === 'cloudflare') {
+      return yield* Effect.die(
+        new Error('RATE_LIMIT_STORE=cloudflare needs the Workers runtime (use memory or redis)')
+      )
+    }
+    if (!security.rateLimitEnabled || security.rateLimitStore !== 'redis') {
       return RateLimiter.layer.pipe(Layer.provide(RateLimiter.layerStoreMemory))
     }
 
