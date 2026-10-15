@@ -133,6 +133,9 @@ const buildApp = async (env: WorkerEnv): Promise<WorkerApp> => {
           app: createApp({
             runtime: http,
             config,
+            // Under `pnpm dev --mode worker` Vite injects styles at runtime and opens a socket for
+            // hot reload, which the HTML policy must allow; a build replaces this with `false`.
+            development: import.meta.env.DEV,
             ...(rateCheck === undefined ? {} : { rateCheck })
           }),
           flush: () =>
