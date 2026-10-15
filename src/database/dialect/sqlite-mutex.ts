@@ -5,22 +5,29 @@
  * Minimal async mutex used to serialise access to the single, synchronous
  * `node:sqlite` connection. Kept as a standalone module so the driver stays
  * focused on Kysely concerns.
+ *
+ * Waiters form a FIFO queue and `unlock` hands the lock straight to the next
+ * one. The forked version woke every waiter on each release and let them race
+ * for the lock again: O(n) wake-ups per release, and a late caller could
+ * overtake an early one. Plain queries rarely queue (the driver call is
+ * synchronous), so this shows up only when a transaction holds the connection
+ * across awaits; it was not measurable in the benchmark.
  */
 export class Mutex {
-  #promise: Promise<void> | undefined
-  #resolve: (() => void) | undefined
+  #locked = false
+  readonly #waiters: Array<() => void> = []
 
-  async lock(): Promise<void> {
-    while (this.#promise) await this.#promise
-    const { resolve, promise } = Promise.withResolvers<void>()
-    this.#promise = promise
-    this.#resolve = resolve
+  lock(): Promise<void> {
+    if (!this.#locked) {
+      this.#locked = true
+      return Promise.resolve()
+    }
+    return new Promise((resolve) => this.#waiters.push(resolve))
   }
 
   unlock(): void {
-    const resolve = this.#resolve
-    this.#promise = undefined
-    this.#resolve = undefined
-    resolve?.()
+    const next = this.#waiters.shift()
+    if (next === undefined) this.#locked = false
+    else next()
   }
 }

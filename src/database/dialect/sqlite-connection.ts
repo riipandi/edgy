@@ -9,7 +9,7 @@
  * - `insertId` / `numAffectedRows` are normalised to `bigint`.
  */
 import type { CompiledQuery, DatabaseConnection, QueryResult } from 'kysely'
-import type { DatabaseSync, SQLInputValue, SQLOutputValue } from 'node:sqlite'
+import type { DatabaseSync, SQLInputValue, SQLOutputValue, StatementSync } from 'node:sqlite'
 
 /**
  * Kysely exposes bound parameters as `readonly unknown[]`, while `node:sqlite`
@@ -64,19 +64,47 @@ const returnsRows = (query: CompiledQuery['query'], sql: string): boolean => {
 }
 
 /**
+ * Prepared statements kept per connection. Kysely compiles a query to the same
+ * SQL text every time its shape repeats (only the parameters change), so
+ * re-preparing it on every call re-parses and re-plans the statement for
+ * nothing. 128 covers the working set of a small service; the least recently
+ * used entry is dropped beyond it.
+ */
+const STATEMENT_CACHE_SIZE = 128
+
+/**
  * A single Kysely {@link DatabaseConnection} backed by a synchronous
  * `node:sqlite` handle.
  */
 export class NodeSQLiteConnection implements DatabaseConnection {
   readonly #db: DatabaseSync
+  /** Insertion order is recency order: a hit is re-inserted, the oldest key is evicted. */
+  readonly #statements = new Map<string, StatementSync>()
 
   constructor(db: DatabaseSync) {
     this.#db = db
   }
 
+  #prepare(sql: string): StatementSync {
+    const cached = this.#statements.get(sql)
+    if (cached !== undefined) {
+      this.#statements.delete(sql)
+      this.#statements.set(sql, cached)
+      return cached
+    }
+
+    const statement = this.#db.prepare(sql)
+    this.#statements.set(sql, statement)
+    if (this.#statements.size > STATEMENT_CACHE_SIZE) {
+      const oldest = this.#statements.keys().next()
+      if (oldest.done !== true) this.#statements.delete(oldest.value)
+    }
+    return statement
+  }
+
   async executeQuery<R>(compiledQuery: CompiledQuery): Promise<QueryResult<R>> {
     const { sql, parameters } = compiledQuery
-    const statement = this.#db.prepare(sql)
+    const statement = this.#prepare(sql)
 
     if (returnsRows(compiledQuery.query, sql)) {
       return { rows: asRows<R>(statement.all(...bindable(parameters))) }

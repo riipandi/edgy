@@ -32,22 +32,40 @@ export class UserRepository extends Context.Service<
         ),
         findPage: Effect.fn('UserRepository.findPage')((request: PageRequest<UserSortKey>) =>
           query(async (db) => {
-            // Two statements, not one transaction: a write between them can skew
-            // `total` by a row, which a listing tolerates.
-            const { total } = await db
-              .selectFrom('users')
-              .select((eb) => eb.fn.countAll<number>().as('total'))
-              .executeTakeFirstOrThrow()
-
-            // `id` last makes the order total, so a page boundary never splits ties.
+            // The total rides along as a scalar subquery: SQLite evaluates it once
+            // per statement, and one statement is one consistent snapshot, so the
+            // page and its count cannot disagree. It also saves a round trip. The
+            // extra `total` column is stripped when the response is encoded.
             let rows = db
               .selectFrom('users')
               .selectAll()
+              .select((eb) =>
+                eb
+                  .selectFrom('users')
+                  .select((count) => count.fn.countAll<number>().as('count'))
+                  .as('total')
+              )
               .orderBy(request.sortBy, request.sortOrder)
-              .orderBy('id')
+            // `id` last makes the order total, so a page boundary never splits ties.
+            if (request.sortBy !== 'id') rows = rows.orderBy('id')
             if (request.limit !== null) rows = rows.limit(request.limit).offset(request.offset)
 
-            return makePage(await rows.execute(), request, total)
+            const items = await rows.execute()
+
+            // An empty page has no row to read the total from: the first page means
+            // the table is empty, a later one needs a count of its own.
+            const total =
+              items[0]?.total ??
+              (request.offset === 0
+                ? 0
+                : (
+                    await db
+                      .selectFrom('users')
+                      .select((eb) => eb.fn.countAll<number>().as('total'))
+                      .executeTakeFirstOrThrow()
+                  ).total)
+
+            return makePage(items, request, total)
           })
         ),
         insert: Effect.fn('UserRepository.insert')((input: UserCreateRequest) =>
