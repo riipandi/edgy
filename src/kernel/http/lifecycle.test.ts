@@ -1,6 +1,6 @@
-import { Effect, Fiber, ManagedRuntime } from 'effect'
+import { afterEach, describe, expect, it } from '@effect/vitest'
+import { Effect, Fiber } from 'effect'
 import { TestClock } from 'effect/testing'
-import { afterAll, afterEach, describe, expect, it } from 'vitest'
 import { makeTestApp, type TestApp } from '../../../tests/app.ts'
 import { makeInFlight } from './inflight.ts'
 
@@ -25,30 +25,26 @@ describe('readiness during shutdown', () => {
 })
 
 describe('in-flight tracking', () => {
-  // Time is the TestClock's, so the poll interval is stepped through instead of waited for.
-  const runtime = ManagedRuntime.make(TestClock.layer())
-  afterAll(() => runtime.dispose())
+  // `it.effect` runs on the TestClock, so the poll interval is stepped through, not waited for.
+  it.effect('reports drained only after every request has left', () =>
+    Effect.gen(function* () {
+      const inFlight = makeInFlight()
+      inFlight.enter()
+      inFlight.enter()
+      expect(yield* inFlight.count).toBe(2)
 
-  it('reports drained only after every request has left', () =>
-    runtime.runPromise(
-      Effect.gen(function* () {
-        const inFlight = makeInFlight()
-        inFlight.enter()
-        inFlight.enter()
-        expect(yield* inFlight.count).toBe(2)
+      const waiting = yield* Effect.forkChild(inFlight.drained)
 
-        const waiting = yield* Effect.forkChild(inFlight.drained)
+      // Plenty of polls pass while one request is still in flight.
+      yield* TestClock.adjust('1 second')
+      inFlight.leave()
+      yield* TestClock.adjust('1 second')
+      expect(waiting.pollUnsafe()).toBeUndefined()
 
-        // Plenty of polls pass while one request is still in flight.
-        yield* TestClock.adjust('1 second')
-        inFlight.leave()
-        yield* TestClock.adjust('1 second')
-        expect(waiting.pollUnsafe()).toBeUndefined()
-
-        inFlight.leave()
-        yield* TestClock.adjust('25 millis')
-        yield* Fiber.join(waiting)
-        expect(yield* inFlight.count).toBe(0)
-      })
-    ))
+      inFlight.leave()
+      yield* TestClock.adjust('25 millis')
+      yield* Fiber.join(waiting)
+      expect(yield* inFlight.count).toBe(0)
+    })
+  )
 })

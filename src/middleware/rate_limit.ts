@@ -2,10 +2,27 @@ import { Duration } from 'effect'
 import { definePlugin, getRequestIP, type H3Event, HTTPError } from 'h3'
 import type { ApiRateLimit } from '../kernel/http/envelope.ts'
 
+/** Outcome of counting one request against a client's allowance. */
+export interface RateDecision {
+  readonly allowed: boolean
+  readonly limit: number
+  readonly remaining: number
+  /** When the window ends, in epoch milliseconds. */
+  readonly resetAt: number
+}
+
+/**
+ * Counts one request for `key` and says whether it may proceed. Synchronous for the
+ * in-memory counter, a promise for one shared across instances; the plugin accepts both,
+ * so the memory path does not pay for an `await` it does not need.
+ */
+export type RateCheck = (key: string) => RateDecision | Promise<RateDecision>
+
 export interface RateLimitOptions {
   /** Requests allowed per client per window; `0` or less disables the limiter. */
   readonly max: number
-  readonly window: Duration.Duration
+  /** How a request is counted: {@link makeMemoryRateCheck} or a shared store's. */
+  readonly check: RateCheck
   /** Read the client address from proxy headers instead of the socket. */
   readonly trustProxy: boolean
 }
@@ -26,35 +43,17 @@ interface Bucket {
 const MAX_TRACKED_CLIENTS = 50_000
 
 /**
- * Client address for the bucket key. Proxy headers are client-controlled unless
- * a proxy we trust overwrites them, so they are read only with `trustProxy`
- * (`CF-Connecting-IP` on Cloudflare, `X-Forwarded-For` elsewhere).
+ * Fixed-window counter in the memory of this process (or Worker isolate): the default,
+ * with no network hop and no dependency. With several instances each keeps its own
+ * counts, so the effective limit is `max` times the number of instances; that blunts
+ * abuse from one client, and `RATE_LIMIT_STORE=redis` is the answer when a strict global
+ * quota is required. Memory is bounded: expired buckets are swept once per window, and
+ * past {@link MAX_TRACKED_CLIENTS} the oldest are dropped.
  */
-const clientOf = (event: H3Event, trustProxy: boolean): string => {
-  if (trustProxy) {
-    const cloudflare = event.req.headers.get('cf-connecting-ip')
-    if (cloudflare) return cloudflare
-  }
-  return getRequestIP(event, { xForwardedFor: trustProxy }) ?? 'unknown'
-}
-
-/**
- * Fixed-window rate limiter, one bucket per client address.
- *
- * The state lives in the memory of the process (or Worker isolate) that serves
- * the request, so with several instances each enforces its own limit. That is
- * enough to blunt abuse from one client; a strict global quota needs a shared
- * store, which this deliberately does not add.
- *
- * Every response under the limiter carries `x-ratelimit-limit`,
- * `x-ratelimit-remaining` and `x-ratelimit-reset`, and the same values reach the
- * success envelope. An exhausted bucket answers `429` with `retry-after`.
- * Register it on the API group, not globally: probes and `/.well-known` must stay
- * reachable.
- */
-export const rateLimit = definePlugin<RateLimitOptions>((app, options) => {
-  if (options.max <= 0) return
-
+export const makeMemoryRateCheck = (options: {
+  readonly max: number
+  readonly window: Duration.Duration
+}): RateCheck => {
   const windowMs = Duration.toMillis(options.window)
   const buckets = new Map<string, Bucket>()
   let nextSweep = Date.now() + windowMs
@@ -72,11 +71,10 @@ export const rateLimit = definePlugin<RateLimitOptions>((app, options) => {
     nextSweep = now + windowMs
   }
 
-  app.use((event, next) => {
+  return (key) => {
     const now = Date.now()
     sweep(now)
 
-    const key = clientOf(event, options.trustProxy)
     let bucket = buckets.get(key)
     if (bucket === undefined || bucket.resetAt <= now) {
       bucket = { count: 0, resetAt: now + windowMs }
@@ -84,11 +82,47 @@ export const rateLimit = definePlugin<RateLimitOptions>((app, options) => {
     }
     bucket.count += 1
 
-    const remaining = Math.max(0, options.max - bucket.count)
-    const info: ApiRateLimit = {
+    return {
+      allowed: bucket.count <= options.max,
       limit: options.max,
-      remaining,
-      reset: Math.ceil(bucket.resetAt / 1000)
+      remaining: Math.max(0, options.max - bucket.count),
+      resetAt: bucket.resetAt
+    }
+  }
+}
+
+/**
+ * Client address for the bucket key. Proxy headers are client-controlled unless
+ * a proxy we trust overwrites them, so they are read only with `trustProxy`
+ * (`CF-Connecting-IP` on Cloudflare, `X-Forwarded-For` elsewhere).
+ */
+const clientOf = (event: H3Event, trustProxy: boolean): string => {
+  if (trustProxy) {
+    const cloudflare = event.req.headers.get('cf-connecting-ip')
+    if (cloudflare) return cloudflare
+  }
+  return getRequestIP(event, { xForwardedFor: trustProxy }) ?? 'unknown'
+}
+
+/**
+ * Rate limiter plugin, one allowance per client address, counted by `options.check`.
+ *
+ * Every response under the limiter carries `x-ratelimit-limit`,
+ * `x-ratelimit-remaining` and `x-ratelimit-reset`, and the same values reach the
+ * success envelope. An exhausted allowance answers `429` with `retry-after`.
+ * Register it on the API group, not globally: probes and `/.well-known` must stay
+ * reachable.
+ */
+export const rateLimit = definePlugin<RateLimitOptions>((app, options) => {
+  if (options.max <= 0) return
+
+  app.use(async (event, next) => {
+    const decision = await options.check(clientOf(event, options.trustProxy))
+
+    const info: ApiRateLimit = {
+      limit: decision.limit,
+      remaining: decision.remaining,
+      reset: Math.ceil(decision.resetAt / 1000)
     }
     event.context.rateLimit = info
 
@@ -102,8 +136,8 @@ export const rateLimit = definePlugin<RateLimitOptions>((app, options) => {
       event.res.errHeaders.set(name, value)
     }
 
-    if (bucket.count > options.max) {
-      const retryAfter = Math.max(1, Math.ceil((bucket.resetAt - now) / 1000))
+    if (!decision.allowed) {
+      const retryAfter = Math.max(1, Math.ceil((decision.resetAt - Date.now()) / 1000))
       event.res.errHeaders.set('retry-after', String(retryAfter))
       throw new HTTPError({ status: 429, message: 'Too many requests' })
     }

@@ -43,6 +43,10 @@ export interface HttpRuntime {
   readonly requestTimeout: Duration.Duration
   /** Requests being handled right now; shutdown drains it. */
   readonly inFlight: InFlight
+  /** Requests handled at once before new ones are refused with 503; `0` disables the guard. */
+  readonly maxInFlight: number
+  /** Whether traces are exported, and the share of requests whose trace is recorded. */
+  readonly tracing: { readonly enabled: boolean; readonly sampleRatio: number }
   /** Whether shutdown has begun; readiness reports unavailable from then on. */
   readonly isDraining: () => boolean
   /** Marks shutdown as begun. Irreversible for the life of the runtime. */
@@ -52,7 +56,8 @@ export interface HttpRuntime {
 /** Captures the current context into an {@link HttpRuntime}. */
 export const makeHttpRuntime: Effect.Effect<HttpRuntime, never, HttpEnv | ConfigService> =
   Effect.gen(function* () {
-    const { requestTimeout } = (yield* ConfigService).server
+    const { server, observability } = yield* ConfigService
+    const { requestTimeout, maxInFlight } = server
     const services = yield* Effect.context<HttpEnv>()
     let draining = false
     return {
@@ -60,6 +65,11 @@ export const makeHttpRuntime: Effect.Effect<HttpRuntime, never, HttpEnv | Config
       runSync: Effect.runSyncWith(services),
       requestTimeout,
       inFlight: makeInFlight(),
+      maxInFlight,
+      tracing: {
+        enabled: observability.otlpEndpoint !== '',
+        sampleRatio: observability.sampleRatio
+      },
       isDraining: () => draining,
       beginDrain: () => {
         draining = true
@@ -75,6 +85,8 @@ declare module 'h3' {
     requestId?: string
     /** `performance.now()` at request start, set by the `httpObserver` plugin. */
     startedAt?: number
+    /** The span `runEffect` ran the request in, so later log lines can join its trace. */
+    trace?: { readonly traceId: string; readonly spanId: string; readonly sampled: boolean }
   }
 }
 

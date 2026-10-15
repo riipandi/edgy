@@ -37,13 +37,14 @@
     },
     "overrides": [
         {
-            "files": ["**/*.test.ts", "**/*.spec.ts"],
+            "files": ["**/*.test.ts", "**/*.spec.ts", "tests/**/*.ts"],
             "plugins": ["vitest"],
             "rules": {
                 "no-console": "off",
                 "typescript/no-explicit-any": "off",
                 "typescript/no-unsafe-type-assertion": "off",
                 "vitest/no-focused-tests": "error",
+                "vitest/no-standalone-expect": "off",
                 "vitest/no-disabled-tests": "warn"
             }
         }

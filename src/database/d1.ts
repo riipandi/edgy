@@ -25,7 +25,7 @@ export const D1DatabaseLayer: Layer.Layer<DatabaseService, never, D1Binding> = L
     const binding = yield* D1Binding
     const log = yield* makeQueryLogger
     const db = new Kysely<Database>({ dialect: new D1Dialect(binding), log })
-    return makeDatabaseService(db, { transactions: false })
+    return makeDatabaseService(db, { transactions: false, retryReads: true })
   })
 )
 

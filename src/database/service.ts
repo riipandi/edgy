@@ -1,4 +1,4 @@
-import { Context, Effect, LogLevel } from 'effect'
+import { Context, Effect, LogLevel, Schedule } from 'effect'
 import { type Kysely, type LogEvent, sql, type Transaction } from 'kysely'
 import { DatabaseError } from '../kernel/errors.ts'
 import { currentRequestId } from '../kernel/http/request_context.ts'
@@ -27,6 +27,33 @@ export const isUniqueViolation = (error: DatabaseError): boolean => {
 }
 
 /**
+ * Whether a failure is the kind that goes away on its own, so repeating a read is
+ * safe and useful: a dropped connection, a storage timeout, an overloaded or briefly
+ * unavailable database, a lock that was not released in time. Matched on the message
+ * because D1 and `node:sqlite` report these as plain errors with no code. A constraint
+ * violation, a syntax error or a missing table is deliberately *not* transient: repeating
+ * it can only fail the same way, later.
+ */
+export const isTransientFailure = (error: DatabaseError): boolean => {
+  const { cause } = error
+  if (typeof cause !== 'object' || cause === null || !('message' in cause)) return false
+  return /network connection lost|storage operation exceeded timeout|overloaded|temporarily unavailable|timed out|SQLITE_BUSY|database is locked/i.test(
+    String(cause.message)
+  )
+}
+
+/**
+ * Up to two more attempts, 50 ms then about 100 ms apart, each delay randomised by
+ * jitter so that many requests failing together do not all retry in the same instant.
+ * Bounded on purpose: the request timeout still caps the total.
+ */
+const readRetry = {
+  schedule: Schedule.jittered(Schedule.exponential('50 millis')),
+  times: 2,
+  while: isTransientFailure
+} as const
+
+/**
  * Database service. Repositories, the migrator and seeders depend on this key
  * instead of a raw `Kysely` instance, so the connection lifecycle stays owned by
  * the Effect scope and the driver (`sqlite` or `d1`) stays a deployment choice.
@@ -43,6 +70,13 @@ export class DatabaseService extends Context.Service<
     readonly query: <A>(
       run: (db: Kysely<Database>) => Promise<A>
     ) => Effect.Effect<A, DatabaseError>
+    /**
+     * Like {@link query}, for operations that only **read**. On a driver where
+     * transient failures happen (D1, over the network) it repeats the read, up to
+     * two more times with jittered backoff, when the failure is transient; elsewhere it
+     * is exactly `query`. Never pass a write: repeating one is not safe.
+     */
+    readonly read: <A>(run: (db: Kysely<Database>) => Promise<A>) => Effect.Effect<A, DatabaseError>
     /**
      * Runs `run` atomically: it commits when the promise resolves and rolls back
      * when it rejects. Inside, use the `trx` handle, never the outer `db`.
@@ -107,6 +141,8 @@ export const makeQueryLogger = Effect.gen(function* () {
 interface DatabaseOptions {
   /** Whether the driver can run interactive transactions. */
   readonly transactions: boolean
+  /** Whether {@link DatabaseService.read} retries transient failures (a networked driver). */
+  readonly retryReads: boolean
 }
 
 /**
@@ -124,6 +160,18 @@ export const makeDatabaseService = (
       catch: (cause) => new DatabaseError({ cause })
     })
 
+  const read: DatabaseService['Service']['read'] = (run) =>
+    options.retryReads
+      ? query(run).pipe(
+          Effect.tapError((error) =>
+            isTransientFailure(error)
+              ? Effect.logWarning('Transient database error on a read', error.cause)
+              : Effect.void
+          ),
+          Effect.retry(readRetry)
+        )
+      : query(run)
+
   const transaction: DatabaseService['Service']['transaction'] = (run) =>
     options.transactions
       ? Effect.tryPromise({
@@ -139,6 +187,7 @@ export const makeDatabaseService = (
   return DatabaseService.of({
     db,
     query,
+    read,
     transaction,
     ping: Effect.asVoid(query((connection) => sql`select 1`.execute(connection)))
   })

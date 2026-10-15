@@ -1,4 +1,5 @@
 import { ConfigProvider, Effect, Layer, ManagedRuntime } from 'effect'
+import { FetchHttpClient } from 'effect/http'
 import type { H3 } from 'h3'
 import { createApp } from '../src/app.ts'
 import { migrateToLatest } from '../src/database/migrator.ts'
@@ -8,7 +9,9 @@ import { ConfigLayer, ConfigService } from '../src/kernel/config/service.ts'
 import { type HttpRuntime, makeHttpRuntime } from '../src/kernel/http/runtime.ts'
 import type { UserRepository } from '../src/modules/user/user_repo.ts'
 import type { UserService } from '../src/modules/user/user_service.ts'
+import { ErrorReporterLayer } from '../src/observer/error_reporter.ts'
 import { ConsoleLoggerLayer } from '../src/observer/logger.ts'
+import { TelemetryRuntimeLayer } from '../src/observer/telemetry.ts'
 import { ServicesLayer } from '../src/services.ts'
 
 /** Variables every test app starts from: a private in-memory database and no log output. */
@@ -45,13 +48,25 @@ export interface TestApp {
  * `env` overrides configuration the way real environment variables would, so a
  * test can turn on rate limiting or metrics exactly as an operator does.
  */
-export const makeTestApp = async (env: Readonly<Record<string, string>> = {}): Promise<TestApp> => {
+export const makeTestApp = async (
+  env: Readonly<Record<string, string>> = {},
+  options: { readonly fetch?: typeof globalThis.fetch } = {}
+): Promise<TestApp> => {
   const provider = ConfigProvider.fromEnvRecord({ ...BASE_ENV, ...env })
 
-  const core = ConsoleLoggerLayer.pipe(
-    Layer.provideMerge(ConfigLayer),
-    Layer.provide(ConfigProvider.layer(provider))
-  )
+  // `options.fetch` stands in for the network, so a test can read what the exporters send.
+  const telemetry =
+    options.fetch === undefined
+      ? TelemetryRuntimeLayer
+      : TelemetryRuntimeLayer.pipe(
+          Layer.provide(Layer.succeed(FetchHttpClient.Fetch)(options.fetch))
+        )
+
+  const core = Layer.mergeAll(
+    telemetry,
+    ErrorReporterLayer,
+    ConsoleLoggerLayer.pipe(Layer.provide(telemetry))
+  ).pipe(Layer.provideMerge(ConfigLayer), Layer.provide(ConfigProvider.layer(provider)))
   const layer = ServicesLayer.pipe(
     Layer.provideMerge(SqliteDatabaseLayer),
     Layer.provideMerge(core)

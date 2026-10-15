@@ -24,14 +24,14 @@ export class UserRepository extends Context.Service<
   static readonly layer: Layer.Layer<UserRepository, never, DatabaseService> = Layer.effect(
     UserRepository,
     Effect.gen(function* () {
-      const { query } = yield* DatabaseService
+      const { query, read } = yield* DatabaseService
 
       return UserRepository.of({
         findById: Effect.fn('UserRepository.findById')((id: number) =>
-          query((db) => db.selectFrom('users').selectAll().where('id', '=', id).executeTakeFirst())
+          read((db) => db.selectFrom('users').selectAll().where('id', '=', id).executeTakeFirst())
         ),
         findPage: Effect.fn('UserRepository.findPage')((request: PageRequest<UserSortKey>) =>
-          query(async (db) => {
+          read(async (db) => {
             // The total rides along as a scalar subquery: SQLite evaluates it once
             // per statement, and one statement is one consistent snapshot, so the
             // page and its count cannot disagree. It also saves a round trip. The

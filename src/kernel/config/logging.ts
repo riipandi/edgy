@@ -10,9 +10,9 @@ export const loggingConfig = group(
     ),
     transport: choiceList(
       'LOG_TRANSPORT',
-      ['console', 'file'],
+      ['console', 'file', 'otlp'],
       ['console'],
-      'Where logs go: console, file, or both (console,file). Workers always use the console'
+      'Where logs go: any of console, file, otlp, comma-separated. otlp needs OTEL_EXPORTER_OTLP_ENDPOINT. Workers use the console and otlp only'
     ),
     file: text(
       'LOG_FILE',

@@ -1,4 +1,4 @@
-import { Effect } from 'effect'
+import { Effect, Tracer } from 'effect'
 import { definePlugin, type H3Event, onError, onResponse } from 'h3'
 import { runtimeOf } from '../kernel/http/runtime.ts'
 import { recordHttpRequest } from './metrics.ts'
@@ -25,6 +25,12 @@ const observe = (event: H3Event, status: number): void => {
   const path = event.url.pathname
   const durationMs = elapsedMs(event)
 
+  // The line is written after the request's fiber has finished, outside its span; naming
+  // the span as parent puts the line in the same trace in the log backend.
+  const { trace } = event.context
+  const withTrace = <A>(effect: Effect.Effect<A>): Effect.Effect<A> =>
+    trace === undefined ? effect : Effect.withParentSpan(effect, Tracer.externalSpan(trace))
+
   const level =
     status >= 500 && status !== 503
       ? Effect.logError
@@ -35,14 +41,16 @@ const observe = (event: H3Event, status: number): void => {
   runtimeOf(event).runSync(
     Effect.all(
       [
-        level(`${method} ${path} ${status} ${durationMs}ms`).pipe(
-          Effect.annotateLogs({
-            ...(requestId === undefined ? {} : { requestId }),
-            method,
-            path,
-            status,
-            durationMs
-          })
+        withTrace(
+          level(`${method} ${path} ${status} ${durationMs}ms`).pipe(
+            Effect.annotateLogs({
+              ...(requestId === undefined ? {} : { requestId }),
+              method,
+              path,
+              status,
+              durationMs
+            })
+          )
         ),
         recordHttpRequest(method, status, durationMs)
       ],

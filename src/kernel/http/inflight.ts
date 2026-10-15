@@ -14,6 +14,8 @@ export interface InFlight {
   readonly leave: () => void
   /** Number of requests currently being handled. */
   readonly count: Effect.Effect<number>
+  /** Same number, read synchronously, for middleware that must decide before any Effect runs. */
+  readonly active: () => number
   /** Completes once no request is being handled. Never fails; bound it with a timeout. */
   readonly drained: Effect.Effect<void>
 }
@@ -36,6 +38,7 @@ export const makeInFlight = (): InFlight => {
       active -= 1
     },
     count,
+    active: () => active,
     drained
   }
 }

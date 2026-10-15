@@ -1,4 +1,5 @@
-import { Cause, Effect, Exit, Option } from 'effect'
+import { Cause, Effect, Exit, Option, type Tracer } from 'effect'
+import { Headers, HttpTraceContext } from 'effect/http'
 import type { H3Event } from 'h3'
 import { requestIdOf } from '../../middleware/request_id.ts'
 import { type AppError, RequestTimeout } from '../errors.ts'
@@ -19,6 +20,14 @@ export interface RunOptions {
 /** Non-standard status (nginx) for a client that hung up before the response. */
 const CLIENT_CLOSED_REQUEST = 499
 
+/** The caller's trace, when the request carries a W3C `traceparent` header. */
+const callerSpan = (event: H3Event): Option.Option<Tracer.ExternalSpan> => {
+  const traceparent = event.req.headers.get('traceparent')
+  return traceparent === null
+    ? Option.none()
+    : HttpTraceContext.w3c(Headers.fromInput({ traceparent }))
+}
+
 /**
  * Bridge Effect -> HTTP: run the program on the shared runtime and render the
  * outcome as the API envelope (`.llms/api-response.md`). A typed failure renders
@@ -27,12 +36,20 @@ const CLIENT_CLOSED_REQUEST = 499
  *
  * The program already yields an encoded {@link Reply}; this function owns
  * everything around it: the request timeout, interruption on client
- * disconnect, logging, and the success or error envelope with its status.
+ * disconnect, error reporting, tracing, and the success or error envelope.
  *
- * The program runs inside a span named after the request, and its logs carry
- * the request id. Database failures and defects are logged with their cause —
- * the client only ever sees a generic 500 — while expected failures
- * (validation, not found) are not logged as errors.
+ * **Tracing.** The program runs inside a server span named after the matched route
+ * (`GET /api/users/:id`, never the raw path, so span names stay low-cardinality) with
+ * the method, path, route, request id and final status as attributes. A `traceparent`
+ * header continues the caller's trace and its sampled flag is honoured; otherwise the
+ * request is a trace root, recorded for `OTEL_TRACES_SAMPLE_RATIO` of requests. When
+ * traces are exported and this one is recorded, its id is returned as
+ * `metadata.trace_id`, which is what lets a client report a problem that can be found.
+ *
+ * **Errors.** The program is wrapped in `Effect.withErrorReporting`, so a database
+ * failure, a timeout or a defect reaches the error reporters (`error_reporter.ts`)
+ * once, while expected failures (validation, not found: `ErrorReporter.ignore`) and
+ * interruptions do not. The client only ever sees a generic message for a 500.
  */
 export const runEffect = <E extends AppError>(
   event: H3Event,
@@ -40,41 +57,107 @@ export const runEffect = <E extends AppError>(
   options: RunOptions = {}
 ): Promise<ApiSuccess | ApiError> => {
   const requestId = requestIdOf(event)
-  const { requestTimeout, runPromiseExit } = runtimeOf(event)
+  const { requestTimeout, runPromiseExit, tracing } = runtimeOf(event)
+
+  // The pattern the router matched, without the trailing slash a mounted group leaves on
+  // its index route, so `/api/users/` and `/api/users` are one span name.
+  const matched = event.context.matchedRoute?.route
+  const route = matched !== undefined && matched.length > 1 ? matched.replace(/\/+$/, '') : matched
+  const caller = callerSpan(event)
+  const sampling = Option.isSome(caller)
+    ? { parent: caller.value }
+    : tracing.sampleRatio < 1
+      ? { sampled: Math.random() < tracing.sampleRatio }
+      : {}
+
+  const status = options.successStatus ?? 200
+
+  const spanOptions: Tracer.SpanOptions = {
+    kind: 'server',
+    captureStackTrace: false,
+    attributes: {
+      'http.request.method': event.req.method,
+      'url.path': event.url.pathname,
+      'http.route': route,
+      'request.id': requestId
+    },
+    ...sampling
+  }
+
+  /**
+   * What the program settled on. A client error (below 500) is an *answer*, not a
+   * failure of the server span: it is carried here as a value so the span ends `Ok`
+   * with `http.response.status_code` set, as OpenTelemetry asks for server spans, and
+   * 404s and validation errors do not fill the error dashboards. Only 5xx and defects
+   * fail the span.
+   */
+  type Outcome =
+    | { readonly kind: 'reply'; readonly reply: Reply }
+    | { readonly kind: 'refused'; readonly error: AppError }
+
+  /**
+   * Notes the trace this request belongs to: remembered on the event so the request log
+   * line, written after the fiber has finished, can join the same trace, and offered to
+   * the client as `trace_id` when traces are exported and this one was recorded.
+   */
+  const settle = (outcome: Outcome): Effect.Effect<Outcome> =>
+    Effect.currentSpan.pipe(
+      Effect.map((span): Outcome => {
+        event.context.trace = { traceId: span.traceId, spanId: span.spanId, sampled: span.sampled }
+        return outcome.kind === 'reply' && tracing.enabled && span.sampled
+          ? { kind: 'reply', reply: { ...outcome.reply, traceId: span.traceId } }
+          : outcome
+      }),
+      Effect.orElseSucceed(() => outcome)
+    )
 
   const program = effect.pipe(
     Effect.timeoutOrElse({
       duration: requestTimeout,
       orElse: () => Effect.fail(new RequestTimeout({ after: requestTimeout }))
     }),
-    Effect.tapCause((cause) => {
-      if (Cause.hasInterruptsOnly(cause)) return Effect.void
-      const failure = Cause.findErrorOption(cause)
-      const expected = Option.isSome(failure) && failure.value.status < 500
-      return expected ? Effect.void : Effect.logError('Request failed', cause)
-    }),
+    Effect.map((reply): Outcome => ({ kind: 'reply', reply })),
+    Effect.catchIf(
+      (error: AppError) => error.status < 500,
+      (error): Effect.Effect<Outcome> => Effect.succeed({ kind: 'refused', error })
+    ),
+    Effect.tap((outcome) =>
+      Effect.annotateCurrentSpan(
+        'http.response.status_code',
+        outcome.kind === 'reply' ? status : outcome.error.status
+      )
+    ),
+    Effect.tapError((error) =>
+      Effect.annotateCurrentSpan('http.response.status_code', error.status)
+    ),
+    Effect.flatMap(settle),
+    Effect.withErrorReporting,
     Effect.annotateLogs(requestId === undefined ? {} : { requestId }),
-    Effect.withSpan(`${event.req.method} ${event.url.pathname}`)
+    Effect.withSpan(`${event.req.method} ${route ?? event.url.pathname}`, spanOptions)
   )
 
-  const fail = (status: number, message: string, detail?: unknown): ApiError => {
-    event.res.status = status
-    return errorEnvelope(event, status, message, detail)
+  const fail = (code: number, message: string, detail?: unknown): ApiError => {
+    event.res.status = code
+    return errorEnvelope(event, code, message, detail)
   }
 
   return runPromiseExit(program, { signal: event.req.signal }).then((exit) => {
     if (Exit.isSuccess(exit)) {
-      const status = options.successStatus ?? 200
+      const outcome = exit.value
+      if (outcome.kind === 'refused') {
+        const { status: code, clientMessage, detail } = outcome.error
+        return fail(code, clientMessage, detail)
+      }
       event.res.status = status
-      return successEnvelope(event, status, exit.value)
+      return successEnvelope(event, status, outcome.reply)
     }
 
     if (Cause.hasInterruptsOnly(exit.cause)) return fail(CLIENT_CLOSED_REQUEST, 'Request cancelled')
 
     const failure: Option.Option<AppError> = Cause.findErrorOption(exit.cause)
     if (Option.isSome(failure)) {
-      const { status, clientMessage, detail } = failure.value
-      return fail(status, clientMessage, detail)
+      const { status: code, clientMessage, detail } = failure.value
+      return fail(code, clientMessage, detail)
     }
 
     return fail(500, 'Internal server error')

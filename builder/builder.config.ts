@@ -47,7 +47,8 @@ export default defineBuilderConfig({
   // `external` is left at its default: native packages are auto-detected
   // (binding.gyp / prebuilds / *.node) and copied into the output's
   // `node_modules/` instead of being bundled. This project uses `node:sqlite`,
-  // so the traced folder stays empty.
+  // so the traced folder stays empty. (The Redis client is bundled, and its
+  // module only runs when RATE_LIMIT_STORE=redis imports it.)
   assets: [],
 
   // EXPERIMENTAL: Compile a Node.js single-executable application into

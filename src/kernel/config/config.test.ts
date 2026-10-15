@@ -1,6 +1,6 @@
+import { describe, expect, it } from '@effect/vitest'
 import { ConfigProvider, Effect } from 'effect'
 import { readFileSync } from 'node:fs'
-import { describe, expect, it } from 'vitest'
 import { renderExample } from './example.ts'
 import { appConfig } from './service.ts'
 

@@ -1,0 +1,126 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/compose-spec/compose-spec/master/schema/compose-spec.json
+
+# Development services. The application itself runs on the host (`pnpm dev`);
+# this file only supplies what it talks to:
+#   - ClickStack (HyperDX + ClickHouse + an OpenTelemetry collector) to receive traces, metrics and logs
+#   - Valkey, a Redis-compatible store, for RATE_LIMIT_STORE=redis
+#
+#   pnpm compose:up        start both, in the background
+#   pnpm compose:down      stop them (data is kept in ./.storage)
+#   pnpm compose:cleanup   stop them and delete their data
+#
+# HyperDX UI: http://localhost:8080, signed in with the development account below.
+#   email    admin@example.com    (HYPERDX_EMAIL)
+#   password @Password123!        (HYPERDX_PASSWORD)
+#
+# The collector accepts the ingestion key `edgy-dev-ingestion-key` (CLICKSTACK_INGESTION_KEY):
+#   OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+#   OTEL_EXPORTER_OTLP_HEADERS=authorization=edgy-dev-ingestion-key
+#
+# OTLP/HTTP:  http://localhost:4318 (OTEL_EXPORTER_OTLP_ENDPOINT); gRPC is not published on purpose
+#
+# Host ports are variables (CLICKSTACK_UI_PORT, OTLP_HTTP_PORT, VALKEY_PORT) for machines where
+# 8080, 4318 or 6379 are taken by another stack.
+
+name: edgy
+
+x-common: &common
+  networks: ['intranet']
+  extra_hosts:
+    - 'host.docker.internal:host-gateway'
+  restart: unless-stopped
+  security_opt: ['no-new-privileges:true']
+  healthcheck:
+    start_period: 20s
+    interval: 30s
+    timeout: 10s
+    retries: 5
+
+services:
+  clickstack:
+    <<: *common
+    # All-in-one: HyperDX app + API, ClickHouse, MongoDB and the OpenTelemetry collector
+    # in one container. Fine for development; production runs them as separate services.
+    image: docker.hyperdx.io/hyperdx/hyperdx-all-in-one:${CLICKSTACK_VERSION:-latest}
+    hostname: clickstack
+    ports:
+      - '${CLICKSTACK_UI_PORT:-8080}:8080' # HyperDX UI
+      - '${OTLP_HTTP_PORT:-4318}:4318' # OTLP over HTTP (the application's exporter)
+    environment:
+      FRONTEND_URL: http://localhost:8080
+      HYPERDX_LOG_LEVEL: ${HYPERDX_LOG_LEVEL:-info}
+      USAGE_STATS_ENABLED: 'false'
+      # A fixed key the collector accepts as `authorization`, so the application needs no
+      # key copied out of the UI. Honoured by this image only; never use one in production.
+      INGESTION_API_KEY: ${CLICKSTACK_INGESTION_KEY:-edgy-dev-ingestion-key}
+    volumes:
+      - './.storage/clickstack/db:/data/db:rw'
+      - './.storage/clickstack/ch_data:/var/lib/clickhouse:rw'
+      - './.storage/clickstack/ch_logs:/var/log/clickhouse-server:rw'
+    shm_size: 512m # set shared memory limit
+    mem_limit: 4g # set memory limit
+    cpus: 2.0 # set CPUs limit
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -sf http://localhost:8080/api/health || exit 1']
+      start_period: 60s
+
+  # One-shot: ClickStack has no collector pipelines until a team exists, and a team exists only
+  # after someone registers. This registers the development account (idempotent: an existing
+  # account answers 409) so telemetry works from the first `pnpm compose:up`, with no clicking.
+  clickstack-init:
+    <<: *common
+    image: docker.io/curlimages/curl:${CURL_VERSION:-8.14.1}
+    restart: 'no'
+    healthcheck:
+      disable: true
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        i=0
+        until curl -sf http://clickstack:8080/api/health >/dev/null; do
+          i=$$((i + 1))
+          [ "$$i" -ge 90 ] && { echo "HyperDX did not become ready"; exit 1; }
+          sleep 2
+        done
+        body=$$(printf '{"email":"%s","password":"%s","confirmPassword":"%s"}' \
+          "$$HYPERDX_EMAIL" "$$HYPERDX_PASSWORD" "$$HYPERDX_PASSWORD")
+        status=$$(curl -s -o /dev/null -w '%{http_code}' -X POST http://clickstack:8080/api/register/password \
+          -H 'content-type: application/json' -d "$$body")
+        case "$$status" in
+          200) echo "HyperDX: registered $${HYPERDX_EMAIL}" ;;
+          409) echo "HyperDX: account already exists" ;;
+          *) echo "HyperDX: registration answered $$status"; exit 1 ;;
+        esac
+    environment:
+      HYPERDX_EMAIL: ${HYPERDX_EMAIL:-admin@example.com}
+      HYPERDX_PASSWORD: ${HYPERDX_PASSWORD:-@Password123!}
+    mem_limit: 32m # set memory limit
+    cpus: 0.5 # set CPUs limit
+    depends_on:
+      # Started, not healthy: waiting for health would hold `compose up --detach`
+      # for a minute. The script below retries until the API answers instead.
+      clickstack: { condition: service_started }
+
+  valkey:
+    <<: *common
+    image: docker.io/valkey/valkey:${VALKEY_VERSION:-9.2-alpine}
+    hostname: valkey
+    ports: ['${VALKEY_PORT:-6379}:6379']
+    volumes: ['./.storage/valkey:/data:rw']
+    command: '--appendonly yes --appendfsync everysec --requirepass ${VALKEY_PASSWORD:-securedb}'
+    shm_size: 32m # set shared memory limit
+    mem_limit: 128m # set memory limit
+    cpus: 1.0 # set CPUs limit
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'valkey-cli --no-auth-warning -a $${VALKEY_PASSWORD:-securedb} ping | grep PONG',
+        ]
+      start_period: 5s
+      interval: 15s
+
+networks:
+  intranet:
+    driver: bridge
+    enable_ipv6: false

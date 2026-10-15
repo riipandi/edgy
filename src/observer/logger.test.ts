@@ -1,13 +1,14 @@
-import { NodeServices } from '@effect/platform-node'
+import * as NodeServices from '@effect/platform-node/NodeServices'
+import { describe, expect, it } from '@effect/vitest'
 import { Cause, ConfigProvider, Effect, Layer, Logger, ManagedRuntime } from 'effect'
 import { TestClock } from 'effect/testing'
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
 import { ConfigLayer } from '../kernel/config/service.ts'
 import { jsonLogger } from './log_json.ts'
 import { LoggerLayer, renderPretty } from './logger.ts'
+import { TelemetryRuntimeLayer } from './telemetry.ts'
 
 const entry = (message: string, annotations: Record<string, unknown>) =>
   ({
@@ -94,7 +95,7 @@ describe('JSON key order', () => {
 describe('file transport', () => {
   const run = async (env: Record<string, string>, file: string) => {
     const core = LoggerLayer.pipe(
-      Layer.provide(NodeServices.layer),
+      Layer.provide(Layer.mergeAll(NodeServices.layer, TelemetryRuntimeLayer)),
       Layer.provideMerge(ConfigLayer),
       Layer.provide(ConfigProvider.layer(ConfigProvider.fromEnvRecord({ ...env, LOG_FILE: file })))
     )
@@ -143,7 +144,7 @@ describe('file rotation through the logger', () => {
   it('starts a new file when the clock crosses a boundary', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'edgy-log-'))
     const core = LoggerLayer.pipe(
-      Layer.provide(NodeServices.layer),
+      Layer.provide(Layer.mergeAll(NodeServices.layer, TelemetryRuntimeLayer)),
       Layer.provideMerge(ConfigLayer),
       Layer.provide(
         ConfigProvider.layer(

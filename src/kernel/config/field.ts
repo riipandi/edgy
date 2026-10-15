@@ -1,4 +1,4 @@
-import { Config, ConfigProvider, Duration, Effect, LogLevel } from 'effect'
+import { Config, ConfigProvider, Duration, Effect, LogLevel, Redacted } from 'effect'
 
 /**
  * Everything the generated `.env.example` needs to know about one variable.
@@ -34,6 +34,37 @@ export const text = (name: string, fallback: string, description: string) =>
   field(
     { name, description, kind: 'string', default: fallback },
     Config.String(name).pipe(Config.withDefault(fallback))
+  )
+
+/**
+ * A secret: parsed as `Redacted`, so it prints as `<redacted>` in logs, errors and
+ * `inspect`, and read only through `Redacted.value`. Its default is empty and it is
+ * never written to `.env.example` with a value.
+ */
+export const secret = (name: string, description: string) =>
+  field(
+    { name, description, kind: 'secret', default: '' },
+    Config.Redacted(name).pipe(Config.withDefault(Redacted.make('')))
+  )
+
+/** A fraction between 0 and 1, both included (a sampling or load ratio). */
+export const ratio = (name: string, fallback: number, description: string) =>
+  field(
+    { name, description, kind: 'ratio 0-1', default: String(fallback) },
+    Config.Number(name).pipe(
+      Config.withDefault(fallback),
+      Config.mapEffect((value): Effect.Effect<number, Config.ConfigError> =>
+        value >= 0 && value <= 1
+          ? Effect.succeed(value)
+          : Effect.fail(
+              new Config.ConfigError(
+                new ConfigProvider.SourceError({
+                  message: `${name} must be a number from 0 to 1 (got ${value})`
+                })
+              )
+            )
+      )
+    )
   )
 
 export const port = (name: string, fallback: number, description: string) =>

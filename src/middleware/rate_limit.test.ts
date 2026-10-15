@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from '@effect/vitest'
 import { makeTestApp, type TestApp } from '../../tests/app.ts'
 
 let t: TestApp | undefined

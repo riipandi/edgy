@@ -1,10 +1,10 @@
+import { afterAll, beforeAll, describe, expect, it } from '@effect/vitest'
 import { Effect, Exit, Layer, ManagedRuntime } from 'effect'
-import { DatabaseSync, type SQLInputValue } from 'node:sqlite'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { makeTestApp, type TestApp } from '../../tests/app.ts'
+import { fakeD1 } from '../../tests/d1.ts'
 import { Conflict, DatabaseError } from '../kernel/errors.ts'
 import { UserRepository } from '../modules/user/user_repo.ts'
-import { D1Binding, D1DatabaseLayer, type D1Database } from './d1.ts'
+import { D1Binding, D1DatabaseLayer } from './d1.ts'
 import { migrateDown, migrateToLatest } from './migrator.ts'
 import { DatabaseService, isUniqueViolation } from './service.ts'
 
@@ -73,45 +73,6 @@ describe('isUniqueViolation', () => {
     expect(isUniqueViolation(new DatabaseError({ cause: 'text' }))).toBe(false)
   })
 })
-
-/**
- * A D1 binding backed by an in-memory `node:sqlite` database. It mimics the two
- * observable differences that matter to the dialect: results come back as
- * `{ results, meta }`, and a constraint failure carries only a message.
- */
-const fakeD1 = (): D1Database => {
-  const sqlite = new DatabaseSync(':memory:')
-  return {
-    prepare: (sql) => {
-      const statement = sqlite.prepare(sql)
-      let params: unknown[] = []
-      const prepared = {
-        bind: (...values: unknown[]) => {
-          params = values
-          return prepared
-        },
-        all: async () => {
-          // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-          const bound = params as SQLInputValue[]
-          try {
-            if (/^\s*(select|with|pragma)/i.test(sql) || /returning/i.test(sql)) {
-              return { results: statement.all(...bound), meta: { changes: 0 } }
-            }
-            const result = statement.run(...bound)
-            return {
-              results: [],
-              meta: { changes: Number(result.changes), last_row_id: Number(result.lastInsertRowid) }
-            }
-          } catch (error) {
-            const message = error instanceof Error ? error.message : String(error)
-            throw new Error(`D1_ERROR: ${message}: SQLITE_CONSTRAINT`, { cause: error })
-          }
-        }
-      }
-      return prepared
-    }
-  }
-}
 
 describe('D1 dialect', () => {
   const layer = UserRepository.layer.pipe(

@@ -21,6 +21,11 @@ export const serverConfig = group(
       '0 millis',
       'Pause between /health turning 503 and the server closing, so a load balancer can drain first'
     ),
+    maxInFlight: int(
+      'MAX_IN_FLIGHT',
+      1024,
+      'Requests handled at once before new ones are refused with 503 (overload guard); 0 disables'
+    ),
     trustProxy: flag(
       'TRUST_PROXY',
       false,

@@ -8,9 +8,12 @@ import {
   type PlatformError,
   References
 } from 'effect'
+import type { HttpClient } from 'effect/http'
+import type { OtlpExporter, OtlpSerialization } from 'effect/observability'
 import { ConfigService, type LogFormat } from '../kernel/config/service.ts'
 import { makeFileSink } from './log_file.ts'
 import { jsonLogger } from './log_json.ts'
+import { makeOtlpLogSink } from './telemetry.ts'
 
 type StructuredEntry =
   typeof Logger.formatStructured extends Logger.Logger<unknown, infer Output> ? Output : never
@@ -135,7 +138,12 @@ const makeBatchedStdout = (formatter: Logger.Logger<unknown, string>, window: Du
 export const LoggerLayer: Layer.Layer<
   never,
   PlatformError.PlatformError,
-  ConfigService | FileSystem.FileSystem | Path.Path
+  | ConfigService
+  | FileSystem.FileSystem
+  | Path.Path
+  | HttpClient.HttpClient
+  | OtlpSerialization.OtlpSerialization
+  | OtlpExporter.Flusher
 > = Layer.unwrap(
   Effect.gen(function* () {
     const { logging } = yield* ConfigService
@@ -154,7 +162,8 @@ export const LoggerLayer: Layer.Layer<
               window: logging.flushInterval
             })
           ]
-        : [])
+        : []),
+      ...(logging.transport.includes('otlp') ? [makeOtlpLogSink] : [])
     ]
 
     return Layer.merge(
@@ -169,15 +178,24 @@ export const LoggerLayer: Layer.Layer<
  * flush on, and `console.log` is already asynchronous in the runtime, so each line
  * goes straight out. Same formatter and level, minus ANSI colours.
  */
-export const ConsoleLoggerLayer: Layer.Layer<never, never, ConfigService> = Layer.unwrap(
+export const ConsoleLoggerLayer: Layer.Layer<
+  never,
+  never,
+  ConfigService | HttpClient.HttpClient | OtlpSerialization.OtlpSerialization | OtlpExporter.Flusher
+> = Layer.unwrap(
   Effect.gen(function* () {
     const { logging } = yield* ConfigService
-    const sink = Logger.map(makeFormatter(logging.format, false), (line) => {
+    const consoleSink = Logger.map(makeFormatter(logging.format, false), (line) => {
       console.log(line)
     })
 
+    // `file` has no meaning on a Worker; with nothing else selected, log to the console.
+    const wantsOtlp = logging.transport.includes('otlp')
+    const wantsConsole = logging.transport.includes('console') || !wantsOtlp
+    const sinks = [...(wantsConsole ? [consoleSink] : []), ...(wantsOtlp ? [makeOtlpLogSink] : [])]
+
     return Layer.merge(
-      Logger.layer([sink]),
+      Logger.layer(sinks),
       Layer.succeed(References.MinimumLogLevel, logging.level)
     )
   })

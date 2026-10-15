@@ -1,4 +1,11 @@
-import { Data, type Duration, Schema, SchemaIssue, type StandardSchema } from 'effect'
+import {
+  Data,
+  type Duration,
+  ErrorReporter,
+  Schema,
+  SchemaIssue,
+  type StandardSchema
+} from 'effect'
 
 /**
  * What every application error tells the HTTP layer about itself. The error
@@ -7,7 +14,8 @@ import { Data, type Duration, Schema, SchemaIssue, type StandardSchema } from 'e
  *
  * `clientMessage` and `detail` reach the client, so they must never carry
  * internals (SQL, stack traces, causes). Failures with `status >= 500` are
- * logged with their cause; expected ones (below 500) are not.
+ * reported with their cause; expected ones (below 500) carry
+ * `ErrorReporter.ignore` and are not.
  */
 export interface AppError {
   readonly _tag: string
@@ -22,6 +30,7 @@ export class NotFound extends Data.TaggedError('NotFound')<{
   readonly id: number
 }> {
   readonly status = 404
+  override readonly [ErrorReporter.ignore] = true
   get clientMessage(): string {
     return `${this.resource} not found`
   }
@@ -50,6 +59,7 @@ export class ValidationError extends Data.TaggedError('ValidationError')<{
   }
 
   readonly status = 400
+  override readonly [ErrorReporter.ignore] = true
   readonly clientMessage = 'Validation failed'
   get detail(): ReadonlyArray<ValidationIssue> {
     return this.issues
@@ -82,6 +92,7 @@ export class Conflict extends Data.TaggedError('Conflict')<{
   readonly resource: string
 }> {
   readonly status = 409
+  override readonly [ErrorReporter.ignore] = true
   get clientMessage(): string {
     return `${this.resource} already exists`
   }

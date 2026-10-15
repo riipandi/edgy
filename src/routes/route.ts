@@ -3,7 +3,7 @@ import type { AppConfig } from '../kernel/config/service.ts'
 import { defineRouteGroup } from '../kernel/http/router.ts'
 import { unlessDraining } from '../kernel/http/runtime.ts'
 import { cacheControl } from '../middleware/cache_control.ts'
-import { rateLimit } from '../middleware/rate_limit.ts'
+import { makeMemoryRateCheck, type RateCheck, rateLimit } from '../middleware/rate_limit.ts'
 import { healthHandler } from '../modules/health/health_handler.ts'
 import { userRoutes } from '../modules/user/user_routes.ts'
 import { metricsHandler } from '../observer/metrics_handler.ts'
@@ -18,13 +18,13 @@ import { metricsHandler } from '../observer/metrics_handler.ts'
  *
  * A new module's routes are registered in this callback.
  */
-const apiRoutes = (config: AppConfig): H3Plugin =>
+const apiRoutes = (config: AppConfig, check: RateCheck): H3Plugin =>
   defineRouteGroup({
     prefix: '/api',
     middleware: [
       rateLimit({
         max: config.security.rateLimitMax,
-        window: config.security.rateLimitWindow,
+        check,
         trustProxy: config.server.trustProxy
       })
     ],
@@ -89,9 +89,19 @@ const notFoundRoutes: H3Plugin = (app) => {
 }
 
 /** Every route plugin, in registration order. The catch-all must stay last. */
-export const createRoutePlugins = (config: AppConfig): readonly H3Plugin[] => [
+export const createRoutePlugins = (
+  config: AppConfig,
+  rateCheck?: RateCheck
+): readonly H3Plugin[] => [
   rootRoutes(config),
-  apiRoutes(config),
+  apiRoutes(
+    config,
+    rateCheck ??
+      makeMemoryRateCheck({
+        max: config.security.rateLimitMax,
+        window: config.security.rateLimitWindow
+      })
+  ),
   wellKnownRoutes,
   notFoundRoutes
 ]

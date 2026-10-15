@@ -1,5 +1,5 @@
+import { afterAll, beforeAll, describe, expect, it } from '@effect/vitest'
 import { Effect, Layer, ManagedRuntime } from 'effect'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { makeTestApp, type TestApp } from '../../../tests/app.ts'
 import { DatabaseError, NotFound } from '../../kernel/errors.ts'
 import { UserRepository } from './user_repo.ts'

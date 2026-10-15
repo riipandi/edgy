@@ -1,4 +1,4 @@
-import { NodeRuntime } from '@effect/platform-node'
+import * as NodeRuntime from '@effect/platform-node/NodeRuntime'
 import { Effect } from 'effect'
 import { run } from './command/cli.ts'
 import { CoreLayer } from './kernel/layers.ts'

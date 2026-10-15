@@ -90,8 +90,18 @@ A paginated response adds the position to `metadata` and navigation to `links`:
 | `413`  | Request body larger than `BODY_LIMIT` |
 | `499`  | The client closed the connection before the response |
 | `500`  | Server-side failure; details go to the log, never to the client |
-| `503`  | `/health` while the server is shutting down |
+| `503`  | `/health` while the server is shutting down, or any `/api` request while the server is overloaded (`Retry-After: 1`) |
 | `504`  | The request exceeded `REQUEST_TIMEOUT` |
+
+## Tracing
+
+When the server exports telemetry, a successful response carries `metadata.trace_id`, the id of its
+trace in your observability backend. Send a W3C `traceparent` header to make the server's spans part
+of your own trace; the same id then comes back.
+
+```json
+"metadata": { "status_code": 200, "request_id": "req_01m5…", "trace_id": "0af7651916cd43dd8448eb211c80319c" }
+```
 
 ## Rate limiting
 

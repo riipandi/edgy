@@ -30,6 +30,7 @@ The command never writes a real `.env` file.
 | `REQUEST_TIMEOUT`      | `30 seconds` | A request that runs longer is cancelled and answered with `504`             |
 | `SHUTDOWN_TIMEOUT`     | `10 seconds` | How long a stop signal waits for requests still being handled               |
 | `SHUTDOWN_DRAIN_DELAY` | `0 millis`   | Pause between `/health` turning `503` and the server closing                |
+| `MAX_IN_FLIGHT`        | `1024`       | Requests handled at once before new ones are refused with `503`; `0` turns the guard off |
 | `TRUST_PROXY`          | `false`      | Read the client address from proxy headers (only behind a proxy you control) |
 
 ## Database
@@ -46,7 +47,7 @@ The command never writes a real `.env` file.
 | Variable             | Default      | Description                                                                |
 | -------------------- | ------------ | -------------------------------------------------------------------------- |
 | `LOG_LEVEL`          | `Info`       | `All` \| `Fatal` \| `Error` \| `Warn` \| `Info` \| `Debug` \| `Trace` \| `None` (**case-sensitive**). `Trace` also prints every SQL statement with its duration (never the values) |
-| `LOG_TRANSPORT`      | `console`    | Where logs go: `console`, `file`, or both (`console,file`)                 |
+| `LOG_TRANSPORT`      | `console`    | Where logs go: any of `console`, `file`, `otlp`, comma-separated (`otlp` needs `OTEL_EXPORTER_OTLP_ENDPOINT`) |
 | `LOG_FILE`           | `./storage/logs/edgy.jsonl` | Base path of the log file; the file written carries the period (see below) |
 | `LOG_ROTATION`       | `daily`      | How often a new log file starts: `hourly`, `daily`, `weekly` or `monthly` (UTC) |
 | `LOG_FILE_MAX_FILES` | `14`         | Log files kept, the current one included; older ones are deleted. `0` keeps every file |
@@ -81,15 +82,44 @@ logs go to the platform's stream.
 | ------------------- | ---------- | ------------------------------------------------------------------------ |
 | `RATE_LIMIT_MAX`    | `0`        | Requests per client per window on `/api`; `0` turns rate limiting off    |
 | `RATE_LIMIT_WINDOW` | `1 minute` | Length of the rate-limit window                                          |
+| `RATE_LIMIT_STORE`  | `memory`   | Where counters live: `memory` (per process) or `redis` (shared by every instance, Node.js only) |
+| `REDIS_URL`         | (empty)    | Redis or Valkey URL, required for `RATE_LIMIT_STORE=redis`, e.g. `redis://:password@localhost:6379`. Secret |
 
-The limit is counted per running instance, not across instances. Set `TRUST_PROXY=true` behind a
+With `memory` each running instance keeps its own counts, so the effective limit is `RATE_LIMIT_MAX`
+times the number of instances. With `redis` every instance counts against one allowance, which makes
+`RATE_LIMIT_MAX` the real global limit. If Redis is slow or down the limiter lets requests through
+instead of refusing them (it gives up on a call after a fraction of a second and skips Redis for ten
+seconds), because a rate limiter must not take the API down with it. Set `TRUST_PROXY=true` behind a
 proxy, otherwise every client appears to have the proxy's address.
+
+`MAX_IN_FLIGHT` is the overload guard: past that many requests at once the server answers `503` with
+`Retry-After: 1` immediately, instead of queueing everyone until they time out. `/health` and
+`/metrics` are never refused.
 
 ## Observability
 
-| Variable          | Default | Description                                                              |
-| ----------------- | ------- | ------------------------------------------------------------------------ |
-| `METRICS_ENABLED` | `false` | Serve Prometheus metrics at `GET /metrics`                               |
+| Variable                         | Default     | Description                                                              |
+| -------------------------------- | ----------- | ------------------------------------------------------------------------ |
+| `METRICS_ENABLED`                | `false`     | Serve Prometheus metrics at `GET /metrics`                               |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`    | (empty)     | OTLP/HTTP collector base URL, e.g. `http://localhost:4318`; empty turns trace and metric export off |
+| `OTEL_EXPORTER_OTLP_HEADERS`     | (empty)     | Headers sent with every export, `key=value` pairs separated by commas, e.g. `authorization=<ingestion key>`. Secret |
+| `OTEL_SERVICE_NAME`              | `edgy`      | Service name attached to every signal                                    |
+| `OTEL_EXPORT_INTERVAL`           | `5 seconds` | How often buffered traces, metrics and logs are sent                     |
+| `OTEL_EXPORTER_OTLP_COMPRESSION` | `gzip`      | Compression of export requests: `gzip` or `none`                         |
+| `OTEL_TRACES_SAMPLE_RATIO`       | `1`         | Fraction of requests whose trace is recorded, from 0 to 1                |
+
+Telemetry is OpenTelemetry over HTTP with JSON bodies (no gRPC), so it works with ClickStack/HyperDX,
+Grafana, Honeycomb or any OpenTelemetry collector. It is off until an endpoint is set. Traces and
+metrics follow the endpoint; logs are sent when `LOG_TRANSPORT` includes `otlp`.
+
+- **Traces** have a server span per request named after the route (`GET /api/users/:id`), with the
+  database calls beneath it. A `traceparent` header from the caller continues its trace, and the id
+  comes back as `metadata.trace_id`, so a report from a client can be found. A `404` or a validation
+  error is not an error span; a `5xx` is.
+- **Sampling.** `OTEL_TRACES_SAMPLE_RATIO=0.1` records one request in ten. A caller's sampled trace is
+  always kept.
+- **Delivery never slows a request.** Everything is buffered and sent in the background. If the
+  collector fails, export pauses for a minute and drops what it held rather than building up memory.
 
 > [!WARNING]
 > `/metrics` has no authentication. Enable it only where the port is not reachable from the internet.
@@ -113,7 +143,10 @@ proxy, otherwise every client appears to have the proxy's address.
 
 On Workers the same variables go under `vars` in `wrangler.jsonc` (secrets through
 `wrangler secret put`). A Worker always uses D1, so `DATABASE_DRIVER` and `DATABASE_PATH` have no
-effect there; the binding is the one named by `D1_BINDING`.
+effect there; the binding is the one named by `D1_BINDING`. `LOG_TRANSPORT` can be `console`, `otlp` or
+both (`file` has no meaning there), and `RATE_LIMIT_STORE=redis` is not available on Workers.
+Telemetry is flushed after a response, at most once per `OTEL_EXPORT_INTERVAL`, so the last
+requests before an idle period are sent when the next one arrives.
 
 ## Example
 

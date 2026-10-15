@@ -86,6 +86,19 @@ Behind a load balancer, set `SHUTDOWN_DRAIN_DELAY` to a few seconds: on a stop s
 answers `503` first, and the server closes the listener only after that pause, so the balancer stops
 sending traffic before connections are refused.
 
+## Telemetry and overload
+
+Set `OTEL_EXPORTER_OTLP_ENDPOINT` (and, if the collector wants one, `OTEL_EXPORTER_OTLP_HEADERS`) to
+send traces and metrics to an OpenTelemetry collector over HTTP; add `otlp` to `LOG_TRANSPORT` to send
+logs too. In production keep the ratio under control with `OTEL_TRACES_SAMPLE_RATIO`: recording every
+request costs a few percent of throughput (about 7% on a laptop at full sampling), and a tenth of that
+is rarely a loss. If the collector is unreachable, export pauses and drops its buffer; requests are
+unaffected.
+
+Behind several instances, set `RATE_LIMIT_STORE=redis` with a `REDIS_URL` so the rate limit is shared,
+not multiplied. `MAX_IN_FLIGHT` caps the requests one process handles at once; past it the server answers
+`503` straight away, which lets a load balancer retry elsewhere instead of every request slowing down.
+
 ## Build configuration
 
 `builder/builder.config.ts` is optional; every field has a sensible default. Common options:

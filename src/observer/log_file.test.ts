@@ -1,9 +1,9 @@
-import { NodeServices } from '@effect/platform-node'
+import * as NodeServices from '@effect/platform-node/NodeServices'
+import { afterAll, describe, expect, it } from '@effect/vitest'
 import { Effect, ManagedRuntime } from 'effect'
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterAll, describe, expect, it } from 'vitest'
 import { type LogEntry, type LogFileOptions, makeRotatingFile, rotationStamp } from './log_file.ts'
 
 const at = (iso: string): number => Date.parse(iso)

@@ -12,6 +12,15 @@ const httpDuration = Metric.timer('http_request_duration_ms', {
   boundaries: [5, 10, 25, 50, 100, 250, 500, 1000]
 })
 
+/** Requests refused by the overload guard (`MAX_IN_FLIGHT`). */
+const httpShed = Metric.counter('http_requests_shed_total', {
+  description: 'Requests refused with 503 because too many were already in flight',
+  incremental: true
+})
+
+/** Counts one request refused by the overload guard. */
+export const recordShedRequest: Effect.Effect<void> = Metric.update(httpShed, 1)
+
 /**
  * Records one finished request. Called from the HTTP observer for **every**
  * response (including 404s and errors), so the counter and the timer agree.

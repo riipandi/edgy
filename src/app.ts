@@ -4,6 +4,8 @@ import { renderHTTPError } from './kernel/http/errors.ts'
 import { type HttpRuntime, provideRuntime } from './kernel/http/runtime.ts'
 import { bodyLimit } from './middleware/body_limit.ts'
 import { cors } from './middleware/cors.ts'
+import { loadShedding } from './middleware/load_shedding.ts'
+import type { RateCheck } from './middleware/rate_limit.ts'
 import { requestId } from './middleware/request_id.ts'
 import { securityHeaders } from './middleware/security_headers.ts'
 import { httpObserver } from './observer/http_observer.ts'
@@ -13,6 +15,8 @@ import { createRoutePlugins } from './routes/route.ts'
 export interface AppOptions {
   readonly runtime: HttpRuntime
   readonly config: AppConfig
+  /** How API requests are counted against the rate limit; in-process memory when absent. */
+  readonly rateCheck?: RateCheck
 }
 
 /**
@@ -22,7 +26,8 @@ export interface AppOptions {
  * immediately and runs middleware in registration order, so the runtime is
  * attached first, CORS answers a preflight before anything else, the request id
  * is assigned next, security headers follow so every later response (errors
- * included) carries them, the observer reads the id, and the body limit applies
+ * included) carries them, the observer reads the id, the overload guard refuses excess
+ * requests before anything else costs work, and the body limit applies
  * last before the routes (a rejected body is still logged and carries the id). Route
  * groups mount after the globals, which guarantees the globals wrap them.
  *
@@ -38,7 +43,8 @@ export const createApp = (options: AppOptions): H3 =>
       requestId(),
       securityHeaders(),
       httpObserver(),
+      loadShedding(),
       bodyLimit(options.config.server.bodyLimit),
-      ...createRoutePlugins(options.config)
+      ...createRoutePlugins(options.config, options.rateCheck)
     ]
   })

@@ -47,6 +47,8 @@ export interface Reply {
   readonly data?: unknown
   readonly message?: string
   readonly pagination?: PageSummary
+  /** Id of the recorded trace this response belongs to; set only when traces are exported. */
+  readonly traceId?: string
 }
 
 /** The id minted by the `requestId` plugin; `unknown` only if that plugin was not registered. */
@@ -61,6 +63,7 @@ export const successEnvelope = (event: H3Event, statusCode: number, reply: Reply
   const base = {
     status_code: statusCode,
     request_id: requestIdFor(event),
+    ...(reply.traceId === undefined ? {} : { trace_id: reply.traceId }),
     ...(rateLimit === undefined ? {} : { rate_limit: rateLimit })
   }
   const body = {

@@ -1,8 +1,10 @@
 import { Duration, Effect } from 'effect'
+import { RateLimiter } from 'effect/persistence'
 import { serve } from 'h3'
 import { createApp } from './app.ts'
 import { ConfigService } from './kernel/config/service.ts'
 import { makeHttpRuntime } from './kernel/http/runtime.ts'
+import { makeSharedRateCheck } from './middleware/rate_limit_shared.ts'
 
 /**
  * Starts the HTTP server and keeps the effect running until it is interrupted
@@ -21,7 +23,23 @@ export const serveHttp = Effect.gen(function* () {
   const config = yield* ConfigService
   const { host, port, shutdownTimeout, shutdownDrainDelay } = config.server
   const runtime = yield* makeHttpRuntime
-  const app = createApp({ runtime, config })
+  const limiter = yield* RateLimiter.RateLimiter
+  const { rateLimitMax, rateLimitWindow, rateLimitStore } = config.security
+  const app = createApp({
+    runtime,
+    config,
+    // Shared counting only when asked for; otherwise the in-process counter serves.
+    ...(rateLimitStore === 'redis' && rateLimitMax > 0
+      ? {
+          rateCheck: makeSharedRateCheck({
+            limiter,
+            max: rateLimitMax,
+            window: rateLimitWindow,
+            warn: (message, cause) => runtime.runSync(Effect.logWarning(message, cause))
+          })
+        }
+      : {})
+  })
 
   const server = yield* Effect.acquireRelease(
     Effect.sync(() => serve(app, { port, hostname: host, silent: true, gracefulShutdown: false })),
@@ -42,8 +60,8 @@ export const serveHttp = Effect.gen(function* () {
             : `Shutting down, waiting for ${pending} request(s) in flight`
         )
 
-        // Stops listening and closes idle connections; resolves only when every
-        // connection has ended, so it is awaited last.
+        // Stops listening and closes idle connections; resolves only when
+        // every connection has ended, so it is awaited last.
         const closed = instance.close()
         yield* runtime.inFlight.drained.pipe(
           Effect.timeoutOrElse({
