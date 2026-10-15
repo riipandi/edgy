@@ -97,7 +97,11 @@ describe('file transport', () => {
     const core = LoggerLayer.pipe(
       Layer.provide(Layer.mergeAll(NodeServices.layer, TelemetryRuntimeLayer)),
       Layer.provideMerge(ConfigLayer),
-      Layer.provide(ConfigProvider.layer(ConfigProvider.fromEnvRecord({ ...env, LOG_FILE: file })))
+      Layer.provide(
+        ConfigProvider.layer(
+          ConfigProvider.fromEnvRecord({ OTEL_SDK_DISABLED: 'true', ...env, LOG_FILE: file })
+        )
+      )
     )
     const runtime = ManagedRuntime.make(core)
     await runtime.runPromise(
@@ -149,6 +153,7 @@ describe('file rotation through the logger', () => {
       Layer.provide(
         ConfigProvider.layer(
           ConfigProvider.fromEnvRecord({
+            OTEL_SDK_DISABLED: 'true',
             LOG_TRANSPORT: 'file',
             LOG_ROTATION: 'daily',
             LOG_FILE: join(dir, 'edgy.jsonl')

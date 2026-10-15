@@ -3,7 +3,7 @@ import { corsConfig } from './cors.ts'
 import { databaseConfig } from './database.ts'
 import { group, type ValueOf } from './field.ts'
 import { loggingConfig } from './logging.ts'
-import { observabilityConfig } from './observability.ts'
+import { observabilityConfig, telemetryEnabled } from './observability.ts'
 import { securityConfig } from './security.ts'
 import { serverConfig } from './server.ts'
 
@@ -12,6 +12,7 @@ export type { DatabaseConfig } from './database.ts'
 export type { FieldSpec } from './field.ts'
 export type { LogFormat, LoggingConfig } from './logging.ts'
 export type { ObservabilityConfig } from './observability.ts'
+export { telemetryEnabled } from './observability.ts'
 export type { SecurityConfig } from './security.ts'
 export type { ServerConfig } from './server.ts'
 
@@ -40,11 +41,12 @@ export const appConfig = group(
   {
     // A rule that spans sections cannot live in either one.
     transform: (raw) =>
-      raw.logging.transport.includes('otlp') && raw.observability.otlpEndpoint === ''
+      raw.logging.transport.includes('otlp') && !telemetryEnabled(raw.observability)
         ? Effect.fail(
             new Config.ConfigError(
               new ConfigProvider.SourceError({
-                message: 'LOG_TRANSPORT includes otlp, which requires OTEL_EXPORTER_OTLP_ENDPOINT'
+                message:
+                  'LOG_TRANSPORT includes otlp, which needs telemetry on (OTEL_SDK_DISABLED must not be true)'
               })
             )
           )

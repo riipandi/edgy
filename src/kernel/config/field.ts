@@ -38,13 +38,17 @@ export const text = (name: string, fallback: string, description: string) =>
 
 /**
  * A secret: parsed as `Redacted`, so it prints as `<redacted>` in logs, errors and
- * `inspect`, and read only through `Redacted.value`. Its default is empty and it is
- * never written to `.env.example` with a value.
+ * `inspect`, and read only through `Redacted.value`.
+ *
+ * `fallback` is a **development** value for a service that runs on the developer's machine
+ * (the Docker Compose stack): it makes the default configuration work with no setup, and it
+ * is written to `.env.example` as it is. It must therefore never be a real credential.
+ * Production sets its own through the environment, or the process cannot reach the service.
  */
-export const secret = (name: string, description: string) =>
+export const secret = (name: string, description: string, fallback = '') =>
   field(
-    { name, description, kind: 'secret', default: '' },
-    Config.Redacted(name).pipe(Config.withDefault(Redacted.make('')))
+    { name, description, kind: 'secret', default: fallback },
+    Config.Redacted(name).pipe(Config.withDefault(Redacted.make(fallback)))
   )
 
 /** A fraction between 0 and 1, both included (a sampling or load ratio). */
@@ -85,16 +89,46 @@ export const flag = (name: string, fallback: boolean, description: string) =>
     Config.Boolean(name).pipe(Config.withDefault(fallback))
   )
 
-/** A duration written as `250 millis`, `30 seconds`, `1 minute`, … */
-export const duration = (
+/**
+ * A duration written as a whole number of **milliseconds** (`REQUEST_TIMEOUT=30000`).
+ * One unit everywhere, so a value never needs its suffix read, and a leftover `30 seconds`
+ * from an older file fails at startup naming the variable instead of meaning something
+ * else. `min` rejects values that make no sense (a zero rate-limit window); the field
+ * parses to a `Duration`, which is what the code consumes.
+ */
+export const milliseconds = (
   name: string,
-  fallback: Extract<Duration.Input, string>,
-  description: string
-) =>
-  field(
-    { name, description, kind: 'duration', default: fallback },
-    Config.Duration(name).pipe(Config.withDefault(Duration.fromInputUnsafe(fallback)))
+  fallback: number,
+  description: string,
+  options: { readonly min?: number } = {}
+) => {
+  const min = options.min ?? 0
+  const reject = (got: string) =>
+    Effect.fail(
+      new Config.ConfigError(
+        new ConfigProvider.SourceError({
+          message: `${name} must be a whole number of milliseconds, at least ${min} (got "${got}")`
+        })
+      )
+    )
+
+  return field(
+    { name, description, kind: 'milliseconds', default: String(fallback) },
+    // Read as text first: Effect's integer parser would answer `30 seconds` with a
+    // generic "expected a finite number", which names no unit and gives no way forward.
+    Config.String(name).pipe(
+      Config.withDefault(String(fallback)),
+      Config.mapEffect((raw): Effect.Effect<Duration.Duration, Config.ConfigError> => {
+        const digits = raw.trim()
+        if (!/^-?\d+$/.test(digits)) return reject(raw)
+        const value = Number(digits)
+        return Number.isSafeInteger(value) && value >= min
+          ? Effect.succeed(Duration.millis(value))
+          : reject(raw)
+      })
+    )
   )
+}
 
 export const choice = <const L extends readonly [string, ...string[]]>(
   name: string,

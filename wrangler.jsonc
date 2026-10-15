@@ -40,6 +40,10 @@
         }
     ],
     "vars": {
+        // Off: the default endpoint is the local ClickStack of `pnpm compose:up`, which a
+        // deployed Worker cannot reach. To export, set OTEL_EXPORTER_OTLP_ENDPOINT and
+        // OTEL_EXPORTER_OTLP_HEADERS (a secret) and remove this line.
+        "OTEL_SDK_DISABLED": "true",
         // Cloudflare always sets CF-Connecting-IP, so it is safe to trust here.
         "LOG_FORMAT": "json",
         "TRUST_PROXY": "true",

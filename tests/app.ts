@@ -17,7 +17,9 @@ import { ServicesLayer } from '../src/services.ts'
 /** Variables every test app starts from: a private in-memory database and no log output. */
 const BASE_ENV: Readonly<Record<string, string>> = {
   DATABASE_PATH: ':memory:',
-  LOG_LEVEL: 'None'
+  LOG_LEVEL: 'None',
+  // The defaults point at the Docker Compose collector; a test must not export to it.
+  OTEL_SDK_DISABLED: 'true'
 }
 
 /** Services available to {@link TestApp.run}. */

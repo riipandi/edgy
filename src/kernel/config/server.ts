@@ -1,4 +1,4 @@
-import { duration, flag, group, int, port, text, type ValueOf } from './field.ts'
+import { flag, group, int, milliseconds, port, text, type ValueOf } from './field.ts'
 
 /** HTTP server: where it listens, what it enforces per request, how it stops. */
 export const serverConfig = group(
@@ -6,19 +6,20 @@ export const serverConfig = group(
     host: text('HOST', '0.0.0.0', 'Interface the HTTP server binds to'),
     port: port('PORT', 3000, 'Port the HTTP server listens on'),
     bodyLimit: int('BODY_LIMIT', 1_048_576, 'Largest accepted request body, in bytes (413 above)'),
-    requestTimeout: duration(
+    requestTimeout: milliseconds(
       'REQUEST_TIMEOUT',
-      '30 seconds',
-      'A request running longer than this is interrupted and answered with 504'
+      30_000,
+      'A request running longer than this is interrupted and answered with 504',
+      { min: 1 }
     ),
-    shutdownTimeout: duration(
+    shutdownTimeout: milliseconds(
       'SHUTDOWN_TIMEOUT',
-      '10 seconds',
+      10_000,
       'How long a graceful shutdown waits for in-flight requests before closing them'
     ),
-    shutdownDrainDelay: duration(
+    shutdownDrainDelay: milliseconds(
       'SHUTDOWN_DRAIN_DELAY',
-      '0 millis',
+      0,
       'Pause between /health turning 503 and the server closing, so a load balancer can drain first'
     ),
     maxInFlight: int(

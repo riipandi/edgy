@@ -41,7 +41,8 @@ describe('exported telemetry', () => {
         OTEL_EXPORTER_OTLP_ENDPOINT: collector.url,
         OTEL_EXPORTER_OTLP_HEADERS: 'authorization=dev-key',
         OTEL_EXPORTER_OTLP_COMPRESSION: 'none',
-        OTEL_EXPORT_INTERVAL: '100 millis',
+        OTEL_SDK_DISABLED: 'false',
+        OTEL_EXPORT_INTERVAL: '100',
         ...env
       },
       { fetch: collector.fetch }

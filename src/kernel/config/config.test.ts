@@ -1,8 +1,8 @@
 import { describe, expect, it } from '@effect/vitest'
-import { ConfigProvider, Effect } from 'effect'
+import { ConfigProvider, Duration, Effect, Redacted } from 'effect'
 import { readFileSync } from 'node:fs'
 import { renderExample } from './example.ts'
-import { appConfig } from './service.ts'
+import { appConfig, telemetryEnabled } from './service.ts'
 
 const parse = (env: Record<string, string>) =>
   Effect.runPromise(
@@ -38,6 +38,69 @@ describe('configuration', () => {
       expect((await parse({ LOG_ROTATION: rotation })).logging.rotation).toBe(rotation)
     }
     await expect(parse({ LOG_ROTATION: 'yearly' })).rejects.toThrow(/LOG_ROTATION/)
+  })
+
+  it('reads every duration as whole milliseconds', async () => {
+    const config = await parse({
+      REQUEST_TIMEOUT: '1500',
+      SHUTDOWN_TIMEOUT: '2500',
+      SHUTDOWN_DRAIN_DELAY: '300',
+      LOG_FLUSH_INTERVAL: '50',
+      RATE_LIMIT_WINDOW: '120000',
+      OTEL_EXPORT_INTERVAL: '750'
+    })
+    expect(Duration.toMillis(config.server.requestTimeout)).toBe(1500)
+    expect(Duration.toMillis(config.server.shutdownTimeout)).toBe(2500)
+    expect(Duration.toMillis(config.server.shutdownDrainDelay)).toBe(300)
+    expect(Duration.toMillis(config.logging.flushInterval)).toBe(50)
+    expect(Duration.toMillis(config.security.rateLimitWindow)).toBe(120_000)
+    expect(Duration.toMillis(config.observability.exportInterval)).toBe(750)
+  })
+
+  it('refuses a duration with a unit, naming the variable', async () => {
+    await expect(parse({ REQUEST_TIMEOUT: '30 seconds' })).rejects.toThrow(
+      /REQUEST_TIMEOUT must be a whole number of milliseconds/
+    )
+    await expect(parse({ RATE_LIMIT_WINDOW: '1 minute' })).rejects.toThrow(/RATE_LIMIT_WINDOW/)
+    await expect(parse({ REQUEST_TIMEOUT: '1.5' })).rejects.toThrow(/REQUEST_TIMEOUT/)
+  })
+
+  it('refuses a duration below its minimum', async () => {
+    await expect(parse({ REQUEST_TIMEOUT: '0' })).rejects.toThrow(/REQUEST_TIMEOUT.*at least 1/)
+    await expect(parse({ RATE_LIMIT_WINDOW: '-5' })).rejects.toThrow(/RATE_LIMIT_WINDOW/)
+    // zero is meaningful for a pause
+    expect(
+      Duration.toMillis((await parse({ SHUTDOWN_DRAIN_DELAY: '0' })).server.shutdownDrainDelay)
+    ).toBe(0)
+  })
+
+  it('defaults the services of the Docker Compose stack, so development needs no setup', async () => {
+    const config = await parse({})
+    expect(config.observability.otlpEndpoint).toBe('http://localhost:4318')
+    expect(Redacted.value(config.observability.otlpHeaders)).toBe(
+      'authorization=edgy-dev-ingestion-key'
+    )
+    expect(Redacted.value(config.security.redisUrl)).toBe('redis://:securedb@localhost:6379')
+    expect(telemetryEnabled(config.observability)).toBe(true)
+  })
+
+  it('turns telemetry off with OTEL_SDK_DISABLED, whatever the endpoint', async () => {
+    const config = await parse({ OTEL_SDK_DISABLED: 'true' })
+    expect(telemetryEnabled(config.observability)).toBe(false)
+  })
+
+  it('does not allow shipping logs while telemetry is off', async () => {
+    await expect(
+      parse({ LOG_TRANSPORT: 'console,otlp', OTEL_SDK_DISABLED: 'true' })
+    ).rejects.toThrow(/otlp/)
+    const ok = await parse({ LOG_TRANSPORT: 'console,otlp' })
+    expect(ok.logging.transport).toEqual(['console', 'otlp'])
+  })
+
+  it('does not print a secret', async () => {
+    const config = await parse({ OTEL_EXPORTER_OTLP_HEADERS: 'authorization=real-secret' })
+    expect(JSON.stringify(config.observability.otlpHeaders)).not.toContain('real-secret')
+    expect(Redacted.value(config.observability.otlpHeaders)).toBe('authorization=real-secret')
   })
 
   it('rejects an unknown or empty LOG_TRANSPORT', async () => {
@@ -86,7 +149,7 @@ describe('.env.example', () => {
     await expect(parse(defaults)).resolves.toBeDefined()
   })
 
-  it('quotes values that contain spaces', () => {
-    expect(renderExample(appConfig.specs)).toContain('REQUEST_TIMEOUT="30 seconds"')
+  it('writes durations as plain milliseconds', () => {
+    expect(renderExample(appConfig.specs)).toContain('REQUEST_TIMEOUT=30000')
   })
 })

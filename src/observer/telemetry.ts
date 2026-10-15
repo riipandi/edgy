@@ -8,7 +8,11 @@ import {
   OtlpTracer
 } from 'effect/observability'
 import pkg from '../../package.json' with { type: 'json' }
-import { ConfigService, type ObservabilityConfig } from '../kernel/config/service.ts'
+import {
+  ConfigService,
+  type ObservabilityConfig,
+  telemetryEnabled
+} from '../kernel/config/service.ts'
 
 /**
  * Parses `OTEL_EXPORTER_OTLP_HEADERS` (`key=value,key2=value2`, the OpenTelemetry
@@ -58,13 +62,6 @@ const signalUrl = (config: ObservabilityConfig, signal: 'traces' | 'metrics' | '
   `${config.otlpEndpoint.replace(/\/+$/, '')}/v1/${signal}`
 
 /**
- * Whether traces and metrics are exported: only when a collector endpoint is set.
- * Everything telemetry-related keys off this, so an unconfigured process pays nothing
- * beyond the spans and instruments it already creates.
- */
-export const telemetryEnabled = (config: ObservabilityConfig): boolean => config.otlpEndpoint !== ''
-
-/**
  * Trace and metric export over OTLP/HTTP with JSON bodies (no gRPC, no protobuf
  * dependency), plus the `Flusher` that drains every exporter on demand.
  *
@@ -76,7 +73,7 @@ export const telemetryEnabled = (config: ObservabilityConfig): boolean => config
  * why the layer sits in `CoreLayer`, flushed after the server has stopped. A Worker has
  * no shutdown, so it calls `Flusher.flush` from `waitUntil` after each request.
  *
- * With no endpoint configured only the `Flusher` is provided, and flushing it is a no-op.
+ * With telemetry off (`OTEL_SDK_DISABLED`, or no endpoint) only the `Flusher` is provided, and flushing it is a no-op.
  */
 export const TelemetryLayer = Layer.unwrap(
   Effect.gen(function* () {

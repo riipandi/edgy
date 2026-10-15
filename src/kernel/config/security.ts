@@ -1,6 +1,4 @@
-import { Config, ConfigProvider, Effect } from 'effect'
-import { Redacted } from 'effect'
-import { choice, duration, group, int, secret, type ValueOf } from './field.ts'
+import { choice, group, int, milliseconds, secret, type ValueOf } from './field.ts'
 
 /** Abuse protection for the API routes. */
 export const securityConfig = group(
@@ -10,7 +8,9 @@ export const securityConfig = group(
       0,
       'Requests allowed per client per window on /api; 0 disables rate limiting'
     ),
-    rateLimitWindow: duration('RATE_LIMIT_WINDOW', '1 minute', 'Length of the rate-limit window'),
+    rateLimitWindow: milliseconds('RATE_LIMIT_WINDOW', 60_000, 'Length of the rate-limit window', {
+      min: 1
+    }),
     rateLimitStore: choice(
       'RATE_LIMIT_STORE',
       ['memory', 'redis'],
@@ -19,22 +19,11 @@ export const securityConfig = group(
     ),
     redisUrl: secret(
       'REDIS_URL',
-      'Redis or Valkey URL for RATE_LIMIT_STORE=redis, e.g. redis://:password@localhost:6379'
+      'Redis or Valkey URL used when RATE_LIMIT_STORE=redis; the default is the Valkey of `pnpm compose:up`',
+      'redis://:securedb@localhost:6379'
     )
   },
-  {
-    title: 'Security',
-    transform: (raw) =>
-      raw.rateLimitStore === 'redis' && Redacted.value(raw.redisUrl) === ''
-        ? Effect.fail(
-            new Config.ConfigError(
-              new ConfigProvider.SourceError({
-                message: 'RATE_LIMIT_STORE=redis requires REDIS_URL'
-              })
-            )
-          )
-        : Effect.succeed(raw)
-  }
+  { title: 'Security' }
 )
 
 export type SecurityConfig = ValueOf<typeof securityConfig>

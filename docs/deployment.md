@@ -88,9 +88,9 @@ sending traffic before connections are refused.
 
 ## Telemetry and overload
 
-Set `OTEL_EXPORTER_OTLP_ENDPOINT` (and, if the collector wants one, `OTEL_EXPORTER_OTLP_HEADERS`) to
-send traces and metrics to an OpenTelemetry collector over HTTP; add `otlp` to `LOG_TRANSPORT` to send
-logs too. In production keep the ratio under control with `OTEL_TRACES_SAMPLE_RATIO`: recording every
+The defaults of `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS` and `REDIS_URL` are the
+local development stack. In production set your own (the collector's URL and key, your Redis), or set
+`OTEL_SDK_DISABLED=true` if there is no collector; add `otlp` to `LOG_TRANSPORT` to send logs too. In production keep the ratio under control with `OTEL_TRACES_SAMPLE_RATIO`: recording every
 request costs a few percent of throughput (about 7% on a laptop at full sampling), and a tenth of that
 is rarely a loss. If the collector is unreachable, export pauses and drops its buffer; requests are
 unaffected.

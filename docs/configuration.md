@@ -4,7 +4,12 @@ All configuration is read from environment variables, validated at startup. A va
 but invalid (a non-numeric `PORT`, an unknown `DATABASE_DRIVER`) stops the process with an error that
 names the variable, instead of failing on the first request.
 
-Every variable is optional. The defaults suit local development.
+Every variable is optional. The defaults suit local development: they point at the services of
+`pnpm compose:up` (ClickStack for telemetry, Valkey for the shared rate limit), so a fresh checkout
+needs no setup. A deployment overrides them through its environment.
+
+Durations are whole numbers of **milliseconds** (`REQUEST_TIMEOUT=30000` is thirty seconds). A value
+with a unit, such as `30 seconds`, is refused at startup with a message naming the variable.
 
 ## Example file
 
@@ -27,9 +32,9 @@ The command never writes a real `.env` file.
 | `HOST`                 | `0.0.0.0`    | Bind address                                                                |
 | `PORT`                 | `3000`       | Bind port                                                                   |
 | `BODY_LIMIT`           | `1048576`    | Largest accepted request body in bytes; bigger bodies get `413`             |
-| `REQUEST_TIMEOUT`      | `30 seconds` | A request that runs longer is cancelled and answered with `504`             |
-| `SHUTDOWN_TIMEOUT`     | `10 seconds` | How long a stop signal waits for requests still being handled               |
-| `SHUTDOWN_DRAIN_DELAY` | `0 millis`   | Pause between `/health` turning `503` and the server closing                |
+| `REQUEST_TIMEOUT`      | `30000`      | Milliseconds a request may run before it is cancelled and answered with `504` |
+| `SHUTDOWN_TIMEOUT`     | `10000`      | Milliseconds a stop signal waits for requests still being handled           |
+| `SHUTDOWN_DRAIN_DELAY` | `0`          | Milliseconds between `/health` turning `503` and the server closing         |
 | `MAX_IN_FLIGHT`        | `1024`       | Requests handled at once before new ones are refused with `503`; `0` turns the guard off |
 | `TRUST_PROXY`          | `false`      | Read the client address from proxy headers (only behind a proxy you control) |
 
@@ -52,7 +57,7 @@ The command never writes a real `.env` file.
 | `LOG_ROTATION`       | `daily`      | How often a new log file starts: `hourly`, `daily`, `weekly` or `monthly` (UTC) |
 | `LOG_FILE_MAX_FILES` | `14`         | Log files kept, the current one included; older ones are deleted. `0` keeps every file |
 | `LOG_FORMAT`         | `pretty`     | Console format: `pretty` for readable lines, `json` for one JSON object per line |
-| `LOG_FLUSH_INTERVAL` | `250 millis` | How long log lines are buffered before they are written together (Node.js) |
+| `LOG_FLUSH_INTERVAL` | `250`        | Milliseconds log lines are buffered before they are written together (Node.js) |
 
 The file always holds one JSON object per line, whatever `LOG_FORMAT` says, with the keys in a fixed
 order that starts with the time (`timestamp`, `level`, `message`, `annotations`, then `cause` when there is
@@ -81,9 +86,9 @@ logs go to the platform's stream.
 | Variable            | Default    | Description                                                              |
 | ------------------- | ---------- | ------------------------------------------------------------------------ |
 | `RATE_LIMIT_MAX`    | `0`        | Requests per client per window on `/api`; `0` turns rate limiting off    |
-| `RATE_LIMIT_WINDOW` | `1 minute` | Length of the rate-limit window                                          |
+| `RATE_LIMIT_WINDOW` | `60000`    | Length of the rate-limit window, in milliseconds                         |
 | `RATE_LIMIT_STORE`  | `memory`   | Where counters live: `memory` (per process) or `redis` (shared by every instance, Node.js only) |
-| `REDIS_URL`         | (empty)    | Redis or Valkey URL, required for `RATE_LIMIT_STORE=redis`, e.g. `redis://:password@localhost:6379`. Secret |
+| `REDIS_URL`         | `redis://:securedb@localhost:6379` | Redis or Valkey URL, used when `RATE_LIMIT_STORE=redis`. Secret; the default is the Valkey of `pnpm compose:up` |
 
 With `memory` each running instance keeps its own counts, so the effective limit is `RATE_LIMIT_MAX`
 times the number of instances. With `redis` every instance counts against one allowance, which makes
@@ -101,16 +106,22 @@ proxy, otherwise every client appears to have the proxy's address.
 | Variable                         | Default     | Description                                                              |
 | -------------------------------- | ----------- | ------------------------------------------------------------------------ |
 | `METRICS_ENABLED`                | `false`     | Serve Prometheus metrics at `GET /metrics`                               |
-| `OTEL_EXPORTER_OTLP_ENDPOINT`    | (empty)     | OTLP/HTTP collector base URL, e.g. `http://localhost:4318`; empty turns trace and metric export off |
-| `OTEL_EXPORTER_OTLP_HEADERS`     | (empty)     | Headers sent with every export, `key=value` pairs separated by commas, e.g. `authorization=<ingestion key>`. Secret |
+| `OTEL_SDK_DISABLED`              | `false`     | `true` turns trace, metric and `otlp` log export off, whatever the endpoint |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`    | `http://localhost:4318` | OTLP/HTTP collector base URL; the default is the ClickStack of `pnpm compose:up` |
+| `OTEL_EXPORTER_OTLP_HEADERS`     | `authorization=edgy-dev-ingestion-key` | Headers sent with every export, `key=value` pairs separated by commas. Secret; the default is the development key of `pnpm compose:up` |
 | `OTEL_SERVICE_NAME`              | `edgy`      | Service name attached to every signal                                    |
-| `OTEL_EXPORT_INTERVAL`           | `5 seconds` | How often buffered traces, metrics and logs are sent                     |
+| `OTEL_EXPORT_INTERVAL`           | `5000`      | Milliseconds between exports of buffered traces, metrics and logs        |
 | `OTEL_EXPORTER_OTLP_COMPRESSION` | `gzip`      | Compression of export requests: `gzip` or `none`                         |
 | `OTEL_TRACES_SAMPLE_RATIO`       | `1`         | Fraction of requests whose trace is recorded, from 0 to 1                |
 
 Telemetry is OpenTelemetry over HTTP with JSON bodies (no gRPC), so it works with ClickStack/HyperDX,
-Grafana, Honeycomb or any OpenTelemetry collector. It is off until an endpoint is set. Traces and
-metrics follow the endpoint; logs are sent when `LOG_TRANSPORT` includes `otlp`.
+Grafana, Honeycomb or any OpenTelemetry collector. It is on by default and aimed at the local
+collector: where none is listening the exporters fail quietly and pause, so nothing breaks, but a
+deployment without a collector should set `OTEL_SDK_DISABLED=true` instead of exporting to localhost.
+Traces and metrics follow the endpoint; logs are sent when `LOG_TRANSPORT` includes `otlp`.
+
+The development key and password above belong to the local Docker stack. Production sets its own
+`OTEL_EXPORTER_OTLP_HEADERS` and `REDIS_URL` through the environment.
 
 - **Traces** have a server span per request named after the route (`GET /api/users/:id`), with the
   database calls beneath it. A `traceparent` header from the caller continues its trace, and the id

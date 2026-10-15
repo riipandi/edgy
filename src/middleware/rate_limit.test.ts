@@ -14,7 +14,7 @@ describe('rate limiting', () => {
   })
 
   it('counts down in the envelope and headers, then answers 429 with retry-after', async () => {
-    t = await makeTestApp({ RATE_LIMIT_MAX: '2', RATE_LIMIT_WINDOW: '1 minute' })
+    t = await makeTestApp({ RATE_LIMIT_MAX: '2', RATE_LIMIT_WINDOW: '60000' })
 
     const first = await t.request('/api/users')
     const firstBody: any = await first.json()

@@ -1,6 +1,6 @@
 import { type Duration, Effect, type Exit } from 'effect'
 import { definePlugin, type H3Event, HTTPError } from 'h3'
-import { ConfigService } from '../config/service.ts'
+import { ConfigService, telemetryEnabled } from '../config/service.ts'
 import { type InFlight, makeInFlight } from './inflight.ts'
 
 /**
@@ -67,7 +67,7 @@ export const makeHttpRuntime: Effect.Effect<HttpRuntime, never, HttpEnv | Config
       inFlight: makeInFlight(),
       maxInFlight,
       tracing: {
-        enabled: observability.otlpEndpoint !== '',
+        enabled: telemetryEnabled(observability),
         sampleRatio: observability.sampleRatio
       },
       isDraining: () => draining,

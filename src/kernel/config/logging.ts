@@ -1,4 +1,13 @@
-import { choice, choiceList, duration, group, int, logLevel, text, type ValueOf } from './field.ts'
+import {
+  choice,
+  choiceList,
+  group,
+  int,
+  logLevel,
+  milliseconds,
+  text,
+  type ValueOf
+} from './field.ts'
 
 /** Logging: severity, format and how often buffered lines are written. */
 export const loggingConfig = group(
@@ -12,7 +21,7 @@ export const loggingConfig = group(
       'LOG_TRANSPORT',
       ['console', 'file', 'otlp'],
       ['console'],
-      'Where logs go: any of console, file, otlp, comma-separated. otlp needs OTEL_EXPORTER_OTLP_ENDPOINT. Workers use the console and otlp only'
+      'Where logs go: any of console, file, otlp, comma-separated. otlp needs telemetry on (OTEL_SDK_DISABLED not true). Workers use the console and otlp only'
     ),
     file: text(
       'LOG_FILE',
@@ -36,10 +45,11 @@ export const loggingConfig = group(
       'pretty',
       'Console format: human-readable lines, or one JSON object per line (the file is always JSON)'
     ),
-    flushInterval: duration(
+    flushInterval: milliseconds(
       'LOG_FLUSH_INTERVAL',
-      '250 millis',
-      'How long log lines are buffered before one batched write to stdout'
+      250,
+      'How long log lines are buffered before one batched write to stdout',
+      { min: 1 }
     )
   },
   { title: 'Logging' }
