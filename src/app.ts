@@ -1,5 +1,5 @@
 import { H3 } from 'h3'
-import type { CorsConfig } from './kernel/config.ts'
+import type { CorsConfig } from './kernel/config/service.ts'
 import { renderHTTPError } from './kernel/http/errors.ts'
 import { type HttpRuntime, provideRuntime } from './kernel/http/runtime.ts'
 import { bodyLimit } from './middleware/body_limit.ts'

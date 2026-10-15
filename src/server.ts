@@ -1,7 +1,7 @@
 import { Effect } from 'effect'
 import { serve } from 'h3'
 import { createApp } from './app.ts'
-import { ConfigService } from './kernel/config.ts'
+import { ConfigService } from './kernel/config/service.ts'
 import { makeHttpRuntime } from './kernel/http/runtime.ts'
 
 /**
@@ -18,7 +18,8 @@ import { makeHttpRuntime } from './kernel/http/runtime.ts'
  * for the whole timeout whenever a connection never completed a request.
  */
 export const serveHttp = Effect.gen(function* () {
-  const { host, port, cors, bodyLimit, shutdownTimeout } = yield* ConfigService
+  const { server: http, cors } = yield* ConfigService
+  const { host, port, bodyLimit, shutdownTimeout } = http
   const runtime = yield* makeHttpRuntime
   const app = createApp({ runtime, cors, bodyLimit })
 

@@ -1,5 +1,5 @@
 import { definePlugin, handleCors, type CorsOptions } from 'h3'
-import type { CorsConfig } from '../kernel/config.ts'
+import type { CorsConfig } from '../kernel/config/cors.ts'
 
 /** Translates the app's CORS configuration into h3's `CorsOptions`. */
 const toCorsOptions = (cors: CorsConfig): CorsOptions => ({

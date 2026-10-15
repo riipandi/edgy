@@ -1,5 +1,5 @@
 import { type Duration, Effect, Layer, Logger, References } from 'effect'
-import { ConfigService, type LogFormat } from '../kernel/config.ts'
+import { ConfigService, type LogFormat } from '../kernel/config/service.ts'
 
 type StructuredEntry =
   typeof Logger.formatStructured extends Logger.Logger<unknown, infer Output> ? Output : never
@@ -98,10 +98,13 @@ const makeBatchedStdout = (formatter: Logger.Logger<unknown, string>, window: Du
  */
 export const LoggerLayer: Layer.Layer<never, never, ConfigService> = Layer.unwrap(
   Effect.gen(function* () {
-    const { logLevel, logFormat, logFlushInterval } = yield* ConfigService
+    const { logging } = yield* ConfigService
     const colors = process.stdout.isTTY && process.env.NO_COLOR === undefined
-    const sink = makeBatchedStdout(makeFormatter(logFormat, colors), logFlushInterval)
+    const sink = makeBatchedStdout(makeFormatter(logging.format, colors), logging.flushInterval)
 
-    return Layer.merge(Logger.layer([sink]), Layer.succeed(References.MinimumLogLevel, logLevel))
+    return Layer.merge(
+      Logger.layer([sink]),
+      Layer.succeed(References.MinimumLogLevel, logging.level)
+    )
   })
 )

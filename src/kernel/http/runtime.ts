@@ -2,7 +2,7 @@ import { type Duration, Effect, type Exit } from 'effect'
 import { definePlugin, type H3Event } from 'h3'
 import type { DatabaseService } from '../../database/service.ts'
 import type { UserService } from '../../service/user_service.ts'
-import { ConfigService } from '../config.ts'
+import { ConfigService } from '../config/service.ts'
 import { type InFlight, makeInFlight } from './inflight.ts'
 
 /** Services an HTTP handler program may require. */
@@ -35,7 +35,7 @@ export interface HttpRuntime {
 /** Captures the current context into an {@link HttpRuntime}. */
 export const makeHttpRuntime: Effect.Effect<HttpRuntime, never, HttpEnv | ConfigService> =
   Effect.gen(function* () {
-    const { requestTimeout } = yield* ConfigService
+    const { requestTimeout } = (yield* ConfigService).server
     const services = yield* Effect.context<HttpEnv>()
     return {
       runPromiseExit: Effect.runPromiseExitWith(services),

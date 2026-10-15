@@ -3,7 +3,7 @@ import { Kysely, type LogEvent, sql } from 'kysely'
 import { mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
-import { ConfigService } from '../kernel/config.ts'
+import { ConfigService } from '../kernel/config/service.ts'
 import { DatabaseError } from '../kernel/errors.ts'
 import type { Database } from '../schemas/database.ts'
 import { NodeSQLiteDialect } from './dialect/sqlite-dialect.ts'
@@ -96,7 +96,8 @@ export class DatabaseService extends Context.Service<
   static readonly layer: Layer.Layer<DatabaseService, DatabaseError, ConfigService> = Layer.effect(
     DatabaseService,
     Effect.gen(function* () {
-      const { databasePath } = yield* ConfigService
+      const { database } = yield* ConfigService
+      const databasePath = database.path
       const log = yield* makeQueryLogger
 
       const connection = yield* Effect.acquireRelease(

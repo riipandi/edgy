@@ -4,7 +4,7 @@ import { DatabaseService } from '../database/service.ts'
 import { LoggerLayer } from '../observer/logger.ts'
 import { UserRepository } from '../repository/user_repo.ts'
 import { UserService } from '../service/user_service.ts'
-import { ConfigLayer } from './config.ts'
+import { ConfigLayer } from './config/service.ts'
 
 /**
  * Process-wide services, provided once at the entry point (`main.ts`):

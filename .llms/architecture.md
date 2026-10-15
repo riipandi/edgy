@@ -30,7 +30,7 @@ Per-area reasoning and decision records. Read the section before changing that a
 
 ## Configuration
 
-**Decision: Effect `Config` schema, fail fast at layer build** (2026-10). All env parsing lives in `src/kernel/config.ts` (`ConfigLayer`); present-but-invalid values fail with a typed `ConfigError` while the layer builds, so a bad `PORT` or a `CORS_CREDENTIALS=true` + wildcard-origins combination dies at startup, never mid-request. Rejected: `process.env` reads at call sites (untestable, no single validation point). Consumers depend on the `ConfigService` context tag, not the layer.
+**Decision: Effect `Config` schema, fail fast at layer build** (2026-10). All env parsing lives in `src/kernel/config/` (`ConfigLayer` in `service.ts`, one file per section: `server`, `database`, `logging`, `cors`; `AppConfig` is nested by section and inferred from the schemas, not hand-written); present-but-invalid values fail with a typed `ConfigError` while the layer builds, so a bad `PORT` or a `CORS_CREDENTIALS=true` + wildcard-origins combination dies at startup, never mid-request. Rejected: `process.env` reads at call sites (untestable, no single validation point). Consumers depend on the `ConfigService` context tag, not the layer.
 
 ## Observability
 
