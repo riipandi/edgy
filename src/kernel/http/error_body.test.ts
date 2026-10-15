@@ -24,6 +24,14 @@ describe('errorBody', () => {
     expect(errorBody(permanent, false).retryable).toBe(false)
   })
 
+  it('names the cause in its own message, redacted, so a log line says what failed', () => {
+    const failure = new DatabaseError({
+      cause: new Error('D1_ERROR: no such table: users password=hunter2')
+    })
+    expect(failure.message).toBe('D1_ERROR: no such table: users password=[REDACTED]')
+    expect(Cause.pretty(Cause.fail(failure))).toContain('no such table: users')
+  })
+
   it('keeps the cause out unless diagnostics are on, and only for server errors', () => {
     const failure = new DatabaseError({ cause: new Error('SQLITE_ERROR: no such table: users') })
     expect(errorBody(failure, false)).not.toHaveProperty('debug')

@@ -1,5 +1,5 @@
 import { Data, Duration, ErrorReporter, Schema, SchemaIssue, type StandardSchema } from 'effect'
-import { isSensitiveName } from './redact.ts'
+import { describeFailure, isSensitiveName } from './redact.ts'
 
 /**
  * What every application error tells the HTTP layer about itself. The error
@@ -113,6 +113,14 @@ export class DatabaseError extends Data.TaggedError('DatabaseError')<{
   readonly status = 500
   readonly code = 'DATABASE_ERROR'
   readonly clientMessage = 'Database error'
+  /**
+   * The driver's message, redacted. Without it the log shows a bare `DatabaseError:` and the
+   * reader has to find the cause elsewhere; with it the error says what failed wherever it is
+   * printed. It is not the client's message (`clientMessage`), which stays generic.
+   */
+  override get message(): string {
+    return describeFailure(this.cause)
+  }
   get retryable(): boolean {
     return isTransientFailure(this)
   }
@@ -145,6 +153,9 @@ export class RequestTimeout extends Data.TaggedError('RequestTimeout')<{
   readonly code = 'REQUEST_TIMEOUT'
   readonly retryable = true
   readonly clientMessage = 'Request timed out'
+  override get message(): string {
+    return `Request exceeded ${Duration.toMillis(this.after)}ms`
+  }
   get detail(): { readonly timeout_ms: number } {
     return { timeout_ms: Duration.toMillis(this.after) }
   }
