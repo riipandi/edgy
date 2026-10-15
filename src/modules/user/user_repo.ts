@@ -1,9 +1,8 @@
 import { Context, Effect, Layer } from 'effect'
 import { DatabaseService, isUniqueViolation } from '../../database/service.ts'
 import { Conflict, type DatabaseError } from '../../kernel/errors.ts'
-import { newId } from '../../kernel/ids.ts'
 import { makePage, type Page, type PageRequest } from '../../kernel/pagination.ts'
-import type { User, UserCreateRequest, UserSortKey } from './user_schema.ts'
+import { type User, type UserCreateRequest, UserId, type UserSortKey } from './user_schema.ts'
 
 /**
  * Persistence port for users. The service layer depends on this key, never on
@@ -73,7 +72,7 @@ export class UserRepository extends Context.Service<
           query((db) =>
             db
               .insertInto('users')
-              .values({ id: newId('user'), email: input.email, name: input.name ?? null })
+              .values({ id: UserId.make(), email: input.email, name: input.name ?? null })
               .returningAll()
               .executeTakeFirstOrThrow()
           ).pipe(

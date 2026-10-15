@@ -64,20 +64,25 @@ describe('envelope', () => {
     expect(await json(missing)).toMatchObject({
       status: 'error',
       message: 'User not found',
-      error: { id: MISSING_USER_ID },
+      error: { code: 'NOT_FOUND', retryable: false, details: { id: MISSING_USER_ID } },
       metadata: { status_code: 404 }
     })
 
     await createUser('dup@example.com')
     const duplicate = await createUser('dup@example.com')
     expect(duplicate.status).toBe(409)
-    expect(await json(duplicate)).toMatchObject({ status: 'error', message: 'User already exists' })
+    expect(await json(duplicate)).toMatchObject({
+      status: 'error',
+      message: 'User already exists',
+      error: { code: 'CONFLICT', details: { resource: 'User' } }
+    })
 
     const invalid = await createUser('not-an-email')
     const body = await json(invalid)
     expect(invalid.status).toBe(400)
     expect(body.message).toBe('Validation failed')
-    expect(body.error[0].path).toEqual(['email'])
+    expect(body.error).toMatchObject({ code: 'VALIDATION_FAILED', retryable: false })
+    expect(body.error.details[0].path).toEqual(['email'])
   })
 
   it('renders h3-level errors in the same envelope', async () => {

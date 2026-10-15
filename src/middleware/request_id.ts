@@ -1,6 +1,9 @@
 import { definePlugin, type H3Event } from 'h3'
 import { runWithRequestId } from '../kernel/http/request_context.ts'
-import { newId } from '../kernel/ids.ts'
+import { defineId } from '../kernel/objectids.ts'
+
+/** `req_…`: one HTTP request. */
+export const RequestId = defineId('req')
 
 /** Response header that carries the request id. */
 export const REQUEST_ID_HEADER = 'x-request-id'
@@ -31,7 +34,7 @@ export const requestIdOf = (event: H3Event): string | undefined => event.context
  *
  * Honours an inbound `x-request-id` (useful for distributed tracing) and
  * otherwise mints a fresh TypeID — a UUIDv7-based, sortable, prefixed id —
- * via `newId('request')`. The id is exposed to handlers as
+ * via `RequestId.make()`. The id is exposed to handlers as
  * `event.context.requestId` and echoed back on the response. The rest of the
  * request runs inside {@link runWithRequestId}, so code outside any fiber can
  * read it.
@@ -45,7 +48,7 @@ export const requestIdOf = (event: H3Event): string | undefined => event.context
  */
 export const requestId = definePlugin((app) => {
   app.use((event, next) => {
-    const id = inboundRequestId(event) ?? newId('request')
+    const id = inboundRequestId(event) ?? RequestId.make()
 
     event.context.requestId = id
     event.res.headers.set(REQUEST_ID_HEADER, id)

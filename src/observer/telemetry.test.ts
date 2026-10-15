@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from '@effect/vitest'
 import { makeTestApp, type TestApp } from '../../tests/app.ts'
 import { attributeOf, type FakeCollector, spansOf, startCollector } from '../../tests/collector.ts'
 import { MISSING_USER_ID } from '../../tests/ids.ts'
-import { traceHexOf } from '../kernel/ids.ts'
 import { parseOtlpHeaders } from './telemetry.ts'
+import { traceHexOf } from './trace_id.ts'
 
 describe('parseOtlpHeaders', () => {
   it('reads key=value pairs separated by commas, lower-casing the names', () => {
@@ -115,6 +115,18 @@ describe('exported telemetry', () => {
     expect(span.parentSpanId).toBe('b7ad6b7169203331')
     // a pasted trc_ id finds the span
     expect(attributeOf(span, 'trace.typeid')).toBe(body.metadata.trace_id)
+  })
+
+  it('returns the trace id on an error response too, and a failed request needs it most', async () => {
+    t = await start()
+    const response = await t.request(`/api/users/${MISSING_USER_ID}`)
+    const body: any = await response.json()
+    await flushed()
+
+    expect(response.status).toBe(404)
+    expect(body.metadata.trace_id).toMatch(/^trc_[0-7][0-9a-hjkmnp-tv-z]{25}$/)
+    const hex = traceHexOf(body.metadata.trace_id)
+    expect(spansOf(collector).some((span) => span.traceId === hex)).toBe(true)
   })
 
   it('gives a fresh trace to a request with no traceparent', async () => {

@@ -1,9 +1,10 @@
 import { Effect, Tracer } from 'effect'
 import { definePlugin, type H3Event, onError, onResponse } from 'h3'
+import { codeForStatus } from '../kernel/http/error_body.ts'
 import { runtimeOf } from '../kernel/http/runtime.ts'
-import { traceTypeId } from '../kernel/ids.ts'
 import { recordHttpRequest } from './metrics.ts'
 import { isProbe, quietReason } from './quiet_paths.ts'
+import { traceTypeId } from './trace_id.ts'
 
 /** Milliseconds elapsed since the request began, rounded to 0.01 ms. */
 const elapsedMs = (event: H3Event): number => {
@@ -43,6 +44,10 @@ const observe = (event: H3Event, status: number): void => {
   // back with LOG_LEVEL=Debug. See `quiet_paths.ts` for what counts and why.
   const quiet = quietReason(path, status)
 
+  // The error hook runs before h3 renders an error it raised itself, so the envelope has not
+  // named it yet; the status gives the same code `statusBody` will.
+  const errorCode = event.context.errorCode ?? (status >= 400 ? codeForStatus(status) : undefined)
+
   const level =
     quiet !== undefined
       ? Effect.logDebug
@@ -64,6 +69,7 @@ const observe = (event: H3Event, status: number): void => {
               status,
               durationMs,
               ...(trace?.sampled === true ? { traceId: traceTypeId(trace.traceId) } : {}),
+              ...(errorCode === undefined ? {} : { errorCode }),
               ...(quiet === undefined ? {} : { quiet })
             })
           )

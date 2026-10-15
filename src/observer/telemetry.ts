@@ -13,7 +13,7 @@ import {
   type ObservabilityConfig,
   telemetryEnabled
 } from '../kernel/config/service.ts'
-import { newId } from '../kernel/ids.ts'
+import { defineId } from '../kernel/objectids.ts'
 
 /**
  * Parses `OTEL_EXPORTER_OTLP_HEADERS` (`key=value,key2=value2`, the OpenTelemetry
@@ -39,13 +39,16 @@ export const parseOtlpHeaders = (raw: string): Record<string, string> => {
   return headers
 }
 
+/** `inst_…`: one process or Worker isolate (`service.instance.id`). */
+const InstanceId = defineId('inst')
+
 /**
  * One id per process, so several instances of the same service stay distinguishable.
  * Created on first use, not at import: a Worker may not generate random values while its
  * module loads (workerd refuses it with "Disallowed operation called within global scope").
  */
 let instanceId: string | undefined
-const instance = (): string => (instanceId ??= newId('instance'))
+const instance = (): string => (instanceId ??= InstanceId.make())
 
 /** Options every OTLP signal shares, built once from configuration. */
 const exportOptions = (config: ObservabilityConfig) => ({

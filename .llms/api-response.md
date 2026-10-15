@@ -68,12 +68,23 @@ Error response:
 {
     status: error
     message: string (general error message)
-    error?: {} | [] | null
+    error: ApiErrorBody
     metadata: {
         status_code: number (http code)
         request_id: string
+        trace_id?: string // trc_… when the trace was recorded, errors included
         rate_limit?: ApiRateLimit // also on a 429 and on any error under the rate limiter
     }
+}
+```
+
+ApiErrorBody:
+```json
+{
+    code: string // stable identifier: NOT_FOUND, VALIDATION_FAILED, CONFLICT, RATE_LIMITED, DATABASE_ERROR, ...
+    retryable: boolean // the same request may succeed if sent again
+    details?: {} | [] // per-error facts: validation issues, { id }, { retry_after }
+    debug?: { type: string, message?: string } // only at LOG_LEVEL=Debug or below; redacted
 }
 ```
 

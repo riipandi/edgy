@@ -24,16 +24,31 @@ A successful response carries the payload in `data`, and always reports the HTTP
 }
 ```
 
-An error has a human-readable `message`, and `error` when there is machine-readable detail:
+An error has a human-readable `message` and an `error` object a program can act on:
 
 ```json
 {
   "status": "error",
   "message": "Validation failed",
-  "error": [{ "path": ["email"], "message": "must be a valid email address" }],
+  "error": {
+    "code": "VALIDATION_FAILED",
+    "retryable": false,
+    "details": [{ "path": ["email"], "message": "must be a valid email address" }]
+  },
   "metadata": { "status_code": 400, "request_id": "req_01m4zyktdzfzva2mn4svp2rqqm" }
 }
 ```
+
+| Field | Meaning |
+| ----- | ------- |
+| `error.code` | Stable name of the failure (`NOT_FOUND`, `RATE_LIMITED`, `DATABASE_ERROR`…). Switch on this, not on `message` |
+| `error.retryable` | `true` when sending the same request again can succeed (a timeout, a busy database, a rate limit, an overload) |
+| `error.details` | Facts about this failure: the validation issues, the id that was not found, `retry_after` seconds |
+| `error.debug` | What lies behind a server-side failure. Only when the server runs at `LOG_LEVEL=Debug` or below; secrets in it are removed |
+
+`metadata.trace_id` is on error responses too, when traces are exported: quote it (with
+`metadata.request_id`) when you report a problem. A field that holds a secret (`password`, `token`…)
+is never quoted back in a validation message.
 
 Responses contain only the documented fields.
 
@@ -83,13 +98,13 @@ A paginated response adds the position to `metadata` and navigation to `links`:
 | Status | Meaning |
 | ------ | ------- |
 | `400`  | Validation failed (body, path or query), or the body is not valid JSON |
-| `404`  | Unknown path, or unknown user (`"error": { "id": "user_…" }`); an `:id` that is not a `user_` id is a `400` |
+| `404`  | Unknown path (`NOT_FOUND`), or unknown user (`NOT_FOUND`, `"details": { "id": "user_…" }`); an `:id` that is not a `user_` id is a `400` |
 | `415`  | A request body that is not `application/json` |
 | `429`  | Rate limit exceeded; `Retry-After` says how many seconds to wait |
-| `409`  | The user already exists (duplicate email) |
+| `409`  | The user already exists (duplicate email; `CONFLICT`) |
 | `413`  | Request body larger than `BODY_LIMIT` |
 | `499`  | The client closed the connection before the response |
-| `500`  | Server-side failure; details go to the log, never to the client |
+| `500`  | Server-side failure (`DATABASE_ERROR`, `INTERNAL_ERROR`); the cause goes to the log, and to the response only in debug mode, redacted |
 | `503`  | `/health` while the server is shutting down, or any `/api` request while the server is overloaded (`Retry-After: 1`) |
 | `504`  | The request exceeded `REQUEST_TIMEOUT` |
 

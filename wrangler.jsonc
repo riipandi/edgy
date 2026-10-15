@@ -63,8 +63,8 @@
         // Cloudflare always sets CF-Connecting-IP, so it is safe to trust here.
         "LOG_FORMAT": "json",
         "TRUST_PROXY": "true",
-        // Applies pending migrations when an isolate starts.
-        // Convenient for preview; for production prefer an explicit migration step.
+        // Applies pending migrations when an isolate starts. Convenient for
+        // preview; for production prefer an explicit migration step.
         "DATABASE_AUTO_MIGRATE": "true",
         "RATE_LIMIT_ENABLED": "true",
         "RATE_LIMIT_STORE": "cloudflare",

@@ -1,8 +1,11 @@
 import { Context, Effect, LogLevel, Schedule } from 'effect'
 import { type Kysely, type LogEvent, sql, type Transaction } from 'kysely'
-import { DatabaseError } from '../kernel/errors.ts'
+import { DatabaseError, isTransientFailure } from '../kernel/errors.ts'
 import { currentRequestId } from '../kernel/http/request_context.ts'
+import { describeFailure, redactText } from '../kernel/redact.ts'
 import type { Database } from './schema.ts'
+
+export { isTransientFailure }
 
 declare module '../kernel/http/runtime.ts' {
   interface HttpServices {
@@ -24,22 +27,6 @@ export const isUniqueViolation = (error: DatabaseError): boolean => {
   if (typeof cause !== 'object' || cause === null) return false
   if ('errcode' in cause && (cause.errcode === 2067 || cause.errcode === 1555)) return true
   return 'message' in cause && String(cause.message).includes('UNIQUE constraint failed')
-}
-
-/**
- * Whether a failure is the kind that goes away on its own, so repeating a read is
- * safe and useful: a dropped connection, a storage timeout, an overloaded or briefly
- * unavailable database, a lock that was not released in time. Matched on the message
- * because D1 and `node:sqlite` report these as plain errors with no code. A constraint
- * violation, a syntax error or a missing table is deliberately *not* transient: repeating
- * it can only fail the same way, later.
- */
-export const isTransientFailure = (error: DatabaseError): boolean => {
-  const { cause } = error
-  if (typeof cause !== 'object' || cause === null || !('message' in cause)) return false
-  return /network connection lost|storage operation exceeded timeout|overloaded|temporarily unavailable|timed out|SQLITE_BUSY|database is locked/i.test(
-    String(cause.message)
-  )
 }
 
 /**
@@ -132,7 +119,13 @@ export const makeQueryLogger = Effect.gen(function* () {
 
     run(
       Effect.logWarning('Query failed').pipe(
-        Effect.annotateLogs(annotations({ sql: statement, durationMs, error: String(event.error) }))
+        Effect.annotateLogs(
+          annotations({
+            sql: redactText(statement),
+            durationMs,
+            error: describeFailure(event.error)
+          })
+        )
       )
     )
   }

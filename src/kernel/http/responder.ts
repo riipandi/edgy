@@ -3,10 +3,11 @@ import { Headers, HttpTraceContext } from 'effect/http'
 import type { H3Event } from 'h3'
 import { requestIdOf } from '../../middleware/request_id.ts'
 import { isProbe } from '../../observer/quiet_paths.ts'
+import { traceTypeId } from '../../observer/trace_id.ts'
 import { type AppError, RequestTimeout } from '../errors.ts'
-import { traceTypeId } from '../ids.ts'
 import { errorEnvelope, linkHeader, successEnvelope } from './envelope.ts'
-import type { ApiError, ApiSuccess, Reply } from './envelope.ts'
+import type { ApiError, ApiErrorBody, ApiSuccess, Reply } from './envelope.ts'
+import { defectBody, errorBody, statusBody } from './error_body.ts'
 import { type HttpEnv, runtimeOf } from './runtime.ts'
 
 export interface RunOptions {
@@ -98,25 +99,25 @@ export const runEffect = <E extends AppError>(
     | { readonly kind: 'refused'; readonly error: AppError }
 
   /**
-   * Notes the trace this request belongs to: remembered on the event so the request log
-   * line, written after the fiber has finished, can join the same trace, and offered to
-   * the client as `trace_id` (a `trc_` TypeID) when traces are exported and this one was recorded.
+   * Notes the trace this request belongs to, on success and on failure alike: remembered on the
+   * event so the request log line, written after the fiber has finished, can join the same
+   * trace, and (when traces are exported and this one was recorded) offered to the client as
+   * `metadata.trace_id`, a `trc_` TypeID. A failed request needs it most.
    */
-  const settle = (outcome: Outcome): Effect.Effect<Outcome> =>
-    Effect.currentSpan.pipe(
-      Effect.map((span): Outcome => {
+  const noteTrace = Effect.currentSpan.pipe(
+    Effect.flatMap((span) =>
+      Effect.sync(() => {
         event.context.trace = { traceId: span.traceId, spanId: span.spanId, sampled: span.sampled }
-        if (!tracing.enabled || !span.sampled) return outcome
+        if (!tracing.enabled || !span.sampled) return
         // The backend indexes the hex id; the `trc_` form is what clients and log lines show.
         // Putting it on the span too makes a pasted `trc_…` searchable there.
-        const traceId = traceTypeId(span.traceId)
-        span.attribute('trace.typeid', traceId)
-        return outcome.kind === 'reply'
-          ? { kind: 'reply', reply: { ...outcome.reply, traceId } }
-          : outcome
-      }),
-      Effect.orElseSucceed(() => outcome)
-    )
+        const id = traceTypeId(span.traceId)
+        event.context.traceTypeId = id
+        span.attribute('trace.typeid', id)
+      })
+    ),
+    Effect.ignore
+  )
 
   const program = effect.pipe(
     Effect.timeoutOrElse({
@@ -137,24 +138,26 @@ export const runEffect = <E extends AppError>(
     Effect.tapError((error) =>
       Effect.annotateCurrentSpan('http.response.status_code', error.status)
     ),
-    Effect.flatMap(settle),
+    Effect.ensuring(noteTrace),
     Effect.withErrorReporting,
     Effect.annotateLogs(requestId === undefined ? {} : { requestId }),
     Effect.withSpan(`${event.req.method} ${route ?? event.url.pathname}`, spanOptions)
   )
 
-  const fail = (code: number, message: string, detail?: unknown): ApiError => {
+  const { diagnostics } = runtimeOf(event)
+
+  const fail = (code: number, message: string, error: ApiErrorBody): ApiError => {
     event.res.status = code
-    return errorEnvelope(event, code, message, detail)
+    return errorEnvelope(event, code, message, error)
   }
+
+  const failWith = (error: AppError): ApiError =>
+    fail(error.status, error.clientMessage, errorBody(error, diagnostics))
 
   return runPromiseExit(program, { signal: event.req.signal }).then((exit) => {
     if (Exit.isSuccess(exit)) {
       const outcome = exit.value
-      if (outcome.kind === 'refused') {
-        const { status: code, clientMessage, detail } = outcome.error
-        return fail(code, clientMessage, detail)
-      }
+      if (outcome.kind === 'refused') return failWith(outcome.error)
       event.res.status = status
       const body = successEnvelope(event, status, outcome.reply)
       const link = body.links === undefined ? undefined : linkHeader(body.links)
@@ -162,14 +165,17 @@ export const runEffect = <E extends AppError>(
       return body
     }
 
-    if (Cause.hasInterruptsOnly(exit.cause)) return fail(CLIENT_CLOSED_REQUEST, 'Request cancelled')
-
-    const failure: Option.Option<AppError> = Cause.findErrorOption(exit.cause)
-    if (Option.isSome(failure)) {
-      const { status: code, clientMessage, detail } = failure.value
-      return fail(code, clientMessage, detail)
+    if (Cause.hasInterruptsOnly(exit.cause)) {
+      return fail(
+        CLIENT_CLOSED_REQUEST,
+        'Request cancelled',
+        statusBody(CLIENT_CLOSED_REQUEST, { diagnostics })
+      )
     }
 
-    return fail(500, 'Internal server error')
+    const failure: Option.Option<AppError> = Cause.findErrorOption(exit.cause)
+    if (Option.isSome(failure)) return failWith(failure.value)
+
+    return fail(500, 'Internal server error', defectBody(exit.cause, diagnostics))
   })
 }

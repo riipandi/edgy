@@ -1,5 +1,6 @@
 import type { H3Event, HTTPError } from 'h3'
 import { errorEnvelope } from './envelope.ts'
+import { statusBody } from './error_body.ts'
 
 /**
  * Renders errors raised by h3 itself (unknown route, malformed JSON, body too
@@ -23,7 +24,16 @@ export const renderHTTPError = (error: HTTPError, event: H3Event): Response => {
   const headers = new Headers(event.res.errHeaders)
   headers.set('content-type', 'application/json; charset=utf-8')
 
-  return new Response(JSON.stringify(errorEnvelope(event, error.status, message)), {
+  const retryAfter = Number(headers.get('retry-after'))
+  const body = statusBody(error.status, {
+    retryAfter: Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : undefined,
+    unhandled:
+      error.unhandled === true ? { type: 'UnhandledError', failure: error.cause } : undefined,
+    // `provideRuntime` is the first plugin, so this holds for everything but a failure before it.
+    diagnostics: event.context.runtime?.diagnostics ?? false
+  })
+
+  return new Response(JSON.stringify(errorEnvelope(event, error.status, message, body)), {
     status: error.status,
     headers
   })

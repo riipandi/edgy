@@ -1,6 +1,6 @@
 import { Schema } from 'effect'
 import { paginationQuery } from '../../kernel/http/pagination.ts'
-import { idSchema } from '../../kernel/ids.ts'
+import { defineId } from '../../kernel/objectids.ts'
 
 const EmailSchema = Schema.String.pipe(
   Schema.check(
@@ -9,8 +9,10 @@ const EmailSchema = Schema.String.pipe(
   )
 )
 
-/** A `user_` TypeID, minted by the repository on insert. */
-export const UserIdSchema = idSchema('user')
+/** `user_…`: a row of `users`, minted by the repository on insert. */
+export const UserId = defineId('user')
+
+export const UserIdSchema = UserId.schema
 
 const NameSchema = Schema.String.pipe(Schema.check(Schema.isMaxLength(200)))
 

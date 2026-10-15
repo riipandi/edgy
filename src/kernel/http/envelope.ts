@@ -16,13 +16,13 @@ export interface ApiRateLimit {
 export interface ApiErrorMetadata {
   readonly status_code: number
   readonly request_id: string
+  /** The `trc_` id of the recorded trace; set only when traces are exported and this one was recorded. */
+  readonly trace_id?: string
   /** Present on every response under the rate limiter, a `429` included. */
   readonly rate_limit?: ApiRateLimit
 }
 
-export interface ApiMetadata extends ApiErrorMetadata, Partial<ApiPagination> {
-  readonly trace_id?: string
-}
+export interface ApiMetadata extends ApiErrorMetadata, Partial<ApiPagination> {}
 
 /** `{ status: 'success' }` body. `data` and `links` are omitted when empty. */
 export interface ApiSuccess {
@@ -33,11 +33,32 @@ export interface ApiSuccess {
   readonly links?: ApiLinks
 }
 
-/** `{ status: 'error' }` body. `error` carries machine-readable detail, never internals. */
+/**
+ * What lies behind a server-side failure. Present only at `LOG_LEVEL=Debug` or below, and always
+ * redacted (see `error_body.ts`).
+ */
+export interface ApiErrorDebug {
+  /** The error's tag (`DatabaseError`), or `Defect` for an unexpected exception. */
+  readonly type: string
+  readonly message?: string
+}
+
+/** The `error` member: machine-readable, never internals (except `debug`, when enabled). */
+export interface ApiErrorBody {
+  /** Stable identifier of the failure, for clients to switch on (`NOT_FOUND`, `RATE_LIMITED`). */
+  readonly code: string
+  /** Whether sending the same request again can succeed. */
+  readonly retryable: boolean
+  /** Per-error facts: the validation issues, the id that was not found, `retry_after`. */
+  readonly details?: unknown
+  readonly debug?: ApiErrorDebug
+}
+
+/** `{ status: 'error' }` body. */
 export interface ApiError {
   readonly status: 'error'
   readonly message: string
-  readonly error?: unknown
+  readonly error: ApiErrorBody
   readonly metadata: ApiErrorMetadata
 }
 
@@ -50,8 +71,12 @@ export interface Reply {
   readonly data?: unknown
   readonly message?: string
   readonly pagination?: PageSummary
-  /** Id of the recorded trace this response belongs to; set only when traces are exported. */
-  readonly traceId?: string
+}
+
+/** `trace_id` when this request's trace was recorded (see `runEffect`). */
+const traceMeta = (event: H3Event): { readonly trace_id?: string } => {
+  const id = event.context.traceTypeId
+  return id === undefined ? {} : { trace_id: id }
 }
 
 /** The id minted by the `requestId` plugin; `unknown` only if that plugin was not registered. */
@@ -66,7 +91,7 @@ export const successEnvelope = (event: H3Event, statusCode: number, reply: Reply
   const base = {
     status_code: statusCode,
     request_id: requestIdFor(event),
-    ...(reply.traceId === undefined ? {} : { trace_id: reply.traceId }),
+    ...traceMeta(event),
     ...(rateLimit === undefined ? {} : { rate_limit: rateLimit })
   }
   const body = {
@@ -88,17 +113,21 @@ export const errorEnvelope = (
   event: H3Event,
   statusCode: number,
   message: string,
-  error?: unknown
-): ApiError => ({
-  status: 'error',
-  message,
-  ...(error === undefined ? {} : { error }),
-  metadata: {
-    status_code: statusCode,
-    request_id: requestIdFor(event),
-    ...(event.context.rateLimit === undefined ? {} : { rate_limit: event.context.rateLimit })
+  error: ApiErrorBody
+): ApiError => {
+  event.context.errorCode = error.code
+  return {
+    status: 'error',
+    message,
+    error,
+    metadata: {
+      status_code: statusCode,
+      request_id: requestIdFor(event),
+      ...traceMeta(event),
+      ...(event.context.rateLimit === undefined ? {} : { rate_limit: event.context.rateLimit })
+    }
   }
-})
+}
 
 /**
  * The `Link` header (RFC 8288) for a link map, so a client that follows headers instead of the

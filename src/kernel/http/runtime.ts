@@ -1,4 +1,4 @@
-import { type Duration, Effect, type Exit } from 'effect'
+import { type Duration, Effect, type Exit, LogLevel } from 'effect'
 import { definePlugin, type H3Event, HTTPError } from 'h3'
 import { ConfigService, telemetryEnabled } from '../config/service.ts'
 import { type InFlight, makeInFlight } from './inflight.ts'
@@ -47,6 +47,11 @@ export interface HttpRuntime {
   readonly maxInFlight: number
   /** Whether traces are exported, and the share of requests whose trace is recorded. */
   readonly tracing: { readonly enabled: boolean; readonly sampleRatio: number }
+  /**
+   * Whether error responses carry `error.debug`: on when the logger is at `Debug` or below, so
+   * the response is exactly as chatty as the log and a production setting never leaks it.
+   */
+  readonly diagnostics: boolean
   /** Whether shutdown has begun; readiness reports unavailable from then on. */
   readonly isDraining: () => boolean
   /** Marks shutdown as begun. Irreversible for the life of the runtime. */
@@ -59,6 +64,7 @@ export const makeHttpRuntime: Effect.Effect<HttpRuntime, never, HttpEnv | Config
     const { server, observability } = yield* ConfigService
     const { requestTimeout, maxInFlight } = server
     const services = yield* Effect.context<HttpEnv>()
+    const diagnostics = yield* LogLevel.isEnabled('Debug')
     let draining = false
     return {
       runPromiseExit: Effect.runPromiseExitWith(services),
@@ -66,6 +72,7 @@ export const makeHttpRuntime: Effect.Effect<HttpRuntime, never, HttpEnv | Config
       requestTimeout,
       inFlight: makeInFlight(),
       maxInFlight,
+      diagnostics,
       tracing: {
         enabled: telemetryEnabled(observability),
         sampleRatio: observability.sampleRatio
@@ -87,6 +94,10 @@ declare module 'h3' {
     startedAt?: number
     /** The span `runEffect` ran the request in, so later log lines can join its trace. */
     trace?: { readonly traceId: string; readonly spanId: string; readonly sampled: boolean }
+    /** The `trc_` form of the trace id, set when the trace was recorded and exported. */
+    traceTypeId?: string
+    /** `error.code` of the response, set when the error envelope is built; the request log reads it. */
+    errorCode?: string
   }
 }
 
