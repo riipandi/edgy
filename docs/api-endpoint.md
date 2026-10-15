@@ -165,10 +165,11 @@ Every response carries `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY
 | `Link` | collections | The pagination links of the body (`self`, `first`, `prev`, `next`, `last`) as RFC 8288 relations |
 | `X-Request-ID` | every response | The request's `req_` id; send your own to continue an upstream trace |
 | `X-Trace-ID` | when the trace was recorded | The trace's `trc_` id (same as `metadata.trace_id`); absent when telemetry is off or the request was not sampled |
+| `X-Cache` | a read served through the cache | `HIT` (from the cache), `MISS` (read from the database) or `BYPASS` (`?nocache=true`); absent otherwise |
 | `Retry-After` | `429`, `503` | Seconds to wait before trying again |
 
 For a browser app on another origin, the `Access-Control-Expose-Headers` of every response lists
-`X-Request-ID`, the three `X-RateLimit-*` headers, `Retry-After` and `Link`, so a script can read them.
+`X-Request-ID`, `X-Trace-ID`, `X-Cache`, the three `X-RateLimit-*` headers, `Retry-After` and `Link`, so a script can read them.
 
 ## Identifiers
 

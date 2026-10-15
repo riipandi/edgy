@@ -135,6 +135,10 @@ another instance. With `memory` that lasts up to `CACHE_TTL`; with a shared stor
 everyone at once, apart from the local copies, which last up to `CACHE_LOCAL_TTL`. Lower it (or set `0`)
 if that matters more to you than saving a round trip to the store.
 
+The `X-Cache` response header and the request log say how a cached read was answered: `cache=hit`, `cache=miss` (the database was asked) or
+`cache=bypass` (`?nocache=true`). A request that read nothing through the cache, or runs with the cache off,
+has no `cache` field.
+
 Add `?nocache=true` to a `GET` to read straight from the database for that request. It neither reads nor
 changes the cache, so it shows what is really stored without refreshing what other callers are served.
 Anyone who can call the API can use it, so it is not a way to protect the database; rate limiting is.

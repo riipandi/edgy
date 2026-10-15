@@ -4,7 +4,7 @@ import type { H3Event } from 'h3'
 import { requestIdOf } from '../../middleware/request_id.ts'
 import { isProbe } from '../../observer/quiet_paths.ts'
 import { traceTypeId } from '../../observer/trace_id.ts'
-import { CacheBypass } from '../cache/read_through.ts'
+import { CacheBypass, type CacheTally, CacheTrace, summarizeTally } from '../cache/read_through.ts'
 import { type AppError, RequestTimeout } from '../errors.ts'
 import { errorEnvelope, linkHeader, successEnvelope } from './envelope.ts'
 import type { ApiError, ApiErrorBody, ApiSuccess, Reply } from './envelope.ts'
@@ -18,6 +18,9 @@ export interface RunOptions {
 
 /** Response header that carries the `trc_` trace id, beside `x-request-id`. */
 export const TRACE_ID_HEADER = 'x-trace-id'
+
+/** Response header that says how a cached read was answered: `HIT`, `MISS` or `BYPASS`. */
+export const CACHE_HEADER = 'x-cache'
 
 /** Non-standard status (nginx) for a client that hung up before the response. */
 const CLIENT_CLOSED_REQUEST = 499
@@ -129,8 +132,11 @@ export const runEffect = <E extends AppError>(
   // `?nocache=true` on a read: every read-through under this request goes to its source.
   const bypassCache = event.req.method === 'GET' && event.url.searchParams.get('nocache') === 'true'
 
+  const cacheTally: CacheTally = { hit: 0, miss: 0, bypass: 0 }
+
   const program = effect.pipe(
     Effect.provideService(CacheBypass, bypassCache),
+    Effect.provideService(CacheTrace, cacheTally),
     Effect.timeoutOrElse({
       duration: requestTimeout,
       orElse: () => Effect.fail(new RequestTimeout({ after: requestTimeout }))
@@ -166,6 +172,13 @@ export const runEffect = <E extends AppError>(
     fail(error.status, error.clientMessage, errorBody(error, diagnostics))
 
   return runPromiseExit(program, { signal: event.req.signal }).then((exit) => {
+    const cache = summarizeTally(cacheTally)
+    if (cache !== undefined) {
+      event.context.cache = cache
+      // Both header sets: h3 builds an error response (a 404 for a missing user) from `errHeaders` only.
+      event.res.headers.set(CACHE_HEADER, cache.toUpperCase())
+      event.res.errHeaders.set(CACHE_HEADER, cache.toUpperCase())
+    }
     if (Exit.isSuccess(exit)) {
       const outcome = exit.value
       if (outcome.kind === 'refused') return failWith(outcome.error)

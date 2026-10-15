@@ -21,6 +21,30 @@ const isCacheFailure = (
   '_tag' in error &&
   (error._tag === 'PersistenceError' || error._tag === 'SchemaError')
 
+/** How the cached reads of one request were answered; filled by {@link makeReadThrough}. */
+export interface CacheTally {
+  hit: number
+  miss: number
+  bypass: number
+}
+
+/**
+ * Where a request's cached reads are counted, so the request log can say whether the response
+ * came from the cache. `runEffect` provides a fresh tally per request; with none (a command, a
+ * test calling a service directly) nothing is counted.
+ */
+export class CacheTrace extends Context.Reference<CacheTally | undefined>('CacheTrace', {
+  defaultValue: () => undefined
+}) {}
+
+/**
+ * One word for a request's reads: `bypass` if it asked to skip the cache, else `miss` if any read
+ * had to go to the source, else `hit`. `undefined` when it read nothing through a cache. A request
+ * that mixes hits and misses is a `miss`: some of its answer was fetched.
+ */
+export const summarizeTally = (tally: CacheTally): 'hit' | 'miss' | 'bypass' | undefined =>
+  tally.bypass > 0 ? 'bypass' : tally.miss > 0 ? 'miss' : tally.hit > 0 ? 'hit' : undefined
+
 export interface ReadThrough<K extends Persistable.Any, E, R> {
   /** The value for `key`: from the cache when it can, otherwise from the lookup (and cached). */
   readonly get: (key: K) => Effect.Effect<Persistable.Success<K>, E, R>
@@ -65,7 +89,15 @@ export const makeReadThrough = Effect.fnUntraced(function* <
   const keep = (exit: Exit.Exit<unknown, unknown>, ttl: Duration.Duration): Duration.Duration =>
     Exit.isSuccess(exit) ? ttl : Duration.zero
 
-  const persisted = yield* PersistedCache.make<K, R, 'lookup'>(options.lookup, {
+  // The lookup runs only when neither the process nor the store had the entry, which is exactly a
+  // miss; a read that finishes without having run it was a hit.
+  const counted = (key: K) =>
+    Effect.flatMap(Effect.service(CacheTrace), (tally) => {
+      if (tally !== undefined) tally.miss += 1
+      return options.lookup(key)
+    })
+
+  const persisted = yield* PersistedCache.make<K, R, 'lookup'>(counted, {
     storeId: `edgy:cache:${options.name}`,
     // The persisted copy exists only for a shared store; for `memory` a zero TTL skips the write.
     timeToLive: (exit) => keep(exit, shared ? cache.ttl : Duration.zero),
@@ -76,20 +108,25 @@ export const makeReadThrough = Effect.fnUntraced(function* <
 
   return {
     get: (key: K) =>
-      Effect.flatMap(Effect.service(CacheBypass), (bypass) =>
-        bypass
-          ? options.lookup(key)
-          : persisted
-              .get(key)
-              .pipe(
-                Effect.catchIf(isCacheFailure, (error) =>
-                  Effect.logWarning(
-                    `Cache "${options.name}" unusable; reading the source`,
-                    error
-                  ).pipe(Effect.andThen(options.lookup(key)))
-                )
-              )
-      ),
+      Effect.gen(function* () {
+        const tally = yield* Effect.service(CacheTrace)
+        if (yield* Effect.service(CacheBypass)) {
+          if (tally !== undefined) tally.bypass += 1
+          return yield* options.lookup(key)
+        }
+
+        const missesBefore = tally?.miss ?? 0
+        const value = yield* persisted.get(key).pipe(
+          Effect.catchIf(isCacheFailure, (error) =>
+            Effect.logWarning(`Cache "${options.name}" unusable; reading the source`, error).pipe(
+              Effect.tap(() => Effect.sync(() => tally && (tally.miss += 1))),
+              Effect.andThen(options.lookup(key))
+            )
+          )
+        )
+        if (tally !== undefined && tally.miss === missesBefore) tally.hit += 1
+        return value
+      }),
     invalidate: (key: K) =>
       persisted
         .invalidate(key)

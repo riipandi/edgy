@@ -13,8 +13,8 @@
     "scripts": {
         "app": "node ./src/main.ts",
         "dev": "pnpm --silent watch:node",
-        "start": "node ./bin/edgy.mjs serve",
         "compile": "node ./builder/cli.ts compile",
+        "start": "node --env-file=.env.local ./bin/edgy.mjs serve",
         "build:node": "node ./builder/cli.ts build --target=node",
         "build:worker": "node ./builder/cli.ts build --target=workers",
         "watch:node": "node --env-file=.env.local --watch ./src/main.ts serve",

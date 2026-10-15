@@ -48,6 +48,7 @@ describe('response headers', () => {
     for (const name of [
       'x-request-id',
       'x-trace-id',
+      'x-cache',
       'x-ratelimit-remaining',
       'retry-after',
       'link'

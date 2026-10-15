@@ -96,6 +96,8 @@ declare module 'h3' {
     trace?: { readonly traceId: string; readonly spanId: string; readonly sampled: boolean }
     /** The `trc_` form of the trace id, set when the trace was recorded and exported. */
     traceTypeId?: string
+    /** How the request's cached reads were answered, for the request log; set by `runEffect`. */
+    cache?: 'hit' | 'miss' | 'bypass'
     /** `error.code` of the response, set when the error envelope is built; the request log reads it. */
     errorCode?: string
   }
