@@ -78,7 +78,7 @@ describe('exported telemetry', () => {
 
   it('sends the configured headers and the service resource', async () => {
     t = await start({ OTEL_SERVICE_NAME: 'edgy-test' })
-    await t.request('/health')
+    await t.request('/api/users')
     await flushed()
 
     const trace = collector.received.find((entry) => entry.path === '/v1/traces')
@@ -135,6 +135,46 @@ describe('exported telemetry', () => {
     const traceId = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
     await t.request('/api/users', { headers: { traceparent: `00-${traceId}-bbbbbbbbbbbbbbbb-01` } })
     await flushed()
+
+    expect(spansOf(collector).some((span) => span.traceId === traceId)).toBe(true)
+  })
+})
+
+describe('probe traces', () => {
+  it('does not record a trace for /health, but still records an ordinary request', async () => {
+    const collector = startCollector()
+    const t = await makeTestApp(
+      {
+        OTEL_EXPORTER_OTLP_ENDPOINT: collector.url,
+        OTEL_SDK_DISABLED: 'false',
+        OTEL_EXPORTER_OTLP_COMPRESSION: 'none',
+        OTEL_EXPORT_INTERVAL: '100'
+      },
+      { fetch: collector.fetch }
+    )
+    await t.request('/health')
+    await t.request('/api/users')
+    await t.dispose()
+
+    const names = spansOf(collector).map((span) => span.name)
+    expect(names).toContain('GET /api/users')
+    expect(names).not.toContain('GET /health')
+  })
+
+  it("still continues a caller's sampled trace on /health", async () => {
+    const collector = startCollector()
+    const t = await makeTestApp(
+      {
+        OTEL_EXPORTER_OTLP_ENDPOINT: collector.url,
+        OTEL_SDK_DISABLED: 'false',
+        OTEL_EXPORTER_OTLP_COMPRESSION: 'none',
+        OTEL_EXPORT_INTERVAL: '100'
+      },
+      { fetch: collector.fetch }
+    )
+    const traceId = 'cccccccccccccccccccccccccccccccc'
+    await t.request('/health', { headers: { traceparent: `00-${traceId}-dddddddddddddddd-01` } })
+    await t.dispose()
 
     expect(spansOf(collector).some((span) => span.traceId === traceId)).toBe(true)
   })

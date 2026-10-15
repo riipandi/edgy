@@ -2,14 +2,10 @@ import { Cause, Effect, Exit, Option, type Tracer } from 'effect'
 import { Headers, HttpTraceContext } from 'effect/http'
 import type { H3Event } from 'h3'
 import { requestIdOf } from '../../middleware/request_id.ts'
+import { isProbe } from '../../observer/quiet_paths.ts'
 import { type AppError, RequestTimeout } from '../errors.ts'
-import {
-  type ApiError,
-  type ApiSuccess,
-  errorEnvelope,
-  type Reply,
-  successEnvelope
-} from './envelope.ts'
+import { errorEnvelope, successEnvelope } from './envelope.ts'
+import type { ApiError, ApiSuccess, Reply } from './envelope.ts'
 import { type HttpEnv, runtimeOf } from './runtime.ts'
 
 export interface RunOptions {
@@ -64,11 +60,16 @@ export const runEffect = <E extends AppError>(
   const matched = event.context.matchedRoute?.route
   const route = matched !== undefined && matched.length > 1 ? matched.replace(/\/+$/, '') : matched
   const caller = callerSpan(event)
+  // A probe polled on a timer (`/health`) is not worth a recorded trace: it would fill the
+  // backend with identical spans. A caller that sends its own sampled `traceparent` still
+  // gets its trace; failures are not lost, they reach the log and the error reporters.
   const sampling = Option.isSome(caller)
     ? { parent: caller.value }
-    : tracing.sampleRatio < 1
-      ? { sampled: Math.random() < tracing.sampleRatio }
-      : {}
+    : isProbe(event.url.pathname)
+      ? { sampled: false }
+      : tracing.sampleRatio < 1
+        ? { sampled: Math.random() < tracing.sampleRatio }
+        : {}
 
   const status = options.successStatus ?? 200
 

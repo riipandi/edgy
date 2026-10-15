@@ -2,6 +2,7 @@ import { Effect, Tracer } from 'effect'
 import { definePlugin, type H3Event, onError, onResponse } from 'h3'
 import { runtimeOf } from '../kernel/http/runtime.ts'
 import { recordHttpRequest } from './metrics.ts'
+import { isProbe, quietReason } from './quiet_paths.ts'
 
 /** Milliseconds elapsed since the request began, rounded to 0.01 ms. */
 const elapsedMs = (event: H3Event): number => {
@@ -31,12 +32,18 @@ const observe = (event: H3Event, status: number): void => {
   const withTrace = <A>(effect: Effect.Effect<A>): Effect.Effect<A> =>
     trace === undefined ? effect : Effect.withParentSpan(effect, Tracer.externalSpan(trace))
 
+  // Noise (a favicon, a health poll, a scanner's 404) is logged at Debug: gone at Info,
+  // back with LOG_LEVEL=Debug. See `quiet_paths.ts` for what counts and why.
+  const quiet = quietReason(path, status)
+
   const level =
-    status >= 500 && status !== 503
-      ? Effect.logError
-      : status >= 400
-        ? Effect.logWarning
-        : Effect.logInfo
+    quiet !== undefined
+      ? Effect.logDebug
+      : status >= 500 && status !== 503
+        ? Effect.logError
+        : status >= 400
+          ? Effect.logWarning
+          : Effect.logInfo
 
   runtimeOf(event).runSync(
     Effect.all(
@@ -48,11 +55,12 @@ const observe = (event: H3Event, status: number): void => {
               method,
               path,
               status,
-              durationMs
+              durationMs,
+              ...(quiet === undefined ? {} : { quiet })
             })
           )
         ),
-        recordHttpRequest(method, status, durationMs)
+        recordHttpRequest(method, status, durationMs, { timed: !isProbe(path) })
       ],
       { discard: true }
     )

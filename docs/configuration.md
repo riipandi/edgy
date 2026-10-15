@@ -59,6 +59,12 @@ The command never writes a real `.env` file.
 | `LOG_FORMAT`         | `pretty`     | Console format: `pretty` for readable lines, `json` for one JSON object per line |
 | `LOG_FLUSH_INTERVAL` | `250`        | Milliseconds log lines are buffered before they are written together (Node.js) |
 
+Requests that are only noise are written at `Debug`, so they do not appear at `Info`: a browser asking for
+`favicon.ico`, a crawler for `robots.txt`, Chrome DevTools, a load balancer polling `/health` or `/metrics`
+and a vulnerability scanner probing for `wp-login.php` or `.env` (404s only). Set `LOG_LEVEL=Debug` to see
+them again. A health check that fails is always logged. They are still counted in the metrics, except that
+health and metrics polls are left out of the latency histogram and are not traced.
+
 The file always holds one JSON object per line, whatever `LOG_FORMAT` says, with the keys in a fixed
 order that starts with the time (`timestamp`, `level`, `message`, `annotations`, then `cause` when there is
 one). `LOG_FORMAT=json` on the console uses the same shape. The file's name is the base name

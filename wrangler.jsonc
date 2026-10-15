@@ -5,6 +5,11 @@
  * settings are the same variables the Node server reads.
  *
  * Docs: https://developers.cloudflare.com/workers/wrangler/configuration
+ *
+ * Build configurations:
+ * - Build command: `pnpm build:worker`
+ * - Deploy command: `pnpm exec wrangler deploy dist/worker/index.mjs --no-bundle --env production`
+ * - Non-production branch deploy command: `pnpm exec wrangler versions upload`
  */
 {
     "$schema": "node_modules/wrangler/config-schema.json",
@@ -36,7 +41,7 @@
             "database_name": "edgy",
             // Local development ignores the ID. Replace it with the ID printed
             // by `wrangler d1 create edgy` before the first deploy.
-            "database_id": "00000000-0000-0000-0000-000000000000"
+            "database_id": "22fd37a3-771d-4ff4-8d9a-7ed0aed1d122"
         }
     ],
     "vars": {
