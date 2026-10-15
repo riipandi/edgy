@@ -14,7 +14,6 @@ import { UserCacheLayer } from './service/user_service.ts'
 export const ObservabilityLayer: Layer.Layer<never, Config.ConfigError> = Layer.unwrap(
   Effect.gen(function* () {
     const { logLevel } = yield* ConfigService
-
     return Layer.merge(
       Logger.layer([Logger.consolePretty()]),
       Layer.succeed(References.MinimumLogLevel, logLevel)

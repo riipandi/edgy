@@ -2,7 +2,7 @@ import { H3, type H3Plugin } from 'h3'
 import { cors } from './middleware/cors.ts'
 import { requestId } from './middleware/request_id.ts'
 import { requestLogger } from './middleware/request_logger.ts'
-import { routePlugins } from './routes/groups.ts'
+import { routePlugins } from './routes/route.ts'
 
 /**
  * Global plugins, applied to every request before any route.

@@ -11,10 +11,10 @@ import { defineGroup } from './group.ts'
  */
 export const usersRoutes: H3Plugin = defineGroup({
   prefix: '/users',
-  routes: (group) => {
-    group.get('/', listUsersHandler)
-    group.get('/:id', getUserHandler)
-    group.post('/', createUserHandler)
+  routes: (r) => {
+    r.get('/', listUsersHandler)
+    r.get('/:id', getUserHandler)
+    r.post('/', createUserHandler)
   }
 })
 
@@ -28,8 +28,8 @@ export const usersRoutes: H3Plugin = defineGroup({
 export const wellKnownRoutes: H3Plugin = defineGroup({
   prefix: '/.well-known',
   middleware: [cacheControl({ value: 'public, max-age=86400' })],
-  routes: (group) => {
-    group.get('/security.txt', () => ({
+  routes: (r) => {
+    r.get('/security.txt', () => ({
       contact: 'mailto:security@example.com',
       expires: '2027-12-31T23:59:59Z'
     }))

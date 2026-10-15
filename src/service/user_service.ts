@@ -5,8 +5,6 @@ import type { CreateUserInput } from '../httputils/validator.ts'
 import type { UserRow } from '../schemas/user_schema.ts'
 import { findAllUsers, findUserById, insertUser } from '../stores/user_store.ts'
 
-// --- Batched reads via Effect's Request / RequestResolver ---
-
 /**
  * Typed request for a single user. Requests are plain data descriptions; the
  * resolver below decides how to execute them.
@@ -47,22 +45,22 @@ export const UserCacheLayer: Layer.Layer<UserCache, never, DatabaseService> = La
   })
 )
 
-// --- Public service API ---
-
-/**
- * Returns a user or fails with `NotFound`. Reads are served through the cache.
- */
-export const getUser = (id: number): Effect.Effect<UserRow, NotFound | DatabaseError, UserCache> =>
-  UserCache.use((cache) => Cache.get(cache, GetUserRequest({ id }))).pipe(
+/** Returns a user or fails with `NotFound`. Reads are served through the cache. */
+export function getUser(id: number): Effect.Effect<UserRow, NotFound | DatabaseError, UserCache> {
+  return UserCache.use((cache) => Cache.get(cache, GetUserRequest({ id }))).pipe(
     Effect.flatMap((user) => (user ? Effect.succeed(user) : Effect.fail(new NotFound({ id })))),
     Effect.withSpan('UserService.getUser', { attributes: { userId: id } })
   )
+}
 
 /** Returns every user. */
-export const listUsers = (): Effect.Effect<Array<UserRow>, DatabaseError, DatabaseService> =>
-  findAllUsers()
+export function listUsers(): Effect.Effect<Array<UserRow>, DatabaseError, DatabaseService> {
+  return findAllUsers()
+}
 
 /** Creates a user from validated input. */
-export const createUser = (
+export function createUser(
   input: CreateUserInput
-): Effect.Effect<UserRow, DatabaseError, DatabaseService> => insertUser(input)
+): Effect.Effect<UserRow, DatabaseError, DatabaseService> {
+  return insertUser(input)
+}
