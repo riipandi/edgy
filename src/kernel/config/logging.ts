@@ -20,7 +20,7 @@ export const loggingConfig = group(
     transport: choiceList(
       'LOG_TRANSPORT',
       ['console', 'file', 'otlp'],
-      ['console'],
+      ['console', 'file'],
       'Where logs go: any of console, file, otlp, comma-separated. otlp needs telemetry on (OTEL_SDK_DISABLED not true). Workers use the console and otlp only'
     ),
     file: text(

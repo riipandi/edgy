@@ -26,6 +26,20 @@ const BASE_ENV: Readonly<Record<string, string>> = {
   OTEL_SDK_DISABLED: 'true'
 }
 
+/**
+ * The app logs through `console.log`. A test that raises `LOG_LEVEL` (or fails a request on purpose)
+ * would print those lines into the test run, so they are kept with the app that wrote them (the most
+ * recent one alive) and left for the test to read as `TestApp.logs`. A test that spies on
+ * `console.log` itself still takes precedence.
+ */
+const sinks: ((line: string) => void)[] = []
+const consoleLog = console.log
+console.log = (...args: unknown[]): void => {
+  const sink = sinks.at(-1)
+  if (sink === undefined) { process.stderr.write("LEAK " + String(args[0]).slice(0, 90) + "\n"); consoleLog(...args) }
+  else sink(args.map(String).join(' '))
+}
+
 /** Services available to {@link TestApp.run}. */
 export type TestServices = ConfigService | DatabaseService | UserRepository | UserService
 
@@ -43,6 +57,8 @@ export interface TestApp {
       readonly ip?: string
     }
   ) => Promise<Response>
+  /** The log lines the app wrote, oldest first. Nothing is printed to the test run. */
+  readonly logs: readonly string[]
   /** Runs an Effect against the app's services (repositories, database, ...). */
   readonly run: <A, E>(effect: Effect.Effect<A, E, TestServices>) => Promise<A>
   readonly dispose: () => Promise<void>
@@ -93,28 +109,39 @@ export const makeTestApp = async (
   )
   const runtime = ManagedRuntime.make(layer)
 
-  const built = await runtime.runPromise(
-    Effect.gen(function* () {
-      const config = yield* ConfigService
-      yield* migrateToLatest
-      const httpRuntime = yield* makeHttpRuntime
-      return {
-        app: createApp({
-          runtime: httpRuntime,
-          config,
-          ...(options.rateCheck === undefined ? {} : { rateCheck: options.rateCheck }),
-          ...(options.assets === undefined ? {} : { assets: options.assets }),
-          ...(options.development === true ? { development: true } : {})
-        }),
-        http: httpRuntime
-      }
+  // Before the build: migrations log too, at `Trace`.
+  const logs: string[] = []
+  const sink = (line: string) => logs.push(line)
+  sinks.push(sink)
+
+  const built = await runtime
+    .runPromise(
+      Effect.gen(function* () {
+        const config = yield* ConfigService
+        yield* migrateToLatest
+        const httpRuntime = yield* makeHttpRuntime
+        return {
+          app: createApp({
+            runtime: httpRuntime,
+            config,
+            ...(options.rateCheck === undefined ? {} : { rateCheck: options.rateCheck }),
+            ...(options.assets === undefined ? {} : { assets: options.assets }),
+            ...(options.development === true ? { development: true } : {})
+          }),
+          http: httpRuntime
+        }
+      })
+    )
+    .catch((cause: unknown) => {
+      sinks.splice(sinks.indexOf(sink), 1)
+      throw cause
     })
-  )
 
   const { app, http } = built
   return {
     app,
     http,
+    logs,
     request: async (path, init = {}) => {
       const request = new Request(`http://test${path}`, {
         method: init.method ?? 'GET',
@@ -128,6 +155,13 @@ export const makeTestApp = async (
       return app.fetch(init.ip === undefined ? request : Object.assign(request, { ip: init.ip }))
     },
     run: (effect) => runtime.runPromise(effect),
-    dispose: () => runtime.dispose()
+    dispose: async () => {
+      try {
+        await runtime.dispose()
+      } finally {
+        const at = sinks.indexOf(sink)
+        if (at !== -1) sinks.splice(at, 1)
+      }
+    }
   }
 }

@@ -21,7 +21,7 @@ describe('configuration', () => {
     expect(config.security.rateLimitEnabled).toBe(true)
     expect(config.security.rateLimitMax).toBe(100)
     expect(config.observability.metricsEnabled).toBe(false)
-    expect(config.logging.transport).toEqual(['console'])
+    expect(config.logging.transport).toEqual(['console', 'file'])
     expect(config.logging.rotation).toBe('daily')
     expect(config.logging.fileMaxFiles).toBe(14)
   })

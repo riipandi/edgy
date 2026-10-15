@@ -97,7 +97,7 @@ header with a valid address. Without it the setting does nothing.
 | Variable             | Default      | Description                                                                |
 | -------------------- | ------------ | -------------------------------------------------------------------------- |
 | `LOG_LEVEL`          | `Info`       | `All` \| `Fatal` \| `Error` \| `Warn` \| `Info` \| `Debug` \| `Trace` \| `None` (**case-sensitive**). `Debug` and `Trace` also add `error.debug` (the redacted cause) to server-error responses; `Trace` also prints every SQL statement with its duration (never the values) |
-| `LOG_TRANSPORT`      | `console`    | Where logs go: any of `console`, `file`, `otlp`, comma-separated (`otlp` needs `OTEL_EXPORTER_OTLP_ENDPOINT`) |
+| `LOG_TRANSPORT`      | `console,file`    | Where logs go: any of `console`, `file`, `otlp`, comma-separated (`otlp` needs `OTEL_EXPORTER_OTLP_ENDPOINT`) |
 | `LOG_FILE`           | `./storage/logs/edgy.jsonl` | Base path of the log file; the file written carries the period (see below) |
 | `LOG_ROTATION`       | `daily`      | How often a new log file starts: `hourly`, `daily`, `weekly` or `monthly` (UTC) |
 | `LOG_FILE_MAX_FILES` | `14`         | Log files kept, the current one included; older ones are deleted. `0` keeps every file |
