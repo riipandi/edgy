@@ -15,6 +15,9 @@ export interface RunOptions {
   readonly successStatus?: number
 }
 
+/** Response header that carries the `trc_` trace id, beside `x-request-id`. */
+export const TRACE_ID_HEADER = 'x-trace-id'
+
 /** Non-standard status (nginx) for a client that hung up before the response. */
 const CLIENT_CLOSED_REQUEST = 499
 
@@ -113,6 +116,9 @@ export const runEffect = <E extends AppError>(
         // Putting it on the span too makes a pasted `trc_…` searchable there.
         const id = traceTypeId(span.traceId)
         event.context.traceTypeId = id
+        // Both header sets: h3 builds an error response from `errHeaders` only.
+        event.res.headers.set(TRACE_ID_HEADER, id)
+        event.res.errHeaders.set(TRACE_ID_HEADER, id)
         span.attribute('trace.typeid', id)
       })
     ),

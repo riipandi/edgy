@@ -109,6 +109,7 @@ describe('exported telemetry', () => {
     await flushed()
 
     expect(body.metadata.trace_id).toMatch(/^trc_[0-7][0-9a-hjkmnp-tv-z]{25}$/)
+    expect(response.headers.get('x-trace-id')).toBe(body.metadata.trace_id)
     expect(traceHexOf(body.metadata.trace_id)).toBe(traceId)
     const span = spansOf(collector).find((entry) => entry.name === 'GET /api/users')
     expect(span.traceId).toBe(traceId)
@@ -125,6 +126,7 @@ describe('exported telemetry', () => {
 
     expect(response.status).toBe(404)
     expect(body.metadata.trace_id).toMatch(/^trc_[0-7][0-9a-hjkmnp-tv-z]{25}$/)
+    expect(response.headers.get('x-trace-id')).toBe(body.metadata.trace_id)
     const hex = traceHexOf(body.metadata.trace_id)
     expect(spansOf(collector).some((span) => span.traceId === hex)).toBe(true)
   })
@@ -141,10 +143,12 @@ describe('exported telemetry', () => {
 
   it('records nothing and returns no trace_id when the sample ratio is 0', async () => {
     t = await start({ OTEL_TRACES_SAMPLE_RATIO: '0' })
-    const body: any = await (await t.request('/api/users')).json()
+    const response = await t.request('/api/users')
+    const body: any = await response.json()
     await flushed()
 
     expect(body.metadata).not.toHaveProperty('trace_id')
+    expect(response.headers.get('x-trace-id')).toBeNull()
     expect(spansOf(collector).filter((span) => span.name === 'GET /api/users')).toEqual([])
   })
 

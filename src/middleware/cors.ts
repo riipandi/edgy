@@ -8,6 +8,7 @@ import type { CorsConfig } from '../kernel/config/cors.ts'
  */
 const EXPOSED_HEADERS = [
   'x-request-id',
+  'x-trace-id',
   'x-ratelimit-limit',
   'x-ratelimit-remaining',
   'x-ratelimit-reset',

@@ -45,7 +45,13 @@ describe('response headers', () => {
     t = await makeTestApp()
     const response = await t.request('/api/users', { headers: { origin: 'https://app.example' } })
     const exposed = (response.headers.get('access-control-expose-headers') ?? '').split(/,\s*/)
-    for (const name of ['x-request-id', 'x-ratelimit-remaining', 'retry-after', 'link']) {
+    for (const name of [
+      'x-request-id',
+      'x-trace-id',
+      'x-ratelimit-remaining',
+      'retry-after',
+      'link'
+    ]) {
       expect(exposed).toContain(name)
     }
   })

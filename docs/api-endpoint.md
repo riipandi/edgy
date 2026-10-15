@@ -46,6 +46,8 @@ An error has a human-readable `message` and an `error` object a program can act 
 | `error.details` | Facts about this failure: the validation issues, the id that was not found, `retry_after` seconds |
 | `error.debug` | What lies behind a server-side failure. Only when the server runs at `LOG_LEVEL=Debug` or below; secrets in it are removed |
 
+The same id is in the `X-Trace-ID` header, so a client or proxy that never parses the body can still log it.
+
 `metadata.trace_id` is on error responses too, when traces are exported: quote it (with
 `metadata.request_id`) when you report a problem. A field that holds a secret (`password`, `token`…)
 is never quoted back in a validation message.
@@ -150,6 +152,8 @@ Every response carries `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY
 | `Cache-Control: no-store` | every `/api` response, errors included | Answers are per caller and per moment; nothing may cache them |
 | `Server-Timing: total;dur=<ms>` | every response | Time the server spent on the request |
 | `Link` | collections | The pagination links of the body (`self`, `first`, `prev`, `next`, `last`) as RFC 8288 relations |
+| `X-Request-ID` | every response | The request's `req_` id; send your own to continue an upstream trace |
+| `X-Trace-ID` | when the trace was recorded | The trace's `trc_` id (same as `metadata.trace_id`); absent when telemetry is off or the request was not sampled |
 | `Retry-After` | `429`, `503` | Seconds to wait before trying again |
 
 For a browser app on another origin, the `Access-Control-Expose-Headers` of every response lists
