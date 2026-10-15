@@ -28,7 +28,7 @@
         "strictPropertyInitialization": true,
         "target": "esnext",
         "sourceMap": true,
-        "tsBuildInfoFile": ".output/tsbuildinfo",
+        "tsBuildInfoFile": ".output/tsconfig.tsbuildinfo",
         "types": ["node"],
         "useDefineForClassFields": true,
         "verbatimModuleSyntax": true,
