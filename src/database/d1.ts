@@ -65,7 +65,7 @@ export const D1BindingNodeLayer: Layer.Layer<D1Binding, DatabaseError, ConfigSer
       const proxy = yield* Effect.acquireRelease(
         Effect.tryPromise({
           try: async () => {
-            const wrangler: typeof import('wrangler') = await import(WRANGLER)
+            const wrangler: typeof import('wrangler') = await import(/* @vite-ignore */ WRANGLER)
             return wrangler.getPlatformProxy()
           },
           catch: (cause) => new DatabaseError({ cause })

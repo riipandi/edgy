@@ -5,19 +5,19 @@ Day-to-day commands for working on the server.
 ## Commands
 
 ```bash
-pnpm dev               # the Node.js server with --watch (same as pnpm watch:node)
-pnpm watch:node        # the Node.js server with --watch (auto-restart on change)
+pnpm dev               # the Node.js server and the pages, with hot updates (same as pnpm watch:node)
+pnpm watch:node        # the same: pages update in the browser, server code restarts the process
 pnpm watch:worker      # the Cloudflare Worker from source, in workerd with a local D1 database
-pnpm preview           # build the Worker (minified), then run that file in workerd
-pnpm build:node        # bundle the Node.js server into dist/server
-pnpm build:worker      # bundle the Worker into dist/worker/index.mjs
+pnpm preview           # build the Worker (minified), then run that build in workerd
+pnpm build:node        # build the Node.js server and the browser assets into dist/server
+pnpm build:worker      # build the Worker and the browser assets into dist/worker
 pnpm compose:up        # start ClickStack (traces, metrics, logs) and Valkey in Docker
 pnpm compose:down      # stop them; their data stays in .storage
 pnpm compose:restart   # down, then up
 pnpm compose:cleanup   # stop them and delete their data
 pnpm test              # vitest run
 pnpm test:watch        # vitest, re-runs on change
-pnpm typecheck         # tsc --noEmit
+pnpm typecheck         # tsc --noEmit, then the page templates
 pnpm check             # oxfmt --check + oxlint (read-only; what a hook or CI should run)
 pnpm format            # oxfmt --write .
 pnpm lint              # oxlint --fix . (rewrites files)
@@ -25,14 +25,17 @@ pnpm lint              # oxlint --fix . (rewrites files)
 
 ## Running from source
 
-The entry point is `src/main.ts`, run directly by Node — no build step in development
-(Node strips the TypeScript types natively):
+The entry point is `src/main.ts`, run directly by Node — no build step for the commands that do not
+serve pages (Node strips the TypeScript types natively):
 
 ```bash
 pnpm app <command> [flags]
 ```
 
-See the [CLI documentation](./commandline.md) for the command list and flags.
+Starting the server (`serve`) is the exception: pages are templates that only Vite can load, so use
+`pnpm dev` while developing and a build (`pnpm build:node`) to run it otherwise. See the
+[CLI documentation](./commandline.md) for the command list and flags, and [Pages](./frontend.md) for
+the pages themselves.
 
 ## Database workflow
 
@@ -52,14 +55,17 @@ command-level flags and the confirmation behaviour of destructive commands.
 ## Cloudflare Workers locally
 
 `pnpm watch:worker` starts the Worker in `workerd`, the runtime Cloudflare uses, with a local D1
-database stored under `.wrangler/`. Pending migrations are applied when the Worker starts (the script
-switches `DATABASE_AUTO_MIGRATE` on for the local database), so a fresh checkout works with no extra step.
-`pnpm preview` does the same with the built, minified bundle, which is what `pnpm run deploy` ships:
+database stored under `.wrangler/`. Pending migrations are applied when the Worker starts (the
+local scripts switch `DATABASE_AUTO_MIGRATE` on for the local database), so a fresh checkout works
+with no extra step. `pnpm preview` does the same with the built, minified Worker, which is what
+`pnpm run deploy` ships:
 
 ```bash
-pnpm watch:worker     # http://127.0.0.1:3000, from source
-pnpm preview          # http://127.0.0.1:3000, from dist/worker/index.mjs
+pnpm watch:worker     # from source, with hot updates (the address is printed on start)
+pnpm preview          # the build in dist/worker
 ```
+
+The Worker reads local overrides from `.dev.vars`, not from `.env.local`.
 
 To prepare or inspect that same database from the CLI, select the `d1` driver:
 
@@ -112,7 +118,7 @@ passwords here are for development only.
 ## Tests
 
 Tests use [Vitest](https://vitest.dev) with [`@effect/vitest`](https://effect.website) and sit next to
-the code they cover (`*.test.ts`). They build the real application over a private in-memory database
+the code they cover (`*.test.ts`). Vitest loads the pages through the same Vite plugins as a build. They build the real application over a private in-memory database
 and call it in-process, so no port is opened; the OpenTelemetry collector is replaced by a fake that
 records what is sent. Effect tests run on a controlled clock, so retries and timeouts are stepped
 through, not waited for. `pnpm test` also checks that `.env.example` matches the configuration.
@@ -128,11 +134,12 @@ Plus a run against the real artifacts — a green test suite does not exercise t
 ```bash
 pnpm build:node
 DATABASE_PATH=$(mktemp -d)/probe.db node dist/server/index.mjs serve --auto-migrate
-pnpm preview   # the Worker bundle, in workerd
+pnpm preview   # the Worker build, in workerd
 ```
 
 ## Related docs
 
+- [Pages](./frontend.md) — writing a page, styling, how it is served
 - [Deployment](./deployment.md) — Node.js and Worker builds, single executable
 - [Configuration](./configuration.md) — environment variables and defaults
 - [CLI](./commandline.md) — commands and flags

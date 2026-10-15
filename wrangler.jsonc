@@ -1,14 +1,19 @@
 /**
- * Cloudflare Workers target. `pnpm watch:worker` runs the source locally in
- * workerd (miniflare) with a local D1 database; `pnpm preview` runs the built
- * bundle the same way; `pnpm run deploy` publishes it. Application
- * settings are the same variables the Node server reads.
+ * Cloudflare Workers target. The Cloudflare Vite plugin (`vite.worker.config.ts`) reads this file:
+ * `pnpm watch:worker` runs the source in workerd (Vite's dev server, with a local D1 database);
+ * `pnpm preview` builds and runs the artifact the same way; `pnpm run deploy` publishes it.
+ * Application settings are the same variables the Node server reads.
+ *
+ * The plugin writes the deployable configuration to `dist/worker/wrangler.json` and points
+ * Wrangler at it, so `main` below is the entry it bundles and `assets` is added for you (the
+ * browser assets in `dist/worker/public`, served by Cloudflare without starting the Worker).
+ * Do not declare `assets` or `no_bundle` here.
  *
  * Docs: https://developers.cloudflare.com/workers/wrangler/configuration
  *
  * Build configurations:
  * - Build command: `pnpm build:worker`
- * - Deploy command: `pnpm exec wrangler deploy dist/worker/index.mjs --no-bundle`
+ * - Deploy command: `pnpm exec wrangler deploy`
  * - Non-production branch deploy command: `pnpm exec wrangler versions upload`
  */
 {
@@ -66,8 +71,8 @@
         "TRUSTED_PLATFORM": "CF-Connecting-IP",
         // Off: a preview upload shares these vars, and migrating the production
         // database from one is not what a preview is for. `pnpm watch:worker`
-        // and `pnpm preview` switch it on for the local database; for the first
-        // remote deploy see docs/deployment.md.
+        // and `pnpm preview` switch it on for the local database (in
+        // `vite.worker.config.ts`); for the first remote deploy see docs/deployment.md.
         "DATABASE_AUTO_MIGRATE": "false",
         // Read cache through the Workers Cache API: per location, and not served
         // on workers.dev (there every read reaches D1), so use a custom domain.

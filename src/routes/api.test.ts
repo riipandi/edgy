@@ -34,8 +34,10 @@ describe('root and health', () => {
     expect(body.metadata.status_code).toBe(200)
   })
 
-  it('does not serve /users outside the /api prefix', async () => {
-    expect((await t.request('/users')).status).toBe(404)
+  it('keeps the JSON API under /api: the page at /users is HTML', async () => {
+    const response = await t.request('/users')
+    expect(response.headers.get('content-type')).toContain('text/html')
+    await response.text()
   })
 })
 

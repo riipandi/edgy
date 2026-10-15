@@ -38,6 +38,6 @@
             "$/*": ["./src/*"]
         }
     },
-    "include": ["**/*.ts"],
+    "include": ["**/*.ts", "**/*.marko"],
     "exclude": [".output", ".wrangler", "dist", "storage", "temp", "vendor"]
 }

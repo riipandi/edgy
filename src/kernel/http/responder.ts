@@ -34,13 +34,22 @@ const callerSpan = (event: H3Event): Option.Option<Tracer.ExternalSpan> => {
 }
 
 /**
- * Bridge Effect -> HTTP: run the program on the shared runtime and render the
- * outcome as the API envelope (`.llms/api-response.md`). A typed failure renders
- * itself (`status`, `clientMessage`, `detail` on {@link AppError}), so a new
- * error needs no branch here.
+ * What a program settled on. A client error (below 500) is an *answer*, not a failure of the
+ * server span: it is carried as a value so the span ends `Ok` with `http.response.status_code`
+ * set, as OpenTelemetry asks for server spans, and 404s and validation errors do not fill the
+ * error dashboards. Only 5xx and defects fail the span.
+ */
+export type Outcome<A> =
+  | { readonly kind: 'value'; readonly value: A }
+  | { readonly kind: 'refused'; readonly error: AppError }
+
+/**
+ * Bridge Effect -> HTTP: run a program on the shared runtime and report what it settled on, for
+ * whichever response shape the caller renders (the API envelope in {@link runEffect}, an HTML page
+ * in `page.ts`). A typed failure carries its own `status` and `clientMessage` ({@link AppError}),
+ * so a new error needs no branch here.
  *
- * The program already yields an encoded {@link Reply}; this function owns
- * everything around it: the request timeout, interruption on client
+ * This function owns everything around the program: the request timeout, interruption on client
  * disconnect, error reporting, tracing, and the success or error envelope.
  *
  * **Tracing.** The program runs inside a server span named after the matched route
@@ -56,11 +65,11 @@ const callerSpan = (event: H3Event): Option.Option<Tracer.ExternalSpan> => {
  * once, while expected failures (validation, not found: `ErrorReporter.ignore`) and
  * interruptions do not. The client only ever sees a generic message for a 500.
  */
-export const runEffect = <E extends AppError>(
+export const runProgram = async <A, E extends AppError>(
   event: H3Event,
-  effect: Effect.Effect<Reply, E, HttpEnv>,
-  options: RunOptions = {}
-): Promise<ApiSuccess | ApiError> => {
+  effect: Effect.Effect<A, E, HttpEnv>,
+  status: number
+): Promise<Exit.Exit<Outcome<A>, E | RequestTimeout>> => {
   const requestId = requestIdOf(event)
   const { requestTimeout, runPromiseExit, tracing } = runtimeOf(event)
 
@@ -79,8 +88,6 @@ export const runEffect = <E extends AppError>(
       : tracing.sampleRatio < 1
         ? { sampled: Math.random() < tracing.sampleRatio }
         : {}
-
-  const status = options.successStatus ?? 200
 
   const spanOptions: Tracer.SpanOptions = {
     kind: 'server',
@@ -101,10 +108,6 @@ export const runEffect = <E extends AppError>(
    * 404s and validation errors do not fill the error dashboards. Only 5xx and defects
    * fail the span.
    */
-  type Outcome =
-    | { readonly kind: 'reply'; readonly reply: Reply }
-    | { readonly kind: 'refused'; readonly error: AppError }
-
   /**
    * Notes the trace this request belongs to, on success and on failure alike: remembered on the
    * event so the request log line, written after the fiber has finished, can join the same
@@ -141,15 +144,15 @@ export const runEffect = <E extends AppError>(
       duration: requestTimeout,
       orElse: () => Effect.fail(new RequestTimeout({ after: requestTimeout }))
     }),
-    Effect.map((reply): Outcome => ({ kind: 'reply', reply })),
+    Effect.map((value): Outcome<A> => ({ kind: 'value', value })),
     Effect.catchIf(
       (error: AppError) => error.status < 500,
-      (error): Effect.Effect<Outcome> => Effect.succeed({ kind: 'refused', error })
+      (error): Effect.Effect<Outcome<A>> => Effect.succeed({ kind: 'refused', error })
     ),
     Effect.tap((outcome) =>
       Effect.annotateCurrentSpan(
         'http.response.status_code',
-        outcome.kind === 'reply' ? status : outcome.error.status
+        outcome.kind === 'value' ? status : outcome.error.status
       )
     ),
     Effect.tapError((error) =>
@@ -161,45 +164,75 @@ export const runEffect = <E extends AppError>(
     Effect.withSpan(`${event.req.method} ${route ?? event.url.pathname}`, spanOptions)
   )
 
-  const { diagnostics } = runtimeOf(event)
+  const exit = await runPromiseExit(program, { signal: event.req.signal })
+  const cache = summarizeTally(cacheTally)
+  if (cache !== undefined) {
+    event.context.cache = cache
+    // Both header sets: h3 builds an error response (a 404 for a missing user) from `errHeaders` only.
+    event.res.headers.set(CACHE_HEADER, cache.toUpperCase())
+    event.res.errHeaders.set(CACHE_HEADER, cache.toUpperCase())
+  }
+  return exit
+}
 
+/** Sets the status and builds the error envelope of a client or server refusal. */
+export const refusal = (event: H3Event, error: AppError): ApiError => {
+  event.res.status = error.status
+  return errorEnvelope(
+    event,
+    error.status,
+    error.clientMessage,
+    errorBody(error, runtimeOf(event).diagnostics)
+  )
+}
+
+/**
+ * The error envelope for a program that failed: a client that hung up, a typed failure, or a
+ * defect (answered with a generic message; the cause is already with the error reporters).
+ */
+export const failure = (event: H3Event, cause: Cause.Cause<AppError>): ApiError => {
+  const { diagnostics } = runtimeOf(event)
   const fail = (code: number, message: string, error: ApiErrorBody): ApiError => {
     event.res.status = code
     return errorEnvelope(event, code, message, error)
   }
 
-  const failWith = (error: AppError): ApiError =>
-    fail(error.status, error.clientMessage, errorBody(error, diagnostics))
+  if (Cause.hasInterruptsOnly(cause)) {
+    return fail(
+      CLIENT_CLOSED_REQUEST,
+      'Request cancelled',
+      statusBody(CLIENT_CLOSED_REQUEST, { diagnostics })
+    )
+  }
 
-  return runPromiseExit(program, { signal: event.req.signal }).then((exit) => {
-    const cache = summarizeTally(cacheTally)
-    if (cache !== undefined) {
-      event.context.cache = cache
-      // Both header sets: h3 builds an error response (a 404 for a missing user) from `errHeaders` only.
-      event.res.headers.set(CACHE_HEADER, cache.toUpperCase())
-      event.res.errHeaders.set(CACHE_HEADER, cache.toUpperCase())
-    }
-    if (Exit.isSuccess(exit)) {
-      const outcome = exit.value
-      if (outcome.kind === 'refused') return failWith(outcome.error)
-      event.res.status = status
-      const body = successEnvelope(event, status, outcome.reply)
-      const link = body.links === undefined ? undefined : linkHeader(body.links)
-      if (link !== undefined) event.res.headers.set('link', link)
-      return body
-    }
+  const typed: Option.Option<AppError> = Cause.findErrorOption(cause)
+  if (Option.isSome(typed)) return refusal(event, typed.value)
 
-    if (Cause.hasInterruptsOnly(exit.cause)) {
-      return fail(
-        CLIENT_CLOSED_REQUEST,
-        'Request cancelled',
-        statusBody(CLIENT_CLOSED_REQUEST, { diagnostics })
-      )
-    }
+  return fail(500, 'Internal server error', defectBody(cause, diagnostics))
+}
 
-    const failure: Option.Option<AppError> = Cause.findErrorOption(exit.cause)
-    if (Option.isSome(failure)) return failWith(failure.value)
+/**
+ * Runs a program that answers in the API envelope (`.llms/api-response.md`): {@link runProgram}
+ * does the work, this function turns what it settled on into the success or error envelope and
+ * sets the response status.
+ */
+export const runEffect = <E extends AppError>(
+  event: H3Event,
+  effect: Effect.Effect<Reply, E, HttpEnv>,
+  options: RunOptions = {}
+): Promise<ApiSuccess | ApiError> => {
+  const status = options.successStatus ?? 200
 
-    return fail(500, 'Internal server error', defectBody(exit.cause, diagnostics))
+  return runProgram(event, effect, status).then((exit) => {
+    if (!Exit.isSuccess(exit)) return failure(event, exit.cause)
+
+    const outcome = exit.value
+    if (outcome.kind === 'refused') return refusal(event, outcome.error)
+
+    event.res.status = status
+    const body = successEnvelope(event, status, outcome.value)
+    const link = body.links === undefined ? undefined : linkHeader(body.links)
+    if (link !== undefined) event.res.headers.set('link', link)
+    return body
   })
 }

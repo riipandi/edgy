@@ -38,7 +38,7 @@ const parseRuntime = (argv: readonly string[]): BuilderRuntime => {
 interface CliFlags {
   readonly minify?: boolean | undefined
   readonly obfuscate?: boolean | undefined
-  readonly splitting?: boolean | undefined
+  readonly local?: boolean | undefined
 }
 
 /** Parsed command line: the subcommand plus its flags. */
@@ -81,7 +81,7 @@ const parseFlags = (argv: readonly string[]): CliFlags => {
   return {
     minify: toggle('minify'),
     obfuscate: toggle('obfuscate'),
-    splitting: toggle('splitting')
+    local: toggle('local')
   }
 }
 
@@ -94,7 +94,7 @@ const parseFlags = (argv: readonly string[]): CliFlags => {
 const definedOnly = (flags: CliFlags): BuilderConfigInput => ({
   ...(flags.minify === undefined ? {} : { minify: flags.minify }),
   ...(flags.obfuscate === undefined ? {} : { obfuscate: flags.obfuscate }),
-  ...(flags.splitting === undefined ? {} : { splitting: flags.splitting })
+  ...(flags.local === undefined ? {} : { local: flags.local })
 })
 
 /**
@@ -122,7 +122,7 @@ const isModuleWithDefault = (value: unknown): value is { default: BuilderConfigI
 /**
  * Builds the project.
  *
- * `build` bundles the server only. `compile` additionally turns the result into
+ * `build` builds the server and the browser assets (Vite). `compile` additionally turns the result into
  * a Node single-executable application — a much slower, platform-locked step
  * that belongs to release, not to the dev loop. The subcommand is authoritative:
  * it overrides `seaConfig.enable`, so the same config file serves both.
@@ -149,13 +149,9 @@ const main = async (): Promise<void> => {
 
   const started = Date.now()
   const extras = [
-    config.splitting
-      ? config.splitPackages
-        ? 'splitting:per-package'
-        : 'splitting:vendor'
-      : undefined,
     config.minify ? 'minify' : undefined,
-    config.obfuscate ? `obfuscate:${config.obfuscatePreset}` : undefined
+    config.obfuscate ? `obfuscate:${config.obfuscatePreset}` : undefined,
+    config.local ? 'local' : undefined
   ].filter(Boolean)
 
   const action = compileExe
@@ -163,29 +159,27 @@ const main = async (): Promise<void> => {
     : config.runtime === 'workers'
       ? 'Building Worker'
       : 'Building server'
-  process.stdout.write(
-    `${action} (target: ${config.target}, ${extras.join(' + ') || 'no extras'})\n`
-  )
+  process.stdout.write(`${action} (${extras.join(' + ') || 'no extras'})\n`)
 
   const result = await runBuild(config)
 
   const size = (result.bytes / 1024).toFixed(1)
-  const entry = path.relative(rootDir, path.join(result.serverDir, config.entryFileName))
-  const externals = result.externals.length === 0 ? 'none' : result.externals.join(', ')
+  const entry = path.relative(rootDir, result.entry)
+  const assets = path.relative(rootDir, path.join(result.serverDir, 'public'))
 
   const lines =
     config.runtime === 'workers'
       ? [
           `Worker built in ${Date.now() - started}ms`,
           `  entry:     ${entry} (${size} kB)`,
+          `  assets:    ${assets}`,
           `Preview:   pnpm preview`,
-          `Deploy:    pnpm deploy`
+          `Deploy:    pnpm run deploy`
         ]
       : [
           `Server built in ${Date.now() - started}ms`,
           `  entry:     ${entry} (${size} kB)`,
-          `  chunks:    ${result.files.length}`,
-          `  externals: ${externals}`,
+          `  assets:    ${assets}`,
           `Preview:   node ${entry} serve`
         ]
 

@@ -1,0 +1,22 @@
+import { themeClass } from "../styles/theme.css.ts"
+import { body, header, main } from "../styles/shell.css.ts"
+
+export interface Input {
+  title: string;
+  content: Marko.Body;
+}
+
+<!doctype html>
+<html lang="en" class=themeClass>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>${input.title}</title>
+  </head>
+  <body class=body>
+    <header class=header>edgy</header>
+    <main class=main>
+      <${input.content}/>
+    </main>
+  </body>
+</html>

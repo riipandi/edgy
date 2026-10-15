@@ -4,33 +4,35 @@ How to build, bundle, and ship the server.
 
 ## Building
 
-The `builder/` directory is a small Rolldown pipeline, deliberately independent of the server
-source. It bundles the server, keeps native packages external, traces them into the output, and
-emits a minimal `package.json` so the result runs without the project's own `node_modules`.
+[Vite](https://vite.dev) builds both targets: the server (or Worker) and the browser assets, in one
+run. `builder/` wraps it for what Vite does not do: obfuscation, the executable bit on the Node
+entry, a minimal `package.json` so the result runs without the project's own `node_modules`, and the
+single executable.
 
 ```bash
-pnpm build:node      # -> dist/server  (ESM bundle + chunks)
-pnpm build:worker    # -> dist/worker/index.mjs  (Cloudflare Worker, one file)
+pnpm build:node      # -> dist/server  (index.mjs + public/ for the browser)
+pnpm build:worker    # -> dist/worker  (index.js + public/ for the browser)
 pnpm compile         # -> dist/server + dist/edgy  (single executable, experimental)
 ```
 
 Flags apply to all three commands:
 
 ```bash
-pnpm build:node --no-splitting          # one self-contained index.mjs
-pnpm build:node --minify                # minify with Rolldown's oxc minifier
-pnpm build:node --obfuscate             # obfuscate chunks (javascript-obfuscator)
+pnpm build:node --minify                # also minify the server bundle (browser assets always are)
+pnpm build:node --obfuscate             # obfuscate the server code (javascript-obfuscator)
 pnpm build:node --minify --obfuscate    # both
 ```
 
-Run the bundle anywhere, with no `node_modules` present:
+Run the build anywhere, with no `node_modules` present:
 
 ```bash
 node dist/server/index.mjs serve
 ./dist/server/index.mjs serve   # the Node entry is executable and starts with a shebang
 ```
 
-The Worker bundle (`dist/worker/index.mjs`) is not executable: the platform loads it, nothing runs it.
+The server finds its browser assets in `public/`, next to `index.mjs`, so keep the two together
+when you copy the build. The Worker entry (`dist/worker/index.js`) is not executable: the platform
+loads it, nothing runs it.
 
 ## Two targets
 
@@ -45,20 +47,25 @@ runtime and the database differ.
 ## Cloudflare Workers
 
 ```bash
-pnpm watch:worker    # run the source in workerd, rebuilt on every change
-pnpm build:worker    # bundle into dist/worker/index.mjs (one file)
-pnpm preview         # build a minified bundle, then run that exact file in workerd (migrates the local database)
-pnpm run deploy      # build a minified bundle, then publish that exact file with wrangler
+pnpm watch:worker    # run the source in workerd, with hot updates
+pnpm build:worker    # build into dist/worker (the Worker and, in public/, the browser assets)
+pnpm preview         # build a minified Worker, then run that exact build in workerd (migrates the local database)
+pnpm run deploy      # build a minified Worker, then publish it with wrangler
 ```
 
 `pnpm build:worker` is `pnpm build:node`'s counterpart: the same builder with `--target=workers`
-(`node` or `workers`, default `node`). The Worker build is a single file with Node's built-ins
-(`node:async_hooks`) left as imports, which Cloudflare provides through the `nodejs_compat` flag.
-`--minify` and `--obfuscate` work for both targets; `pnpm compile` (single executable) is Node.js only.
+(`node` or `workers`, default `node`). Vite's Cloudflare plugin reads `wrangler.jsonc` and writes
+the configuration that `wrangler deploy` uses, including the browser assets, which Cloudflare serves
+itself without starting the Worker. Node's built-ins (`node:async_hooks`) stay imports, which
+Cloudflare provides through the `nodejs_compat` flag. `--minify` and `--obfuscate` work for both
+targets; `pnpm compile` (single executable) is Node.js only.
 
-`pnpm watch:worker` is the fast loop: wrangler bundles the source itself on every change.
-`pnpm preview` runs the artifact you will actually ship, minified exactly as `pnpm run deploy` builds it,
-so run it before deploying.
+`pnpm watch:worker` is the fast loop. `pnpm preview` runs the artifact you will actually ship,
+minified exactly as `pnpm run deploy` builds it, so run it before deploying.
+
+Local secrets and overrides for the Worker go in `.dev.vars` (Wrangler's own file, ignored by git).
+`.env.local` is for the Node.js server and is deliberately not read for the Worker: it would
+override the variables in `wrangler.jsonc`.
 
 Before the first deploy:
 
@@ -106,37 +113,27 @@ not multiplied. `MAX_IN_FLIGHT` caps the requests one process handles at once; p
 
 ## Build configuration
 
-`builder/builder.config.ts` is optional; every field has a sensible default. Common options:
+Bundling is configured in `vite.config.ts` (Node.js) and `vite.worker.config.ts` (Workers); both are
+ordinary Vite configurations. `builder/builder.config.ts` is optional and covers the steps around
+the bundle:
 
 | Option            | Default             | Description                                                  |
 | ----------------- | ------------------- | ------------------------------------------------------------ |
-| `entry`           | `src/main.ts`       | Server entry point                                           |
-| `outDir`          | `dist`              | Build output root                                            |
-| `splitting`       | `true`              | Split shared code into chunks                                |
-| `splitPackages`   | `true`              | One chunk per dependency instead of a single `vendor` chunk  |
-| `chunkGroups`     | `[]`                | Extra chunk groups (e.g. group `effect` separately)          |
-| `minify`          | `false`             | Minify the bundles                                           |
-| `obfuscate`       | `false`             | Obfuscate the bundles                                        |
-| `external`        | native packages     | Packages kept external and traced into the output            |
+| `minify`          | `false`             | Minify the server bundle                                     |
+| `obfuscate`       | `false`             | Obfuscate the server bundle                                  |
+| `obfuscatePreset` | `medium`            | `low`, `medium` or `high`                                    |
 | `seaConfig`       | `{ enable: false }` | Single executable options (see below)                        |
-| `rolldownOptions` | `{}`                | Escape hatch, deep-merged over the builder's Rolldown config |
 
-> [!TIP]
-> `rolldownOptions` is merged (arrays concatenate), so extra plugins append instead of replacing
-> the builder's externals plugin:
->
-> ```ts
-> rolldownOptions: {
->   resolve: { alias: { '#': './src' } },
->   output: { comments: false }
-> }
-> ```
+The Node.js server is one bundle with its dependencies inlined. A dependency that ships a native
+addon cannot be bundled that way; none of the current dependencies do (the database is
+`node:sqlite`).
 
 ## Single executable
 
-`pnpm compile` bundles the server as one CommonJS file, generates a preparation blob with
-`node --experimental-sea-config`, and injects it into a copy of the running `node` binary using
-[postject](https://github.com/nodejs/postject).
+`pnpm compile` builds the server as one CommonJS file together with the browser assets, generates a
+preparation blob with `node --experimental-sea-config`, and injects it into a copy of the running
+`node` binary using [postject](https://github.com/nodejs/postject). The browser assets travel inside
+the executable, so it serves its own pages with nothing beside it.
 
 ```bash
 pnpm compile
@@ -154,7 +151,7 @@ seaConfig: {
   useSnapshot: false,
   execArgv: [],
   execArgvExtension: 'env',           // 'none' | 'env' | 'cli'
-  assets: {},                         // key -> path, readable via node:sea
+  assets: {},                         // extra files, key -> path, readable via node:sea
   target: undefined                   // e.g. 'linux-x64'; defaults to the host
 }
 ```

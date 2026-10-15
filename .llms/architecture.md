@@ -18,6 +18,12 @@ One application, two runtimes. Node.js (`node:sqlite`) and Cloudflare Workers (D
 - **Vertical modules.** `src/modules/<resource>/` holds schema, repository, service, handler, routes and tests. `routes/route.ts` and `services.ts` are the only files that list modules. The kernel (`src/kernel/`) knows h3 and Effect but no resource.
 - **Limits of the Worker target.** D1 has no interactive transactions, its introspector cannot read columns, rate-limit counters are per isolate (or per Cloudflare location with the binding), and the Worker's import graph must stay free of Node-only modules (checked by running `pnpm preview`, not by the compiler).
 
+## Frontend
+
+Pages are Marko 6 templates rendered on the server and streamed, hydrated only where a component has state; styles are vanilla-extract (`.css.ts`, evaluated at build time into class names and one stylesheet, no runtime). Marko compiles each page's browser entries from the server build (linked mode), so a page ships the script of its interactive tags and nothing else. Pages are routes of the same h3 app and run the same Effect programs as the API (`definePageHandler` over `runProgram`), so the services, the read cache, tracing, the request timeout and error reporting are shared (the rate limiter covers `/api` only); only the response differs (HTML with a per-response CSP nonce; a failure is the API's error envelope).
+
+Why this stack: the project needed React-level interactivity from a server-rendered page without moving the server into a frontend framework. Marko is a template compiler, not a router or a server, so h3 stays the owner of routing, the request chain and the runtime split; LiquidJS (an interpreter, no hydration) cannot hydrate, and Octane was too young (beta, no verified Workers path). Vite is the build tool because both Marko and vanilla-extract integrate through it, and its Cloudflare plugin runs the Worker in workerd during development and writes the deployable configuration. `@marko/run` was not used: it owns routing and has no maintained Cloudflare adapter. Known costs: the Marko and vanilla-extract plugins for Vite 8 are young (vanilla-extract's `resolve.external` is removed for Workers, `.marko` has its own type checker), and `pnpm dev` cannot restart on a template edit because Vite owns that module graph.
+
 ## HTTP layer
 
 - **Plugins are the composition primitive.** Global middleware, route groups and per-route behaviour are all `H3Plugin`s composed in `createApp`. `defineRouteGroup` gives each group an isolated router mounted at a prefix; `mount` merges its routes into the parent rou3 trie, so there is one lookup and no nested fetch. App-level config and hooks do not reach mounted groups, so shared behaviour is global middleware.
@@ -61,7 +67,7 @@ All environment parsing is in `src/kernel/config/`. Each variable is declared on
 
 ## Build and deploy
 
-`builder/` is a Rolldown pipeline independent of `src/`, with two runtimes. `node` bundles the server (ESM, per-package chunks, native packages external and traced, minimal `package.json`) and can compile a single executable (SEA + postject). `workers` applies a preset over that config (one file, `workerd` conditions, no shebang, no tracing) and is what `pnpm preview` and `pnpm run deploy` run, built the same way, with `--no-bundle`; `watch:worker` lets wrangler bundle the source. Scripts are split by target.
+Vite 8 (Rolldown inside) builds both targets, configured in `vite.config.ts` (Node) and `vite.worker.config.ts` (Workers, through `@cloudflare/vite-plugin`, which reads `wrangler.jsonc`); `builder/` runs it (`createBuilder().buildApp()`) and does what Vite does not: obfuscation, the executable bit and `package.json` for the Node entry, and the single executable (a second build as one CJS file, then postject). Each target is one SSR bundle with its dependencies inlined plus the browser assets in `public/`; for Node they sit next to `index.mjs`, in the executable they are SEA blobs, on Workers Cloudflare serves them before the Worker runs. Scripts are split by target, and `pnpm dev` is a launcher (`builder/dev.ts`) that puts the Vite dev server in front of the application.
 
 ## Development services
 

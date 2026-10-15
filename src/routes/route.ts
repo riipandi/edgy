@@ -1,11 +1,13 @@
 import { type H3Plugin, HTTPError } from 'h3'
 import type { AppConfig } from '../kernel/config/service.ts'
+import { type AssetSource, assetRoutes } from '../kernel/http/assets.ts'
 import { defineRouteGroup } from '../kernel/http/router.ts'
 import { unlessDraining } from '../kernel/http/runtime.ts'
 import { cacheControl } from '../middleware/cache_control.ts'
 import { makeClientResolver } from '../middleware/client_ip.ts'
 import { makeMemoryRateCheck, type RateCheck, rateLimit } from '../middleware/rate_limit.ts'
 import { healthHandler } from '../modules/health/health_handler.ts'
+import { userPages } from '../modules/user/user_pages.ts'
 import { userRoutes } from '../modules/user/user_routes.ts'
 import { metricsHandler } from '../observer/metrics_handler.ts'
 
@@ -97,20 +99,39 @@ const notFoundRoutes: H3Plugin = (app) => {
   })
 }
 
+/**
+ * HTML pages, at the origin root beside the API. Each page is a group of its own (its path is the
+ * page's address) and renders through `definePageHandler`, not the API envelope. A new page's
+ * group registers here.
+ */
+const pageRoutes: H3Plugin = (app) => {
+  app.register(userPages)
+}
+
+/** What the route table needs besides the configuration. Both are absent in a test or on Workers. */
+export interface RouteOptions {
+  /** How API requests are counted against the rate limit; in-process memory when absent. */
+  readonly rateCheck?: RateCheck | undefined
+  /** Where `/assets/**` is read from; no such route when absent. */
+  readonly assets?: AssetSource | undefined
+}
+
 /** Every route plugin, in registration order. The catch-all must stay last. */
 export const createRoutePlugins = (
   config: AppConfig,
-  rateCheck?: RateCheck
+  options: RouteOptions = {}
 ): readonly H3Plugin[] => [
   rootRoutes(config),
   apiRoutes(
     config,
-    rateCheck ??
+    options.rateCheck ??
       makeMemoryRateCheck({
         max: config.security.rateLimitMax,
         window: config.security.rateLimitWindow
       })
   ),
+  pageRoutes,
+  ...(options.assets === undefined ? [] : [assetRoutes(options.assets)]),
   wellKnownRoutes,
   notFoundRoutes
 ]

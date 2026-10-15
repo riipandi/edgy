@@ -8,6 +8,7 @@ import type { DatabaseService } from '../src/database/service.ts'
 import { SqliteDatabaseLayer } from '../src/database/sqlite.ts'
 import { LocalCachePersistence } from '../src/kernel/cache/local.ts'
 import { ConfigLayer, ConfigService } from '../src/kernel/config/service.ts'
+import type { AssetSource } from '../src/kernel/http/assets.ts'
 import { type HttpRuntime, makeHttpRuntime } from '../src/kernel/http/runtime.ts'
 import type { RateCheck } from '../src/middleware/rate_limit.ts'
 import type { UserRepository } from '../src/modules/user/user_repo.ts'
@@ -60,6 +61,8 @@ export const makeTestApp = async (
   options: {
     readonly fetch?: typeof globalThis.fetch
     readonly rateCheck?: RateCheck
+    /** Where `/assets/**` is read from; the route is absent when omitted, as on Workers. */
+    readonly assets?: AssetSource
     /** Stands in for the shared cache store (`CACHE_STORE=redis`); in-process when absent. */
     readonly cacheBacking?: Layer.Layer<Persistence.BackingPersistence>
   } = {}
@@ -99,7 +102,8 @@ export const makeTestApp = async (
         app: createApp({
           runtime: httpRuntime,
           config,
-          ...(options.rateCheck === undefined ? {} : { rateCheck: options.rateCheck })
+          ...(options.rateCheck === undefined ? {} : { rateCheck: options.rateCheck }),
+          ...(options.assets === undefined ? {} : { assets: options.assets })
         }),
         http: httpRuntime
       }

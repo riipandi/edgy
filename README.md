@@ -9,9 +9,10 @@ errors, dependency injection, structured logging) to [H3](https://h3.dev) (routi
 [Kysely](https://kysely.dev). The same code runs on Node.js (Node's built-in `node:sqlite`) and on
 Cloudflare Workers ([D1](https://developers.cloudflare.com/d1/)); a setting picks the database.
 
-The project ships its own Rolldown-based build pipeline — a lean take on Nitro — that emits a
-standalone server bundle with no `node_modules` at runtime, and can optionally compile a single
-executable using Node's [Single Executable Applications](https://nodejs.org/api/single-executable-applications.html) API.
+It also serves HTML pages: server-rendered [Marko](https://markojs.com) templates, styled with
+[vanilla-extract](https://vanilla-extract.style), interactive where they need to be. [Vite](https://vite.dev)
+builds everything into a standalone bundle with no `node_modules` at runtime, and the build can optionally
+compile a single executable using Node's [Single Executable Applications](https://nodejs.org/api/single-executable-applications.html) API.
 
 ## Features
 
@@ -23,7 +24,8 @@ executable using Node's [Single Executable Applications](https://nodejs.org/api/
 - **Resilient** — overload guard, retried reads on D1, a rate limit that can be shared across instances and fails open, graceful shutdown.
 - **Two targets** — a Node.js server and a Cloudflare Worker (`pnpm watch:worker` runs it locally).
 - **Zero native dependencies** — SQLite via `node:sqlite`, so the bundle needs no compiled addon.
-- **Configurable build** — code splitting per dependency, optional minify/obfuscate, all off or on by flags.
+- **Server-rendered pages** — streamed Marko pages that hydrate only the interactive parts, with typed, build-time styles.
+- **One build for both targets** — Vite builds the server and the browser assets for Node.js and Workers; optional minify/obfuscate by flags.
 - **Optional single executable** — `pnpm compile` produces one self-contained binary.
 
 ## Requirements
@@ -37,7 +39,7 @@ executable using Node's [Single Executable Applications](https://nodejs.org/api/
 pnpm install
 pnpm app migrate:up     # create the users table
 pnpm app migrate:seed   # insert sample rows (idempotent)
-pnpm dev                # http://localhost:3000, restarts on change
+pnpm dev                # http://localhost:3000, pages update live, server code restarts
 pnpm test               # run the test suite
 pnpm watch:worker       # the same app as a Cloudflare Worker, locally
 pnpm compose:up         # ClickStack (HyperDX) and Valkey in Docker, for telemetry
@@ -65,6 +67,7 @@ The full documentation index lives in [docs/index.md](./docs/index.md):
 | [CLI](./docs/commandline.md)                | Commands, flags, confirmation and dry-run behaviour        |
 | [Configuration](./docs/configuration.md)    | Environment variables, defaults, examples                  |
 | [API endpoints](./docs/api-endpoint.md)     | Endpoint list, request ID tracing                          |
+| [Pages](./docs/frontend.md)                 | Writing a page, styling, how pages are served              |
 | [Development](./docs/development.md)        | Day-to-day commands, database workflow, validation         |
 | [Deployment](./docs/deployment.md)          | Node.js and Cloudflare Workers targets, bundling           |
 
@@ -74,4 +77,5 @@ The full documentation index lives in [docs/index.md](./docs/index.md):
 - H3 — [guide](https://h3.dev/guide/api/h3) · [event](https://h3.dev/guide/api/h3event) · [middleware](https://h3.dev/guide/basics/middleware) · [plugins](https://h3.dev/guide/advanced/plugins) · [utilities](https://h3.dev/utils)
 - Kysely — [documentation](https://kysely.dev)
 - Cloudflare — [Workers](https://developers.cloudflare.com/workers/) · [D1](https://developers.cloudflare.com/d1/) · [Wrangler](https://developers.cloudflare.com/workers/wrangler/)
+- Frontend — [Marko](https://markojs.com/docs/introduction/getting-started) · [Vite](https://vite.dev/guide/) · [vanilla-extract](https://vanilla-extract.style) · [Cloudflare Vite plugin](https://developers.cloudflare.com/workers/vite-plugin/)
 - Node.js — [`node:sqlite`](https://nodejs.org/api/sqlite.html) · [single executable applications](https://nodejs.org/api/single-executable-applications.html)

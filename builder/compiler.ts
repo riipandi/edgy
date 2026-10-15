@@ -1,12 +1,12 @@
 import { execFileSync } from 'node:child_process'
-import { chmodSync, copyFileSync, rmSync, statSync } from 'node:fs'
+import { chmodSync, copyFileSync, readdirSync, rmSync, statSync } from 'node:fs'
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { inject } from 'postject'
-import { bundleSea } from './bundler.ts'
 import type { BuilderConfig } from './config.ts'
-import type { ExternalPackage } from './externals.ts'
+import { DIST_DIR } from './vite.ts'
+import { buildWithVite } from './vite_build.ts'
 
 /**
  * The fuse Node.js uses to detect an injected blob. Flip its last character to
@@ -46,18 +46,79 @@ const codesign = (args: readonly string[]): void => {
   }
 }
 
+/** Every file under `dir`, recursively. */
+const walk = (dir: string): string[] =>
+  readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
+    entry.isDirectory() ? walk(path.join(dir, entry.name)) : [path.join(dir, entry.name)]
+  )
+
+/**
+ * Builds the application with the server as **one CommonJS file**, for the SEA pass.
+ *
+ * Node's single-executable support only runs one embedded script using the CommonJS module system,
+ * so the Node configuration is overridden: `cjs`, no code splitting (dynamic imports are inlined),
+ * no shebang. `import.meta` is replaced with an empty object, which is what a CommonJS bundle has;
+ * the one place that reads it (`server.ts`) is only reached when the process is not an executable.
+ *
+ * Returns the script and the browser assets as `public/<path>` blob keys.
+ */
+const bundleSea = async (
+  config: BuilderConfig,
+  tempDir: string
+): Promise<{ mainScript: string; publicAssets: Record<string, string> }> => {
+  const outDir = path.join(tempDir, 'server')
+  const publicDir = path.join(outDir, 'public')
+
+  await buildWithVite({
+    rootDir: config.rootDir,
+    runtime: 'node',
+    overrides: {
+      build: { emptyOutDir: true },
+      environments: {
+        client: { build: { outDir: publicDir } },
+        ssr: {
+          build: {
+            outDir,
+            sourcemap: false,
+            rolldownOptions: {
+              output: {
+                format: 'cjs',
+                entryFileNames: 'main.cjs',
+                codeSplitting: false,
+                banner: () => ''
+              },
+              transform: { define: { 'import.meta': '({})' } }
+            }
+          }
+        }
+      }
+    }
+  })
+
+  return {
+    mainScript: path.join(outDir, 'main.cjs'),
+    publicAssets: Object.fromEntries(
+      walk(publicDir).map((file) => [
+        `public/${path.relative(publicDir, file).split(path.sep).join('/')}`,
+        file
+      ])
+    )
+  }
+}
+
 /**
  * Compiles the server into a Node.js single-executable application (SEA).
  *
  * **Experimental.** Node.js marks SEA as `Stability: 1.1` (active development)
  * and only tests a limited platform matrix: Windows, macOS **arm64** (x64 is
  * unsupported) and Linux except Alpine/s390x. It also embeds a single CommonJS
- * script, which is why {@link bundleSea} produces a separate, single-file CJS
- * bundle instead of reusing the chunked ESM output.
+ * script, which is why {@link bundleSea} builds the application a second time as a single-file
+ * CJS bundle instead of reusing the ESM output. The browser assets are built with it and embedded
+ * in the blob, so the executable serves its own pages without a `public/` directory beside it.
  *
  * Pipeline, mirroring the official guide:
  *
- * 1. Bundle the server as one CommonJS file (temp dir).
+ * 1. Build the application with the server as one CommonJS file (temp dir).
  * 2. `node --experimental-sea-config` → preparation blob.
  * 3. Copy the running `node` binary to `<outDir>/<exeFileName>`.
  * 4. macOS: strip the signature.
@@ -70,9 +131,8 @@ const codesign = (args: readonly string[]): void => {
  */
 export const compileExecutable = async (options: {
   readonly config: BuilderConfig
-  readonly externals: Map<string, ExternalPackage>
 }): Promise<CompileResult> => {
-  const { config, externals } = options
+  const { config } = options
   const { seaConfig } = config
   const tempDir = mkdtempSync(path.join(tmpdir(), 'builder-sea-'))
 
@@ -80,9 +140,10 @@ export const compileExecutable = async (options: {
   const target = seaConfig.target ?? host
   const crossPlatform = target !== host
 
+  const distDir = path.resolve(config.rootDir, DIST_DIR)
+
   try {
-    const mainScript = path.join(tempDir, 'main.cjs')
-    await bundleSea({ config, externals, outFile: mainScript })
+    const { mainScript, publicAssets } = await bundleSea(config, tempDir)
 
     const blobPath = path.join(tempDir, 'sea-prep.blob')
     const seaConfigPath = path.join(tempDir, 'sea-config.json')
@@ -99,16 +160,16 @@ export const compileExecutable = async (options: {
           useSnapshot: crossPlatform ? false : seaConfig.useSnapshot,
           ...(seaConfig.execArgv.length > 0 ? { execArgv: [...seaConfig.execArgv] } : {}),
           execArgvExtension: seaConfig.execArgvExtension,
-          ...(Object.keys(seaConfig.assets).length > 0
-            ? {
-                assets: Object.fromEntries(
-                  Object.entries(seaConfig.assets).map(([key, from]) => [
-                    key,
-                    path.resolve(config.rootDir, from)
-                  ])
-                )
-              }
-            : {})
+          // The browser assets are keyed `public/<path>`, which is what `embeddedAssets` reads.
+          assets: {
+            ...Object.fromEntries(
+              Object.entries(seaConfig.assets).map(([key, from]) => [
+                key,
+                path.resolve(config.rootDir, from)
+              ])
+            ),
+            ...publicAssets
+          }
         },
         null,
         2
@@ -117,8 +178,8 @@ export const compileExecutable = async (options: {
 
     execFileSync(process.execPath, ['--experimental-sea-config', seaConfigPath])
 
-    mkdirSync(config.outDir, { recursive: true })
-    const outputPath = path.join(config.outDir, executableName(config))
+    mkdirSync(distDir, { recursive: true })
+    const outputPath = path.join(distDir, executableName(config))
     copyFileSync(process.execPath, outputPath)
     chmodSync(outputPath, 0o755)
 

@@ -5,12 +5,13 @@
 | `GET`  | `/`                         | Liveness check, answers the plain text `All is well` |
 | `GET`  | `/health`                   | Readiness check (database reachable); `503` while shutting down |
 | `GET`  | `/metrics`                  | Prometheus metrics, only when `METRICS_ENABLED=true` |
+| `GET`  | `/users`                    | The user directory as an HTML page (same `page`, `limit` and sort parameters as the API) |
 | `GET`  | `/api/users`                | List users, paginated                             |
 | `GET`  | `/api/users/:id`            | Fetch one user                                    |
 | `POST` | `/api/users`                | Create a user from a JSON body (`201`)            |
 | `GET`  | `/.well-known/security.txt` | Contact metadata (RFC 9116 style)                 |
 
-Every endpoint under `/api`, and `/health`, answers in the envelope below. `/health` carries only a `message`, with no `data`. `/` and `/.well-known/*` do not.
+Every endpoint under `/api`, and `/health`, answers in the envelope below. `/health` carries only a `message`, with no `data`. `/` and `/.well-known/*` do not, and neither does a page such as `/users`, which answers in HTML; when a page fails it answers in the error shape below.
 
 ## Response format
 
