@@ -81,6 +81,7 @@ storybook-static/
 /storage/
 
 # Miscellaneous
+cloudflare-env.d.ts
 pnpm-exec-summary.json
 slim.report.json
 RELEASE.md
