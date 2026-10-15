@@ -1,5 +1,6 @@
 import { Cache, Context, Duration, Effect, Layer, Request, RequestResolver } from 'effect'
-import { type DatabaseError, NotFound } from '../kernel/errors.ts'
+import type { Conflict, DatabaseError } from '../kernel/errors.ts'
+import { NotFound } from '../kernel/errors.ts'
 import { UserRepository } from '../repository/user_repo.ts'
 import type { User, UserCreateRequest } from '../schemas/user_schema.ts'
 
@@ -23,7 +24,7 @@ export class UserService extends Context.Service<
     /** Returns every user. */
     readonly list: Effect.Effect<Array<User>, DatabaseError>
     /** Creates a user from validated input. */
-    readonly create: (input: UserCreateRequest) => Effect.Effect<User, DatabaseError>
+    readonly create: (input: UserCreateRequest) => Effect.Effect<User, Conflict | DatabaseError>
   }
 >()('UserService') {
   /**

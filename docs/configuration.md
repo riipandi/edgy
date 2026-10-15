@@ -10,6 +10,9 @@ All configuration is read from environment variables through Effect's `Config`, 
 | `LOG_LEVEL`          | `Info`                     | `All` \| `Fatal` \| `Error` \| `Warn` \| `Info` \| `Debug` \| `Trace` \| `None` (**case-sensitive**) |
 | `LOG_FORMAT`         | `pretty`                   | `pretty` for readable lines, `json` for one JSON object per line       |
 | `LOG_FLUSH_INTERVAL` | `250 millis`               | How long log lines are buffered before they are written together        |
+| `BODY_LIMIT`         | `1048576`                  | Largest accepted request body in bytes; bigger bodies get `413`        |
+| `REQUEST_TIMEOUT`    | `30 seconds`               | A request that runs longer is cancelled and answered with `504`        |
+| `SHUTDOWN_TIMEOUT`   | `10 seconds`               | How long a stop signal waits for in-flight requests before closing them |
 | `CORS_ORIGINS`       | `*`                        | `*` or a comma-separated allowlist                                     |
 | `CORS_METHODS`       | `*`                        | `*` or a comma-separated list                                          |
 | `CORS_ALLOW_HEADERS` | `*`                        | `*` or a comma-separated list                                          |

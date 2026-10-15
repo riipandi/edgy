@@ -30,6 +30,12 @@ export interface AppConfig {
   readonly logFormat: LogFormat
   /** How long log lines are buffered before a single batched write to stdout. */
   readonly logFlushInterval: Duration.Duration
+  /** Largest accepted request body, in bytes; larger bodies are answered with 413. */
+  readonly bodyLimit: number
+  /** A request program that runs longer than this is interrupted and answered with 504. */
+  readonly requestTimeout: Duration.Duration
+  /** How long a graceful shutdown waits for in-flight requests before closing them. */
+  readonly shutdownTimeout: Duration.Duration
   /** Cross-origin policy applied to every route. */
   readonly cors: CorsConfig
 }
@@ -107,6 +113,11 @@ const schema = Config.all({
   logFormat: Config.Literals(['pretty', 'json'], 'LOG_FORMAT').pipe(Config.withDefault('pretty')),
   logFlushInterval: Config.Duration('LOG_FLUSH_INTERVAL').pipe(
     Config.withDefault(Duration.millis(250))
+  ),
+  bodyLimit: Config.Int('BODY_LIMIT').pipe(Config.withDefault(1_048_576)),
+  requestTimeout: Config.Duration('REQUEST_TIMEOUT').pipe(Config.withDefault(Duration.seconds(30))),
+  shutdownTimeout: Config.Duration('SHUTDOWN_TIMEOUT').pipe(
+    Config.withDefault(Duration.seconds(10))
   ),
   cors: corsSchema
 })

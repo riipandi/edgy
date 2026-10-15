@@ -1,4 +1,5 @@
-import type { H3Plugin } from 'h3'
+import { HTTPError, type H3Plugin } from 'h3'
+import { healthHandler } from '../handler/health_handler.ts'
 import { createUserHandler, getUserHandler, listUsersHandler } from '../handler/user_handler.ts'
 import { cacheControl } from '../middleware/cache_control.ts'
 import { defineGroup } from './group.ts'
@@ -43,7 +44,28 @@ const wellKnownRoutes: H3Plugin = defineGroup({
  */
 const rootRoutes: H3Plugin = (app) => {
   app.get('/', () => ({ message: 'All is well' }))
+  app.get('/health', healthHandler)
+}
+
+/**
+ * Catch-all for paths no route claims. The lowest-priority pattern in the trie,
+ * so it only answers what nothing else matched.
+ *
+ * It throws instead of letting h3 return its internal not-found marker: h3's
+ * `onResponse` middleware (used by the observer) converts that marker with the
+ * default config before the app's `onError` hook can see it, which would leak
+ * h3's own error body. A thrown `HTTPError` reaches the hook.
+ */
+const notFoundRoutes: H3Plugin = (app) => {
+  app.all('/**', () => {
+    throw new HTTPError({ status: 404 })
+  })
 }
 
 /** Every route plugin, in registration order. */
-export const routePlugins: readonly H3Plugin[] = [rootRoutes, usersRoutes, wellKnownRoutes]
+export const routePlugins: readonly H3Plugin[] = [
+  rootRoutes,
+  usersRoutes,
+  wellKnownRoutes,
+  notFoundRoutes
+]

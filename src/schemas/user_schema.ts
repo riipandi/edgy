@@ -1,6 +1,15 @@
 import { Schema } from 'effect'
 import type { Generated } from 'kysely'
 
+const EmailSchema = Schema.String.pipe(
+  Schema.check(
+    Schema.isMaxLength(254),
+    Schema.isPattern(/^[^@\s]+@[^@\s]+\.[^@\s]+$/, { message: 'must be a valid email address' })
+  )
+)
+
+const NameSchema = Schema.String.pipe(Schema.check(Schema.isMaxLength(200)))
+
 /**
  * `UserSchema` is the single source of truth for the resource: the request,
  * response and Kysely table types below are all derived from it, so a new
@@ -11,20 +20,16 @@ import type { Generated } from 'kysely'
  */
 export const UserSchema = Schema.Struct({
   id: Schema.Int,
-  email: Schema.String.pipe(
-    Schema.check(
-      Schema.isPattern(/^[^@\s]+@[^@\s]+\.[^@\s]+$/, { message: 'must be a valid email address' })
-    )
-  ),
-  name: Schema.NullOr(Schema.String)
+  email: EmailSchema,
+  name: Schema.NullOr(NameSchema)
 })
 
 export type User = typeof UserSchema.Type
 
 /** JSON body accepted by `POST /users`; `name` may be omitted. */
 export const UserCreateRequestSchema = Schema.Struct({
-  email: UserSchema.fields.email,
-  name: Schema.optional(Schema.String)
+  email: EmailSchema,
+  name: Schema.optional(NameSchema)
 })
 
 export type UserCreateRequest = typeof UserCreateRequestSchema.Type

@@ -1,4 +1,4 @@
-import { Data, Schema, SchemaIssue, type StandardSchema } from 'effect'
+import { Data, type Duration, Schema, SchemaIssue, type StandardSchema } from 'effect'
 
 /**
  * Domain error: user not found.
@@ -42,4 +42,17 @@ export class DatabaseError extends Data.TaggedError('DatabaseError')<{
   readonly cause: unknown
 }> {}
 
-export type AppError = NotFound | ValidationError | DatabaseError
+/**
+ * A write violated a uniqueness rule (for example a duplicate email). A client
+ * error, unlike {@link DatabaseError}, so it answers 409 instead of 500.
+ */
+export class Conflict extends Data.TaggedError('Conflict')<{
+  readonly resource: string
+}> {}
+
+/** The program did not finish within `REQUEST_TIMEOUT`. */
+export class RequestTimeout extends Data.TaggedError('RequestTimeout')<{
+  readonly after: Duration.Duration
+}> {}
+
+export type AppError = NotFound | ValidationError | DatabaseError | Conflict | RequestTimeout

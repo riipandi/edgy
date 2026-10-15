@@ -1,9 +1,11 @@
-import { Effect, type Exit } from 'effect'
+import { type Duration, Effect, type Exit } from 'effect'
 import { definePlugin, type H3Event, onRequest } from 'h3'
+import type { DatabaseService } from '../../database/service.ts'
 import type { UserService } from '../../service/user_service.ts'
+import { ConfigService } from '../config.ts'
 
 /** Services an HTTP handler program may require. */
-export type HttpEnv = UserService
+export type HttpEnv = UserService | DatabaseService
 
 /**
  * Bridge from h3 (promise/callback world) back into the Effect runtime.
@@ -14,18 +16,30 @@ export type HttpEnv = UserService
  * dispose. Closing the scope that built the layers also closes the server.
  */
 export interface HttpRuntime {
-  readonly runPromiseExit: <A, E>(effect: Effect.Effect<A, E, HttpEnv>) => Promise<Exit.Exit<A, E>>
+  /**
+   * Runs a handler program. Passing the request's `AbortSignal` interrupts the
+   * fiber when the client disconnects, so abandoned requests stop working.
+   */
+  readonly runPromiseExit: <A, E>(
+    effect: Effect.Effect<A, E, HttpEnv>,
+    options?: Effect.RunOptions
+  ) => Promise<Exit.Exit<A, E>>
   readonly runSync: (effect: Effect.Effect<void>) => void
+  /** Upper bound for one handler program (`REQUEST_TIMEOUT`). */
+  readonly requestTimeout: Duration.Duration
 }
 
 /** Captures the current context into an {@link HttpRuntime}. */
-export const makeHttpRuntime: Effect.Effect<HttpRuntime, never, HttpEnv> = Effect.gen(function* () {
-  const services = yield* Effect.context<HttpEnv>()
-  return {
-    runPromiseExit: Effect.runPromiseExitWith(services),
-    runSync: Effect.runSyncWith(services)
-  }
-})
+export const makeHttpRuntime: Effect.Effect<HttpRuntime, never, HttpEnv | ConfigService> =
+  Effect.gen(function* () {
+    const { requestTimeout } = yield* ConfigService
+    const services = yield* Effect.context<HttpEnv>()
+    return {
+      runPromiseExit: Effect.runPromiseExitWith(services),
+      runSync: Effect.runSyncWith(services),
+      requestTimeout
+    }
+  })
 
 declare module 'h3' {
   interface H3EventContext {

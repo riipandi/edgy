@@ -1,6 +1,6 @@
 import { Context, Effect, Layer } from 'effect'
-import { DatabaseService } from '../database/service.ts'
-import type { DatabaseError } from '../kernel/errors.ts'
+import { DatabaseService, isUniqueViolation } from '../database/service.ts'
+import { Conflict, type DatabaseError } from '../kernel/errors.ts'
 import type { User, UserCreateRequest } from '../schemas/user_schema.ts'
 
 /**
@@ -14,8 +14,8 @@ export class UserRepository extends Context.Service<
     readonly findById: (id: number) => Effect.Effect<User | undefined, DatabaseError>
     /** Lists every user ordered by id. */
     readonly findAll: Effect.Effect<Array<User>, DatabaseError>
-    /** Inserts a user and returns the stored row. */
-    readonly insert: (input: UserCreateRequest) => Effect.Effect<User, DatabaseError>
+    /** Inserts a user and returns the stored row; fails with `Conflict` on a duplicate email. */
+    readonly insert: (input: UserCreateRequest) => Effect.Effect<User, Conflict | DatabaseError>
   }
 >()('UserRepository') {
   static readonly layer: Layer.Layer<UserRepository, never, DatabaseService> = Layer.effect(
@@ -35,6 +35,10 @@ export class UserRepository extends Context.Service<
               .values({ email: input.email, name: input.name ?? null })
               .returningAll()
               .executeTakeFirstOrThrow()
+          ).pipe(
+            Effect.catchTag('DatabaseError', (error) =>
+              Effect.fail(isUniqueViolation(error) ? new Conflict({ resource: 'User' }) : error)
+            )
           )
         )
       })

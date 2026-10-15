@@ -2,7 +2,8 @@
 
 | Method | Path                          | Description                        |
 | ------ | ----------------------------- | ---------------------------------- |
-| `GET`  | `/`                           | Health check                       |
+| `GET`  | `/`                           | Liveness check                     |
+| `GET`  | `/health`                     | Readiness check (database reachable) |
 | `GET`  | `/users`                      | List users                         |
 | `GET`  | `/users/:id`                  | Fetch one user                     |
 | `POST` | `/users`                      | Create a user from a JSON body (`201`) |
@@ -16,8 +17,17 @@ Responses contain only the documented fields. Errors are JSON. A body that fails
 { "error": "Validation failed", "issues": [{ "path": ["email"], "message": "must be a valid email address" }] }
 ```
 
-An unknown user answers `404` with `{ "error": "User not found", "id": 9999 }`. Server-side failures answer
-`500` with a generic message; details go to the log, never to the client.
+| Status | Meaning |
+| ------ | ------- |
+| `400`  | Validation failed, or the body is not valid JSON |
+| `404`  | Unknown path, or unknown user (`{ "error": "User not found", "id": 9999 }`) |
+| `409`  | The user already exists (duplicate email) |
+| `413`  | Request body larger than `BODY_LIMIT` |
+| `499`  | The client closed the connection before the response |
+| `500`  | Server-side failure; details go to the log, never to the client |
+| `504`  | The request exceeded `REQUEST_TIMEOUT` |
+
+Every error body has the shape `{ "error": "…" }`, with `issues` added for `400` validation failures.
 
 ## Request ID
 

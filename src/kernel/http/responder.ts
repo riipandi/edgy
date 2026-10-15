@@ -1,7 +1,7 @@
 import { Cause, Effect, Exit, Option, Schema } from 'effect'
 import type { H3Event } from 'h3'
 import { requestIdOf } from '../../middleware/request_id.ts'
-import type { AppError, ValidationIssue } from '../errors.ts'
+import { type AppError, RequestTimeout, type ValidationIssue } from '../errors.ts'
 import { type HttpEnv, runtimeOf } from './runtime.ts'
 
 /**
@@ -28,6 +28,9 @@ export interface RunOptions<A, I> {
   readonly successStatus?: number
 }
 
+/** Non-standard status (nginx) for a client that hung up before the response. */
+const CLIENT_CLOSED_REQUEST = 499
+
 /** Maps a typed failure to a status code and a concrete JSON body. */
 const toErrorResponse = (error: AppError): [number, ErrorResponse | ValidationErrorResponse] => {
   switch (error._tag) {
@@ -35,6 +38,10 @@ const toErrorResponse = (error: AppError): [number, ErrorResponse | ValidationEr
       return [400, { error: 'Validation failed', issues: error.issues }]
     case 'NotFound':
       return [404, { error: 'User not found', id: error.id }]
+    case 'Conflict':
+      return [409, { error: `${error.resource} already exists` }]
+    case 'RequestTimeout':
+      return [504, { error: 'Request timed out' }]
     case 'DatabaseError':
       return [500, { error: 'Database error' }]
     default:
@@ -64,9 +71,16 @@ export const runEffect = <A, I, E extends AppError>(
   const requestId = requestIdOf(event)
   const encode = Schema.encodeEffect(options.response)
 
+  const { requestTimeout, runPromiseExit } = runtimeOf(event)
+
   const program = effect.pipe(
+    Effect.timeoutOrElse({
+      duration: requestTimeout,
+      orElse: () => Effect.fail(new RequestTimeout({ after: requestTimeout }))
+    }),
     Effect.flatMap((value) => Effect.orDie(encode(value))),
     Effect.tapCause((cause) => {
+      if (Cause.hasInterruptsOnly(cause)) return Effect.void
       const failure = Cause.findErrorOption(cause)
       const expected = Option.isSome(failure) && failure.value._tag !== 'DatabaseError'
       return expected ? Effect.void : Effect.logError('Request failed', cause)
@@ -75,22 +89,25 @@ export const runEffect = <A, I, E extends AppError>(
     Effect.withSpan(`${event.req.method} ${event.url.pathname}`)
   )
 
-  return runtimeOf(event)
-    .runPromiseExit(program)
-    .then((exit) => {
-      if (Exit.isSuccess(exit)) {
-        if (options.successStatus !== undefined) event.res.status = options.successStatus
-        return exit.value
-      }
+  return runPromiseExit(program, { signal: event.req.signal }).then((exit) => {
+    if (Exit.isSuccess(exit)) {
+      if (options.successStatus !== undefined) event.res.status = options.successStatus
+      return exit.value
+    }
 
-      const failure = Cause.findErrorOption(exit.cause)
-      if (Option.isSome(failure)) {
-        const [status, body] = toErrorResponse(failure.value)
-        event.res.status = status
-        return body
-      }
+    if (Cause.hasInterruptsOnly(exit.cause)) {
+      event.res.status = CLIENT_CLOSED_REQUEST
+      return { error: 'Request cancelled' } satisfies ErrorResponse
+    }
 
-      event.res.status = 500
-      return { error: 'Internal server error' } satisfies ErrorResponse
-    })
+    const failure = Cause.findErrorOption(exit.cause)
+    if (Option.isSome(failure)) {
+      const [status, body] = toErrorResponse(failure.value)
+      event.res.status = status
+      return body
+    }
+
+    event.res.status = 500
+    return { error: 'Internal server error' } satisfies ErrorResponse
+  })
 }
