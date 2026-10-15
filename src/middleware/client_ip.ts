@@ -74,3 +74,45 @@ export const makeClientResolver =
   (trust: ClientIpTrust) =>
   (event: H3Event): string =>
     clientAddress({ socket: getRequestIP(event), headers: event.req.headers }, trust)
+
+/** Where the client is, as far as the platform in front says. */
+export interface ClientLocation {
+  /** ISO 3166-1 alpha-2 (`ID`), or Cloudflare's `T1` for Tor. Absent when unknown. */
+  readonly country?: string
+  readonly city?: string
+}
+
+/**
+ * The client's country and city from Cloudflare's `CF-IPCountry` / `CF-IPCity`, or `undefined`
+ * when they must not be believed.
+ *
+ * Anyone can send those headers to a server Cloudflare does not front, so they count only when
+ * `CLOUDFLARE_LOCATION_HEADERS` is on **and** the platform header (`TRUSTED_PLATFORM`) is set and
+ * carries a valid address on this very request: the one thing a request that skipped Cloudflare
+ * does not have (and is the same assumption the client address already rests on). Both values are
+ * sanitised, because they end up in log lines: a country is two letters or digits (`XX`, unknown,
+ * is dropped), a city is printable text of at most 64 characters.
+ */
+export const clientLocation = (
+  headers: Pick<Headers, 'get'>,
+  trust: { readonly enabled: boolean; readonly platformHeader: string | undefined }
+): ClientLocation | undefined => {
+  if (!trust.enabled || trust.platformHeader === undefined) return undefined
+  const claimed = headers.get(trust.platformHeader)
+  if (claimed === null || parseIp(claimed) === undefined) return undefined
+
+  const country = headers.get('cf-ipcountry')?.trim().toUpperCase()
+  const city = (headers.get('cf-ipcity') ?? '')
+    .split('')
+    .filter((char) => char.charCodeAt(0) > 0x1f && char.charCodeAt(0) !== 0x7f)
+    .join('')
+    .trim()
+    .slice(0, 64)
+
+  const location: { country?: string; city?: string } = {}
+  if (country !== undefined && /^[A-Z][A-Z0-9]$/.test(country) && country !== 'XX') {
+    location.country = country
+  }
+  if (city !== '') location.city = city
+  return location.country === undefined && location.city === undefined ? undefined : location
+}

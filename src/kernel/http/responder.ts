@@ -176,7 +176,7 @@ export const runProgram = async <A, E extends AppError>(
 }
 
 /** Sets the status and builds the error envelope of a client or server refusal. */
-export const refusal = (event: H3Event, error: AppError): ApiError => {
+const refusal = (event: H3Event, error: AppError): ApiError => {
   event.res.status = error.status
   return errorEnvelope(
     event,
@@ -190,7 +190,7 @@ export const refusal = (event: H3Event, error: AppError): ApiError => {
  * The error envelope for a program that failed: a client that hung up, a typed failure, or a
  * defect (answered with a generic message; the cause is already with the error reporters).
  */
-export const failure = (event: H3Event, cause: Cause.Cause<AppError>): ApiError => {
+const failure = (event: H3Event, cause: Cause.Cause<AppError>): ApiError => {
   const { diagnostics } = runtimeOf(event)
   const fail = (code: number, message: string, error: ApiErrorBody): ApiError => {
     event.res.status = code

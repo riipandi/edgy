@@ -66,7 +66,7 @@ PaginationParams (query params):
 }
 ```
 
-Error response:
+Error response (only under `/api`; any other path answers an HTML error page with the same status and headers, see `rules.md`):
 ```json
 {
     status: error

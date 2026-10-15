@@ -38,6 +38,8 @@ The command never writes a real `.env` file.
 | `MAX_IN_FLIGHT`        | `1024`       | Requests handled at once before new ones are refused with `503`; `0` turns the guard off |
 | `TRUST_PROXY`          | `false`      | Proxies that may set the client address: `false`, `true`, or a list of addresses and CIDR ranges (see below) |
 | `TRUSTED_PLATFORM`     | (empty)      | Header a CDN or platform sets to the client address, such as `CF-Connecting-IP` (see below) |
+| `PROXY_PROTOCOL`       | `false`      | Load balancers that send a PROXY protocol header naming the client: `false`, `true`, or a list of addresses and CIDR ranges (Node.js only, see below) |
+| `CLOUDFLARE_LOCATION_HEADERS` | `false` | Add the client's country and city (from Cloudflare's headers) to the request log (see below) |
 
 ### Behind a reverse proxy
 
@@ -63,6 +65,23 @@ directly instead of `X-Forwarded-For`: `CF-Connecting-IP` for Cloudflare, `Fly-C
 `X-Appengine-Remote-Addr` for Google App Engine, or any header your own proxy sets. The header is
 trusted without checking where the request came from, so use it only when the server is reachable
 through that platform alone. If the header is missing, the connection's address is used.
+
+`PROXY_PROTOCOL` is for a TCP load balancer (HAProxy, AWS NLB, DigitalOcean) that cannot add an HTTP
+header because it never reads the HTTP. Instead it opens each connection with a short PROXY protocol
+header (version 1 or 2) that names the real client. List the balancers' addresses or ranges, and the
+server reads that header from them and treats the client as the connection's address from then on, so
+`TRUST_PROXY`, the rate limit and the logs all see the real client. The balancer must be set to send
+the header: a listed address that connects without one is disconnected, since serving it would make
+every client look like the balancer. A connection from any address that is not listed is served
+normally, and a header sent by it is not believed. `true` expects the header from every connection,
+so use it only when nothing but your balancer can connect. Node.js only: a Worker has no TCP
+connection to read it from.
+
+`CLOUDFLARE_LOCATION_HEADERS=true` adds `country` and `city` to each request's log line, taken from
+the `CF-IPCountry` and `CF-IPCity` headers Cloudflare sets (the city needs Cloudflare's "Add visitor
+location headers" managed transform). Anyone can send those headers to a server Cloudflare does not
+sit in front of, so they are believed only when `TRUSTED_PLATFORM` is set and the request carries that
+header with a valid address. Without it the setting does nothing.
 
 ## Database
 

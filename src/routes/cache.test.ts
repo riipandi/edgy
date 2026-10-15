@@ -58,7 +58,7 @@ describe('X-Cache header', () => {
     t = await makeTestApp()
     const created = await t.request('/api/users', {
       method: 'POST',
-      body: { email: 'h@example.com' }
+      body: { email: 'h@example.com', name: 'Test User' }
     })
     const id: string = (await created.json()).data.id
 
@@ -88,7 +88,7 @@ describe('metadata.cache', () => {
     t = await makeTestApp()
     const created = await t.request('/api/users', {
       method: 'POST',
-      body: { email: 'm@example.com' }
+      body: { email: 'm@example.com', name: 'Test User' }
     })
     const id: string = (await created.json()).data.id
 
@@ -121,7 +121,7 @@ describe('request log', () => {
     t = await makeTestApp({ ...env, LOG_LEVEL: 'Info', LOG_FORMAT: 'json' })
     const created = await t.request('/api/users', {
       method: 'POST',
-      body: { email: 'log@example.com' }
+      body: { email: 'log@example.com', name: 'Test User' }
     })
     const id: string = (await created.json()).data.id
 

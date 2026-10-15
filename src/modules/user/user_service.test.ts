@@ -20,7 +20,7 @@ describe('UserService cache', () => {
     expect(miss).toBeInstanceOf(NotFound)
 
     const created = await t.run(
-      UserService.use((users) => users.create({ email: 'cache@example.com' }))
+      UserService.use((users) => users.create({ email: 'cache@example.com', name: 'Cache' }))
     )
     expect(created.id).toMatch(/^user_[0-7][0-9a-hjkmnp-tv-z]{25}$/)
 
@@ -38,7 +38,7 @@ describe('UserService cache and failures', () => {
       findById: () =>
         calls++ === 0
           ? Effect.fail(new DatabaseError({ cause: new Error('SQLITE_BUSY') }))
-          : Effect.succeed({ id: SEVEN, email: 'seven@example.com', name: null }),
+          : Effect.succeed({ id: SEVEN, email: 'seven@example.com', name: 'Seven' }),
       findPage: () => Effect.die('unused'),
       insert: () => Effect.die('unused')
     })

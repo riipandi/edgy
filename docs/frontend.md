@@ -29,8 +29,9 @@ as you type; the rest of the page is static HTML and sends no script.
    from the same services as the API, so a page and its endpoint cannot disagree.
 3. Give it a route group and register it with the other pages. `GET /users` is the worked example.
 
-Pages answer in HTML. A request that fails (a bad query, a missing record, a server error) is answered
-in the JSON error format the API uses, not as a page.
+Pages answer in HTML, and so do their errors: a bad query, a missing record or a server error shows an
+error page (`app/pages/error.marko`) with the status, a short message and the request ID, while the same
+failure under `/api` is JSON. The front page is `app/pages/home.marko`, served at `/`.
 
 ## Working on pages
 

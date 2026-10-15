@@ -13,6 +13,8 @@ const KEY = Symbol.for('edgy.devServer')
 
 export interface DevServer {
   readonly middleware: NodeMiddleware
+  /** Stops the Vite server, which otherwise keeps the process alive after the program is done. */
+  readonly close: () => Promise<void>
 }
 
 const isDevServer = (value: unknown): value is DevServer =>
@@ -29,3 +31,6 @@ export const devServer = (): DevServer | undefined => {
   const value: unknown = Reflect.get(globalThis, KEY)
   return isDevServer(value) ? value : undefined
 }
+
+/** Stops the dev server if there is one. The entry point calls it when the program has finished. */
+export const closeDevServer = (): Promise<void> => devServer()?.close() ?? Promise.resolve()

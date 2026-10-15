@@ -1,5 +1,15 @@
 import { definePlugin, H3, type H3Plugin } from 'h3'
 
+/**
+ * Where the JSON API lives. What is under it answers in the envelope, errors included; everything
+ * else is for people and answers in HTML, errors included.
+ */
+export const API_PREFIX = '/api'
+
+/** Whether a request path belongs to the API. */
+export const isApiPath = (pathname: string): boolean =>
+  pathname === API_PREFIX || pathname.startsWith(`${API_PREFIX}/`)
+
 /** Declaration accepted by {@link defineRouteGroup}. */
 export interface GroupOptions {
   /** URL prefix the group is mounted under, e.g. `/users` or `/.well-known`. */

@@ -10,18 +10,19 @@ afterAll(() => t.dispose())
 
 const json = async (response: Response): Promise<any> => response.json()
 
-const createUser = (email: string, name?: string) =>
+const createUser = (email: string, name = 'Test User') =>
   t.request('/api/users', {
     method: 'POST',
-    body: name === undefined ? { email } : { email, name }
+    body: { email, name }
   })
 
 describe('root and health', () => {
-  it('answers / with plain text, not the envelope', async () => {
+  it('answers / with the front page, not the envelope', async () => {
     const response = await t.request('/')
+    const html = await response.text()
     expect(response.status).toBe(200)
-    expect(response.headers.get('content-type')).toContain('text/plain')
-    expect(await response.text()).toBe('All is well')
+    expect(response.headers.get('content-type')).toContain('text/html')
+    expect(html).toContain('<title>edgy</title>')
   })
 
   it('answers /health with a message and no data', async () => {
@@ -99,6 +100,19 @@ describe('envelope', () => {
     expect(body.message).toBe('Validation failed')
     expect(body.error).toMatchObject({ code: 'VALIDATION_FAILED', retryable: false })
     expect(body.error.details[0].path).toEqual(['email'])
+  })
+
+  it('requires a name that says something', async () => {
+    for (const body of [
+      { email: 'noname@example.com' },
+      { email: 'blank@example.com', name: '   ' }
+    ]) {
+      const response = await t.request('/api/users', { method: 'POST', body })
+      const answer = await json(response)
+      expect(response.status).toBe(400)
+      expect(answer.error.code).toBe('VALIDATION_FAILED')
+      expect(answer.error.details[0].path).toEqual(['name'])
+    }
   })
 
   it('renders h3-level errors in the same envelope', async () => {

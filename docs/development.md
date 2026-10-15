@@ -6,7 +6,7 @@ Day-to-day commands for working on the server.
 
 ```bash
 pnpm dev               # the Node.js server and the pages, with hot updates (same as pnpm watch:node)
-pnpm watch:node        # the same: pages update in the browser, server code restarts the process
+pnpm watch:node        # the same: pages update in the browser, a change under src/ restarts the server
 pnpm watch:worker      # the Cloudflare Worker from source, in workerd with a local D1 database
 pnpm preview           # build the Worker (minified), then run that build in workerd
 pnpm build:node        # build the Node.js server and the browser assets into dist/server
@@ -61,8 +61,8 @@ with no extra step. `pnpm preview` does the same with the built, minified Worker
 `pnpm run deploy` ships:
 
 ```bash
-pnpm watch:worker     # from source, with hot updates (the address is printed on start)
-pnpm preview          # the build in dist/worker
+pnpm watch:worker     # from source, with hot updates, at http://127.0.0.1:3000
+pnpm preview          # the build in dist/worker, at the same address
 ```
 
 The Worker reads local overrides from `.dev.vars`, not from `.env.local`.

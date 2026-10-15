@@ -2,9 +2,10 @@ import { H3 } from 'h3'
 import type { AppConfig } from './kernel/config/service.ts'
 import type { AssetSource } from './kernel/http/assets.ts'
 import type { DevServer } from './kernel/http/dev_server.ts'
-import { renderHTTPError } from './kernel/http/errors.ts'
+import { makeErrorHandler } from './kernel/http/error_page.ts'
 import { type HttpRuntime, provideRuntime } from './kernel/http/runtime.ts'
 import { bodyLimit } from './middleware/body_limit.ts'
+import { locationHeaders } from './middleware/client_location.ts'
 import { cors } from './middleware/cors.ts'
 import { devAssets } from './middleware/dev_assets.ts'
 import { loadShedding } from './middleware/load_shedding.ts'
@@ -44,12 +45,15 @@ export interface AppOptions {
  */
 export const createApp = (options: AppOptions): H3 =>
   new H3({
-    onError: renderHTTPError,
+    onError: makeErrorHandler(() => import('../app/pages/error.marko')),
     plugins: [
       ...(options.dev === undefined ? [] : [devAssets(options.dev)]),
       provideRuntime(options.runtime),
       cors(options.config.cors),
       requestId(),
+      ...(options.config.server.cloudflareLocationHeaders
+        ? [locationHeaders({ platformHeader: options.config.server.trustedPlatform })]
+        : []),
       securityHeaders(),
       httpObserver(),
       loadShedding(),

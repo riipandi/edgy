@@ -2,16 +2,18 @@
 
 | Method | Path                        | Description                                       |
 | ------ | --------------------------- | ------------------------------------------------- |
-| `GET`  | `/`                         | Liveness check, answers the plain text `All is well` |
+| `GET`  | `/`                         | The front page (HTML)                             |
 | `GET`  | `/health`                   | Readiness check (database reachable); `503` while shutting down |
 | `GET`  | `/metrics`                  | Prometheus metrics, only when `METRICS_ENABLED=true` |
 | `GET`  | `/users`                    | The user directory as an HTML page (same `page`, `limit` and sort parameters as the API) |
 | `GET`  | `/api/users`                | List users, paginated                             |
 | `GET`  | `/api/users/:id`            | Fetch one user                                    |
-| `POST` | `/api/users`                | Create a user from a JSON body (`201`)            |
+| `POST` | `/api/users`                | Create a user from a JSON body with a required `email` and `name` (`201`) |
 | `GET`  | `/.well-known/security.txt` | Contact metadata (RFC 9116 style)                 |
 
-Every endpoint under `/api`, and `/health`, answers in the envelope below. `/health` carries only a `message`, with no `data`. `/` and `/.well-known/*` do not, and neither does a page such as `/users`, which answers in HTML; when a page fails it answers in the error shape below.
+Every endpoint under `/api`, and `/health`, answers in the envelope below. `/health` carries only a `message`, with no `data`. `/` and `/.well-known/*` do not, and neither do the pages (`/`, `/users`), which answer in HTML.
+
+**Errors follow the path.** A failure under `/api` is always JSON in the error shape below. A failure anywhere else (an unknown address, a page that could not be built, `/health` while the server shuts down) is an HTML error page showing the status and the request ID, with the same status code and headers. A client that wants JSON stays under `/api`.
 
 ## Response format
 

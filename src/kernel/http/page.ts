@@ -1,38 +1,16 @@
-import { Effect, Exit } from 'effect'
-import type { H3Event } from 'h3'
+import { Cause, type Effect, Exit, Option } from 'effect'
+import { type H3Event, HTTPError } from 'h3'
 import type { AppError } from '../errors.ts'
-import { devServer } from './dev_server.ts'
-import type { ApiError } from './envelope.ts'
-import { failure, refusal, runProgram } from './responder.ts'
+import { type HtmlTemplate, htmlResponse } from './html_response.ts'
+import { runProgram } from './responder.ts'
 import type { HttpEnv } from './runtime.ts'
 
-/** The part of a compiled `.marko` template a page handler uses. */
-export interface PageTemplate<Input> {
-  render(input: Marko.TemplateInput<Input>): Marko.RenderedTemplate
-}
+/** Non-standard status (nginx) for a client that hung up before the response. */
+const CLIENT_CLOSED_REQUEST = 499
 
-/**
- * Content-Security-Policy of a page. The API answers `default-src 'none'`; a page needs its own
- * scripts and styles, and nothing else. Marko writes one inline script per page (the resume
- * data), which is allowed by `nonce` and by nothing broader.
- *
- * Under `pnpm dev` Vite injects styles at runtime and opens a socket for hot reload, so those two
- * directives widen there and only there.
- */
-const contentSecurityPolicy = (nonce: string, dev: boolean): string =>
-  [
-    "default-src 'none'",
-    `script-src 'self' 'nonce-${nonce}'`,
-    `style-src 'self'${dev ? " 'unsafe-inline'" : ''}`,
-    "img-src 'self' data:",
-    "font-src 'self'",
-    `connect-src 'self'${dev ? ' ws: wss:' : ''}`,
-    "base-uri 'none'",
-    "form-action 'self'",
-    "frame-ancestors 'none'"
-  ].join('; ')
-
-const newNonce = (): string => btoa(crypto.randomUUID())
+/** An error as h3 raises it, which the app's error hook renders (HTML for a page). */
+const refused = (error: AppError): HTTPError =>
+  new HTTPError({ status: error.status, message: error.clientMessage })
 
 /**
  * Declares an HTML page: an Effect that loads what the page shows, and the Marko template that
@@ -42,9 +20,8 @@ const newNonce = (): string => btoa(crypto.randomUUID())
  * tracing, error reporting, `?nocache=true`, `X-Cache`), through `runProgram`; only the answer
  * differs. The template streams: the head is flushed before slower parts of the page resolve.
  *
- * A failure is not rendered as a page: it is answered in the API's error envelope, the same body
- * (code, retryable, redacted detail, trace id) an API client sees. An HTML error page is a product
- * decision that is not made yet.
+ * A failure is thrown as an `HTTPError` and answered by the app's error hook, which renders an
+ * error page for a path outside `/api` (`error_page.ts`) and the API's error envelope inside it.
  *
  * `template` is loaded per request on purpose: a static import would make every module that
  * mentions a page unloadable outside Vite (the CLI, `pnpm app migrate:up`), and in development a
@@ -53,32 +30,21 @@ const newNonce = (): string => btoa(crypto.randomUUID())
 export const definePageHandler =
   <A extends object, E extends AppError>(spec: {
     readonly load: (event: H3Event) => Effect.Effect<A, E, HttpEnv>
-    readonly template: () => Promise<{ readonly default: PageTemplate<A> }>
+    readonly template: () => Promise<{ readonly default: HtmlTemplate<A> }>
   }) =>
-  async (event: H3Event): Promise<Response | ApiError> => {
+  async (event: H3Event): Promise<Response> => {
     const exit = await runProgram(event, spec.load(event), 200)
 
     if (Exit.isSuccess(exit)) {
       const outcome = exit.value
-      if (outcome.kind === 'refused') return refusal(event, outcome.error)
+      if (outcome.kind === 'refused') throw refused(outcome.error)
       const { default: template } = await spec.template()
-      const nonce = newNonce()
-      const body = template
-        .render({
-          ...outcome.value,
-          $global: { signal: event.req.signal, cspNonce: nonce }
-        })
-        .toReadable()
-
-      event.res.headers.set('content-type', 'text/html; charset=utf-8')
-      // The nonce is per response, so a shared cache must not keep one.
-      event.res.headers.set('cache-control', 'private, no-cache')
-      event.res.headers.set(
-        'content-security-policy',
-        contentSecurityPolicy(nonce, devServer() !== undefined)
-      )
-      return new Response(body, { headers: event.res.headers })
+      return htmlResponse(event, template, outcome.value, { headers: event.res.headers })
     }
 
-    return failure(event, exit.cause)
+    if (Cause.hasInterruptsOnly(exit.cause)) {
+      return new Response(null, { status: CLIENT_CLOSED_REQUEST })
+    }
+    const failure = Cause.findErrorOption(exit.cause)
+    throw Option.isSome(failure) ? refused(failure.value) : new HTTPError({ status: 500 })
   }

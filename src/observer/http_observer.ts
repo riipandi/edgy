@@ -71,6 +71,12 @@ const observe = (event: H3Event, status: number): void => {
               ...(trace?.sampled === true ? { traceId: traceTypeId(trace.traceId) } : {}),
               ...(errorCode === undefined ? {} : { errorCode }),
               ...(event.context.cache === undefined ? {} : { cache: event.context.cache }),
+              ...(event.context.location?.country === undefined
+                ? {}
+                : { country: event.context.location.country }),
+              ...(event.context.location?.city === undefined
+                ? {}
+                : { city: event.context.location.city }),
               ...(quiet === undefined ? {} : { quiet })
             })
           )

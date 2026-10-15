@@ -2,6 +2,14 @@ import type { H3Event, HTTPError } from 'h3'
 import { errorEnvelope } from './envelope.ts'
 import { statusBody } from './error_body.ts'
 
+/** What a client may be told about an error h3 raised: never the message of an unhandled one. */
+export const publicMessage = (error: HTTPError): string =>
+  error.status === 404
+    ? 'Not found'
+    : error.unhandled === true
+      ? 'Internal server error'
+      : error.message
+
 /**
  * Renders errors raised by h3 itself (unknown route, malformed JSON, body too
  * large, a thrown exception) in the same error envelope `runEffect` uses, so
@@ -14,12 +22,7 @@ import { statusBody } from './error_body.ts'
  * would vanish from exactly the responses that need them.
  */
 export const renderHTTPError = (error: HTTPError, event: H3Event): Response => {
-  const message =
-    error.status === 404
-      ? 'Not found'
-      : error.unhandled === true
-        ? 'Internal server error'
-        : error.message
+  const message = publicMessage(error)
 
   const headers = new Headers(event.res.errHeaders)
   headers.set('content-type', 'application/json; charset=utf-8')

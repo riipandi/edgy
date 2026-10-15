@@ -105,7 +105,9 @@ describe('D1 dialect', () => {
     expect(page.total).toBe(1)
 
     const duplicate = await runtime.runPromise(
-      Effect.flip(UserRepository.use((users) => users.insert({ email: 'd1@example.com' })))
+      Effect.flip(
+        UserRepository.use((users) => users.insert({ email: 'd1@example.com', name: 'D One' }))
+      )
     )
     expect(duplicate).toBeInstanceOf(Conflict)
   })

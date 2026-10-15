@@ -34,3 +34,11 @@ export const WORKER_OUT_DIR = `${DIST_DIR}/worker`
 
 /** The server entry the Node target bundles. */
 export const NODE_ENTRY = 'src/main.ts'
+
+/**
+ * Where the Worker's dev server and preview listen. Vite's own defaults differ (5173 for dev, 4173
+ * for preview), so the same app answered on a different port depending on the command; this is the
+ * address `pnpm watch:worker` and `pnpm preview` always use, and the port the Node server defaults
+ * to (`PORT`). `strictPort` makes a busy port an error, not a silent move to another one.
+ */
+export const WORKER_ADDRESS = { host: '127.0.0.1', port: 3000, strictPort: true } as const

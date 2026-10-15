@@ -6,6 +6,7 @@ import { createApp } from './app.ts'
 import { ConfigService } from './kernel/config/service.ts'
 import { devServer } from './kernel/http/dev_server.ts'
 import { directoryAssets, embeddedAssets } from './kernel/http/node_assets.ts'
+import { acceptProxyProtocol } from './kernel/http/proxy_protocol.ts'
 import { makeHttpRuntime } from './kernel/http/runtime.ts'
 import { makeSharedRateCheck } from './middleware/rate_limit_shared.ts'
 
@@ -24,7 +25,7 @@ import { makeSharedRateCheck } from './middleware/rate_limit_shared.ts'
  */
 export const serveHttp = Effect.gen(function* () {
   const config = yield* ConfigService
-  const { host, port, shutdownTimeout, shutdownDrainDelay } = config.server
+  const { host, port, shutdownTimeout, shutdownDrainDelay, proxyProtocol } = config.server
   const runtime = yield* makeHttpRuntime
   const limiter = yield* RateLimiter.RateLimiter
   const { rateLimitEnabled, rateLimitMax, rateLimitWindow, rateLimitStore } = config.security
@@ -54,7 +55,21 @@ export const serveHttp = Effect.gen(function* () {
   })
 
   const server = yield* Effect.acquireRelease(
-    Effect.sync(() => serve(app, { port, hostname: host, silent: true, gracefulShutdown: false })),
+    Effect.sync(() => {
+      // `manual`: the PROXY protocol reader must be in place before the first connection.
+      const instance = serve(app, {
+        port,
+        hostname: host,
+        silent: true,
+        gracefulShutdown: false,
+        manual: true
+      })
+      const listener = instance.node?.server
+      if (listener !== undefined) acceptProxyProtocol(listener, proxyProtocol)
+      // A failed bind is reported by `ready()` below, which is why this one is not.
+      void Promise.resolve(instance.serve()).catch(() => undefined)
+      return instance
+    }),
     (instance) =>
       Effect.gen(function* () {
         // Readiness flips first, so a load balancer stops routing here before the

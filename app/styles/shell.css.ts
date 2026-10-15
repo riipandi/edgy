@@ -9,9 +9,21 @@ export const body = style({
 })
 
 export const header = style({
+  display: 'flex',
+  alignItems: 'baseline',
+  gap: vars.space.lg,
   borderBottom: `1px solid ${vars.color.border}`,
-  padding: `${vars.space.md} ${vars.space.lg}`,
-  fontWeight: 600
+  padding: `${vars.space.md} ${vars.space.lg}`
+})
+
+export const brand = style({ fontWeight: 600, color: 'inherit', textDecoration: 'none' })
+
+export const nav = style({ display: 'flex', gap: vars.space.md })
+
+export const link = style({
+  color: vars.color.accent,
+  textDecoration: 'none',
+  ':hover': { textDecoration: 'underline' }
 })
 
 export const main = style({

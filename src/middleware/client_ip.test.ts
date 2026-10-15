@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@effect/vitest'
 import { parseRange, type TrustedProxies } from '../kernel/ip.ts'
-import { clientAddress, type ClientIpTrust } from './client_ip.ts'
+import { clientAddress, clientLocation, type ClientIpTrust } from './client_ip.ts'
 
 const list = (...ranges: string[]): TrustedProxies => ({
   kind: 'list',
@@ -122,5 +122,53 @@ describe('with a trusted platform header', () => {
     const headers = { 'x-forwarded-for': '1.1.1.1' }
     expect(resolve(trust, '198.51.100.9', headers)).toBe('198.51.100.9')
     expect(resolve(trust, '198.51.100.9', { 'cf-connecting-ip': 'nope' })).toBe('198.51.100.9')
+  })
+})
+
+describe('clientLocation', () => {
+  const headers = (init: Record<string, string>) => new Headers(init)
+  const on = { enabled: true, platformHeader: 'cf-connecting-ip' }
+
+  it('reads country and city from a request that came through the platform', () => {
+    expect(
+      clientLocation(
+        headers({
+          'cf-connecting-ip': '203.0.113.7',
+          'cf-ipcountry': 'id',
+          'cf-ipcity': 'Jakarta'
+        }),
+        on
+      )
+    ).toEqual({ country: 'ID', city: 'Jakarta' })
+  })
+
+  it('believes nothing without the platform header, so a forged one is not enough', () => {
+    expect(
+      clientLocation(headers({ 'cf-ipcountry': 'ID', 'cf-ipcity': 'Jakarta' }), on)
+    ).toBeUndefined()
+    expect(
+      clientLocation(headers({ 'cf-connecting-ip': 'garbage', 'cf-ipcountry': 'ID' }), on)
+    ).toBeUndefined()
+  })
+
+  it('is off unless switched on and a platform is named', () => {
+    const request = headers({ 'cf-connecting-ip': '203.0.113.7', 'cf-ipcountry': 'ID' })
+    expect(clientLocation(request, { ...on, enabled: false })).toBeUndefined()
+    expect(clientLocation(request, { enabled: true, platformHeader: undefined })).toBeUndefined()
+  })
+
+  it('drops an unknown country and sanitises what it keeps', () => {
+    const request = headers({
+      'cf-connecting-ip': '203.0.113.7',
+      'cf-ipcountry': 'XX',
+      'cf-ipcity': `Bad\u0007City${'x'.repeat(100)}`
+    })
+    const location = clientLocation(request, on)
+    expect(location?.country).toBeUndefined()
+    expect(location?.city).toHaveLength(64)
+    expect(location?.city).not.toContain('\u0007')
+    expect(
+      clientLocation(headers({ 'cf-connecting-ip': '203.0.113.7', 'cf-ipcountry': 'ZZZ' }), on)
+    ).toBeUndefined()
   })
 })

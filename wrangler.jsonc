@@ -15,6 +15,23 @@
  * - Build command: `pnpm build:worker`
  * - Deploy command: `pnpm exec wrangler deploy`
  * - Non-production branch deploy command: `pnpm exec wrangler versions upload`
+ *
+ * Environment variables notice:
+ * - OTEL_SDK_DISABLED: Off: the default endpoint is the local ClickStack, which a deployed
+ *   Worker cannot reach. To export, set OTEL_EXPORTER_OTLP_ENDPOINT and
+ *   OTEL_EXPORTER_OTLP_HEADERS (a secret) and remove this line.
+ *
+ * - TRUSTED_PLATFORM: Cloudflare always sets CF-Connecting-IP, and a Worker is reachable
+ *   only through Cloudflare, so this header is the client address.
+ *
+ * - DATABASE_AUTO_MIGRATE: Off: a preview upload shares these vars, and migrating the production
+ *   database from one is not what a preview is for. `pnpm watch:worker`
+ *   and `pnpm preview` switch it on for the local database (in
+ *   `vite.worker.config.ts`); for the first remote deploy see docs/deployment.md.
+ *
+ * - CACHE_STORE: Read cache through the Workers Cache API: per location, and not served
+ *   on workers.dev (there every read reaches D1), so use a custom domain.
+ *
  */
 {
     "$schema": "node_modules/wrangler/config-schema.json",
@@ -61,28 +78,45 @@
         }
     ],
     "vars": {
-        // Off: the default endpoint is the local ClickStack, which a deployed
-        // Worker cannot reach. To export, set OTEL_EXPORTER_OTLP_ENDPOINT and
-        // OTEL_EXPORTER_OTLP_HEADERS (a secret) and remove this line.
-        "OTEL_SDK_DISABLED": "true",
-        "LOG_FORMAT": "json",
-        // Cloudflare always sets CF-Connecting-IP, and a Worker is reachable
-        // only through Cloudflare, so this header is the client address.
-        "TRUSTED_PLATFORM": "CF-Connecting-IP",
-        // Off: a preview upload shares these vars, and migrating the production
-        // database from one is not what a preview is for. `pnpm watch:worker`
-        // and `pnpm preview` switch it on for the local database (in
-        // `vite.worker.config.ts`); for the first remote deploy see docs/deployment.md.
-        "DATABASE_AUTO_MIGRATE": "false",
-        // Read cache through the Workers Cache API: per location, and not served
-        // on workers.dev (there every read reaches D1), so use a custom domain.
         "CACHE_STORE": "cloudflare",
-        "RATE_LIMIT_ENABLED": "true",
-        "RATE_LIMIT_STORE": "cloudflare",
-        "RATE_LIMIT_MAX": "100",
-        "RATE_LIMIT_WINDOW": "60000",
-        // Settings -> Variables and secrets
+        "DATABASE_AUTO_MIGRATE": "true",
+        "LOG_FORMAT": "json",
         "NODE_VERSION": "24.22.0",
-        "PNPM_VERSION": "12.11.2"
+        "OTEL_SDK_DISABLED": "true",
+        "PNPM_VERSION": "12.11.2",
+        "RATE_LIMIT_ENABLED": "true",
+        "RATE_LIMIT_MAX": "100",
+        "RATE_LIMIT_STORE": "cloudflare",
+        "RATE_LIMIT_WINDOW": "60000",
+        "TRUSTED_PLATFORM": "CF-Connecting-IP"
+    },
+    "previews": {
+        "d1_databases": [
+            {
+                "binding": "DB",
+                "database_name": "edgy",
+                "database_id": "22fd37a3-771d-4ff4-8d9a-7ed0aed1d122"
+            }
+        ],
+        "ratelimits": [
+            {
+                "name": "RATE_LIMITER",
+                "namespace_id": "1001",
+                "simple": { "limit": 100, "period": 60 }
+            }
+        ],
+        "vars": {
+            "CACHE_STORE": "cloudflare",
+            "DATABASE_AUTO_MIGRATE": "true",
+            "LOG_FORMAT": "json",
+            "NODE_VERSION": "24.22.0",
+            "OTEL_SDK_DISABLED": "true",
+            "PNPM_VERSION": "12.11.2",
+            "RATE_LIMIT_ENABLED": "true",
+            "RATE_LIMIT_MAX": "100",
+            "RATE_LIMIT_STORE": "cloudflare",
+            "RATE_LIMIT_WINDOW": "60000",
+            "TRUSTED_PLATFORM": "CF-Connecting-IP"
+        }
     }
 }

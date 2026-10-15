@@ -14,7 +14,10 @@ export const UserId = defineId('user')
 
 export const UserIdSchema = UserId.schema
 
-const NameSchema = Schema.String.pipe(Schema.check(Schema.isMaxLength(200)))
+/** A display name is required, and a blank one says nothing. */
+const NameSchema = Schema.String.pipe(
+  Schema.check(Schema.isMaxLength(200), Schema.isPattern(/\S/, { message: 'must not be blank' }))
+)
 
 /**
  * `UserSchema` is the single source of truth for the resource: the request,
@@ -27,15 +30,15 @@ const NameSchema = Schema.String.pipe(Schema.check(Schema.isMaxLength(200)))
 export const UserSchema = Schema.Struct({
   id: UserIdSchema,
   email: EmailSchema,
-  name: Schema.NullOr(NameSchema)
+  name: NameSchema
 })
 
 export type User = typeof UserSchema.Type
 
-/** JSON body accepted by `POST /users`; `name` may be omitted. */
+/** JSON body accepted by `POST /users`; both fields are required. */
 export const UserCreateRequestSchema = Schema.Struct({
   email: EmailSchema,
-  name: Schema.optional(NameSchema)
+  name: NameSchema
 })
 
 export type UserCreateRequest = typeof UserCreateRequestSchema.Type

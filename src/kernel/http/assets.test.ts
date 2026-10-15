@@ -56,7 +56,8 @@ describe('/assets in the application', () => {
 
       const miss = await served.request('/assets/nope.js')
       expect(miss.status).toBe(404)
-      expect((await miss.json()).status).toBe('error')
+      expect(miss.headers.get('content-type')).toContain('text/html')
+      await miss.text()
 
       expect((await bare.request('/assets/app-1a2b3c.js')).status).toBe(404)
     } finally {

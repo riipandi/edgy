@@ -4,7 +4,7 @@ import { UserId } from '../src/modules/user/user_schema.ts'
 export const MISSING_USER_ID = 'user_00000000000000000000000000'
 
 /** A row for `insertInto('users')`; ids are minted by the application, so a test mints one too. */
-export const userRow = (email: string, name: string | null = null) => ({
+export const userRow = (email: string, name = 'Test User') => ({
   id: UserId.make(),
   email,
   name

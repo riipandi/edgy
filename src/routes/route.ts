@@ -1,12 +1,13 @@
 import { type H3Plugin, HTTPError } from 'h3'
 import type { AppConfig } from '../kernel/config/service.ts'
 import { type AssetSource, assetRoutes } from '../kernel/http/assets.ts'
-import { defineRouteGroup } from '../kernel/http/router.ts'
+import { API_PREFIX, defineRouteGroup } from '../kernel/http/router.ts'
 import { unlessDraining } from '../kernel/http/runtime.ts'
 import { cacheControl } from '../middleware/cache_control.ts'
 import { makeClientResolver } from '../middleware/client_ip.ts'
 import { makeMemoryRateCheck, type RateCheck, rateLimit } from '../middleware/rate_limit.ts'
 import { healthHandler } from '../modules/health/health_handler.ts'
+import { homePageHandler } from '../modules/home/home_pages.ts'
 import { userPages } from '../modules/user/user_pages.ts'
 import { userRoutes } from '../modules/user/user_routes.ts'
 import { metricsHandler } from '../observer/metrics_handler.ts'
@@ -23,7 +24,7 @@ import { metricsHandler } from '../observer/metrics_handler.ts'
  */
 const apiRoutes = (config: AppConfig, check: RateCheck): H3Plugin =>
   defineRouteGroup({
-    prefix: '/api',
+    prefix: API_PREFIX,
     middleware: [
       // Answers are per caller and per moment: no cache, shared or private, may keep one.
       cacheControl({ value: 'no-store', errors: true }),
@@ -66,19 +67,12 @@ const wellKnownRoutes: H3Plugin = defineRouteGroup({
 })
 
 /**
- * Root routes that do not belong to the API.
- *
- * `/` is a liveness check for humans and proxies, so it answers plain text, not
- * the envelope. `/health` is the readiness probe: it keeps its root path and
- * turns `503` while the server is shutting down. `/metrics` exists only when
- * enabled.
+ * Root routes that do not belong to the API. `/health` is the readiness probe: it keeps its root
+ * path and turns `503` while the server is shutting down. `/metrics` exists only when enabled. The
+ * front page (`/`) is a page, registered with the others.
  */
 const rootRoutes = (config: AppConfig): H3Plugin => {
   return (app) => {
-    app.get('/', (event) => {
-      event.res.headers.set('content-type', 'text/plain; charset=utf-8')
-      return 'All is well'
-    })
     app.get('/health', unlessDraining(healthHandler))
     if (config.observability.metricsEnabled) app.get('/metrics', metricsHandler)
   }
@@ -105,6 +99,7 @@ const notFoundRoutes: H3Plugin = (app) => {
  * group registers here.
  */
 const pageRoutes: H3Plugin = (app) => {
+  app.get('/', homePageHandler)
   app.register(userPages)
 }
 

@@ -1,5 +1,5 @@
 import type { TrustedProxies } from '../ip.ts'
-import { group, int, milliseconds, parsed, port, text, type ValueOf } from './field.ts'
+import { flag, group, int, milliseconds, parsed, port, text, type ValueOf } from './field.ts'
 import { parseTrustedPlatform, parseTrustProxy } from './proxy.ts'
 
 /** HTTP server: where it listens, what it enforces per request, how it stops. */
@@ -40,6 +40,17 @@ export const serverConfig = group(
       '',
       "Header a CDN or platform sets to the client address, read directly instead of X-Forwarded-For (CF-Connecting-IP, Fly-Client-IP, X-Appengine-Remote-Addr, or your own proxy's); empty for none",
       parseTrustedPlatform
+    ),
+    proxyProtocol: parsed<TrustedProxies>(
+      'PROXY_PROTOCOL',
+      'false',
+      'Load balancers that open each connection with a PROXY protocol header (v1 or v2) naming the real client: false (none), true (every peer; only when nothing but your balancer can connect), or a comma-separated list of IP addresses and CIDR ranges. A listed peer that sends no header is disconnected; any other peer is served as usual. Node.js only',
+      parseTrustProxy
+    ),
+    cloudflareLocationHeaders: flag(
+      'CLOUDFLARE_LOCATION_HEADERS',
+      false,
+      "Read the client's country and city from CF-IPCountry / CF-IPCity and add them to the request log. Believed only when TRUSTED_PLATFORM is set, because anyone can send these headers to a server that Cloudflare does not front"
     )
   },
   { title: 'Server' }

@@ -30,14 +30,15 @@ src/
     errors.ts        # AppError interface + NotFound, ValidationError, DatabaseError, Conflict, RequestTimeout
     pagination.ts    # Page, PageRequest
     layers.ts        # CoreLayer (Node): config + stdout logger + platform services
-    http/            # runtime.ts (HttpRuntime, HttpServices), handler.ts (defineHandler, definePagedHandler, defineMessageHandler), router.ts (defineRouteGroup), responder.ts (runEffect), envelope.ts, pagination.ts, decode.ts, errors.ts (renderHTTPError), request_context.ts, inflight.ts
+    http/            # runtime.ts (HttpRuntime, HttpServices), handler.ts (defineHandler, definePagedHandler, defineMessageHandler), router.ts (defineRouteGroup, API_PREFIX, isApiPath), responder.ts (runProgram, runEffect), page.ts (definePageHandler), html_response.ts (htmlResponse, the HTML CSP), error_page.ts (makeErrorHandler: JSON under /api, HTML elsewhere), assets.ts (assetRoutes, AssetSource), node_assets.ts (Node only: directoryAssets, embeddedAssets), dev_server.ts (installDevServer), proxy_protocol.ts (PROXY protocol v1/v2 reader, Node only), envelope.ts, pagination.ts, decode.ts, errors.ts (renderHTTPError, publicMessage), request_context.ts, inflight.ts
   observer/          # flush.ts (budget for one log write), trace_id.ts (trc_ ids), logger.ts (batched stdout for Node, console for Workers), log_file.ts (rotating JSON-lines file sink), log_json.ts (fixed-order JSON formatter), telemetry.ts (OTLP traces/metrics/log sink, Flusher), error_reporter.ts, metrics.ts, metrics_handler.ts (/metrics), http_observer.ts
   command/           # effect/cli commands (cli.ts + one file per command + helper.ts)
   routes/            # route.ts: the route table (root, /api, /.well-known, catch-all; registration order)
-  middleware/        # cors, request_id, security_headers, load_shedding, body_limit, cache_control, rate_limit (+ rate_limit_shared: Redis-backed check, rate_limit_binding: Workers binding check)
+  middleware/        # cors, request_id, security_headers, load_shedding, body_limit, cache_control, client_ip (clientAddress, clientLocation), client_location (locationHeaders plugin), dev_assets (Vite in front, pnpm dev), rate_limit (+ rate_limit_shared: Redis-backed check, rate_limit_binding: Workers binding check)
   modules/           # one vertical slice per resource
-    user/            # user_schema, user_repo, user_service, user_handler, user_routes (+ tests)
+    user/            # user_schema, user_repo, user_service, user_handler, user_routes, user_pages (the /users page) (+ tests)
     health/          # health_handler
+    home/            # home_pages (the front page, GET /)
   database/
     service.ts       # DatabaseService contract, makeDatabaseService, makeQueryLogger, isUniqueViolation
     schema.ts        # Database (tables merged in by each module's schema)
@@ -50,7 +51,7 @@ src/
     seeder.ts        # named seeder registry + runSeeders
     seeders/         # one file per seeder (idempotent)
 app/                 # the frontend: pages/ (one .marko per page), tags/ (components, auto-discovered as <name>), styles/ (vanilla-extract *.css.ts: theme tokens + styles), marko.d.ts (ambient `*.marko` module for tsc)
-builder/             # wraps Vite for what it does not do: cli.ts (build|compile), build.ts (runBuild), vite_build.ts (createBuilder wrapper), vite.ts (shared plugins, output dirs), postprocess.ts (obfuscation), compiler.ts (SEA), dev.ts (the `pnpm dev` launcher), config.ts / builder.config.ts
+builder/             # wraps Vite for what it does not do: cli.ts (build|compile), build.ts (runBuild), vite_build.ts (createBuilder wrapper), vite.ts (shared plugins, output dirs, WORKER_ADDRESS), postprocess.ts (obfuscation), compiler.ts (SEA), dev.ts (`pnpm dev`: the restart supervisor), supervisor.ts (`supervise`: run a script, restart it on changes under a directory), dev_app.ts (the development server the supervisor runs: Vite + the application), config.ts / builder.config.ts
 vite.config.ts       # Node target: SSR entry src/main.ts → dist/server/index.mjs, browser assets → dist/server/public
 vite.worker.config.ts # Workers target: Cloudflare Vite plugin, SSR environment → dist/worker, browser assets → dist/worker/public
 bin/edgy.mjs         # published bin shim
@@ -68,7 +69,7 @@ docs/                # human-facing docs
 - `pnpm typecheck` — `tsc -b --noEmit && mtc` (`tsc` skips `.marko` files and exits 0 on a broken template; `mtc` checks them)
 - `pnpm check` — `oxfmt --check && oxlint`
 - `pnpm format` — `oxfmt --write .`
-- `pnpm dev` (= `pnpm watch:node`) — `node --watch-path=./src ./builder/dev.ts serve`: the launcher starts Vite in middleware mode and loads `src/main.ts` through its module runner; a page or style edit is a hot update, server code restarts the process. `serve` needs this or a build (a template cannot be imported by plain Node); the other CLI commands still run natively (`pnpm app …`)
+- `pnpm dev` (= `pnpm watch:node`) — `node --env-file=.env.local ./builder/dev.ts serve`: `dev.ts` supervises `dev_app.ts`, which starts Vite in middleware mode and loads `src/main.ts` through its module runner; a page or style edit is a hot update, a change under `src/` (tests excluded) restarts the child. `serve` needs this or a build (a template cannot be imported by plain Node); the other CLI commands still run natively (`pnpm app …`)
 - `pnpm build:node` / `pnpm build:worker` — `vite build --app` through `builder/cli.ts build --target=…` (server first, then the browser assets), followed by obfuscation, `chmod 755` and `package.json` for Node: `dist/server` (`index.mjs` + `public/`) / `dist/worker` (`index.js`, `wrangler.json`, `public/`); builder flags append (`pnpm build:node --minify`). There is no plain `pnpm build`
 - `pnpm compile` — single executable (SEA), Node target only; builds the application again as one CJS file and embeds the browser assets as `public/<path>` blobs
 - `pnpm watch:worker` — `vite --config vite.worker.config.ts`: the Worker in workerd (Cloudflare Vite plugin) with a local D1 under `.wrangler/`, `DATABASE_AUTO_MIGRATE` switched on; local overrides come from `.dev.vars`, never `.env.local`

@@ -78,12 +78,14 @@ describe('GET /users (page)', () => {
     expect(html).toContain('1 more not shown.')
   })
 
-  it('refuses a bad query in the common error shape, not as a page', async () => {
+  it('refuses a bad query with an error page, not as a page of users', async () => {
     const response = await t.request('/users?limit=-1')
-    const body = await response.json()
+    const html = await response.text()
 
     expect(response.status).toBe(400)
-    expect(body.status).toBe('error')
-    expect(body.error.code).toBe('VALIDATION_FAILED')
+    expect(response.headers.get('content-type')).toBe('text/html; charset=utf-8')
+    expect(html).toContain('<title>400 Validation failed</title>')
+    expect(html).toContain(response.headers.get('x-request-id') ?? 'no request id')
+    expect(html).not.toContain('ada@example.com')
   })
 })

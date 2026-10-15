@@ -17,7 +17,7 @@
         "start": "node --env-file=.env.local ./bin/edgy.mjs serve",
         "build:node": "node ./builder/cli.ts build --target=node",
         "build:worker": "node ./builder/cli.ts build --target=workers",
-        "watch:node": "node --env-file=.env.local --watch-path=./src ./builder/dev.ts serve",
+        "watch:node": "node --env-file=.env.local ./builder/dev.ts serve",
         "watch:worker": "vite --config vite.worker.config.ts",
         "preview": "pnpm -s build:worker --minify --local && vite preview --config vite.worker.config.ts",
         "deploy": "pnpm -s build:worker --minify && wrangler deploy",

@@ -72,7 +72,7 @@ export class UserRepository extends Context.Service<
           query((db) =>
             db
               .insertInto('users')
-              .values({ id: UserId.make(), email: input.email, name: input.name ?? null })
+              .values({ id: UserId.make(), email: input.email, name: input.name })
               .returningAll()
               .executeTakeFirstOrThrow()
           ).pipe(

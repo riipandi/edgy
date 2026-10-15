@@ -19,7 +19,9 @@ describe('readiness during shutdown', () => {
 
     const health = await t.request('/health')
     expect(health.status).toBe(503)
-    expect(await health.json()).toMatchObject({ status: 'error', message: 'Shutting down' })
+    // Outside `/api` an error is an HTML page; a probe reads the status, not the body.
+    expect(health.headers.get('content-type')).toContain('text/html')
+    expect(await health.text()).toContain('Shutting down')
     expect((await t.request('/api/users')).status).toBe(200)
   })
 })

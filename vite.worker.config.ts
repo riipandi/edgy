@@ -1,6 +1,6 @@
 import { cloudflare } from '@cloudflare/vite-plugin'
 import { defineConfig } from 'vite'
-import { appPlugins, releaseSsrExternal, WORKER_OUT_DIR } from './builder/vite.ts'
+import { appPlugins, releaseSsrExternal, WORKER_ADDRESS, WORKER_OUT_DIR } from './builder/vite.ts'
 
 // `.env.local` feeds the Node server. Left on, the plugin would also copy it over the Worker's
 // `wrangler.jsonc` variables (it once did exactly that, turning the rate limiter off). A Worker's
@@ -28,6 +28,8 @@ export default defineConfig(({ command }) => ({
           : undefined
     })
   ],
+  server: WORKER_ADDRESS,
+  preview: WORKER_ADDRESS,
   environments: {
     ssr: { build: { outDir: WORKER_OUT_DIR } },
     client: { build: { outDir: `${WORKER_OUT_DIR}/public` } }
