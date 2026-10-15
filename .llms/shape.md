@@ -89,5 +89,5 @@ docs/                # human-facing docs
 - Service methods use `Effect.fn('Service.method')` so every call gets a span
 - `Effect.provide(layer)` appears only at the entry point (`src/main.ts`, lint rule `effecttsgo/strict-effect-provide`); per-command layers go through `Command.provide`. Argument checks use `ensure` (`src/command/helper.ts`), not a bare `return` next to `return yield*`
 - Route groups are h3 plugins (`defineRouteGroup`); global middleware runs in registration order (`src/app.ts`: provideRuntime → developmentMode (`pnpm dev` only) → cors → requestId → securityHeaders → httpObserver → loadShedding → bodyLimit) and is registered before groups mount
-- Comments carry a why/contract/trap, never restate the next line
+- Comments are short and only for a why, a contract, or a trap; no history, no references to decisions, plans, issues, or files (`rules.md`, "Code comments")
 - Prose: `.llms/` is for agents (technical, file:line evidence); `docs/` is for humans (no internals, no paths); tree documents are English, no hard wrapping

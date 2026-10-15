@@ -64,6 +64,17 @@ Contracts, how-to-change recipes, traps. Read the section a change touches befor
 - **Exceptions, on purpose**: the envelopes (`ApiSuccess`, `ApiError`, `ApiErrorBody`) are plain interfaces because the responder builds them and nothing decodes or encodes them; configuration declarations (`src/kernel/config/`, built from the `field.ts` helpers) are not `Schema` values and keep lower-case names (`serverConfig`).
 - **File suffixes**: `*_schema.ts`, `*_repo.ts`, `*_service.ts`, `*_handler.ts`, `*_routes.ts`, one per resource, inside `src/modules/<resource>/`; the class inside keeps the `UserRepository`/`UserService` form because it is a service tag, not a schema.
 
+## Code comments
+
+A comment carries what the code cannot say, and nothing else. Keep it short.
+
+- **Write one for** a non-obvious reason (why this and not the obvious alternative), a contract or invariant a caller must respect, a trap (an order that matters, a platform quirk, a failure that looks harmless), or a unit.
+- **Do not write one that** restates the next line or the name, narrates a change ("now", "no longer", "used to", "previously", "we decided"), explains how the code got here, or opens with filler ("Note that", "Basically", "This function...", "In order to"). A good name replaces a comment.
+- **Never mention** a decision, plan, issue, audit, ticket, roadmap, session, the owner, or the user, and never point to a file or path ("see foo.ts", "handled in `route.ts`"). A comment that needs a pointer to make sense is stating a contract the code should hold itself. When the counterpart matters, name the concept or symbol, not the location. Reasons and history belong in `.llms/architecture.md`, open findings in `.llms/issues/`.
+- **Shape.** One summary line for an exported symbol; add lines only for a contract or a trap. No `@param` or `@returns` that repeat the signature. No section banners, no commented-out code, no TODO without something to act on. English, plain sentences, one idea per line, under about 100 characters.
+- **Keep directive comments** (`oxlint-disable-next-line`, `@ts-expect-error`, `@vite-ignore`, `/// <reference />`, shebangs) on the line they apply to, with a reason when the directive is not obvious.
+- **Update or delete** a comment in the same change that makes it wrong. A stale comment is a defect.
+
 ## Observability contracts
 
 - **The logger never blocks a request on Node** (`LoggerLayer` in `src/observer/logger.ts`): lines are formatted on the calling fiber and pushed into an in-memory buffer; a detached fiber writes the buffer to stdout once per `LOG_FLUSH_INTERVAL` in a single `write`. The scope finalizer drains the rest, so graceful shutdown (`SIGINT`/`SIGTERM` through `NodeRuntime.runMain`) loses nothing; a hard crash loses at most one window. On Workers `ConsoleLoggerLayer` writes each line straight to `console.log` (no buffer, no stdout, no colours): a Worker has no shutdown hook to flush on. Do not log with `console.*` from services — use `Effect.log*`. CLI user output (`print` in `src/command/helper.ts`) is not a log and stays direct.

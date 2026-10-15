@@ -22,6 +22,12 @@ export default defineConfig(({ mode }) => {
   }
   return {
     plugins: [edgy({ mode })],
+    resolve: { tsconfigPaths: true },
+    build: {
+      emptyOutDir: true,
+      chunkSizeWarningLimit: 1024,
+      reportCompressedSize: false
+    },
     server: address,
     preview: address
   }
