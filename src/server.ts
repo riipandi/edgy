@@ -10,30 +10,54 @@ import { makeHttpRuntime } from './kernel/http/runtime.ts'
  *
  * Shutdown order is owned by the scope, not by the server library: srvx's own
  * signal handler is disabled (`gracefulShutdown: false`), so the finalizers run
- * in reverse acquisition order — stop accepting and drain in-flight requests
- * (bounded by `SHUTDOWN_TIMEOUT`, then force-close), release the database, and
- * only then flush the log buffer.
+ * in reverse acquisition order — stop accepting and drain, release the
+ * database, and only then flush the log buffer.
+ *
+ * Draining waits for in-flight *requests* (bounded by `SHUTDOWN_TIMEOUT`), then
+ * closes whatever sockets remain. Waiting on `server.close()` itself would stall
+ * for the whole timeout whenever a connection never completed a request.
  */
 export const serveHttp = Effect.gen(function* () {
   const { host, port, cors, bodyLimit, shutdownTimeout } = yield* ConfigService
   const runtime = yield* makeHttpRuntime
   const app = createApp({ runtime, cors, bodyLimit })
 
-  yield* Effect.logInfo(`Starting server on http://${host}:${port}`)
-
-  yield* Effect.acquireRelease(
+  const server = yield* Effect.acquireRelease(
     Effect.sync(() => serve(app, { port, hostname: host, silent: true, gracefulShutdown: false })),
-    (server) =>
-      Effect.promise(() => server.close()).pipe(
-        Effect.timeoutOrElse({
-          duration: shutdownTimeout,
-          orElse: () =>
-            Effect.logWarning('Shutdown timed out; closing active connections').pipe(
-              Effect.andThen(Effect.promise(() => server.close(true)))
-            )
-        })
-      )
+    (instance) =>
+      Effect.gen(function* () {
+        const pending = yield* runtime.inFlight.count
+        yield* Effect.logInfo(
+          pending === 0
+            ? 'Shutting down'
+            : `Shutting down, waiting for ${pending} request(s) in flight`
+        )
+
+        // Stops listening and closes idle connections; resolves only when every
+        // connection has ended, so it is awaited last.
+        const closed = instance.close()
+        yield* runtime.inFlight.drained.pipe(
+          Effect.timeoutOrElse({
+            duration: shutdownTimeout,
+            orElse: () =>
+              Effect.gen(function* () {
+                const remaining = yield* runtime.inFlight.count
+                yield* Effect.logWarning(
+                  `Shutdown timed out with ${remaining} request(s) still in flight; closing them`
+                )
+              })
+          })
+        )
+        yield* Effect.promise(() => instance.close(true))
+        yield* Effect.promise(() => closed)
+        yield* Effect.logInfo('Server stopped')
+      })
   )
+
+  // `silent` also hides srvx's own listen failure (for example EADDRINUSE), so
+  // surface it here: a failed bind must stop the command, not leave it idle.
+  yield* Effect.promise(() => server.ready())
+  yield* Effect.logInfo(`Listening on http://${host}:${port}`)
 
   // Keep the fiber alive so the scope (and the server) stays open.
   return yield* Effect.never

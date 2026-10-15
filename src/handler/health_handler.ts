@@ -12,6 +12,5 @@ import { HealthResponseSchema } from '../schemas/health_schema.ts'
  */
 export const healthHandler = defineHandler({
   response: HealthResponseSchema,
-  run: () =>
-    DatabaseService.use((database) => database.ping).pipe(Effect.as({ status: 'ok' as const }))
+  run: () => DatabaseService.use((database) => database.ping).pipe(Effect.as({ status: 'ok' }))
 })

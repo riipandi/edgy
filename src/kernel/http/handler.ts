@@ -46,17 +46,21 @@ export function defineHandler<A, I, E extends AppError, P, PI, B, BI>(
     WithParams<P, PI> &
     WithBody<B, BI> & { readonly run: (input: { params: P; body: B }) => Program<A, E> }
 ): (event: H3Event) => Promise<unknown>
+
 export function defineHandler<A, I, E extends AppError, P, PI>(
   spec: HandlerBase<A, I> &
     WithParams<P, PI> & { readonly run: (input: { params: P }) => Program<A, E> }
 ): (event: H3Event) => Promise<unknown>
+
 export function defineHandler<A, I, E extends AppError, B, BI>(
   spec: HandlerBase<A, I> &
     WithBody<B, BI> & { readonly run: (input: { body: B }) => Program<A, E> }
 ): (event: H3Event) => Promise<unknown>
+
 export function defineHandler<A, I, E extends AppError>(
   spec: HandlerBase<A, I> & { readonly run: () => Program<A, E> }
 ): (event: H3Event) => Promise<unknown>
+
 export function defineHandler(
   spec: HandlerBase<unknown, unknown> & {
     readonly params?: Schema.Codec<unknown, unknown>

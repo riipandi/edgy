@@ -42,7 +42,11 @@ Contracts, how-to-change recipes, traps. Read the section a change touches befor
 
 ## Shutdown contract
 
-- `SIGINT`/`SIGTERM` reach `NodeRuntime.runMain`, which interrupts the `serve` fiber. srvx's own signal handler is disabled (`gracefulShutdown: false` in `src/server.ts`) so the scope owns the order: stop accepting and drain in-flight requests (bounded by `SHUTDOWN_TIMEOUT`, then `close(true)`), release the database, flush the log buffer last. Do not re-enable srvx's handler — two handlers race the finalizers and can drop buffered log lines.
+- `SIGINT`/`SIGTERM` reach `NodeRuntime.runMain`, which interrupts the `serve` fiber. srvx's own signal handler is disabled (`gracefulShutdown: false` in `src/server.ts`) so the scope owns the order: stop accepting, wait until no request is in flight (bounded by `SHUTDOWN_TIMEOUT`), close the remaining sockets with `close(true)`, release the database, flush the log buffer last. Do not re-enable srvx's handler — two handlers race the finalizers and can drop buffered log lines.
+- **Drain on requests, never on `server.close()`.** `close()` resolves only when every *connection* has ended, and a socket that never completed a request (a browser's speculative preconnect, a half-sent header) is neither idle nor in flight, so awaiting it stalls for the whole timeout. `provideRuntime` counts requests (`src/kernel/http/inflight.ts`); the finalizer awaits `inFlight.drained`, then force-closes. The warning `Shutdown timed out with N request(s) still in flight` therefore means real work was cut off, not an idle socket.
+- **The shutdown is announced by our own logs**: `Shutting down` (with the in-flight count when non-zero) when the finalizer starts, `Server stopped` when the last socket is closed. srvx's own messages are off (`silent: true`, `gracefulShutdown: false`), so removing these two lines makes a stop invisible.
+- **`silent: true` hides srvx's listen failures**, so `serveHttp` awaits `server.ready()`; a busy port exits with status 1 and the error instead of idling.
+- **How it was verified** (needs a socket, so not in the sandbox): spawn `node src/main.ts serve`, hold an idle socket / a half-sent header / a half-sent body open, send `SIGTERM`, time the exit. Idle and half-header sockets exit in ~10 ms; a body that finishes during the drain is answered (201) and the process exits when it ends; a body that never finishes waits `SHUTDOWN_TIMEOUT` and logs the warning.
 
 ## CLI contracts
 

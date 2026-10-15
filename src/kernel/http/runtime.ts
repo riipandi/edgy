@@ -1,8 +1,9 @@
 import { type Duration, Effect, type Exit } from 'effect'
-import { definePlugin, type H3Event, onRequest } from 'h3'
+import { definePlugin, type H3Event } from 'h3'
 import type { DatabaseService } from '../../database/service.ts'
 import type { UserService } from '../../service/user_service.ts'
 import { ConfigService } from '../config.ts'
+import { type InFlight, makeInFlight } from './inflight.ts'
 
 /** Services an HTTP handler program may require. */
 export type HttpEnv = UserService | DatabaseService
@@ -27,6 +28,8 @@ export interface HttpRuntime {
   readonly runSync: (effect: Effect.Effect<void>) => void
   /** Upper bound for one handler program (`REQUEST_TIMEOUT`). */
   readonly requestTimeout: Duration.Duration
+  /** Requests being handled right now; shutdown drains it. */
+  readonly inFlight: InFlight
 }
 
 /** Captures the current context into an {@link HttpRuntime}. */
@@ -37,7 +40,8 @@ export const makeHttpRuntime: Effect.Effect<HttpRuntime, never, HttpEnv | Config
     return {
       runPromiseExit: Effect.runPromiseExitWith(services),
       runSync: Effect.runSyncWith(services),
-      requestTimeout
+      requestTimeout,
+      inFlight: makeInFlight()
     }
   })
 
@@ -52,13 +56,21 @@ declare module 'h3' {
   }
 }
 
-/** Plugin that exposes the runtime to every handler and middleware. Register it first. */
+/**
+ * Plugin that exposes the runtime to every handler and middleware and counts
+ * the request as in flight until the rest of the chain has finished. Register
+ * it first, so the count covers every other middleware.
+ */
 export const provideRuntime = definePlugin<HttpRuntime>((app, runtime) => {
-  app.use(
-    onRequest((event) => {
-      event.context.runtime = runtime
-    })
-  )
+  app.use(async (event, next) => {
+    event.context.runtime = runtime
+    runtime.inFlight.enter()
+    try {
+      return await next()
+    } finally {
+      runtime.inFlight.leave()
+    }
+  })
 })
 
 /** Returns the runtime attached to an event. Throws if `provideRuntime` was not registered. */
