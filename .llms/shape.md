@@ -26,7 +26,7 @@ src/
     pagination.ts    # Page, PageRequest
     layers.ts        # CoreLayer (Node): config + stdout logger + platform services
     http/            # runtime.ts (HttpRuntime, HttpServices), handler.ts (defineHandler, definePagedHandler, defineMessageHandler), router.ts (defineRouteGroup), responder.ts (runEffect), envelope.ts, pagination.ts, decode.ts, errors.ts (renderHTTPError), request_context.ts, inflight.ts
-  observer/          # logger.ts (batched stdout for Node, console for Workers), metrics.ts, metrics_handler.ts (/metrics), http_observer.ts
+  observer/          # logger.ts (batched stdout for Node, console for Workers), log_file.ts (rotating JSON-lines file sink), metrics.ts, metrics_handler.ts (/metrics), http_observer.ts
   command/           # effect/cli commands (cli.ts + one file per command + helper.ts)
   routes/            # route.ts: the route table (root, /api, /.well-known, catch-all; registration order)
   middleware/        # cors, request_id, security_headers, body_limit, cache_control, rate_limit

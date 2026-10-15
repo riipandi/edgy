@@ -20,6 +20,29 @@ describe('configuration', () => {
     expect(config.database.driver).toBe('sqlite')
     expect(config.security.rateLimitMax).toBe(0)
     expect(config.observability.metricsEnabled).toBe(false)
+    expect(config.logging.transport).toEqual(['console'])
+    expect(config.logging.rotation).toBe('daily')
+    expect(config.logging.fileMaxFiles).toBe(14)
+  })
+
+  it('parses LOG_TRANSPORT as a list, ignoring spaces and repeats', async () => {
+    expect((await parse({ LOG_TRANSPORT: 'console, file' })).logging.transport).toEqual([
+      'console',
+      'file'
+    ])
+    expect((await parse({ LOG_TRANSPORT: 'file,file' })).logging.transport).toEqual(['file'])
+  })
+
+  it('accepts the four rotation periods and rejects anything else', async () => {
+    for (const rotation of ['hourly', 'daily', 'weekly', 'monthly']) {
+      expect((await parse({ LOG_ROTATION: rotation })).logging.rotation).toBe(rotation)
+    }
+    await expect(parse({ LOG_ROTATION: 'yearly' })).rejects.toThrow(/LOG_ROTATION/)
+  })
+
+  it('rejects an unknown or empty LOG_TRANSPORT', async () => {
+    await expect(parse({ LOG_TRANSPORT: 'console,syslog' })).rejects.toThrow(/LOG_TRANSPORT/)
+    await expect(parse({ LOG_TRANSPORT: ',' })).rejects.toThrow(/LOG_TRANSPORT/)
   })
 
   it('reads overrides from every section', async () => {

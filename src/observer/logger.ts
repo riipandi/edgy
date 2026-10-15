@@ -1,5 +1,15 @@
-import { type Duration, Effect, Layer, Logger, References } from 'effect'
+import {
+  type Duration,
+  Effect,
+  FileSystem,
+  Layer,
+  Logger,
+  Path,
+  type PlatformError,
+  References
+} from 'effect'
 import { ConfigService, type LogFormat } from '../kernel/config/service.ts'
+import { makeFileSink } from './log_file.ts'
 
 type StructuredEntry =
   typeof Logger.formatStructured extends Logger.Logger<unknown, infer Output> ? Output : never
@@ -113,19 +123,41 @@ const makeBatchedStdout = (formatter: Logger.Logger<unknown, string>, window: Du
 /**
  * Logger and minimum log level, derived from configuration.
  *
- * Reading `ConfigService` here applies `LOG_LEVEL`, `LOG_FORMAT` and
- * `LOG_FLUSH_INTERVAL` once for the whole process, so CLI commands and the
- * HTTP server share identical output. Replaces Effect's default console
- * logger rather than merging with it, which would double every line.
+ * Reading `ConfigService` here applies `LOG_LEVEL`, `LOG_TRANSPORT`, `LOG_FORMAT`,
+ * `LOG_FILE`, `LOG_ROTATION`, `LOG_FILE_MAX_FILES` and `LOG_FLUSH_INTERVAL` once for the whole process, so CLI commands
+ * and the HTTP server share identical output. `LOG_TRANSPORT` picks the sinks —
+ * the batched stdout sink, the rotating JSON file sink (`log_file.ts`), or both,
+ * each receiving every line.
+ * Replaces Effect's default console logger rather than merging with it, which
+ * would double every line.
  */
-export const LoggerLayer: Layer.Layer<never, never, ConfigService> = Layer.unwrap(
+export const LoggerLayer: Layer.Layer<
+  never,
+  PlatformError.PlatformError,
+  ConfigService | FileSystem.FileSystem | Path.Path
+> = Layer.unwrap(
   Effect.gen(function* () {
     const { logging } = yield* ConfigService
     const colors = process.stdout.isTTY && process.env.NO_COLOR === undefined
-    const sink = makeBatchedStdout(makeFormatter(logging.format, colors), logging.flushInterval)
+
+    const sinks = [
+      ...(logging.transport.includes('console')
+        ? [makeBatchedStdout(makeFormatter(logging.format, colors), logging.flushInterval)]
+        : []),
+      ...(logging.transport.includes('file')
+        ? [
+            makeFileSink({
+              path: logging.file,
+              rotation: logging.rotation,
+              maxFiles: logging.fileMaxFiles,
+              window: logging.flushInterval
+            })
+          ]
+        : [])
+    ]
 
     return Layer.merge(
-      Logger.layer([sink]),
+      Logger.layer(sinks),
       Layer.succeed(References.MinimumLogLevel, logging.level)
     )
   })

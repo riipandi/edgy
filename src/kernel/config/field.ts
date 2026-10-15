@@ -1,4 +1,4 @@
-import { Config, Duration, Effect, LogLevel } from 'effect'
+import { Config, ConfigProvider, Duration, Effect, LogLevel } from 'effect'
 
 /**
  * Everything the generated `.env.example` needs to know about one variable.
@@ -75,6 +75,46 @@ export const choice = <const L extends readonly [string, ...string[]]>(
     { name, description, kind: 'enum', default: fallback, choices },
     Config.Literals(choices, name).pipe(Config.withDefault(fallback))
   )
+
+/**
+ * A comma-separated subset of `choices` (`console,file`). Each entry must be a
+ * known choice, at least one is required, and repeats collapse, so a typo fails
+ * at startup instead of silently dropping an output.
+ */
+export const choiceList = <const L extends readonly [string, ...string[]]>(
+  name: string,
+  choices: L,
+  fallback: readonly L[number][],
+  description: string
+) => {
+  const isChoice = (value: string): value is L[number] =>
+    choices.some((candidate) => candidate === value)
+  const expected = choices.join(' | ')
+  const reject = (got: string) =>
+    Effect.fail(
+      new Config.ConfigError(
+        new ConfigProvider.SourceError({
+          message: `${name} must be a comma-separated list of: ${expected} (got "${got}")`
+        })
+      )
+    )
+
+  return field(
+    { name, description, kind: 'list', default: fallback.join(','), choices },
+    Config.String(name).pipe(
+      Config.withDefault(fallback.join(',')),
+      Config.mapEffect((raw): Effect.Effect<readonly L[number][], Config.ConfigError> => {
+        const entries = raw
+          .split(',')
+          .map((entry) => entry.trim())
+          .filter(Boolean)
+        const known = entries.filter(isChoice)
+        if (entries.length === 0 || known.length !== entries.length) return reject(raw)
+        return Effect.succeed([...new Set(known)])
+      })
+    )
+  )
+}
 
 export const logLevel = (name: string, fallback: LogLevel.LogLevel, description: string) =>
   field(

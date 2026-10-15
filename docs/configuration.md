@@ -46,8 +46,32 @@ The command never writes a real `.env` file.
 | Variable             | Default      | Description                                                                |
 | -------------------- | ------------ | -------------------------------------------------------------------------- |
 | `LOG_LEVEL`          | `Info`       | `All` \| `Fatal` \| `Error` \| `Warn` \| `Info` \| `Debug` \| `Trace` \| `None` (**case-sensitive**). `Trace` also prints every SQL statement with its duration (never the values) |
-| `LOG_FORMAT`         | `pretty`     | `pretty` for readable lines, `json` for one JSON object per line           |
+| `LOG_TRANSPORT`      | `console`    | Where logs go: `console`, `file`, or both (`console,file`)                 |
+| `LOG_FILE`           | `./storage/logs/edgy.jsonl` | Base path of the log file; the file written carries the period (see below) |
+| `LOG_ROTATION`       | `daily`      | How often a new log file starts: `hourly`, `daily`, `weekly` or `monthly` (UTC) |
+| `LOG_FILE_MAX_FILES` | `14`         | Log files kept, the current one included; older ones are deleted. `0` keeps every file |
+| `LOG_FORMAT`         | `pretty`     | Console format: `pretty` for readable lines, `json` for one JSON object per line |
 | `LOG_FLUSH_INTERVAL` | `250 millis` | How long log lines are buffered before they are written together (Node.js) |
+
+The file always holds one JSON object per line, whatever `LOG_FORMAT` says. Its name is the base name
+from `LOG_FILE` plus the period it covers, with underscores as separators:
+
+| `LOG_ROTATION` | File name                      | Starts a new file     |
+| -------------- | ------------------------------ | --------------------- |
+| `hourly`       | `edgy_20261015_09.jsonl`       | every hour            |
+| `daily`        | `edgy_20261015.jsonl`          | every day             |
+| `weekly`       | `edgy_20261012.jsonl`          | every Monday (its date) |
+| `monthly`      | `edgy_202610.jsonl`            | every month           |
+
+Periods are in UTC, the same clock as the `timestamp` inside each line. A restart within the same period
+appends to the same file. Each line goes to the file of its own timestamp, so lines around midnight land
+in the right file. Once there are more than `LOG_FILE_MAX_FILES` files, the oldest are deleted; only files
+named like the pattern above are ever touched, never other files in the directory. Rotated files are not
+compressed.
+
+A `LOG_FILE` that cannot be opened stops the process at startup. A write that fails later is reported on
+standard error and that batch of lines is dropped. On Cloudflare Workers `LOG_TRANSPORT` has no effect;
+logs go to the platform's stream.
 
 ## Security
 

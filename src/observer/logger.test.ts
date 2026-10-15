@@ -1,5 +1,11 @@
+import { NodeServices } from '@effect/platform-node'
+import { ConfigProvider, Effect, Layer, ManagedRuntime } from 'effect'
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { renderPretty } from './logger.ts'
+import { ConfigLayer } from '../kernel/config/service.ts'
+import { LoggerLayer, renderPretty } from './logger.ts'
 
 const entry = (message: string, annotations: Record<string, unknown>) =>
   ({
@@ -40,5 +46,53 @@ describe('renderPretty', () => {
   it('does not match a value inside a longer word or number', () => {
     const line = renderPretty(entry('Applied 12 migrations', { count: 1 }), false)
     expect(line).toContain('count=1')
+  })
+})
+
+describe('file transport', () => {
+  const run = async (env: Record<string, string>, file: string) => {
+    const core = LoggerLayer.pipe(
+      Layer.provide(NodeServices.layer),
+      Layer.provideMerge(ConfigLayer),
+      Layer.provide(ConfigProvider.layer(ConfigProvider.fromEnvRecord({ ...env, LOG_FILE: file })))
+    )
+    const runtime = ManagedRuntime.make(core)
+    await runtime.runPromise(
+      Effect.logInfo('hello file').pipe(Effect.annotateLogs({ requestId: 'req_1', status: 200 }))
+    )
+    // Disposing closes the scope, which is what flushes the batched file sink.
+    await runtime.dispose()
+  }
+
+  it('appends one JSON object per line to the file of the current period', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'edgy-log-'))
+
+    await run({ LOG_TRANSPORT: 'file', LOG_ROTATION: 'monthly' }, join(dir, 'nested', 'app.jsonl'))
+    await run({ LOG_TRANSPORT: 'file', LOG_ROTATION: 'monthly' }, join(dir, 'nested', 'app.jsonl'))
+
+    const [name, ...rest] = readdirSync(join(dir, 'nested'))
+    expect(rest).toEqual([])
+    expect(name).toMatch(/^app_\d{6}\.jsonl$/)
+
+    const lines = readFileSync(join(dir, 'nested', name ?? ''), 'utf8')
+      .trim()
+      .split('\n')
+    expect(lines).toHaveLength(2)
+    const record = JSON.parse(lines[0] ?? '')
+    expect(record).toMatchObject({
+      message: 'hello file',
+      level: 'INFO',
+      annotations: { requestId: 'req_1', status: 200 }
+    })
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('writes nothing to the file unless the transport asks for it', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'edgy-log-'))
+
+    await run({ LOG_TRANSPORT: 'console', LOG_LEVEL: 'None' }, join(dir, 'app.jsonl'))
+
+    expect(existsSync(dir) && readdirSync(dir)).toEqual([])
+    rmSync(dir, { recursive: true, force: true })
   })
 })
