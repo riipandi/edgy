@@ -23,6 +23,8 @@
         "cleanup:dist": "pnpm dlx del-cli dist storybook-static e2e-result",
         "cleanup:deps": "pnpm dlx del-cli .{output,wrangler} pnpm-lock.yaml node_modules",
         "update-deps": "npm-check-updates --configFileName .ncurc.json",
+        "vendor:init": "git subtree add --prefix=vendor/effect https://github.com/Effect-TS/effect.git main --squash",
+        "vendor:update": "git subtree pull --prefix=vendor/effect https://github.com/Effect-TS/effect.git main --squash",
         "test": "echo \"Error: no test specified\" && exit 1",
         "check": "oxfmt --check && oxlint",
         "format": "oxfmt --write .",

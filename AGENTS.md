@@ -14,6 +14,7 @@ This file holds the workflow rules, always in force; the detail — the reposito
 - Do not add, remove, or rename a top-level directory unless asked; extend an existing package.
 - Porting a plan into code means implementing it. A doc may describe a larger surface than the code has.
 - No self-evident comments: a comment must carry what the code cannot (a why, a contract, a trap), never restate what the next line already says.
+- When writing Effect code, inspect @vendor/effect/ for examples of idiomatic usage, tests, module structure, and API design. Treat it as the source of truth for Effect patterns.
 
 ## Skills
 
@@ -70,6 +71,15 @@ If they already chose in the same thread, do not re-ask. If new facts change the
 - **Prose.** Tree documents are English. Technical documentation for agents lives in `.llms/`; product documentation for humans lives in `docs/` — keep `docs/` free of technical references (paths, internals, agent context); its orientation is the human reader. Chat may follow the user's language. Files do not. The `clarity` skill is mandatory before writing or rewriting any of them; `handoff` for handovers.
 - **Library docs.** Use the MCP Context7 and DeepWiki tools for external libraries; the module cache is the pinned truth — code wins over docs.
 - **Secrets.** A secret is listed once in the configuration system's secret list and nowhere else. Never print one; never rewrite a dotenv file without consent.
+
+## Vendored Repositories
+
+This project vendors external repositories under @vendor/
+
+- Use vendored repositories as read-only reference material when working with related libraries
+- Prefer examples and patterns from the vendored source code over generated guesses or web search results
+- Do not edit files under @vendor/ unless explicitly asked
+- Do not import from @vendor/ - application code should continue importing from normal package dependencies
 
 ## Git
 

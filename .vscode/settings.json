@@ -2,6 +2,7 @@
     "npm.scriptRunner": "pnpm",
     "oxc.disableNestedConfig": true,
     "oxc.fmt.disableNestedConfig": true,
+    "js/ts.preferences.autoImportFileExcludePatterns": ["vendor/**"],
     "editor.formatOnSave": true,
     "editor.formatOnSaveMode": "file",
     "editor.defaultFormatter": "oxc.oxc-vscode",
@@ -26,7 +27,8 @@
         "**/build/**": true,
         "**/dist/**": true,
         "**/generated/**": true,
-        "**/specs/**": true
+        "**/specs/**": true,
+        "**/vendor/**": true
     },
     "files.watcherExclude": {
         "**/.output/**": true,
@@ -36,7 +38,8 @@
         "**/build/**": true,
         "**/dist/**": true,
         "**/generated/**": true,
-        "**/specs/**": true
+        "**/specs/**": true,
+        "**/vendor/**": true
     },
     "search.exclude": {
         "**/.output/**": true,
@@ -47,7 +50,8 @@
         "**/build/**": true,
         "**/dist/**": true,
         "**/generated/**": true,
-        "**/specs/**": true
+        "**/specs/**": true,
+        "**/vendor/**": true
     },
     "[css]": {
         "editor.defaultFormatter": "oxc.oxc-vscode"
