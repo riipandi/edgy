@@ -96,7 +96,7 @@ request costs a few percent of throughput (about 7% on a laptop at full sampling
 is rarely a loss. If the collector is unreachable, export pauses and drops its buffer; requests are
 unaffected.
 
-Rate limiting is off until `RATE_LIMIT_ENABLED=true`. Behind several instances, set `RATE_LIMIT_STORE=redis` with a `REDIS_URL` so the rate limit is shared,
+Rate limiting is on by default (`RATE_LIMIT_ENABLED`). Behind several instances, set `RATE_LIMIT_STORE=redis` with a `REDIS_URL` so the rate limit is shared,
 not multiplied. `MAX_IN_FLIGHT` caps the requests one process handles at once; past it the server answers
 `503` straight away, which lets a load balancer retry elsewhere instead of every request slowing down.
 

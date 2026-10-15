@@ -15,8 +15,8 @@ interface GuardOptions {
  *
  * Two guards, the same as the rate limiter's: each call has a `timeout`, and after any failure
  * the store is skipped for `cooldown`, so the requests that follow do not each wait out the
- * timeout. When the cooldown ends one call tries again; if it answers, caching resumes. One
- * warning per bypass.
+ * timeout. When the cooldown ends one call tries again (the others keep skipping the store until
+ * it answers); if it answers, caching resumes. One warning per outage.
  */
 const guardStore = (
   store: Persistence.BackingPersistenceStore,
@@ -24,6 +24,7 @@ const guardStore = (
   options: GuardOptions
 ): Persistence.BackingPersistenceStore => {
   const timeout = options.timeout ?? '250 millis'
+  const timeoutMs = Duration.toMillis(Duration.fromInputUnsafe(timeout))
   const cooldownMs = Duration.toMillis(Duration.fromInputUnsafe(options.cooldown ?? '10 seconds'))
   let bypassUntil = 0
 
@@ -35,14 +36,25 @@ const guardStore = (
       const startedAt = yield* Clock.currentTimeMillis
       if (startedAt < bypassUntil) return fallback
 
+      // Past the cooldown: this call is the probe. Holding the others back for as long as it may
+      // take stops every concurrent caller from testing the store at once (no yield separates the
+      // read of `bypassUntil` from this write, and fibers do not run in parallel).
+      const recovering = bypassUntil !== 0
+      if (recovering) bypassUntil = startedAt + timeoutMs
+
       const exit = yield* Effect.exit(run.pipe(Effect.timeoutOption(timeout)))
-      if (Exit.isSuccess(exit) && Option.isSome(exit.value)) return exit.value.value
+      if (Exit.isSuccess(exit) && Option.isSome(exit.value)) {
+        bypassUntil = 0
+        return exit.value.value
+      }
 
       bypassUntil = startedAt + cooldownMs
-      yield* Effect.logWarning(
-        `Cache store "${name}" ${Exit.isSuccess(exit) ? 'timed out' : 'failed'}; bypassing it for a while`,
-        Exit.isSuccess(exit) ? undefined : exit.cause
-      )
+      const what = `Cache store "${name}" ${Exit.isSuccess(exit) ? 'timed out' : 'failed'}`
+      const cause = Exit.isSuccess(exit) ? undefined : exit.cause
+      // The outage is announced once; a probe that fails again is only a detail.
+      yield* recovering
+        ? Effect.logDebug(`${what} again; still bypassing it`, cause)
+        : Effect.logWarning(`${what}; bypassing it for a while`, cause)
       return fallback
     })
 

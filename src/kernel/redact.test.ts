@@ -28,6 +28,35 @@ describe('redactText', () => {
     expect(redactText('x-api-key: k-123 and cookie=sid=abc')).not.toMatch(/k-123|sid=abc/)
   })
 
+  it('removes command-line flag values and values after a fullwidth colon', () => {
+    expect(redactText('spawn mysql --password hunter2 --host db')).toBe(
+      `spawn mysql --password ${REDACTED} --host db`
+    )
+    expect(redactText('run --api-key=abc123 now')).toBe(`run --api-key=${REDACTED} now`)
+    expect(redactText('password：hunter2')).toBe(`password：${REDACTED}`)
+  })
+
+  it('stays linear on adversarial text: long runs of keyword-like characters', () => {
+    const attacks = [
+      'a'.repeat(100_000),
+      'password'.repeat(12_500),
+      '-'.repeat(100_000),
+      'token_'.repeat(16_000),
+      `${'x'.repeat(50_000)}=`.repeat(2),
+      'a://'.repeat(25_000)
+    ]
+    const started = performance.now()
+    for (const attack of attacks) redactText(attack)
+    // quadratic matching took tens of seconds on the first of these
+    expect(performance.now() - started).toBeLessThan(1_000)
+  })
+
+  it('cuts text past the cap instead of scanning it', () => {
+    const out = redactText(`${'x'.repeat(20_000)} password=hunter2`)
+    expect(out.length).toBeLessThan(17_000)
+    expect(out.endsWith('…[truncated]')).toBe(true)
+  })
+
   it('leaves ordinary diagnostics alone', () => {
     for (const text of [
       'SQLITE_ERROR: no such table: users',

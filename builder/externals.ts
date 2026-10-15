@@ -56,10 +56,6 @@ export const packageFromPath = (id: string): string | undefined => {
 /** Does the id refer to a Node.js built-in module? */
 export const isBuiltin = (id: string): boolean => NODE_BUILTINS.has(id)
 
-/** True for relative (`./x`), absolute (`/x`) and builtin specifiers. */
-export const isBareSpecifier = (id: string): boolean =>
-  !id.startsWith('.') && !path.isAbsolute(id) && !isBuiltin(id) && packageNameOf(id) !== undefined
-
 /**
  * Decides whether a bare import must stay external, and records it for tracing.
  *

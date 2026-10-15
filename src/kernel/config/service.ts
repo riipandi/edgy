@@ -8,15 +8,9 @@ import { observabilityConfig, telemetryEnabled } from './observability.ts'
 import { securityConfig } from './security.ts'
 import { serverConfig } from './server.ts'
 
-export type { CacheConfig } from './cache.ts'
-export type { CorsConfig } from './cors.ts'
-export type { DatabaseConfig } from './database.ts'
-export type { FieldSpec } from './field.ts'
-export type { LogFormat, LoggingConfig } from './logging.ts'
+export type { LogFormat } from './logging.ts'
 export type { ObservabilityConfig } from './observability.ts'
 export { telemetryEnabled } from './observability.ts'
-export type { SecurityConfig } from './security.ts'
-export type { ServerConfig } from './server.ts'
 
 /**
  * The whole configuration, one section per concern. A section is a file in this

@@ -84,9 +84,23 @@ export const migrateDown = (
 ): Effect.Effect<ReadonlyArray<MigrationResult>, DatabaseError, DatabaseService> =>
   Effect.gen(function* () {
     const infos = yield* getMigrationInfos
-    const executed = infos.filter((info) => info.executedAt !== undefined)
-    if (executed.length === 0 || steps <= 0) return []
-    if (executed.length <= steps) return yield* migrateTo(NO_MIGRATIONS)
-    const target = executed[executed.length - steps]
-    return yield* migrateTo(target!.name)
+    const target = rollbackTarget(
+      infos.filter((info) => info.executedAt !== undefined).map((info) => info.name),
+      steps
+    )
+    return target === undefined ? [] : yield* migrateTo(target)
   })
+
+/**
+ * The migration to stop at when rolling back `steps` of the `executed` ones (in order): the one
+ * just before the last `steps`, or everything when `steps` covers them all; `undefined` when there
+ * is nothing to roll back.
+ */
+export const rollbackTarget = (
+  executed: ReadonlyArray<string>,
+  steps: number
+): string | NoMigrations | undefined => {
+  if (executed.length === 0 || steps <= 0) return undefined
+  if (executed.length <= steps) return NO_MIGRATIONS
+  return executed[executed.length - steps - 1]
+}

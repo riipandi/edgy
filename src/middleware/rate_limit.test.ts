@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it } from '@effect/vitest'
+import { Duration } from 'effect'
 import { makeTestApp, type TestApp } from '../../tests/app.ts'
+import { makeMemoryRateCheck } from './rate_limit.ts'
 
 let t: TestApp | undefined
 afterEach(async () => {
@@ -91,5 +93,28 @@ describe('rate limiting', () => {
     expect((await as('203.0.113.1')).status).toBe(200)
     expect((await as('203.0.113.2')).status).toBe(200)
     expect((await as('203.0.113.1')).status).toBe(429)
+  })
+})
+
+describe('memory rate check', () => {
+  const window = Duration.minutes(1)
+
+  it('stays bounded, evicting the oldest client when full', async () => {
+    const check = makeMemoryRateCheck({ max: 2, window, maxTracked: 3 })
+    for (const client of ['a', 'b', 'c', 'd']) await check(client) // "d" evicts "a", the oldest
+
+    // "a" was forgotten, so it starts a fresh count; "c" is still counted
+    expect((await check('a')).remaining).toBe(1)
+    expect((await check('c')).remaining).toBe(0)
+  })
+
+  it('does not scan the map once per request when full', async () => {
+    const check = makeMemoryRateCheck({ max: 1, window, maxTracked: 20_000 })
+    for (let i = 0; i < 20_000; i += 1) await check(`ip-${i}`)
+
+    const started = performance.now()
+    for (let i = 0; i < 2_000; i += 1) await check(`flood-${i}`)
+    // each call was a full pass over 20k buckets before: seconds, not milliseconds
+    expect(performance.now() - started).toBeLessThan(250)
   })
 })

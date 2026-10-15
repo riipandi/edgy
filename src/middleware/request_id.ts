@@ -12,12 +12,21 @@ export const REQUEST_ID_HEADER = 'x-request-id'
 const MAX_REQUEST_ID_LENGTH = 128
 
 /**
+ * What an inbound id may contain: the characters of a TypeID, UUID, ULID or an opaque gateway
+ * token. Anything else (spaces, `=`, quotes, control characters) is refused, because the id is
+ * echoed in a header and printed in every log line of the request, and the pretty log sink
+ * writes it raw: a client could otherwise forge `key=value` pairs or whole lines there.
+ */
+const INBOUND_ID = /^[A-Za-z0-9._:-]+$/
+
+/**
  * Reads a caller-supplied id, so an upstream service (or a gateway) can seed
- * the correlation chain. Empty or oversized values are ignored.
+ * the correlation chain. Empty, oversized or oddly spelled values are ignored and a fresh id is
+ * minted instead.
  */
 const inboundRequestId = (event: H3Event): string | undefined => {
   const value = event.req.headers.get(REQUEST_ID_HEADER)?.trim()
-  if (!value || value.length > MAX_REQUEST_ID_LENGTH) return undefined
+  if (!value || value.length > MAX_REQUEST_ID_LENGTH || !INBOUND_ID.test(value)) return undefined
   return value
 }
 

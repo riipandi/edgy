@@ -58,6 +58,20 @@ describe('envelope', () => {
     expect((await json(response)).metadata.request_id).toBe('req_from_gateway')
   })
 
+  it('ignores an inbound x-request-id it would not want in a log line', async () => {
+    for (const hostile of [
+      'a b',
+      'a=b',
+      'x"y',
+      'req_1 level=ERROR forged',
+      'é'.repeat(3),
+      'a'.repeat(129)
+    ]) {
+      const response = await t.request('/health', { headers: { 'x-request-id': hostile } })
+      expect(response.headers.get('x-request-id')).toMatch(/^req_[0-7][0-9a-hjkmnp-tv-z]{25}$/)
+    }
+  })
+
   it('renders typed failures from the error itself', async () => {
     const missing = await t.request(`/api/users/${MISSING_USER_ID}`)
     expect(missing.status).toBe(404)

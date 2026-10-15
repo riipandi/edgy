@@ -1,11 +1,11 @@
-import { Effect, Schema } from 'effect'
+import { Duration, Effect, Schema } from 'effect'
 import { getQuery, getRouterParams, type H3Event, HTTPError, readBody } from 'h3'
 import type { AppError, ValidationError } from '../errors.ts'
 import type { Page } from '../pagination.ts'
 import { decode } from './decode.ts'
 import type { Reply } from './envelope.ts'
 import { runEffect } from './responder.ts'
-import type { HttpEnv } from './runtime.ts'
+import { type HttpEnv, runtimeOf } from './runtime.ts'
 
 /**
  * What a handler may read from the request. Each input is optional; one that
@@ -58,6 +58,31 @@ const requireJson = (event: H3Event): void => {
  * Malformed JSON never reaches the program: `readBody` rejects it with h3's own
  * 400, which the app-level error hook renders in the common error shape.
  */
+/**
+ * Reads the JSON body, giving up after `REQUEST_TIMEOUT` with `408`. `runEffect` bounds the program,
+ * but the body is read before it starts: without this a client that sends headers and then stalls
+ * keeps its in-flight slot for as long as it likes, and enough of them make the overload guard
+ * refuse everyone else.
+ */
+const readBodyWithin = async (event: H3Event): Promise<unknown> => {
+  const limit = Duration.toMillis(runtimeOf(event).requestTimeout)
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const expired = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(
+      () => reject(new HTTPError({ status: 408, message: 'Request body timed out' })),
+      limit
+    )
+  })
+  const reading = readBody(event)
+  // The read outlives the race when the timer wins; its late failure must not be unhandled.
+  reading.catch(() => undefined)
+  try {
+    return await Promise.race([reading, expired])
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 const makeHandler =
   <V, E extends AppError, P, PI, B, BI, Q, QI>(
     spec: Inputs<P, PI, B, BI, Q, QI> & {
@@ -67,7 +92,7 @@ const makeHandler =
   ): Handler =>
   async (event) => {
     if (spec.body !== undefined) requireJson(event)
-    const rawBody = spec.body === undefined ? undefined : await readBody(event)
+    const rawBody = spec.body === undefined ? undefined : await readBodyWithin(event)
 
     return runEffect(
       event,

@@ -91,53 +91,62 @@ const buildApp = async (env: WorkerEnv): Promise<WorkerApp> => {
     Layer.provideMerge(core)
   )
 
-  // One runtime per isolate, never disposed: the isolate is the lifetime.
+  // One runtime per isolate, never disposed once built: the isolate is the lifetime.
   const runtime = ManagedRuntime.make(layer)
 
-  return runtime.runPromise(
-    Effect.gen(function* () {
-      const config = yield* ConfigService
-      if (config.database.autoMigrate) yield* migrateToLatest
-      const http = yield* makeHttpRuntime
-      const { flush } = yield* OtlpExporter.Flusher
-      const { security } = config
+  return runtime
+    .runPromise(
+      Effect.gen(function* () {
+        const config = yield* ConfigService
+        if (config.database.autoMigrate) yield* migrateToLatest
+        const http = yield* makeHttpRuntime
+        const { flush } = yield* OtlpExporter.Flusher
+        const { security } = config
 
-      // Fail the build of the isolate, not each request, when the store cannot work here.
-      if (security.rateLimitEnabled && security.rateLimitStore === 'redis') {
-        return yield* Effect.die(
-          new Error('RATE_LIMIT_STORE=redis is not available on Workers (use memory or cloudflare)')
-        )
-      }
-      let rateCheck: RateCheck | undefined
-      if (security.rateLimitEnabled && security.rateLimitStore === 'cloudflare') {
-        const limiter = env[security.rateLimitBinding]
-        if (!isRateLimitBinding(limiter)) {
+        // Fail the build of the isolate, not each request, when the store cannot work here.
+        if (security.rateLimitEnabled && security.rateLimitStore === 'redis') {
           return yield* Effect.die(
             new Error(
-              `No rate limit binding named "${security.rateLimitBinding}" (check "ratelimits" in wrangler.jsonc / RATE_LIMIT_BINDING)`
+              'RATE_LIMIT_STORE=redis is not available on Workers (use memory or cloudflare)'
             )
           )
         }
-        rateCheck = makeBindingRateCheck({
-          binding: limiter,
-          limit: security.rateLimitMax,
-          windowMs: Duration.toMillis(security.rateLimitWindow),
-          warn: (message, cause) => http.runSync(Effect.logWarning(message, cause))
-        })
-      }
+        let rateCheck: RateCheck | undefined
+        if (security.rateLimitEnabled && security.rateLimitStore === 'cloudflare') {
+          const limiter = env[security.rateLimitBinding]
+          if (!isRateLimitBinding(limiter)) {
+            return yield* Effect.die(
+              new Error(
+                `No rate limit binding named "${security.rateLimitBinding}" (check "ratelimits" in wrangler.jsonc / RATE_LIMIT_BINDING)`
+              )
+            )
+          }
+          rateCheck = makeBindingRateCheck({
+            binding: limiter,
+            limit: security.rateLimitMax,
+            windowMs: Duration.toMillis(security.rateLimitWindow),
+            warn: (message, cause) => http.runSync(Effect.logWarning(message, cause))
+          })
+        }
 
-      return {
-        app: createApp({
-          runtime: http,
-          config,
-          ...(rateCheck === undefined ? {} : { rateCheck })
-        }),
-        flush: () =>
-          runtime.runPromise(flush.pipe(Effect.timeoutOption('2 seconds'), Effect.asVoid)),
-        flushEvery: Duration.toMillis(config.observability.exportInterval)
-      }
+        return {
+          app: createApp({
+            runtime: http,
+            config,
+            ...(rateCheck === undefined ? {} : { rateCheck })
+          }),
+          flush: () =>
+            runtime.runPromise(flush.pipe(Effect.timeoutOption('2 seconds'), Effect.asVoid)),
+          flushEvery: Duration.toMillis(config.observability.exportInterval)
+        }
+      })
+    )
+    .catch(async (cause: unknown) => {
+      // A failed build is retried by the next request. Without this each attempt would leave its
+      // runtime (and the exporter's interval fiber) alive, one more per request.
+      await runtime.dispose().catch(() => undefined)
+      throw cause
     })
-  )
 }
 
 const apps = new WeakMap<object, Promise<WorkerApp>>()

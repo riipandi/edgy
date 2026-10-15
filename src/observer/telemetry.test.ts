@@ -1,8 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from '@effect/vitest'
+import { Effect, Exit, Fiber, Layer } from 'effect'
+import { FetchHttpClient, HttpClient } from 'effect/http'
+import { TestClock } from 'effect/testing'
 import { makeTestApp, type TestApp } from '../../tests/app.ts'
 import { attributeOf, type FakeCollector, spansOf, startCollector } from '../../tests/collector.ts'
 import { MISSING_USER_ID } from '../../tests/ids.ts'
-import { parseOtlpHeaders } from './telemetry.ts'
+import { ExportHttpClient, parseOtlpHeaders } from './telemetry.ts'
 import { traceHexOf } from './trace_id.ts'
 
 describe('parseOtlpHeaders', () => {
@@ -23,6 +26,34 @@ describe('parseOtlpHeaders', () => {
   it('is empty for an empty string', () => {
     expect(parseOtlpHeaders('')).toEqual({})
   })
+})
+
+describe('export HTTP client', () => {
+  /** A collector that takes the connection and never answers. */
+  const hanging: typeof globalThis.fetch = () => new Promise(() => {})
+
+  it.effect('turns a collector that never answers into a failure, so the exporter pauses', () =>
+    Effect.gen(function* () {
+      const client = yield* HttpClient.HttpClient
+      const request = Effect.exit(client.get('http://collector.invalid/v1/traces'))
+
+      const fiber = yield* Effect.forkChild(request)
+      yield* TestClock.adjust('6 seconds')
+      const exit = yield* Fiber.join(fiber)
+
+      expect(Exit.isFailure(exit)).toBe(true)
+      expect(JSON.stringify(exit)).toContain('export timed out')
+    }).pipe(
+      // A test is its own entry point: it builds one small layer, once.
+      // oxlint-disable-next-line effecttsgo/strict-effect-provide
+      Effect.provide(
+        ExportHttpClient.pipe(
+          Layer.provide(Layer.succeed(FetchHttpClient.Fetch)(hanging)),
+          Layer.provideMerge(Layer.empty)
+        )
+      )
+    )
+  )
 })
 
 describe('exported telemetry', () => {

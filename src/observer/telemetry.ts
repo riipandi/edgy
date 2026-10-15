@@ -1,5 +1,5 @@
 import { Effect, Layer, Redacted } from 'effect'
-import { FetchHttpClient } from 'effect/http'
+import { FetchHttpClient, HttpClient, HttpClientError } from 'effect/http'
 import {
   OtlpExporter,
   OtlpLogger,
@@ -92,6 +92,36 @@ export const TelemetryLayer = Layer.unwrap(
   })
 )
 
+/** Longest one export request may take. */
+const EXPORT_TIMEOUT = '5 seconds'
+
+/**
+ * The `fetch`-based `HttpClient`, with a deadline on every request. Effect's exporter has none of its
+ * own: a collector that accepts the connection and never answers leaves each export waiting
+ * forever, and since a stall is not an error the exporter's pause (60 s after a failure) never
+ * starts, so another export fiber, holding a batch, piles up every interval. With the deadline a
+ * stall becomes a failure, which pauses the exporter and drops its buffer.
+ */
+export const ExportHttpClient = Layer.effect(
+  HttpClient.HttpClient,
+  Effect.map(HttpClient.HttpClient, (client) =>
+    HttpClient.transform(client, (response, request) =>
+      Effect.timeoutOrElse(response, {
+        duration: EXPORT_TIMEOUT,
+        orElse: () =>
+          Effect.fail(
+            new HttpClientError.HttpClientError({
+              reason: new HttpClientError.TransportError({
+                request,
+                description: 'export timed out'
+              })
+            })
+          )
+      })
+    )
+  )
+).pipe(Layer.provide(FetchHttpClient.layer))
+
 /**
  * Everything telemetry needs, ready to provide: `fetch`-based `HttpClient` (the same on
  * Node and Workers), JSON serialization, the exporters of {@link TelemetryLayer} and
@@ -100,7 +130,7 @@ export const TelemetryLayer = Layer.unwrap(
  * one `Flusher` and a single `flush` drains all three signals.
  */
 export const TelemetryRuntimeLayer = TelemetryLayer.pipe(
-  Layer.provideMerge(Layer.mergeAll(FetchHttpClient.layer, OtlpSerialization.layerJson))
+  Layer.provideMerge(Layer.mergeAll(ExportHttpClient, OtlpSerialization.layerJson))
 )
 
 /**

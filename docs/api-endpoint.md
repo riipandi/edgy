@@ -116,8 +116,8 @@ When the server exports telemetry, a successful response carries `metadata.trace
 trace in your observability backend, written as a `trc_` id. Send a W3C `traceparent` header to make
 the server's spans part of your own trace; the same trace comes back.
 
-The `trc_` id is the trace's 128-bit id in another spelling. Search for it as it is in the backend's
-`trace.typeid` span attribute, or decode it to the 32-character hex id with `traceHexOf`.
+The `trc_` id identifies the trace of your request on the server side: quote it when you report a
+problem, and whoever runs the server can find everything that happened.
 
 ```json
 "metadata": { "status_code": 200, "request_id": "req_01m5…", "trace_id": "trc_0ayxjhj5pd8fer8j7b44e80ccw" }

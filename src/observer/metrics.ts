@@ -21,6 +21,16 @@ const httpShed = Metric.counter('http_requests_shed_total', {
 /** Counts one request refused by the overload guard. */
 export const recordShedRequest: Effect.Effect<void> = Metric.update(httpShed, 1)
 
+const KNOWN_METHODS = new Set(['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'])
+
+/**
+ * The method as a metric label. The method comes from the client, and every distinct label
+ * value is a time series kept for the life of the process, so anything but the standard
+ * methods is one `OTHER` series, not one per spelling.
+ */
+export const metricMethod = (method: string): string =>
+  KNOWN_METHODS.has(method) ? method : 'OTHER'
+
 /**
  * Records one finished request. Called from the HTTP observer for **every**
  * response (including 404s and errors), so the counter covers all of them. The timer
@@ -33,7 +43,7 @@ export const recordHttpRequest = (
   durationMs: number,
   options: { readonly timed: boolean } = { timed: true }
 ): Effect.Effect<void> => {
-  const attributes = { method, status: String(status) }
+  const attributes = { method: metricMethod(method), status: String(status) }
   const count = Metric.update(Metric.withAttributes(httpRequests, attributes), 1)
   return options.timed
     ? Effect.all(

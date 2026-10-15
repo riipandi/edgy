@@ -1,6 +1,6 @@
 import { describe, expect, layer } from '@effect/vitest'
 import { Data, Effect, Exit, Fiber, Schema } from 'effect'
-import { Persistable } from 'effect/persistence'
+import { Persistable, Persistence } from 'effect/persistence'
 import { TestClock } from 'effect/testing'
 import { cacheEnvironment, fakeBacking, makeFakeStore } from '../../../tests/cache.ts'
 import { guardBacking } from './guard.ts'
@@ -160,10 +160,39 @@ describe('read-through, shared store', () => {
           const item = yield* cache.get(new Item({ id: 'odd' }))
           expect(item.id).toBe('odd')
           expect(origin.calls()).toBe(1)
+
+          // the damaged entry was dropped, so the next read replaces it and the one after hits
+          yield* cache.get(new Item({ id: 'odd' }))
+          yield* cache.get(new Item({ id: 'odd' }))
+          expect(origin.calls()).toBe(2)
         })
       )
     }
   )
+})
+
+describe('a shared store that comes back', () => {
+  const store = makeFakeStore()
+
+  layer(guardBacking(fakeBacking(store, 'fail')))('after an outage', (scoped) => {
+    scoped.effect('is probed by one call, not by every caller at once', () =>
+      Effect.gen(function* () {
+        const backing = yield* Persistence.BackingPersistence
+        const guarded = yield* backing.make('probe')
+
+        yield* guarded.get('a') // fails and starts the cooldown
+        expect(store.calls.get).toBe(1)
+        yield* guarded.get('b') // inside the cooldown: not asked
+        expect(store.calls.get).toBe(1)
+
+        yield* TestClock.adjust('11 seconds')
+        yield* Effect.all([guarded.get('c'), guarded.get('d'), guarded.get('e')], {
+          concurrency: 'unbounded'
+        })
+        expect(store.calls.get).toBe(2) // one probe among three concurrent callers
+      })
+    )
+  })
 })
 
 describe('a shared store that is down', () => {

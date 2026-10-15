@@ -120,6 +120,14 @@ export const makeReadThrough = Effect.fnUntraced(function* <
           Effect.catchIf(isCacheFailure, (error) =>
             Effect.logWarning(`Cache "${options.name}" unusable; reading the source`, error).pipe(
               Effect.tap(() => Effect.sync(() => tally && (tally.miss += 1))),
+              // An entry that no longer decodes (the schema changed in a deploy) would be read,
+              // fail and fall back on every request until its TTL ends: drop it so the next read
+              // replaces it.
+              Effect.tap(() =>
+                error._tag === 'SchemaError'
+                  ? Effect.ignore(persisted.invalidate(key))
+                  : Effect.void
+              ),
               Effect.andThen(options.lookup(key))
             )
           )

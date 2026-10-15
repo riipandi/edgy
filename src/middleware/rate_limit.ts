@@ -47,25 +47,25 @@ const MAX_TRACKED_CLIENTS = 50_000
  * counts, so the effective limit is `max` times the number of instances; that blunts
  * abuse from one client, and `RATE_LIMIT_STORE=redis` (Node.js) or `cloudflare` (Workers)
  * is the answer when the limit must be shared. Memory is bounded: expired buckets are swept once per window, and
- * past {@link MAX_TRACKED_CLIENTS} the oldest are dropped.
+ * past {@link MAX_TRACKED_CLIENTS} the oldest is dropped for each new client.
  */
 export const makeMemoryRateCheck = (options: {
   readonly max: number
   readonly window: Duration.Duration
+  /** Clients tracked at once; the default is {@link MAX_TRACKED_CLIENTS}. */
+  readonly maxTracked?: number
 }): RateCheck => {
   const windowMs = Duration.toMillis(options.window)
+  const maxTracked = options.maxTracked ?? MAX_TRACKED_CLIENTS
   const buckets = new Map<string, Bucket>()
   let nextSweep = Date.now() + windowMs
 
+  // Expired buckets leave once per window: a full pass over the map costs time proportional to
+  // its size, so it must not run per request.
   const sweep = (now: number): void => {
-    if (now < nextSweep && buckets.size < MAX_TRACKED_CLIENTS) return
+    if (now < nextSweep) return
     for (const [key, bucket] of buckets) {
       if (bucket.resetAt <= now) buckets.delete(key)
-    }
-    // Still full of live buckets: drop the oldest entries (Map keeps insertion order).
-    for (const key of buckets.keys()) {
-      if (buckets.size < MAX_TRACKED_CLIENTS) break
-      buckets.delete(key)
     }
     nextSweep = now + windowMs
   }
@@ -76,6 +76,13 @@ export const makeMemoryRateCheck = (options: {
 
     let bucket = buckets.get(key)
     if (bucket === undefined || bucket.resetAt <= now) {
+      // Full of live buckets: drop the oldest one (a Map iterates in insertion order), in constant
+      // time. Under a flood of distinct keys this forgets the oldest clients' counts, which is
+      // the price of bounded memory.
+      if (bucket === undefined && buckets.size >= maxTracked) {
+        const oldest = buckets.keys().next()
+        if (oldest.done !== true) buckets.delete(oldest.value)
+      }
       bucket = { count: 0, resetAt: now + windowMs }
       buckets.set(key, bucket)
     }

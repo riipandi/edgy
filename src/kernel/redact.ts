@@ -24,28 +24,65 @@ const AUTH_SCHEME = /\b(Bearer|Basic|Digest|Token)\s+[A-Za-z0-9._~+/=-]{8,}/g
 /** A JSON Web Token: three dot-separated base64url parts, the first two starting `eyJ`. */
 const JWT = /\beyJ[A-Za-z0-9_-]{5,}\.eyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]*/g
 
-/**
- * `name=value`, `name: value`, `"name":"value"` and `name='value'` where `name` is sensitive. The
- * value runs to the next separator, or to the closing quote when quoted.
- */
-const NAMED_VALUE =
-  /([A-Za-z0-9_-]*(?:pass(?:word|wd|phrase)?|pwd|secret|token|api[-_]?key|apikey|authorization|cookie|credential|private[-_]?key|access[-_]?key|session[-_]?id|signature)[A-Za-z0-9_-]*["']?\s*[:=]\s*)("[^"]*"|'[^']*'|(?:Bearer|Basic|Digest|Token)\s+[^\s,;&"')}\]]+|[^\s,;&"')}\]]+)/gi
+/** The words that mark a `name=value` pair as secret (a substring of the name is enough). */
+const KEYWORD =
+  /pass(?:word|wd|phrase)?|pwd|secret|token|api[-_]?key|apikey|authorization|cookie|credential|private[-_]?key|access[-_]?key|session[-_]?id|signature/gi
 
 /**
- * Removes secrets from free text: credentials in URLs, bearer and basic tokens, JWTs, and the
- * value of any sensitive-looking `name=value` pair. It works on text that was never meant to be
- * shown (an error message, a driver's complaint, a log line), so it errs toward removing too
- * much; a value it cannot recognise by shape or name is not touched.
+ * What may follow the keyword before the separator: the rest of the name (bounded), an optional
+ * closing quote, and `:`, `=` or a fullwidth colon. Sticky, so it is tried only at the end of a
+ * keyword, never searched for.
  */
-export const redactText = (text: string): string =>
-  text
-    .replace(URL_CREDENTIALS, `$1${REDACTED}$2`)
-    .replace(NAMED_VALUE, (_match, name: string, value: string) => {
-      const quote = value.startsWith('"') ? '"' : value.startsWith("'") ? "'" : ''
-      return `${name}${quote}${REDACTED}${quote}`
-    })
+const AFTER_NAME = /[A-Za-z0-9_-]{0,64}["']?\s*[:=\uFF1A]\s*/y
+
+/** The value: quoted, a scheme word plus its credential, or a run up to the next separator. */
+const VALUE = /"[^"]*"|'[^']*'|(?:Bearer|Basic|Digest|Token)\s+[^\s,;&"')}\]]+|[^\s,;&"')}\]]+/y
+
+/** `--password hunter2` and `--api-key=abc`: a command-line flag whose name is a keyword. */
+const CLI_FLAG =
+  /(--[\w-]{0,64}?(?:pass(?:word|wd|phrase)?|pwd|secret|token|api[-_]?key|apikey|credential|private[-_]?key|access[-_]?key)[\w-]{0,64}[ =])\S+/gi
+
+/**
+ * Replaces the value of every `name=value`, `name: value`, `"name":"value"` and `name='value'`
+ * whose name holds a keyword. It looks for the keyword (one linear pass) and only then checks,
+ * at that position, for a separator and a value, so no pattern is searched from every offset: a
+ * megabyte of adversarial text costs a linear scan, not a quadratic one.
+ */
+const redactNamedValues = (text: string): string => {
+  let out = ''
+  let copied = 0
+  for (const keyword of text.matchAll(KEYWORD)) {
+    if (keyword.index < copied) continue // inside a value already replaced
+    AFTER_NAME.lastIndex = keyword.index + keyword[0].length
+    if (!AFTER_NAME.test(text)) continue
+    VALUE.lastIndex = AFTER_NAME.lastIndex
+    const nameEnd = AFTER_NAME.lastIndex
+    if (!VALUE.test(text)) continue
+    const value = text.slice(nameEnd, VALUE.lastIndex)
+    const quote = value.startsWith('"') ? '"' : value.startsWith("'") ? "'" : ''
+    out += `${text.slice(copied, nameEnd)}${quote}${REDACTED}${quote}`
+    copied = VALUE.lastIndex
+  }
+  return out + text.slice(copied)
+}
+
+/** Longer text is cut before any pattern runs: an error message has no use for more. */
+const MAX_TEXT = 16_384
+
+/**
+ * Removes secrets from free text: credentials in URLs, bearer and basic tokens, JWTs, command-line
+ * flags and the value of any sensitive-looking `name=value` pair. It works on text that was never
+ * meant to be shown (an error message, a driver's complaint, a log line), so it errs toward
+ * removing too much; a value it cannot recognise by shape or name is not touched. Text over
+ * {@link MAX_TEXT} characters is truncated.
+ */
+export const redactText = (text: string): string => {
+  const bounded = text.length > MAX_TEXT ? `${text.slice(0, MAX_TEXT)}…[truncated]` : text
+  return redactNamedValues(bounded.replace(URL_CREDENTIALS, `$1${REDACTED}$2`))
+    .replace(CLI_FLAG, `$1${REDACTED}`)
     .replace(AUTH_SCHEME, (_match, scheme: string) => `${scheme} ${REDACTED}`)
     .replace(JWT, REDACTED)
+}
 
 const MAX_DEPTH = 6
 

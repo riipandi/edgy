@@ -53,7 +53,7 @@ curl http://localhost:3000/
 # All is well
 
 curl 'http://localhost:3000/api/users?limit=10'
-# {"status":"success","data":[{"id":1,"email":"ada@example.com","name":"Ada Lovelace"}, ...],"metadata":{...},"links":{...}}
+# {"status":"success","data":[{"id":"user_01m5k7w3p8fvx9r2c4t6y0hq1d","email":"ada@example.com","name":"Ada Lovelace"}, ...],"metadata":{...},"links":{...}}
 ```
 
 ## Documentation

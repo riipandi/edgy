@@ -51,21 +51,6 @@ const walkUpToPackage = (entry: string, name: string): string | undefined => {
   }
 }
 
-/**
- * Resolves a module id to an absolute path (or `undefined` when not found).
- */
-export const resolveModule = (
-  id: string,
-  from: string,
-  conditions: readonly string[]
-): string | undefined =>
-  resolveModulePath(id, {
-    from: ensureTrailingSlash(from),
-    conditions: [...conditions],
-    extensions: ['.mjs', '.cjs', '.js', '.mts', '.cts', '.ts', '.json'],
-    try: true
-  })
-
 /** `exsolve` skips a filesystem stat when `from` ends with a separator. */
 const ensureTrailingSlash = (dir: string): string =>
   dir.endsWith(path.sep) ? dir : `${dir}${path.sep}`
