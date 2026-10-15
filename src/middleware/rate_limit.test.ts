@@ -145,6 +145,24 @@ describe('rate limiting', () => {
     expect((await as('203.0.113.1')).status).toBe(429)
   })
 
+  it('believes the platform header only from a trusted proxy when there is a socket', async () => {
+    t = await makeTestApp({
+      RATE_LIMIT_ENABLED: 'true',
+      RATE_LIMIT_MAX: '1',
+      TRUSTED_PLATFORM: 'CF-Connecting-IP',
+      TRUST_PROXY: '10.0.0.0/8'
+    })
+    const as = (client: string, peer: string) =>
+      t!.request('/api/users', { ip: peer, headers: { 'cf-connecting-ip': client } })
+
+    expect((await as('203.0.113.1', '10.0.0.5')).status).toBe(200)
+    expect((await as('203.0.113.2', '10.0.0.5')).status).toBe(200)
+    expect((await as('203.0.113.1', '10.0.0.5')).status).toBe(429)
+    // A direct peer cannot pick its bucket by writing the header.
+    expect((await as('9.9.9.1', '198.51.100.7')).status).toBe(200)
+    expect((await as('9.9.9.2', '198.51.100.7')).status).toBe(429)
+  })
+
   it('ignores the platform header when none is configured: the client writes it', async () => {
     t = await makeTestApp({ RATE_LIMIT_ENABLED: 'true', RATE_LIMIT_MAX: '1' })
     const as = (ip: string) => t!.request('/api/users', { headers: { 'cf-connecting-ip': ip } })

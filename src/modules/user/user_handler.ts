@@ -6,6 +6,7 @@ import {
   UserGetResponseSchema,
   UserIdParamsSchema,
   UserListItemSchema,
+  DEFAULT_SORT,
   UserListQuerySchema
 } from './user_schema.ts'
 import { UserService } from './user_service.ts'
@@ -14,7 +15,7 @@ import { UserService } from './user_service.ts'
 export const listUsersHandler = definePagedHandler({
   query: UserListQuerySchema,
   items: UserListItemSchema,
-  run: ({ query }) => UserService.use((users) => users.list(toPageRequest(query, { sortBy: 'id' })))
+  run: ({ query }) => UserService.use((users) => users.list(toPageRequest(query, DEFAULT_SORT)))
 })
 
 /** `GET /users/:id`: a single user by id. */

@@ -10,6 +10,8 @@ import { guardBacking } from './kernel/cache/guard.ts'
 import { LocalCachePersistence } from './kernel/cache/local.ts'
 import { ConfigLayer, ConfigService } from './kernel/config/service.ts'
 import { makeHttpRuntime } from './kernel/http/runtime.ts'
+import { startupFailureResponse } from './kernel/http/startup_failure.ts'
+import { redactText } from './kernel/redact.ts'
 import type { RateCheck } from './middleware/rate_limit.ts'
 import { isRateLimitBinding, makeBindingRateCheck } from './middleware/rate_limit_binding.ts'
 import { ErrorReporterLayer } from './observer/error_reporter.ts'
@@ -186,7 +188,18 @@ let lastFlush = 0
  */
 export default {
   async fetch(request: Request, env: WorkerEnv, ctx: WorkerContext): Promise<Response> {
-    const { app, flush, flushEvery } = await appFor(env)
+    let built: WorkerApp
+    try {
+      built = await appFor(env)
+    } catch (cause) {
+      // No app means no logger or error hook of ours: answer here, and leave the cause in the
+      // Worker's own log under the id the client was given.
+      const { response, requestId } = startupFailureResponse(request)
+      // oxlint-disable-next-line no-console
+      console.error(`Worker failed to start (${requestId}): ${redactText(String(cause))}`)
+      return response
+    }
+    const { app, flush, flushEvery } = built
     const response = await app.fetch(request)
 
     const now = Date.now()

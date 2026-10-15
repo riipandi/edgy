@@ -50,3 +50,63 @@ describe('in-flight tracking', () => {
     })
   )
 })
+
+describe('in-flight tracking of streamed bodies', () => {
+  const stream = (chunks: number) => {
+    let sent = 0
+    return new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (sent === chunks) return controller.close()
+        controller.enqueue(new TextEncoder().encode(`chunk${sent++};`))
+      }
+    })
+  }
+
+  it('keeps a request in flight until its body has been read', async () => {
+    t = await makeTestApp()
+    t.app.get('/stream', () => new Response(stream(3), { headers: { 'x-kept': 'yes' } }))
+
+    const response = await t.request('/stream')
+    expect(response.headers.get('x-kept')).toBe('yes')
+    expect(t.http.inFlight.active()).toBe(1)
+    expect(await response.text()).toBe('chunk0;chunk1;chunk2;')
+    expect(t.http.inFlight.active()).toBe(0)
+  })
+
+  it('lets go when the client cancels the body', async () => {
+    t = await makeTestApp()
+    t.app.get('/stream', () => new Response(stream(1000)))
+
+    const response = await t.request('/stream')
+    expect(t.http.inFlight.active()).toBe(1)
+    await response.body?.cancel()
+    expect(t.http.inFlight.active()).toBe(0)
+  })
+
+  it('lets go when the stream fails, and for a body-less or failed answer', async () => {
+    t = await makeTestApp()
+    t.app.get('/broken', () => {
+      const failing = new ReadableStream<Uint8Array>({
+        pull() {
+          throw new Error('source failed')
+        }
+      })
+      return new Response(failing)
+    })
+
+    const broken = await t.request('/broken')
+    await expect(broken.text()).rejects.toThrow('source failed')
+    expect(t.http.inFlight.active()).toBe(0)
+
+    // Every body is a stream, so a request is out of flight once its body has been read.
+    for (const [path, status] of [
+      ['/health', 200],
+      ['/nope', 404]
+    ] as const) {
+      const response = await t.request(path)
+      expect(response.status).toBe(status)
+      await response.text()
+    }
+    expect(t.http.inFlight.active()).toBe(0)
+  })
+})

@@ -17,13 +17,31 @@ export interface ClientIpInput {
 }
 
 /**
+ * The address in the platform header, when it may be believed: a socket must belong to a trusted
+ * proxy, and no socket (Workers) is the platform itself. `undefined` otherwise.
+ */
+const platformAddress = (
+  input: ClientIpInput,
+  header: string,
+  proxies: TrustedProxies
+): Uint8Array | undefined => {
+  if (input.socket !== undefined) {
+    const peer = parseIp(input.socket)
+    if (peer === undefined || !isTrustedProxy(peer, proxies)) return undefined
+  }
+  const claimed = input.headers.get(header)
+  return claimed === null ? undefined : parseIp(claimed)
+}
+
+/**
  * The client's address, from the most to the least specific claim. Only headers the
  * configuration trusts are read:
  *
  * 1. The platform header (`TRUSTED_PLATFORM`, e.g. `CF-Connecting-IP`), when it holds an
- *    address. It is read without checking the sender, so set it only when the app is reachable
- *    solely through that platform. If it is missing or malformed, the socket address is used,
- *    never `X-Forwarded-For`: the two are alternatives, not fallbacks.
+ *    address. Where there is a socket (Node) the header counts only from a `TRUST_PROXY` peer,
+ *    since any other peer can write it; with no socket (Workers) the platform is the only way
+ *    in and it is read as sent. If it is missing, malformed or not believed, the socket address
+ *    is used, never `X-Forwarded-For`: the two are alternatives, not fallbacks.
  * 2. The socket address, unless it belongs to a trusted proxy (`TRUST_PROXY`). Any other peer
  *    can send any `X-Forwarded-For`, so its headers are ignored.
  * 3. `X-Forwarded-For`, read from the right. Each proxy appends the address it received the
@@ -42,8 +60,7 @@ export const clientAddress = (input: ClientIpInput, trust: ClientIpTrust): strin
     socket !== undefined ? formatIp(socket) : ((input.socket?.trim() || undefined) ?? 'unknown')
 
   if (trust.platformHeader !== undefined) {
-    const claimed = input.headers.get(trust.platformHeader)
-    const bytes = claimed === null ? undefined : parseIp(claimed)
+    const bytes = platformAddress(input, trust.platformHeader, trust.proxies)
     return bytes === undefined ? fallback : formatIp(bytes)
   }
 
@@ -87,17 +104,21 @@ export interface ClientLocation {
  *
  * Any client can send those headers to a server Cloudflare does not front, so they count only
  * when `CLOUDFLARE_LOCATION_HEADERS` is on and the platform header (`TRUSTED_PLATFORM`) holds a
- * valid address on this request. Both values are sanitised because they are written to logs:
+ * valid address on this request from a peer that may be believed (see {@link clientAddress}). Both values are sanitised because they are written to logs:
  * a country is two letters or digits (`XX`, unknown, is dropped), a city is printable and at
  * most 64 characters.
  */
 export const clientLocation = (
-  headers: Pick<Headers, 'get'>,
-  trust: { readonly enabled: boolean; readonly platformHeader: string | undefined }
+  input: ClientIpInput,
+  trust: {
+    readonly enabled: boolean
+    readonly platformHeader: string | undefined
+    readonly proxies: TrustedProxies
+  }
 ): ClientLocation | undefined => {
   if (!trust.enabled || trust.platformHeader === undefined) return undefined
-  const claimed = headers.get(trust.platformHeader)
-  if (claimed === null || parseIp(claimed) === undefined) return undefined
+  if (platformAddress(input, trust.platformHeader, trust.proxies) === undefined) return undefined
+  const { headers } = input
 
   const country = headers.get('cf-ipcountry')?.trim().toUpperCase()
   const city = (headers.get('cf-ipcity') ?? '')

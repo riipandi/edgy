@@ -98,17 +98,64 @@ declare module 'h3' {
 }
 
 /**
- * Exposes the runtime to every handler and counts the request in flight until the chain ends.
- * Register it first.
+ * The same bytes, with `done` called once when the body ends, fails or is cancelled by the client.
+ * Pull-based, so the consumer's pace is still what drives the source.
+ */
+const untilClosed = (
+  body: ReadableStream<Uint8Array>,
+  done: () => void
+): ReadableStream<Uint8Array> => {
+  const reader = body.getReader()
+  let finished = false
+  const finish = () => {
+    if (finished) return
+    finished = true
+    done()
+  }
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      try {
+        const chunk = await reader.read()
+        if (chunk.done) {
+          controller.close()
+          finish()
+        } else {
+          controller.enqueue(chunk.value)
+        }
+      } catch (error) {
+        controller.error(error)
+        finish()
+      }
+    },
+    async cancel(reason) {
+      finish()
+      await reader.cancel(reason)
+    }
+  })
+}
+
+/**
+ * Exposes the runtime to every handler and counts the request in flight until its answer has been
+ * sent: for a streamed body that is when the stream ends, so a shutdown does not cut a page that
+ * is still flowing while reporting a clean drain. Register it first.
  */
 export const provideRuntime = definePlugin<HttpRuntime>((app, runtime) => {
   app.use(async (event, next) => {
     event.context.runtime = runtime
     runtime.inFlight.enter()
+    let held = false
     try {
-      return await next()
+      const result = await next()
+      if (result instanceof Response && result.body !== null && !result.bodyUsed) {
+        held = true
+        return new Response(
+          untilClosed(result.body, () => runtime.inFlight.leave()),
+          result
+        )
+      }
+      return result
     } finally {
-      runtime.inFlight.leave()
+      if (!held) runtime.inFlight.leave()
     }
   })
 })

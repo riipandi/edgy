@@ -158,51 +158,102 @@ describe('envelope', () => {
 })
 
 describe('pagination', () => {
+  const ids = (body: { data: { id: string }[] }) => body.data.map((user) => user.id)
+
+  /** Follows `links.next` to the end, collecting every page. */
+  const walk = async (first: string) => {
+    const pages: any[] = []
+    let next: string | null = first
+    while (next !== null) {
+      const body = await json(await t.request(next))
+      pages.push(body)
+      next = body.links.next
+      expect(pages.length).toBeLessThan(50) // a loop would never end
+    }
+    return pages
+  }
+
   beforeAll(async () => {
-    for (let i = 1; i <= 5; i += 1)
-      await createUser(`page${i}@example.com`, i % 2 === 0 ? undefined : `P${i}`)
+    for (let i = 1; i <= 7; i += 1) await createUser(`Page${i}@example.com`, `P${i % 3}`)
   })
 
-  it('reports position in metadata and navigation in links', async () => {
+  it('reports the limit and the cursor in metadata, and navigation in links', async () => {
     const body = await json(await t.request('/api/users?limit=2&sort_by=email'))
     expect(body.data).toHaveLength(2)
-    expect(body.metadata).toMatchObject({
-      page: 1,
-      limit: 2,
-      first_item_index: 1,
-      last_item_index: 2
+    expect(body.metadata).toMatchObject({ limit: 2, has_more: true })
+    expect(typeof body.metadata.next_cursor).toBe('string')
+    expect(body.metadata).not.toHaveProperty('total_items')
+    expect(body.links.self).toBe('/api/users?limit=2&sort_by=email')
+    expect(body.links.first).toBe('/api/users?limit=2&sort_by=email')
+    expect(body.links.next).toBe(
+      `/api/users?limit=2&sort_by=email&cursor=${body.metadata.next_cursor}`
+    )
+    expect(body.links).not.toHaveProperty('prev')
+  })
+
+  it.each([
+    ['id', 'asc'],
+    ['id', 'desc'],
+    ['email', 'asc'],
+    ['email', 'desc'],
+    ['name', 'asc'],
+    ['name', 'desc']
+  ])('walks every user once, in order, sorted by %s %s', async (sortBy, sortOrder) => {
+    const pages = await walk(`/api/users?limit=3&sort_by=${sortBy}&sort_order=${sortOrder}`)
+    const users = pages.flatMap((page) => page.data) as Record<string, string>[]
+
+    const everything = await json(
+      await t.request(`/api/users?limit=100&sort_by=${sortBy}&sort_order=${sortOrder}`)
+    )
+    expect(everything.metadata.has_more).toBe(false)
+    expect(users.map((user) => user.id)).toEqual(ids(everything))
+    expect(new Set(users.map((user) => user.id)).size).toBe(users.length)
+
+    // Ties on name are broken by id in the same direction, so the whole order is total.
+    const order = (a: string, b: string) => (a === b ? 0 : a < b ? -1 : 1)
+    const sorted = [...users].sort((a, b) => {
+      const result = order(a[sortBy] ?? '', b[sortBy] ?? '') || order(a['id'] ?? '', b['id'] ?? '')
+      return sortOrder === 'asc' ? result : -result
     })
-    expect(body.metadata.total_items).toBeGreaterThanOrEqual(5)
-    expect(body.links.prev).toBeNull()
-    expect(body.links.next).toBe('/api/users?limit=2&sort_by=email&page=2')
+    expect(users).toEqual(sorted)
+    expect(pages.at(-1).metadata).toMatchObject({ has_more: false, next_cursor: null })
   })
 
-  it('returns an empty page, not an error, past the end', async () => {
-    const body = await json(await t.request('/api/users?limit=2&page=500'))
-    expect(body.data).toEqual([])
-    expect(body.metadata.first_item_index).toBeNull()
-    expect(body.metadata.total_items).toBeGreaterThan(0)
+  it('answers an exhausted list with an empty page and no next', async () => {
+    const first = await json(await t.request('/api/users?limit=100'))
+    expect(first.metadata.has_more).toBe(false)
+    expect(first.links.next).toBeNull()
   })
 
-  it('refuses -1 (every record at once): a caller cannot read the table in one request', async () => {
-    for (const query of ['limit=-1', 'page=-1', 'limit=-1&page=2']) {
+  it('refuses a cursor that is garbage, or belongs to another sort', async () => {
+    const bad = await t.request('/api/users?cursor=garbage')
+    expect(bad.status).toBe(400)
+    expect((await json(bad)).error.code).toBe('VALIDATION_FAILED')
+
+    const byName = await json(await t.request('/api/users?limit=1&sort_by=name'))
+    for (const query of ['', '&sort_by=email', '&sort_by=name&sort_order=desc']) {
+      const response = await t.request(`/api/users?cursor=${byName.metadata.next_cursor}${query}`)
+      expect(response.status).toBe(400)
+    }
+  })
+
+  it('has no way to read the whole table in one request', async () => {
+    for (const query of ['limit=-1', 'limit=101', 'limit=0']) {
       const response = await t.request(`/api/users?${query}`)
       expect(response.status).toBe(400)
       expect((await json(response)).error.code).toBe('VALIDATION_FAILED')
     }
+    // `page` is gone: it is ignored, and the first page comes back.
+    const body = await json(await t.request('/api/users?page=3&limit=2'))
+    expect(body.data).toHaveLength(2)
   })
 
-  it('sorts by an allow-listed column and rejects the rest', async () => {
-    const desc = await json(await t.request('/api/users?sort_by=id&sort_order=desc&limit=3'))
-    const ids = desc.data.map((user: { id: string }) => user.id)
-    expect(ids).toEqual([...ids].sort((a, b) => (a < b ? 1 : -1)))
-
+  it('sorts only by an allow-listed column', async () => {
     expect((await t.request('/api/users?sort_by=password')).status).toBe(400)
-    expect((await t.request('/api/users?limit=101')).status).toBe(400)
-    expect((await t.request('/api/users?page=0')).status).toBe(400)
+    expect((await t.request('/api/users?sort_order=sideways')).status).toBe(400)
   })
 
-  it('does not leak the total column into items', async () => {
+  it('returns only the declared fields', async () => {
     const body = await json(await t.request('/api/users?limit=1'))
     expect(Object.keys(body.data[0]).sort()).toEqual(['email', 'id', 'name'])
   })

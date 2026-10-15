@@ -74,7 +74,18 @@ describe('GET /users (page)', () => {
   it('takes the same pagination parameters as the API', async () => {
     const html = await (await t.request('/users?limit=1')).text()
     expect(html).toContain('Showing <!>1')
-    expect(html).toContain('1 more not shown.')
+    expect(html).toContain('rel=next')
+    expect(html).not.toContain('rel=first')
+  })
+
+  it('follows the cursor, and offers a way back to the start', async () => {
+    const first = await (await t.request('/users?limit=1')).text()
+    const href = first.match(/href="([^"]*)" rel=next/)?.[1]?.replaceAll('&amp;', '&')
+    expect(href).toMatch(/^\/users\?limit=1&cursor=/)
+
+    const second = await (await t.request(href!)).text()
+    expect(second).toContain('rel=first')
+    expect(second).toContain('href=/users?limit=1 rel=first')
   })
 
   it('refuses a bad query with an error page, not as a page of users', async () => {

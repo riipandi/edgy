@@ -1,10 +1,8 @@
 {
     "name": "edgy",
     "version": "0.0.0",
-    "description": "Effect + h3 + Kysely HTTP server for Node.js and Cloudflare Workers",
-    "keywords": [],
+    "private": "true",
     "license": "MIT",
-    "author": "",
     "bin": {
         "edgy": "./bin/edgy.mjs"
     },

@@ -45,7 +45,12 @@ export const createApp = (options: AppOptions): H3 =>
       cors(options.config.cors),
       requestId(),
       ...(options.config.server.cloudflareLocationHeaders
-        ? [locationHeaders({ platformHeader: options.config.server.trustedPlatform })]
+        ? [
+            locationHeaders({
+              platformHeader: options.config.server.trustedPlatform,
+              proxies: options.config.server.trustProxy
+            })
+          ]
         : []),
       securityHeaders(),
       httpObserver(),

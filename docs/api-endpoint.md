@@ -5,7 +5,7 @@
 | `GET`  | `/`                         | The front page (HTML)                             |
 | `GET`  | `/health`                   | Readiness check (database reachable); `503` while shutting down |
 | `GET`  | `/metrics`                  | Prometheus metrics, only when `METRICS_ENABLED=true` |
-| `GET`  | `/users`                    | The user directory as an HTML page (same `page`, `limit` and sort parameters as the API) |
+| `GET`  | `/users`                    | The user directory as an HTML page (the same `limit`, `cursor` and sort parameters as the API) |
 | `GET`  | `/api/users`                | List users, paginated                             |
 | `GET`  | `/api/users/:id`            | Fetch one user                                    |
 | `POST` | `/api/users`                | Create a user from a JSON body with a required `email` and `name` (`201`). Emails are stored in lowercase, and the same address in another spelling is a `409` |
@@ -59,16 +59,16 @@ Responses contain only the documented fields.
 
 ## Pagination
 
-List endpoints accept these query parameters:
+Lists are paged with a cursor, not a page number, so a request costs the same on the first page and the thousandth, and a row added while you read cannot shift the pages. List endpoints accept these query parameters:
 
-| Parameter    | Default | Meaning                                                              |
-| ------------ | ------- | -------------------------------------------------------------------- |
-| `page`       | `1`     | Page number, starting at 1. A page may start at row 10,000 at most (`400` beyond) |
-| `limit`      | `20`    | Items per page, 1 to 100 (`/api/users` refuses `-1`, "every record") |
-| `sort_by`    | `id`    | Field to sort by. `/api/users` accepts `id`, `email` and `name`      |
-| `sort_order` | `asc`   | `asc` or `desc`                                                      |
+| Parameter    | Default | Meaning                                                                    |
+| ------------ | ------- | -------------------------------------------------------------------------- |
+| `limit`      | `20`    | Items per page, 1 to 100                                                   |
+| `cursor`     | (none)  | Where the next page starts; copy it from `metadata.next_cursor` or `links.next` |
+| `sort_by`    | `id`    | Field to sort by. `/api/users` accepts `id`, `email` and `name`            |
+| `sort_order` | `asc`   | `asc` or `desc`                                                            |
 
-A paginated response adds the position to `metadata` and navigation to `links`:
+A paginated response adds the cursor to `metadata` and navigation to `links`:
 
 ```json
 {
@@ -77,26 +77,23 @@ A paginated response adds the position to `metadata` and navigation to `links`:
   "metadata": {
     "status_code": 200,
     "request_id": "req_01m4zymemrfera61y7ekvtpz48",
-    "page": 1,
     "limit": 2,
-    "total_pages": 3,
-    "total_items": 5,
-    "first_item_index": 1,
-    "last_item_index": 2
+    "has_more": true,
+    "next_cursor": "eyJzIjoiaWQiLCJvIjoiYXNjIiwidiI6InVzZXJfMDFtNWs3dzNwOGZ2eDlyMmM0dDZ5MGhxMWQiLCJpIjoidXNlcl8wMW01azd3M3A4ZnZ4OXIyYzR0NnkwaHExZCJ9"
   },
   "links": {
     "self": "/api/users?limit=2",
-    "first": "/api/users?limit=2&page=1",
-    "prev": null,
-    "next": "/api/users?limit=2&page=2",
-    "last": "/api/users?limit=2&page=3"
+    "first": "/api/users?limit=2",
+    "next": "/api/users?limit=2&cursor=eyJzIjoiaWQiLCJvIjoiYXNjIiwidiI6InVzZXJfMDFtNWs3dzNwOGZ2eDlyMmM0dDZ5MGhxMWQiLCJpIjoidXNlcl8wMW01azd3M3A4ZnZ4OXIyYzR0NnkwaHExZCJ9"
   }
 }
 ```
 
-- Item indexes start at 1. A page past the end returns an empty `data` and `null` indexes.
-- Links are relative and keep your other query parameters, such as `sort_by`.
-- When you ask for every record, `limit` is `null`, there is one page, and `links` holds only `self`.
+- Follow `links.next` until it is `null` (`has_more` is `false`). The last page can be empty only when the list itself is.
+- There is no total and no page number. Counting every row on each request does not scale.
+- A cursor belongs to the sort it was issued for: sending it with another `sort_by` or `sort_order`, or a value that is not a cursor, is a `400`. `links.next` repeats your sort and limit, so following it is always safe.
+- Treat a cursor as opaque. Its format can change between versions.
+- Links are relative and keep your other query parameters.
 
 ## Errors
 
@@ -165,7 +162,7 @@ Every response carries `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY
 | --- | --- | --- |
 | `Cache-Control: no-store` | every `/api` response, errors included | Answers are per caller and per moment; nothing may cache them |
 | `Server-Timing: total;dur=<ms>` | every response | Time the server spent on the request |
-| `Link` | collections | The pagination links of the body (`self`, `first`, `prev`, `next`, `last`) as RFC 8288 relations |
+| `Link` | collections | The pagination links of the body (`self`, `first`, `next`) as RFC 8288 relations |
 | `X-Request-ID` | every response | The request's `req_` id; send your own to continue an upstream trace |
 | `X-Trace-ID` | when the trace was recorded | The trace's `trc_` id (same as `metadata.trace_id`); absent when telemetry is off or the request was not sampled |
 | `X-Cache` | a read served through the cache | `HIT` (from the cache), `MISS` (read from the database) or `BYPASS` (`?nocache=true`); absent otherwise. The same answer is in `metadata.cache` (`hit`, `miss`, `bypass`), errors included |

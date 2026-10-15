@@ -47,8 +47,11 @@ const userSortKeys = ['id', 'email', 'name'] as const
 
 export type UserSortKey = (typeof userSortKeys)[number]
 
-/** Query of `GET /users`: `page`, `limit`, `sort_by`, `sort_order`. */
-export const UserListQuerySchema = paginationQuery(userSortKeys)
+/** The order of a list that names none. */
+export const DEFAULT_SORT = { sortBy: 'id' } as const satisfies { sortBy: UserSortKey }
+
+/** Query of `GET /users`: `limit`, `cursor`, `sort_by`, `sort_order`. */
+export const UserListQuerySchema = paginationQuery(userSortKeys, DEFAULT_SORT)
 
 /**
  * Responses encode through these schemas, so only declared fields reach the client, and a column added

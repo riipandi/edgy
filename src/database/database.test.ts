@@ -100,11 +100,10 @@ describe('D1 dialect', () => {
     expect(created).toMatchObject({ email: 'd1@example.com', name: 'D1' })
 
     const page = await runtime.runPromise(
-      UserRepository.use((users) =>
-        users.findPage({ page: 1, limit: 10, offset: 0, sortBy: 'id', sortOrder: 'asc' })
-      )
+      UserRepository.use((users) => users.findPage({ limit: 10, sortBy: 'id', sortOrder: 'asc' }))
     )
-    expect(page.total).toBe(1)
+    expect(page.items).toHaveLength(1)
+    expect(page.next).toBeNull()
 
     const duplicate = await runtime.runPromise(
       Effect.flip(

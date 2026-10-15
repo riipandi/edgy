@@ -62,9 +62,11 @@ which are never believed.
 
 `TRUSTED_PLATFORM` names a header that a CDN or platform sets to the client address, which is then read
 directly instead of `X-Forwarded-For`: `CF-Connecting-IP` for Cloudflare, `Fly-Client-IP` for Fly.io,
-`X-Appengine-Remote-Addr` for Google App Engine, or any header your own proxy sets. The header is
-trusted without checking where the request came from, so use it only when the server is reachable
-through that platform alone. If the header is missing, the connection's address is used.
+`X-Appengine-Remote-Addr` for Google App Engine, or any header your own proxy sets. On Node the header is
+believed only when the connection comes from an address listed in `TRUST_PROXY`, because any other
+client could write it; list the platform's proxy addresses there. On Cloudflare Workers there is no
+connection to check, so it is believed as sent. If the header is missing or not believed, the
+connection's address is used.
 
 `PROXY_PROTOCOL` is for a TCP load balancer (HAProxy, AWS NLB, DigitalOcean) that cannot add an HTTP
 header because it never reads the HTTP. Instead it opens each connection with a short PROXY protocol
@@ -81,7 +83,7 @@ connection to read it from.
 the `CF-IPCountry` and `CF-IPCity` headers Cloudflare sets (the city needs Cloudflare's "Add visitor
 location headers" managed transform). Anyone can send those headers to a server Cloudflare does not
 sit in front of, so they are believed only when `TRUSTED_PLATFORM` is set and the request carries that
-header with a valid address. Without it the setting does nothing.
+header with a valid address from a peer that may be believed (see above). Without it the setting does nothing.
 
 ## Database
 
@@ -206,7 +208,7 @@ every read reaches D1; use a custom domain.
 | `METRICS_ENABLED`                | `false`     | Serve Prometheus metrics at `GET /metrics`                               |
 | `OTEL_SDK_DISABLED`              | `false`     | `true` turns trace, metric and `otlp` log export off, whatever the endpoint |
 | `OTEL_EXPORTER_OTLP_ENDPOINT`    | `http://localhost:4318` | OTLP/HTTP collector base URL; the default is the ClickStack of `pnpm compose:up` |
-| `OTEL_EXPORTER_OTLP_HEADERS`     | `authorization=edgy-dev-ingestion-key` | Headers sent with every export, `key=value` pairs separated by commas. Secret; the default is the development key of `pnpm compose:up` |
+| `OTEL_EXPORTER_OTLP_HEADERS`     | `authorization=edgy-dev-ingestion-key` | Headers sent with every export, `key=value` pairs separated by commas. Secret; the default is the development key of `pnpm compose:up`, and the server refuses to start with it when the endpoint is not local |
 | `OTEL_SERVICE_NAME`              | `edgy`      | Service name attached to every signal                                    |
 | `OTEL_EXPORT_INTERVAL`           | `5000`      | Milliseconds between exports of buffered traces, metrics and logs        |
 | `OTEL_EXPORTER_OTLP_COMPRESSION` | `gzip`      | Compression of export requests: `gzip` or `none`                         |

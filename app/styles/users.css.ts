@@ -21,3 +21,18 @@ export const row = style({
   padding: `${vars.space.sm} 0`,
   borderBottom: `1px solid ${vars.color.border}`
 })
+
+export const pager = style({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: vars.space.sm,
+  paddingTop: vars.space.sm,
+  color: vars.color.muted,
+  fontSize: '0.875rem'
+})
+
+export const pagerLink = style({
+  color: vars.color.accent,
+  ':focus-visible': { outline: `2px solid ${vars.color.accent}`, outlineOffset: '2px' }
+})

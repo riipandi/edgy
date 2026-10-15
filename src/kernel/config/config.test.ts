@@ -157,6 +157,20 @@ describe('configuration', () => {
     await expect(parse({ TRUSTED_PLATFORM: 'bad header' })).rejects.toThrow(/TRUSTED_PLATFORM/)
   })
 
+  it('does not send the development ingestion key to a collector that is not local', async () => {
+    const remote = { OTEL_EXPORTER_OTLP_ENDPOINT: 'https://otel.example.com' }
+    await expect(parse(remote)).rejects.toThrow(/OTEL_EXPORTER_OTLP_HEADERS/)
+    // Its own key, telemetry off, or a local collector: all fine.
+    await expect(
+      parse({ ...remote, OTEL_EXPORTER_OTLP_HEADERS: 'authorization=real' })
+    ).resolves.toBeDefined()
+    await expect(parse({ ...remote, OTEL_SDK_DISABLED: 'true' })).resolves.toBeDefined()
+    await expect(
+      parse({ OTEL_EXPORTER_OTLP_ENDPOINT: 'http://host.docker.internal:4318' })
+    ).resolves.toBeDefined()
+    await expect(parse({})).resolves.toBeDefined()
+  })
+
   it('rejects an unknown or empty LOG_TRANSPORT', async () => {
     await expect(parse({ LOG_TRANSPORT: 'console,syslog' })).rejects.toThrow(/LOG_TRANSPORT/)
     await expect(parse({ LOG_TRANSPORT: ',' })).rejects.toThrow(/LOG_TRANSPORT/)

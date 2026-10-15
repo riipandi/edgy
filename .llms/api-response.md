@@ -43,28 +43,23 @@ Complete success response:
 ApiPagination:
 ```json
 {
-    page?: number | null // current page number
-    limit?: number | null // number of items per page
-
-    // Totals (optional when unknown or not applicable)
-    total_pages?: number | null
-    total_items?: number | null
-
-    // Inclusive item range in the current page (optional)
-    first_item_index?: number | null
-    last_item_index?: number | null
+    limit?: number // number of items per page
+    has_more?: boolean // whether a page follows
+    next_cursor?: string | null // opaque; pass it as `cursor`; null on the last page
 }
 ```
 
 PaginationParams (query params):
 ```json
 {
-    page?: number // number of the page to retrieve; -1 (all records) only on a resource that opts in
-    limit?: number // number of items per page (max 100); -1 (all records) only on a resource that opts in
+    limit?: number // number of items per page (1 to 100)
+    cursor?: string // opaque, from `next_cursor` / `links.next`; bound to the sort it was issued for
     sort_by?: string // sort by column or field name
     sort_order?: 'asc' | 'desc' // sort direction
 }
 ```
+
+Links of a collection: `self`, `first` (no cursor), `next` (`null` on the last page).
 
 Error response (only under `/api`; any other path answers an HTML error page with the same status and headers, see `rules.md`):
 ```json

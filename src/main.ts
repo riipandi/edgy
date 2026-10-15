@@ -9,5 +9,9 @@ import { CoreLayer } from './kernel/layers.ts'
  * layers through `Command.provide`. `runMain` interrupts on SIGINT/SIGTERM, which closes every scope:
  * server, then database, then the log buffer, flushed last.
  */
+// Telemetry exists for the long-running server. A one-shot command would only wait, at exit, for a
+// collector it has nothing worth sending to, so it runs with export off unless told otherwise.
+if (process.argv[2] !== 'serve') process.env['OTEL_SDK_DISABLED'] ??= 'true'
+
 // oxlint-disable-next-line effecttsgo/strict-effect-provide
 run.pipe(Effect.provide(CoreLayer), NodeRuntime.runMain)

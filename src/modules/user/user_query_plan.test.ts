@@ -39,4 +39,24 @@ describe('query plans of the user list', () => {
     )
     expect(byEmail.join(' | ')).toContain('USING INDEX')
   })
+
+  it('starts a keyset page inside the same indexes, with no sort and no scan from the start', async () => {
+    const byName = await planOf(
+      sql`explain query plan select * from users where (name, id) > ('n', 'u') order by name, id limit 21`
+    )
+    expect(byName.join(' | ')).toContain('users_name_id_idx')
+    expect(byName.join(' | ')).not.toContain('TEMP B-TREE')
+
+    const byEmail = await planOf(
+      sql`explain query plan select * from users where (email, id) > ('e', 'u') order by email, id limit 21`
+    )
+    expect(byEmail.join(' | ')).toContain('USING INDEX')
+    expect(byEmail.join(' | ')).not.toContain('TEMP B-TREE')
+
+    const byId = await planOf(
+      sql`explain query plan select * from users where id > 'u' order by id limit 21`
+    )
+    expect(byId.join(' | ')).toContain('id>?')
+    expect(byId.join(' | ')).not.toContain('TEMP B-TREE')
+  })
 })

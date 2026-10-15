@@ -43,10 +43,6 @@ const requireJson = (event: H3Event): void => {
 }
 
 /**
- * The plumbing every endpoint shares. Malformed JSON never reaches the program: h3 rejects it
- * with its own 400, which the error hook renders in the common shape.
- */
-/**
  * Reads the JSON body, giving up after `REQUEST_TIMEOUT` with `408`. The program has its own
  * timeout, but the body is read before it starts. Without this, a client that sends headers and
  * stalls holds an in-flight slot, and enough of them make the overload guard refuse everyone.
@@ -70,6 +66,10 @@ const readBodyWithin = async (event: H3Event): Promise<unknown> => {
   }
 }
 
+/**
+ * The plumbing every endpoint shares. Malformed JSON never reaches the program: h3 rejects it
+ * with its own 400, which the error hook renders in the common shape.
+ */
 const makeHandler =
   <V, E extends AppError, P, PI, B, BI, Q, QI>(
     spec: Inputs<P, PI, B, BI, Q, QI> & {
@@ -157,10 +157,10 @@ export const definePagedHandler = <
   }
 ): Handler => {
   const encode = Schema.encodeEffect(Schema.Array(spec.items))
-  return makeHandler(spec, ({ items, page, limit, total }) =>
+  return makeHandler(spec, ({ items, limit, next }) =>
     encode(items).pipe(
       Effect.orDie,
-      Effect.map((data) => ({ data, pagination: { page, limit, total } }))
+      Effect.map((data) => ({ data, pagination: { limit, next } }))
     )
   )
 }

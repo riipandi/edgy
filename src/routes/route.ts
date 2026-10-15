@@ -55,7 +55,7 @@ const wellKnownRoutes: H3Plugin = defineRouteGroup({
   routes: (r) => {
     r.get('/security.txt', (event) => {
       event.res.headers.set('content-type', 'text/plain; charset=utf-8')
-      return 'Contact: mailto:security@example.com\nExpires: 2027-12-31T23:59:59Z\n'
+      return 'Contact: mailto:aris@duck.com\nExpires: 2027-12-31T23:59:59Z\n'
     })
   }
 })

@@ -1,110 +1,154 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Schema } from 'effect'
+import { decodeCursor, encodeCursor, makePage, MAX_CURSOR_LENGTH } from '../pagination.ts'
 import { paginationLinks, paginationMeta, paginationQuery, toPageRequest } from './pagination.ts'
+
+const cursorFor = (
+  sortBy: string,
+  value: string | number,
+  id: string,
+  sortOrder: 'asc' | 'desc' = 'asc'
+) => encodeCursor({ sortBy, sortOrder, value, id })
+
+describe('cursor', () => {
+  it('round-trips a sort value and an id, unicode included', () => {
+    for (const value of ['plain', 'Zoë "quoted" 日本語', 42, '']) {
+      const text = cursorFor('name', value, 'user_1')
+      expect(text).toMatch(/^[A-Za-z0-9_-]+$/)
+      expect(decodeCursor(text)).toEqual({
+        sortBy: 'name',
+        sortOrder: 'asc',
+        value,
+        id: 'user_1'
+      })
+    }
+  })
+
+  it.each([
+    '',
+    'not a cursor',
+    '!!!!',
+    btoa('{"s":"id"}'),
+    btoa('[]'),
+    btoa('null'),
+    btoa('{"s":1,"o":"asc","v":"x","i":"y"}'),
+    btoa('{"s":"id","o":"sideways","v":"x","i":"y"}'),
+    btoa('{"s":"id","o":"asc","v":null,"i":"y"}'),
+    btoa('{"s":"id","o":"asc","v":"x","i":7}'),
+    'A'.repeat(MAX_CURSOR_LENGTH + 1)
+  ])('refuses %j', (text) => {
+    expect(decodeCursor(text)).toBeUndefined()
+  })
+})
+
+describe('makePage', () => {
+  const request = { limit: 2, sortBy: 'name', sortOrder: 'asc' } as const
+  const row = (n: number) => ({ id: `user_${n}`, name: `n${n}` })
+
+  it('drops the look-ahead row and points the cursor at the last row kept', () => {
+    const page = makePage([row(1), row(2), row(3)], request)
+    expect(page.items).toEqual([row(1), row(2)])
+    expect(page.limit).toBe(2)
+    expect(decodeCursor(page.next!)).toEqual({
+      sortBy: 'name',
+      sortOrder: 'asc',
+      value: 'n2',
+      id: 'user_2'
+    })
+  })
+
+  it('has no next page when the rows fit, or when there are none', () => {
+    expect(makePage([row(1), row(2)], request).next).toBeNull()
+    expect(makePage([], request)).toEqual({ items: [], limit: 2, next: null })
+  })
+})
 
 describe('toPageRequest', () => {
   it('applies defaults', () => {
     expect(toPageRequest({}, { sortBy: 'id' })).toEqual({
-      page: 1,
       limit: 20,
-      offset: 0,
+      after: undefined,
       sortBy: 'id',
       sortOrder: 'asc'
     })
   })
 
-  it('computes the offset from page and limit', () => {
-    expect(toPageRequest({ page: 3, limit: 10 }, { sortBy: 'id' })).toMatchObject({ offset: 20 })
-  })
-
-  it('treats -1 for either parameter as "all records" on page 1', () => {
-    for (const query of [{ page: -1 }, { limit: -1 }, { page: 4, limit: -1 }]) {
-      expect(toPageRequest(query, { sortBy: 'id' })).toMatchObject({
-        page: 1,
-        limit: null,
-        offset: 0
-      })
-    }
+  it('reads the anchor from the cursor', () => {
+    const cursor = cursorFor('id', 'user_7', 'user_7')
+    expect(toPageRequest({ cursor, limit: 5 }, { sortBy: 'id' })).toMatchObject({
+      limit: 5,
+      after: { value: 'user_7', id: 'user_7' }
+    })
   })
 })
 
 describe('paginationQuery', () => {
-  const sortable = ['id'] as const
-  const decode = (schema: ReturnType<typeof paginationQuery<typeof sortable>>, input: unknown) =>
-    Schema.decodeUnknownExit(schema)(input)._tag === 'Success'
+  const sortable = ['id', 'name'] as const
+  const schema = paginationQuery(sortable, { sortBy: 'id' })
+  const ok = (input: unknown) => Schema.decodeUnknownExit(schema)(input)._tag === 'Success'
 
-  it('caps the limit and refuses -1 unless the resource opts in', () => {
-    const closed = paginationQuery(sortable)
-    expect(decode(closed, { limit: '100' })).toBe(true)
-    expect(decode(closed, { limit: '101' })).toBe(false)
-    expect(decode(closed, { limit: '-1' })).toBe(false)
-    expect(decode(closed, { page: '-1' })).toBe(false)
-
-    const open = paginationQuery(sortable, { allowAll: true })
-    expect(decode(open, { limit: '-1' })).toBe(true)
-    expect(decode(open, { page: '-1' })).toBe(true)
-    expect(decode(open, { limit: '101' })).toBe(false)
+  it('caps the limit', () => {
+    expect(ok({ limit: '100' })).toBe(true)
+    expect(ok({ limit: '101' })).toBe(false)
+    expect(ok({ limit: '0' })).toBe(false)
+    expect(ok({ limit: '-1' })).toBe(false)
+    expect(ok({ limit: '1.5' })).toBe(false)
   })
 
-  it('refuses a page that starts deeper than MAX_OFFSET rows', () => {
-    const schema = paginationQuery(sortable)
-    // Default limit 20: page 501 starts at row 10000, page 502 beyond it.
-    expect(decode(schema, { page: '501' })).toBe(true)
-    expect(decode(schema, { page: '502' })).toBe(false)
-    expect(decode(schema, { page: '101', limit: '100' })).toBe(true)
-    expect(decode(schema, { page: '102', limit: '100' })).toBe(false)
-    expect(decode(schema, { page: String(Number.MAX_SAFE_INTEGER) })).toBe(false)
+  it('has no page parameter any more', () => {
+    expect(Schema.decodeUnknownSync(schema)({ page: '2' })).toEqual({})
   })
 
-  it('lets "all records" through where the resource allows it', () => {
-    expect(decode(paginationQuery(sortable, { allowAll: true }), { page: '-1' })).toBe(true)
+  it('accepts only a cursor this module issued', () => {
+    expect(ok({ cursor: cursorFor('id', 'user_1', 'user_1') })).toBe(true)
+    expect(ok({ cursor: 'garbage' })).toBe(false)
+  })
+
+  it('ties a cursor to the sort it was issued for, defaults included', () => {
+    const byName = cursorFor('name', 'n', 'user_1')
+    expect(ok({ cursor: byName, sort_by: 'name' })).toBe(true)
+    expect(ok({ cursor: byName })).toBe(false) // the default sort is id
+    expect(ok({ cursor: byName, sort_by: 'name', sort_order: 'desc' })).toBe(false)
+    expect(
+      ok({ cursor: cursorFor('name', 'n', 'user_1', 'desc'), sort_by: 'name', sort_order: 'desc' })
+    ).toBe(true)
+    expect(ok({ cursor: cursorFor('id', 'user_1', 'user_1'), sort_by: 'name' })).toBe(false)
   })
 })
 
 describe('paginationMeta', () => {
-  it('counts pages and 1-based inclusive item indexes', () => {
-    expect(paginationMeta({ page: 2, limit: 10, total: 25 })).toEqual({
-      page: 2,
+  it('reports the limit, whether more follows, and the cursor', () => {
+    expect(paginationMeta({ limit: 10, next: 'abc' })).toEqual({
       limit: 10,
-      total_pages: 3,
-      total_items: 25,
-      first_item_index: 11,
-      last_item_index: 20
+      has_more: true,
+      next_cursor: 'abc'
     })
-  })
-
-  it('clamps the last index on a short last page', () => {
-    expect(paginationMeta({ page: 3, limit: 10, total: 25 })).toMatchObject({
-      first_item_index: 21,
-      last_item_index: 25
-    })
-  })
-
-  it('reports one page and null indexes for an empty collection', () => {
-    expect(paginationMeta({ page: 1, limit: 10, total: 0 })).toMatchObject({
-      total_pages: 1,
-      first_item_index: null,
-      last_item_index: null
+    expect(paginationMeta({ limit: 10, next: null })).toEqual({
+      limit: 10,
+      has_more: false,
+      next_cursor: null
     })
   })
 })
 
 describe('paginationLinks', () => {
-  const url = new URL('http://x/api/users?limit=10&sort_by=email&page=2')
+  const url = new URL('http://x/api/users?limit=10&sort_by=email&cursor=old')
 
-  it('keeps other query parameters and nulls the missing ends', () => {
-    const middle = paginationLinks(url, paginationMeta({ page: 2, limit: 10, total: 30 }))
-    expect(middle.prev).toBe('/api/users?limit=10&sort_by=email&page=1')
-    expect(middle.next).toBe('/api/users?limit=10&sort_by=email&page=3')
-    expect(middle.last).toBe('/api/users?limit=10&sort_by=email&page=3')
-
-    const only = paginationLinks(url, paginationMeta({ page: 1, limit: 10, total: 5 }))
-    expect(only.prev).toBeNull()
-    expect(only.next).toBeNull()
+  it('keeps the other parameters and swaps the cursor', () => {
+    const links = paginationLinks(url, { limit: 10, has_more: true, next_cursor: 'new' })
+    expect(links).toEqual({
+      self: '/api/users?limit=10&sort_by=email&cursor=old',
+      first: '/api/users?limit=10&sort_by=email',
+      next: '/api/users?limit=10&sort_by=email&cursor=new'
+    })
   })
 
-  it('points prev at the last real page when the page is past the end', () => {
-    const links = paginationLinks(url, paginationMeta({ page: 9, limit: 10, total: 30 }))
-    expect(links.prev).toBe('/api/users?limit=10&sort_by=email&page=3')
+  it('has no next on the last page, and a bare path when nothing else is asked', () => {
+    const links = paginationLinks(new URL('http://x/users'), {
+      limit: 20,
+      has_more: false,
+      next_cursor: null
+    })
+    expect(links).toEqual({ self: '/users', first: '/users', next: null })
   })
 })
