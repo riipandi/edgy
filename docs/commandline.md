@@ -2,6 +2,13 @@
 
 Global flags: `--version`, `--log-level <level>`, `--completions <shell>`, `--help`.
 
+## Server
+
+```
+serve                Start the HTTP server
+   --auto-migrate    Run pending database migrations before starting
+```
+
 ## Database Migration
 ```
 migrate:up      Run database migrations
@@ -14,7 +21,7 @@ migrate:down     Rollback database migrations
    --dry-run     List the migrations that would be rolled back without changing anything
    --force       Skip the confirmation prompt
 
-migrate:status    Check database migration status
+migrate:status   Check database migration status
 
 migrate:create <MIGRATION_NAME>   Create a new migration file
 
@@ -26,7 +33,6 @@ migrate:reset   Rollback all migrations
 
 migrate:seed    Seed the database with initial data
    --dry-run    Report what would be seeded without changing anything
-   --force      Skip the confirmation prompt
 ```
 
 Destructive commands (`migrate:down`, `migrate:reset`) ask for confirmation; `--force` skips the

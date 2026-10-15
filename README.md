@@ -30,9 +30,9 @@ executable using Node's [Single Executable Applications](https://nodejs.org/api/
 
 ```bash
 pnpm install
-pnpm app migrate      # create the users table
-pnpm app seed         # insert sample rows (idempotent)
-pnpm app serve        # http://localhost:3000
+pnpm app migrate:up     # create the users table
+pnpm app migrate:seed   # insert sample rows (idempotent)
+pnpm app serve          # http://localhost:3000
 ```
 
 Verify it is up:
@@ -57,52 +57,13 @@ See the [CLI Documentation](./docs/commandline.md) for the details.
 
 ## Configuration
 
-All configuration is read from environment variables through Effect's `Config`, validated at startup.
-
-| Variable             | Default                    | Description                                                            |
-| -------------------- | -------------------------- | ---------------------------------------------------------------------- |
-| `DATABASE_PATH`      | `./storage/data/edgy.db`   | SQLite file path; parent directories are created automatically          |
-| `HOST`               | `0.0.0.0`                  | Bind address                                                           |
-| `PORT`               | `3000`                     | Bind port                                                              |
-| `LOG_LEVEL`          | `Info`                     | `All` \| `Fatal` \| `Error` \| `Warn` \| `Info` \| `Debug` \| `Trace` \| `None` (**case-sensitive**) |
-| `CORS_ORIGINS`       | `*`                        | `*` or a comma-separated allowlist                                     |
-| `CORS_METHODS`       | `*`                        | `*` or a comma-separated list                                          |
-| `CORS_ALLOW_HEADERS` | `*`                        | `*` or a comma-separated list                                          |
-| `CORS_CREDENTIALS`   | `false`                    | Send `access-control-allow-credentials`                                |
-| `CORS_MAX_AGE`       | `86400`                    | Preflight cache seconds; `false` or `0` omits the header               |
-
-> [!WARNING]
-> `CORS_CREDENTIALS=true` requires an explicit `CORS_ORIGINS` allowlist. A wildcard origin is
-> invalid for credentialed requests, so the process fails fast at startup instead of sending a
-> header browsers will reject.
-
-```bash
-CORS_ORIGINS="https://app.example.com,https://admin.example.com" \
-CORS_CREDENTIALS=true \
-LOG_LEVEL=Warn \
-PORT=8080 \
-pnpm app serve
-```
+All configuration is read from environment variables and validated at startup. See the
+[Configuration Documentation](./docs/configuration.md) for the full variable reference and examples.
 
 ## API
 
-| Method | Path                          | Description                        |
-| ------ | ----------------------------- | ---------------------------------- |
-| `GET`  | `/`                           | Health check                       |
-| `GET`  | `/users`                      | List users                         |
-| `GET`  | `/users/:id`                  | Fetch one user                     |
-| `POST` | `/users`                      | Create a user from a JSON body     |
-| `GET`  | `/.well-known/security.txt`   | Contact metadata (RFC 9116 style)  |
-
-Every response carries an `x-request-id` header. Send your own to continue an upstream trace:
-
-```bash
-curl -H 'x-request-id: req_from_gateway' http://localhost:3000/users
-```
-
-> [!NOTE]
-> Error responses include CORS headers too — H3 merges `event.res.errHeaders` into error responses,
-> so the request ID and CORS survive on `4xx` and `5xx` alike.
+See the [API Endpoint Documentation](./docs/api-endpoint.md) for the endpoint list and the
+request ID behaviour.
 
 ## Project structure
 
