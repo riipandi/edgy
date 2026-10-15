@@ -34,10 +34,31 @@ const formatValue = (value: unknown): string =>
   typeof value === 'string' && !/[\s="]/.test(value) ? value : JSON.stringify(value)
 
 /**
- * Renders a structured entry as `HH:MM:SS.mmm LEVEL message key=value …`,
- * followed by the pretty-printed cause when the entry carries one.
+ * Whether the message already states this annotation's value, so printing
+ * `key=value` again only repeats it. The request line carries `GET / 200 0.49ms`
+ * in its message and `method`, `path`, `status` and `durationMs` as annotations
+ * for the JSON sink; the terminal needs them once. Only the value is compared,
+ * and only as a whole word (optionally followed by a unit, `0.49` in `0.49ms`),
+ * so `1` is not found inside `12`. The key name adds nothing a reader cannot see
+ * in the message.
  */
-const renderPretty = (entry: StructuredEntry, colors: boolean): string => {
+const repeatsMessage = (message: string, value: unknown): boolean => {
+  const text = typeof value === 'string' ? value : typeof value === 'number' ? String(value) : ''
+  if (text === '') return false
+  return message
+    .split(/\s+/)
+    .some(
+      (word) =>
+        word === text || (word.startsWith(text) && /^[a-z%]+$/i.test(word.slice(text.length)))
+    )
+}
+
+/**
+ * Renders a structured entry as `HH:MM:SS.mmm LEVEL message key=value …`,
+ * followed by the pretty-printed cause when the entry carries one. Annotations
+ * whose value the message already states are left out (JSON keeps them all).
+ */
+export const renderPretty = (entry: StructuredEntry, colors: boolean): string => {
   const paint = (text: string, color: string) => (colors ? `${color}${text}${ANSI.reset}` : text)
 
   const message = Array.isArray(entry.message)
@@ -47,6 +68,7 @@ const renderPretty = (entry: StructuredEntry, colors: boolean): string => {
       : formatValue(entry.message)
 
   const fields = Object.entries(entry.annotations)
+    .filter(([, value]) => !repeatsMessage(message, value))
     .map(([key, value]) => `${paint(`${key}=`, ANSI.dim)}${formatValue(value)}`)
     .join(' ')
 

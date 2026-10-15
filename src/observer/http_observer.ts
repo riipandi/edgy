@@ -14,8 +14,8 @@ const elapsedMs = (event: H3Event): number => {
  * Emits one structured log line and one metric sample for a finished request.
  *
  * The message stays human-readable (`GET /users 200 3.2ms`) while the fields
- * travel as annotations, so the pretty sink renders them alongside the line and
- * the JSON sink can index them. Level follows the status class: `info` for
+ * travel as annotations: the JSON sink indexes all of them, and the pretty sink
+ * prints only those the message does not already say (the `requestId`). Level follows the status class: `info` for
  * success, `warning` for 4xx, `error` for 5xx (except 503, which this server answers on purpose while draining, so it is a warning). Running through the shared
  * runtime keeps the line on the same non-blocking logger as everything else.
  */
