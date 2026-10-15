@@ -27,6 +27,9 @@ const limitOptions = (config: AppConfig, check: RateCheck): RateLimitOptions => 
   })
 })
 
+/** Every module whose routes are served under `/api` (and so described by the API document). */
+export const apiModules: readonly H3Plugin[] = [userRoutes]
+
 /**
  * `/api` group: every resource endpoint that answers in the API envelope. Middleware shared by the
  * whole API lives here. Probes and reserved paths stay outside, since load balancers and RFC 8615
@@ -41,7 +44,7 @@ const apiRoutes = (config: AppConfig, check: RateCheck): H3Plugin =>
       ...(config.security.rateLimitEnabled ? [rateLimit(limitOptions(config, check))] : [])
     ],
     routes: (api) => {
-      api.register(userRoutes)
+      for (const module of apiModules) api.register(module)
     }
   })
 

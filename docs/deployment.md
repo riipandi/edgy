@@ -72,10 +72,15 @@ Before the first deploy:
    (`d1_databases[0].database_id`).
 2. Put application settings under `vars` in `wrangler.jsonc` and secrets in `wrangler secret put`.
    See [Configuration](./configuration.md).
-3. Create the schema. `wrangler.jsonc` sets `DATABASE_AUTO_MIGRATE` to `true`, so the first request
-   to a new database applies the migrations, locally and when deployed. Several isolates starting at
-   once can race on that first migration, and a preview upload shares these settings, so once the
-   schema exists switch it off for deployments: `pnpm run deploy --var DATABASE_AUTO_MIGRATE:false`.
+3. Create the schema, in one of two ways.
+   - Explicitly, before the deploy (recommended for production): `pnpm app migrate:up --remote`
+     applies the migrations to the real database, after `--dry-run` has shown what is pending. It
+     needs `wrangler login` (or `CLOUDFLARE_API_TOKEN`). Then switch the automatic route off:
+     `pnpm run deploy --var DATABASE_AUTO_MIGRATE:false`.
+   - Automatically: `wrangler.jsonc` sets `DATABASE_AUTO_MIGRATE` to `true`, so the first request to
+     a new database applies the migrations. Several isolates starting at once can race on that
+     first migration, and a preview upload shares these settings, so use it for a new or
+     throwaway database.
 
 Differences from the Node.js server:
 

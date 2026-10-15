@@ -7,7 +7,9 @@ const EmailSchema = Schema.String.pipe(
     Schema.isMaxLength(254),
     Schema.isPattern(/^[^@\s]+@[^@\s]+\.[^@\s]+$/, { message: 'must be a valid email address' })
   )
-)
+).annotate({
+  description: 'Stored in lowercase; the same address in another spelling is a conflict.'
+})
 
 /** TypeID with the `user_` prefix, minted by the repository on insert. */
 export const UserId = defineId('user')
@@ -17,7 +19,7 @@ export const UserIdSchema = UserId.schema
 /** Non-blank, at most 200 characters. */
 const NameSchema = Schema.String.pipe(
   Schema.check(Schema.isMaxLength(200), Schema.isPattern(/\S/, { message: 'must not be blank' }))
-)
+).annotate({ description: 'Display name; not blank.' })
 
 /**
  * The single source of truth for the resource: the request, response and table types derive from it,

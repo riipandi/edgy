@@ -13,6 +13,7 @@ import { UserService } from './user_service.ts'
 
 /** `GET /users`: one page of users, sorted by `id` unless `sort_by` or `sort_order` say otherwise. */
 export const listUsersHandler = definePagedHandler({
+  summary: 'List users, a page at a time',
   query: UserListQuerySchema,
   items: UserListItemSchema,
   run: ({ query }) => UserService.use((users) => users.list(toPageRequest(query, DEFAULT_SORT)))
@@ -20,6 +21,7 @@ export const listUsersHandler = definePagedHandler({
 
 /** `GET /users/:id`: a single user by id. */
 export const getUserHandler = defineHandler({
+  summary: 'Get one user by id',
   params: UserIdParamsSchema,
   response: UserGetResponseSchema,
   run: ({ params }) => UserService.use((users) => users.get(params.id))
@@ -27,6 +29,7 @@ export const getUserHandler = defineHandler({
 
 /** `POST /users`: creates a user from a JSON body, answered with `201`. */
 export const createUserHandler = defineHandler({
+  summary: 'Create a user',
   body: UserCreateRequestSchema,
   response: UserCreateResponseSchema,
   status: 201,

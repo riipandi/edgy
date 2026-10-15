@@ -1,8 +1,8 @@
 import { Effect } from 'effect'
 import { Command, Flag } from 'effect/cli'
-import { DatabaseLayer } from '../database/layer.ts'
+import { databaseLayer } from '../database/layer.ts'
 import { getMigrationInfos, migrateDown } from '../database/migrator.ts'
-import { confirmDestructive, ensure, print } from './helper.ts'
+import { announceRemote, confirmDestructive, ensure, print, remoteFlag } from './helper.ts'
 
 /** Rolls back the newest `--count` executed migrations. */
 export const migrateDownCmd = Command.make(
@@ -12,6 +12,7 @@ export const migrateDownCmd = Command.make(
       Flag.withDefault(1),
       Flag.withDescription('Number of migrations to roll back')
     ),
+    remote: remoteFlag,
     'dry-run': Flag.Boolean('dry-run').pipe(
       Flag.withDefault(false),
       Flag.withDescription(
@@ -25,6 +26,7 @@ export const migrateDownCmd = Command.make(
   },
   (config) =>
     Effect.gen(function* () {
+      yield* announceRemote(config.remote)
       yield* ensure(config.count >= 1, 'The --count flag must be at least 1')
 
       if (config['dry-run']) {
@@ -44,7 +46,7 @@ export const migrateDownCmd = Command.make(
 
       const proceed = yield* confirmDestructive(
         config.force,
-        `Roll back ${config.count} migration(s)?`
+        `Roll back ${config.count} migration(s)${config.remote ? ' on the REMOTE database' : ''}?`
       )
       if (!proceed) return
 
@@ -57,4 +59,7 @@ export const migrateDownCmd = Command.make(
         yield* print(`${result.status}: ${result.migrationName}`)
       }
     })
-).pipe(Command.provide(DatabaseLayer), Command.withDescription('Rollback database migrations'))
+).pipe(
+  Command.provide((config) => databaseLayer({ remote: config.remote })),
+  Command.withDescription('Rollback database migrations')
+)

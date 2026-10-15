@@ -66,7 +66,7 @@ The full documentation index lives in [docs/index.md](./docs/index.md):
 | ------------------------------------------- | ---------------------------------------------------------- |
 | [CLI](./docs/commandline.md)                | Commands, flags, confirmation and dry-run behaviour        |
 | [Configuration](./docs/configuration.md)    | Environment variables, defaults, examples                  |
-| [API endpoints](./docs/api-endpoint.md)     | Endpoint list, request ID tracing                          |
+| [API endpoints](./docs/api-endpoint.md)     | Endpoint list, request ID tracing, the OpenAPI description |
 | [Pages](./docs/frontend.md)                 | Writing a page, styling, how pages are served              |
 | [Development](./docs/development.md)        | Day-to-day commands, database workflow, validation         |
 | [Deployment](./docs/deployment.md)          | Node.js and Cloudflare Workers targets, bundling           |

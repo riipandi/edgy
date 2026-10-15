@@ -27,21 +27,21 @@ const countOf = (email: string) =>
 
 describe('a query whose request was cancelled while it waited for the connection', () => {
   it('never runs, and the connection stays usable', async () => {
-    // A transaction holds the single connection until released.
+    // A query that does not finish holds the single connection until released.
     let release!: () => void
     const gate = new Promise<void>((resolve) => {
       release = resolve
     })
     const holder = t.run(
-      DatabaseService.use(({ transaction }) =>
-        transaction(async () => {
+      DatabaseService.use(({ query }) =>
+        query(async () => {
           await gate
         })
       )
     )
     await sleep(20)
 
-    // The write queues behind the transaction and times out.
+    // The write queues behind it and times out.
     const write = await t.run(
       DatabaseService.use(({ query }) =>
         query((db) => db.insertInto('users').values(userRow('abandoned@example.com')).execute())
@@ -69,8 +69,8 @@ describe('a query whose request was cancelled while it waited for the connection
       release = resolve
     })
     const holder = t.run(
-      DatabaseService.use(({ transaction }) =>
-        transaction(async () => {
+      DatabaseService.use(({ query }) =>
+        query(async () => {
           await gate
         })
       )

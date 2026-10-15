@@ -15,6 +15,10 @@
 
 **Errors follow the path.** A failure under `/api` is always JSON in the error shape below. A failure anywhere else (an unknown address, a page that could not be built, `/health` while the server shuts down) is an HTML error page showing the status and the request ID, with the same status code and headers. A client that wants JSON stays under `/api`.
 
+## API description
+
+[`openapi.json`](./openapi.json) describes every endpoint under `/api` in OpenAPI 3.1: the parameters, the request bodies, and the answers inside the response envelope. It is generated from the same schemas the server validates with, so it matches the code; point a client generator or an API explorer at it. Effect's `@effect/openapi-generator` (`openapigen`) can turn it into a typed client.
+
 ## Response format
 
 A successful response carries the payload in `data`, and always reports the HTTP status and the request ID:

@@ -50,7 +50,6 @@ export const SqliteDatabaseLayer: Layer.Layer<DatabaseService, DatabaseError, Co
       )
 
       return makeDatabaseService(connection.db, {
-        transactions: true,
         singleConnection: true,
         retryReads: false
       })

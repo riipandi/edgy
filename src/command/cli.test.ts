@@ -9,7 +9,7 @@ import {
   it,
   vi
 } from '@effect/vitest'
-import { ConfigProvider, Exit, Layer, ManagedRuntime } from 'effect'
+import { Cause, ConfigProvider, Exit, Layer, ManagedRuntime, Option } from 'effect'
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -42,7 +42,13 @@ afterEach(() => {
 })
 
 /** Runs the real CLI over `args` against the SQLite file `db` and returns what it printed. */
-const cli = async (db: string, ...args: string[]): Promise<Outcome> => {
+const cli = (db: string, ...args: string[]): Promise<Outcome> => run(db, {}, ...args)
+
+const run = async (
+  db: string,
+  extra: Record<string, string>,
+  ...args: string[]
+): Promise<Outcome> => {
   const out: string[] = []
   const err: string[] = []
   vi.spyOn(console, 'log').mockImplementation((...a: unknown[]) => void out.push(a.join(' ')))
@@ -54,7 +60,8 @@ const cli = async (db: string, ...args: string[]): Promise<Outcome> => {
         ConfigProvider.fromEnvRecord({
           DATABASE_PATH: join(dir, db),
           LOG_LEVEL: 'None',
-          OTEL_SDK_DISABLED: 'true'
+          OTEL_SDK_DISABLED: 'true',
+          ...extra
         })
       )
     )
@@ -67,6 +74,15 @@ const cli = async (db: string, ...args: string[]): Promise<Outcome> => {
 }
 
 const lines = (outcome: Outcome) => outcome.out.join('\n')
+
+/** The message of the error a command failed with, looking through a `DatabaseError`'s cause. */
+const failureMessage = (outcome: Outcome): string => {
+  if (Exit.isSuccess(outcome.exit)) return ''
+  const error = Cause.findErrorOption(outcome.exit.cause)
+  if (Option.isNone(error)) return ''
+  const { cause } = error.value as { cause?: unknown }
+  return cause instanceof Error ? cause.message : String(error.value)
+}
 
 describe('migrate:status, migrate:up', () => {
   it('lists everything as pending on a fresh database, then as executed', async () => {
@@ -279,5 +295,47 @@ describe('config:generate', () => {
   it('--force alone is a usage error', async () => {
     const outcome = await cli('cfg.db', 'config:generate', '--force', '-o', target('f.env'))
     expect(Exit.isFailure(outcome.exit)).toBe(true)
+  })
+})
+
+describe('openapi:generate', () => {
+  it('prints the description of the /api routes with --stdout', async () => {
+    const outcome = await cli('oa.db', 'openapi:generate', '--stdout')
+    const document = JSON.parse(outcome.out[0] ?? '')
+    expect(document.openapi).toBe('3.1.0')
+    expect(Object.keys(document.paths)).toContain('/api/users')
+  })
+
+  it('finds the committed description up to date', async () => {
+    const outcome = await cli('oa.db', 'openapi:generate', '--check')
+    expect(Exit.isSuccess(outcome.exit)).toBe(true)
+    expect(lines(outcome)).toMatch(/is up to date$/)
+  })
+
+  it('writes to another file, and fails --check on a stale one', async () => {
+    const file = join(dir, 'api.json')
+    expect(lines(await cli('oa.db', 'openapi:generate', '-o', file))).toMatch(/^Wrote /)
+    expect(JSON.parse(readFileSync(file, 'utf8')).info.title).toBe('edgy API')
+
+    writeFileSync(file, '{}\n')
+    const stale = await cli('oa.db', 'openapi:generate', '--check', '-o', file)
+    expect(Exit.isFailure(stale.exit)).toBe(true)
+  })
+})
+
+describe('--remote', () => {
+  it('refuses a binding that wrangler.jsonc does not have, before touching the network', async () => {
+    for (const command of ['migrate:status', 'migrate:up']) {
+      const outcome = await run('remote.db', { D1_BINDING: 'NOPE' }, command, '--remote')
+      expect(Exit.isFailure(outcome.exit)).toBe(true)
+      expect(failureMessage(outcome)).toContain('No D1 binding named')
+    }
+  })
+
+  it('is not offered by the commands that wipe or fill data', async () => {
+    for (const command of ['migrate:reset', 'migrate:seed']) {
+      const outcome = await cli('remote.db', command, '--remote')
+      expect(Exit.isFailure(outcome.exit)).toBe(true)
+    }
   })
 })

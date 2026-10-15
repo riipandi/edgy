@@ -41,6 +41,7 @@ npm-debug.log*
 compose.env*
 !compose.env.example
 .*.vars
+wrangler.remote-*.tmp.json
 
 # Output directory
 build/

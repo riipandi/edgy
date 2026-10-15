@@ -1,8 +1,8 @@
 import { Effect, Option } from 'effect'
 import { Command, Flag } from 'effect/cli'
-import { DatabaseLayer } from '../database/layer.ts'
+import { databaseLayer } from '../database/layer.ts'
 import { getMigrationInfos, migrateTo, migrateToLatest } from '../database/migrator.ts'
-import { ensure, print } from './helper.ts'
+import { announceRemote, ensure, print, remoteFlag } from './helper.ts'
 
 /** Applies pending migrations, stopping at `--to` when given. */
 export const migrateUpCmd = Command.make(
@@ -12,6 +12,7 @@ export const migrateUpCmd = Command.make(
       Flag.optional,
       Flag.withDescription('Apply migrations only up to this migration name')
     ),
+    remote: remoteFlag,
     'dry-run': Flag.Boolean('dry-run').pipe(
       Flag.withDefault(false),
       Flag.withDescription('List the pending migrations without applying them')
@@ -19,6 +20,7 @@ export const migrateUpCmd = Command.make(
   },
   (config) =>
     Effect.gen(function* () {
+      yield* announceRemote(config.remote)
       const infos = yield* getMigrationInfos
       if (Option.isSome(config.to)) {
         const target = config.to.value
@@ -57,4 +59,7 @@ export const migrateUpCmd = Command.make(
         yield* print(`${result.status}: ${result.migrationName}`)
       }
     })
-).pipe(Command.provide(DatabaseLayer), Command.withDescription('Run database migrations'))
+).pipe(
+  Command.provide((config) => databaseLayer({ remote: config.remote })),
+  Command.withDescription('Run database migrations')
+)

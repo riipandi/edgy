@@ -16,8 +16,8 @@
  * - TRUSTED_PLATFORM: Cloudflare always sets CF-Connecting-IP, and the Worker is reachable only
  *   through Cloudflare, so that header is the client address.
  * - DATABASE_AUTO_MIGRATE: each isolate migrates on start, so a new D1 needs no separate step.
- *   Isolates starting together can race on the first migration. Once the schema exists, deploy with
- *   `--var DATABASE_AUTO_MIGRATE:false`.
+ *   Isolates starting together can race on the first migration. For production, migrate first with
+ *   `pnpm app migrate:up --remote` and deploy with `--var DATABASE_AUTO_MIGRATE:false`.
  * - CACHE_STORE: the Workers Cache API is per location and is not served on workers.dev, where
  *   every read reaches D1. Use a custom domain.
  * - Rate limiting for /api: the allowance and period are fixed in the `ratelimits` binding.

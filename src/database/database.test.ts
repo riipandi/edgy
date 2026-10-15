@@ -9,7 +9,7 @@ import { D1Binding, D1DatabaseLayer } from './d1.ts'
 import { migrateDown, migrateToLatest } from './migrator.ts'
 import { DatabaseService, isUniqueViolation } from './service.ts'
 
-describe('transactions (sqlite)', () => {
+describe('the sqlite driver’s transactions', () => {
   let t: TestApp
   beforeAll(async () => {
     t = await makeTestApp()
@@ -31,25 +31,29 @@ describe('transactions (sqlite)', () => {
   it('commits when the callback resolves', async () => {
     const before = (await count()).n
     await t.run(
-      DatabaseService.use(({ transaction }) =>
-        transaction(async (trx) => {
-          await trx.insertInto('users').values(userRow('tx1@example.com')).execute()
-          await trx.insertInto('users').values(userRow('tx2@example.com')).execute()
-        })
+      DatabaseService.use(({ db }) =>
+        Effect.promise(() =>
+          db.transaction().execute(async (trx) => {
+            await trx.insertInto('users').values(userRow('tx1@example.com')).execute()
+            await trx.insertInto('users').values(userRow('tx2@example.com')).execute()
+          })
+        )
       )
     )
     expect((await count()).n).toBe(before + 2)
   })
 
-  it('rolls back when the callback rejects, and reports a DatabaseError', async () => {
+  it('rolls back when the callback rejects', async () => {
     const before = (await count()).n
     const exit = await t.run(
       Effect.exit(
-        DatabaseService.use(({ transaction }) =>
-          transaction(async (trx) => {
-            await trx.insertInto('users').values(userRow('tx3@example.com')).execute()
-            throw new Error('boom')
-          })
+        DatabaseService.use(({ db }) =>
+          Effect.tryPromise(() =>
+            db.transaction().execute(async (trx) => {
+              await trx.insertInto('users').values(userRow('tx3@example.com')).execute()
+              throw new Error('boom')
+            })
+          )
         )
       )
     )
@@ -113,9 +117,16 @@ describe('D1 dialect', () => {
     expect(duplicate).toBeInstanceOf(Conflict)
   })
 
-  it('refuses transactions, since D1 has none', async () => {
+  it('refuses an interactive transaction, since D1 has none', async () => {
     const error = await runtime.runPromise(
-      Effect.flip(DatabaseService.use(({ transaction }) => transaction(async () => 'never')))
+      Effect.flip(
+        DatabaseService.use(({ db }) =>
+          Effect.tryPromise({
+            try: () => db.transaction().execute(async () => 'never'),
+            catch: (cause) => new DatabaseError({ cause })
+          })
+        )
+      )
     )
     expect(error).toBeInstanceOf(DatabaseError)
   })

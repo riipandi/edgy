@@ -40,7 +40,9 @@ const limitSchema = Schema.FiniteFromString.pipe(
         : `limit must be an integer from 1 to ${MAX_LIMIT}`
     )
   )
-)
+).annotate({
+  description: `Items per page: an integer from 1 to ${MAX_LIMIT}. Default ${DEFAULT_LIMIT}.`
+})
 
 const cursorSchema = Schema.String.pipe(
   Schema.check(
@@ -64,10 +66,19 @@ export const paginationQuery = <const S extends readonly [string, ...string[]]>(
   defaults: { readonly sortBy: S[number]; readonly sortOrder?: SortOrder }
 ) =>
   Schema.Struct({
-    limit: Schema.optional(limitSchema),
-    cursor: Schema.optional(cursorSchema),
-    sort_by: Schema.optional(Schema.Literals(sortable)),
-    sort_order: Schema.optional(Schema.Literals(['asc', 'desc']))
+    limit: Schema.optional(limitSchema).annotateKey({
+      description: `Items per page: an integer from 1 to ${MAX_LIMIT}. Default ${DEFAULT_LIMIT}.`
+    }),
+    cursor: Schema.optional(cursorSchema).annotateKey({
+      description:
+        'Where the next page starts. Copy `next_cursor` from the previous page; it belongs to the sort it was issued for.'
+    }),
+    sort_by: Schema.optional(Schema.Literals(sortable)).annotateKey({
+      description: `Column to sort by. Default \`${defaults.sortBy}\`.`
+    }),
+    sort_order: Schema.optional(Schema.Literals(['asc', 'desc'])).annotateKey({
+      description: `Sort direction. Default \`${defaults.sortOrder ?? 'asc'}\`.`
+    })
   }).pipe(
     Schema.check(
       Schema.makeFilter((query) => {

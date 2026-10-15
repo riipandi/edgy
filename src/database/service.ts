@@ -1,5 +1,5 @@
 import { Context, Effect, LogLevel, Schedule } from 'effect'
-import { type Kysely, type LogEvent, sql, type Transaction } from 'kysely'
+import { type Kysely, type LogEvent, sql } from 'kysely'
 import { DatabaseError, isTransientFailure } from '../kernel/errors.ts'
 import { currentRequestId } from '../kernel/http/request_context.ts'
 import { describeFailure, redactText } from '../kernel/redact.ts'
@@ -46,13 +46,6 @@ export class DatabaseService extends Context.Service<
      * failures up to twice with jittered backoff; elsewhere it is exactly `query`. Never pass a write.
      */
     readonly read: <A>(run: (db: Kysely<Database>) => Promise<A>) => Effect.Effect<A, DatabaseError>
-    /**
-     * Runs `run` atomically: commits when it resolves, rolls back when it rejects. Use the `trx`
-     * handle inside, not the outer `db`. Fails with {@link DatabaseError} on D1.
-     */
-    readonly transaction: <A>(
-      run: (trx: Transaction<Database>) => Promise<A>
-    ) => Effect.Effect<A, DatabaseError>
     /** Cheapest round trip to the database; used by the readiness probe. */
     readonly ping: Effect.Effect<void, DatabaseError>
   }
@@ -107,8 +100,6 @@ export const makeQueryLogger = Effect.gen(function* () {
 })
 
 interface DatabaseOptions {
-  /** Whether the driver runs interactive transactions. */
-  readonly transactions: boolean
   /** Whether all operations share one connection that callers queue for (`node:sqlite`). */
   readonly singleConnection: boolean
   /** Whether {@link DatabaseService.read} retries transient failures (a networked driver). */
@@ -142,23 +133,10 @@ export const makeDatabaseService = (
         )
       : query(run)
 
-  const transaction: DatabaseService['Service']['transaction'] = (run) =>
-    options.transactions
-      ? Effect.tryPromise({
-          try: () => db.transaction().execute(run),
-          catch: (cause) => new DatabaseError({ cause })
-        })
-      : Effect.fail(
-          new DatabaseError({
-            cause: new Error('Transactions are not supported by the configured database driver')
-          })
-        )
-
   return DatabaseService.of({
     db,
     query,
     read,
-    transaction,
     ping: Effect.asVoid(query((connection) => sql`select 1`.execute(connection)))
   })
 }

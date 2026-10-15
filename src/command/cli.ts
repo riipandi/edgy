@@ -6,6 +6,7 @@ import { migrateResetCmd } from './migrate-reset.ts'
 import { migrateSeedCmd } from './migrate-seed.ts'
 import { migrateStatusCmd } from './migrate-status.ts'
 import { migrateUpCmd } from './migrate-up.ts'
+import { openapiGenerateCmd } from './openapi-generate.ts'
 import { serveCmd } from './serve.ts'
 
 const rootCmd = Command.make('edgy').pipe(
@@ -13,6 +14,7 @@ const rootCmd = Command.make('edgy').pipe(
   Command.withSubcommands([
     serveCmd,
     configGenerateCmd,
+    openapiGenerateCmd,
     migrateUpCmd,
     migrateDownCmd,
     migrateStatusCmd,

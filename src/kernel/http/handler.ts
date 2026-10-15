@@ -4,6 +4,7 @@ import type { AppError, ValidationError } from '../errors.ts'
 import type { Page } from '../pagination.ts'
 import { decode } from './decode.ts'
 import type { Reply } from './envelope.ts'
+import { documentHandler, type HandlerDoc } from './handler_doc.ts'
 import { runEffect } from './responder.ts'
 import { type HttpEnv, runtimeOf } from './runtime.ts'
 
@@ -14,7 +15,30 @@ interface Inputs<P, PI, B, BI, Q, QI> {
   readonly query?: Schema.Codec<Q, QI>
   /** Status of a successful response. Defaults to `200`. */
   readonly status?: number
+  /** One line for the API description. */
+  readonly summary?: string
 }
+
+/** The declared inputs, as the API description reads them. */
+const docOfSpec = (
+  kind: HandlerDoc['kind'],
+  spec: {
+    readonly params?: Schema.Top
+    readonly query?: Schema.Top
+    readonly body?: Schema.Top
+    readonly status?: number
+    readonly summary?: string
+  },
+  response?: Schema.Top
+): HandlerDoc => ({
+  kind,
+  status: spec.status ?? 200,
+  ...(spec.summary === undefined ? {} : { summary: spec.summary }),
+  ...(spec.params === undefined ? {} : { params: spec.params }),
+  ...(spec.query === undefined ? {} : { query: spec.query }),
+  ...(spec.body === undefined ? {} : { body: spec.body }),
+  ...(response === undefined ? {} : { response })
+})
 
 type Program<A, E extends AppError> = Effect.Effect<A, E, HttpEnv>
 
@@ -125,11 +149,14 @@ export const defineHandler = <
   }
 ): Handler => {
   const encode = Schema.encodeEffect(spec.response)
-  return makeHandler(spec, (value) =>
-    encode(value).pipe(
-      Effect.orDie,
-      Effect.map((data) => ({ data }))
-    )
+  return documentHandler(
+    makeHandler(spec, (value) =>
+      encode(value).pipe(
+        Effect.orDie,
+        Effect.map((data) => ({ data }))
+      )
+    ),
+    docOfSpec('one', spec, spec.response)
   )
 }
 
@@ -157,11 +184,14 @@ export const definePagedHandler = <
   }
 ): Handler => {
   const encode = Schema.encodeEffect(Schema.Array(spec.items))
-  return makeHandler(spec, ({ items, limit, next }) =>
-    encode(items).pipe(
-      Effect.orDie,
-      Effect.map((data) => ({ data, pagination: { limit, next } }))
-    )
+  return documentHandler(
+    makeHandler(spec, ({ items, limit, next }) =>
+      encode(items).pipe(
+        Effect.orDie,
+        Effect.map((data) => ({ data, pagination: { limit, next } }))
+      )
+    ),
+    docOfSpec('page', spec, spec.items)
   )
 }
 
@@ -179,4 +209,8 @@ export const defineMessageHandler = <
     readonly message: string
     readonly run: (input: { params: P; body: B; query: Q }) => Program<unknown, E>
   }
-): Handler => makeHandler(spec, () => Effect.succeed({ message: spec.message }))
+): Handler =>
+  documentHandler(
+    makeHandler(spec, () => Effect.succeed({ message: spec.message })),
+    docOfSpec('message', spec)
+  )

@@ -29,6 +29,7 @@
         "sortScripts": false
     },
     "ignorePatterns": [
+        "docs/openapi.json",
         ".output",
         ".storage",
         ".tanstack",

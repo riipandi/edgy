@@ -42,7 +42,9 @@ jobs:
       - name: .env.example is current
         run: pnpm app config:generate --check
 
-      # A green unit suite does not exercise the bundles.
+      - name: The API description is current
+        run: pnpm app openapi:generate --check
+
       - name: Build the Node server
         run: pnpm build
 

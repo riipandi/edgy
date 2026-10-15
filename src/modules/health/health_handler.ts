@@ -16,6 +16,7 @@ const probes = new WeakMap<object, Effect.Effect<void, DatabaseError>>()
  * `GET /` never touches the database.
  */
 export const healthHandler = defineMessageHandler({
+  summary: 'Readiness: answers 200 while the database answers',
   message: 'Service is healthy',
   run: () =>
     DatabaseService.use(
