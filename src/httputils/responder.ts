@@ -1,7 +1,8 @@
-import { Cause, Effect, Exit, Metric, Option } from 'effect'
+import { Cause, Effect, Exit, Option } from 'effect'
 import type { H3Event } from 'h3'
-import { AppRuntime, type AppEnv } from '../runtime.ts'
-import type { AppError, ValidationIssue } from './errors.ts'
+import type { AppError, ValidationIssue } from '../kernel/errors.ts'
+import { requestIdOf } from '../middleware/request_id.ts'
+import { type HttpEnv, runtimeOf } from './runtime.ts'
 
 /**
  * Typed JSON body shapes for error responses (mapped from error tags below).
@@ -17,68 +18,68 @@ export interface ValidationErrorResponse {
   readonly issues: ReadonlyArray<ValidationIssue>
 }
 
-// --- Telemetry ---
+export interface RunOptions {
+  /** Status for a successful response. Defaults to h3's `200`. */
+  readonly successStatus?: number
+}
 
-/** Total HTTP requests handled. */
-const httpRequests = Metric.counter('http_requests_total', {
-  description: 'Total number of HTTP requests handled',
-  incremental: true
-})
-
-/** Request latency in milliseconds. */
-const httpDuration = Metric.timer('http_request_duration_ms', {
-  description: 'HTTP request latency in milliseconds',
-  boundaries: [5, 10, 25, 50, 100, 250, 500, 1000]
-})
+/** Maps a typed failure to a status code and a concrete JSON body. */
+const toErrorResponse = (error: AppError): [number, ErrorResponse | ValidationErrorResponse] => {
+  switch (error._tag) {
+    case 'ValidationError':
+      return [400, { error: 'Validation failed', issues: error.issues }]
+    case 'NotFound':
+      return [404, { error: 'User not found', id: error.id }]
+    case 'DatabaseError':
+      return [500, { error: 'Database error' }]
+    default:
+      return error satisfies never
+  }
+}
 
 /**
- * Bridge Effect -> HTTP: run the program on the app runtime and map typed
- * errors to response status codes. Failures are narrowed via `_tag`, so every
- * branch returns a concrete JSON body.
+ * Bridge Effect -> HTTP: run the program on the shared runtime and map typed
+ * errors to response status codes. Failures are narrowed through `_tag`, so
+ * adding a member to `AppError` fails to compile here until it has a branch.
  *
- * The handler program is wrapped in a tracing span (method + path attributes)
- * and its latency is recorded in the request timer.
+ * The program runs inside a span named after the request, and its logs carry
+ * the request id. Database failures and defects are logged with their cause —
+ * the client only ever sees a generic 500 — while expected failures
+ * (validation, not found) are not logged as errors.
  */
 export const runEffect = <A, E extends AppError>(
   event: H3Event,
-  effect: Effect.Effect<A, E, AppEnv>
-): Promise<A | ValidationErrorResponse | ErrorResponse> =>
-  AppRuntime.runPromiseExit(
-    effect.pipe(
-      Effect.tap(() => Metric.update(httpRequests, 1)),
-      Effect.timed,
-      Effect.tap(([duration]) => Metric.update(httpDuration, duration)),
-      Effect.map(([, result]) => result),
-      Effect.withSpan(`${event.req.method} ${event.url.pathname}`)
-    )
-  ).then((exit) => {
-    if (Exit.isSuccess(exit)) return exit.value
+  effect: Effect.Effect<A, E, HttpEnv>,
+  options: RunOptions = {}
+): Promise<A | ValidationErrorResponse | ErrorResponse> => {
+  const requestId = requestIdOf(event)
 
-    const failure = Cause.findErrorOption(exit.cause)
-    if (Option.isSome(failure)) {
-      switch (failure.value._tag) {
-        case 'ValidationError': {
-          event.res.status = 400
-          return {
-            error: 'Validation failed',
-            issues: failure.value.issues
-          } satisfies ValidationErrorResponse
-        }
-        case 'NotFound': {
-          event.res.status = 404
-          return { error: 'User not found', id: failure.value.id } satisfies ErrorResponse
-        }
-        case 'DatabaseError': {
-          event.res.status = 500
-          return { error: 'Database error' } satisfies ErrorResponse
-        }
-        case 'ConfigError': {
-          event.res.status = 500
-          return { error: 'Configuration error' } satisfies ErrorResponse
-        }
+  const program = effect.pipe(
+    Effect.tapCause((cause) => {
+      const failure = Cause.findErrorOption(cause)
+      const expected = Option.isSome(failure) && failure.value._tag !== 'DatabaseError'
+      return expected ? Effect.void : Effect.logError('Request failed', cause)
+    }),
+    Effect.annotateLogs(requestId === undefined ? {} : { requestId }),
+    Effect.withSpan(`${event.req.method} ${event.url.pathname}`)
+  )
+
+  return runtimeOf(event)
+    .runPromiseExit(program)
+    .then((exit) => {
+      if (Exit.isSuccess(exit)) {
+        if (options.successStatus !== undefined) event.res.status = options.successStatus
+        return exit.value
       }
-    }
 
-    event.res.status = 500
-    return { error: 'Internal server error' } satisfies ErrorResponse
-  })
+      const failure = Cause.findErrorOption(exit.cause)
+      if (Option.isSome(failure)) {
+        const [status, body] = toErrorResponse(failure.value)
+        event.res.status = status
+        return body
+      }
+
+      event.res.status = 500
+      return { error: 'Internal server error' } satisfies ErrorResponse
+    })
+}

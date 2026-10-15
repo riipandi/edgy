@@ -1,9 +1,8 @@
 import { Cache, Context, Duration, Effect, Layer, Request, RequestResolver } from 'effect'
-import { DatabaseService } from '../database/runtime.ts'
-import { DatabaseError, NotFound } from '../httputils/errors.ts'
 import type { CreateUserInput } from '../httputils/validator.ts'
+import { type DatabaseError, NotFound } from '../kernel/errors.ts'
 import type { UserRow } from '../schemas/user_schema.ts'
-import { findAllUsers, findUserById, insertUser } from '../stores/user_store.ts'
+import { UserRepository } from '../stores/user_repository.ts'
 
 /**
  * Typed request for a single user. Requests are plain data descriptions; the
@@ -16,52 +15,47 @@ interface GetUserRequest extends Request.Request<UserRow | undefined, DatabaseEr
 
 const GetUserRequest = Request.tagged<GetUserRequest>('GetUserRequest')
 
-/**
- * Read-through cache for `getUser`, keyed by request equality (the id).
- * Entries expire after a short TTL so reads stay fresh.
- */
-export class UserCache extends Context.Service<
-  UserCache,
-  Cache.Cache<GetUserRequest, UserRow | undefined, DatabaseError>
->()('UserCache') {}
+/** Business operations on users. Handlers depend on this key only. */
+export class UserService extends Context.Service<
+  UserService,
+  {
+    /** Returns a user or fails with `NotFound`. Reads are served through a cache. */
+    readonly get: (id: number) => Effect.Effect<UserRow, NotFound | DatabaseError>
+    /** Returns every user. */
+    readonly list: Effect.Effect<Array<UserRow>, DatabaseError>
+    /** Creates a user from validated input. */
+    readonly create: (input: CreateUserInput) => Effect.Effect<UserRow, DatabaseError>
+  }
+>()('UserService') {
+  /**
+   * The read-through cache is private to this layer: it is keyed by request
+   * equality (the id), holds 256 entries and expires after 30 seconds, so reads
+   * can be up to 30s stale. Writes and `list` bypass it.
+   */
+  static readonly layer: Layer.Layer<UserService, never, UserRepository> = Layer.effect(
+    UserService,
+    Effect.gen(function* () {
+      const repository = yield* UserRepository
 
-/**
- * Builds the cache from the database layer. The resolver captures the database
- * service at construction, so cache lookups require only `UserCache`.
- */
-export const UserCacheLayer: Layer.Layer<UserCache, never, DatabaseService> = Layer.effect(
-  UserCache,
-  Effect.gen(function* () {
-    const database = yield* DatabaseService
+      const resolver = RequestResolver.fromEffect((entry: Request.Entry<GetUserRequest>) =>
+        repository.findById(entry.request.id)
+      )
+      const cache = yield* RequestResolver.asCache(resolver, {
+        capacity: 256,
+        timeToLive: () => Duration.seconds(30)
+      })
 
-    const resolver = RequestResolver.fromEffect((entry: Request.Entry<GetUserRequest>) =>
-      findUserById(entry.request.id).pipe(Effect.provideService(DatabaseService, database))
-    )
-
-    return yield* RequestResolver.asCache(resolver, {
-      capacity: 256,
-      timeToLive: () => Duration.seconds(30)
+      return UserService.of({
+        get: Effect.fn('UserService.get')(function* (id: number) {
+          const user = yield* Cache.get(cache, GetUserRequest({ id }))
+          if (user === undefined) return yield* new NotFound({ id })
+          return user
+        }),
+        list: repository.findAll,
+        create: Effect.fn('UserService.create')((input: CreateUserInput) =>
+          repository.insert(input)
+        )
+      })
     })
-  })
-)
-
-/** Returns a user or fails with `NotFound`. Reads are served through the cache. */
-export function getUser(id: number): Effect.Effect<UserRow, NotFound | DatabaseError, UserCache> {
-  return UserCache.use((cache) => Cache.get(cache, GetUserRequest({ id }))).pipe(
-    Effect.filterOrFail(
-      (user): user is UserRow => user !== undefined,
-      () => new NotFound({ id })
-    ),
-    Effect.withSpan('UserService.getUser', { attributes: { userId: id } })
   )
-}
-
-/** Returns every user. */
-export const listUsers: Effect.Effect<Array<UserRow>, DatabaseError, DatabaseService> = findAllUsers
-
-/** Creates a user from validated input. */
-export function createUser(
-  input: CreateUserInput
-): Effect.Effect<UserRow, DatabaseError, DatabaseService> {
-  return insertUser(input)
 }

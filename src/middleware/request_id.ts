@@ -26,10 +26,7 @@ const inboundRequestId = (event: H3Event): string | undefined => {
  * Handlers and other middleware read the id through this helper rather than
  * touching `event.context` directly.
  */
-export const requestIdOf = (event: H3Event): string | undefined => {
-  const id = event.context.requestId
-  return typeof id === 'string' ? id : undefined
-}
+export const requestIdOf = (event: H3Event): string | undefined => event.context.requestId
 
 /**
  * Request id plugin.

@@ -1,7 +1,7 @@
 import { Effect } from 'effect'
 import { Command } from 'effect/cli'
 import { getMigrationInfos } from '../database/migrator.ts'
-import { DatabaseLayer } from '../runtime.ts'
+import { DatabaseService } from '../database/service.ts'
 import { print } from './helper.ts'
 
 /** `migrate:status` — show the migration status, grouped by state. */
@@ -28,4 +28,7 @@ export const migrateStatusCmd = Command.make('migrate:status', {}, () =>
     }
     if (pending.length === 0) yield* print('  (none)')
   })
-).pipe(Command.provide(DatabaseLayer), Command.withDescription('Check database migration status'))
+).pipe(
+  Command.provide(DatabaseService.layer),
+  Command.withDescription('Check database migration status')
+)

@@ -1,15 +1,15 @@
-import { NodeRuntime, NodeServices } from '@effect/platform-node'
-import { Effect, Layer } from 'effect'
+import { NodeRuntime } from '@effect/platform-node'
+import { Effect } from 'effect'
 import { run } from './command/cli.ts'
-import { ObservabilityLayer } from './runtime.ts'
+import { CoreLayer } from './kernel/layers.ts'
 
 /**
- * CLI entry point.
+ * CLI entry point and the only place that calls `Effect.provide` with a layer.
  *
- * `ObservabilityLayer` supplies the configured logger and minimum log level
- * (`LOG_LEVEL`) to every subcommand, so `migrate`, `seed` and `serve` all
- * respect the same verbosity setting.
+ * `CoreLayer` gives every subcommand the validated configuration, the
+ * non-blocking logger and the platform services; commands add their own data
+ * layers through `Command.provide`. `runMain` interrupts on `SIGINT`/`SIGTERM`,
+ * which closes every scope — server, database, then the log buffer, flushed last.
  */
-// Single composition point for process-wide services; commands add their own via `Command.provide`.
 // oxlint-disable-next-line effecttsgo/strict-effect-provide
-run.pipe(Effect.provide(Layer.merge(NodeServices.layer, ObservabilityLayer)), NodeRuntime.runMain)
+run.pipe(Effect.provide(CoreLayer), NodeRuntime.runMain)

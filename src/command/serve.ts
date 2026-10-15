@@ -1,8 +1,7 @@
-import { Effect, Layer } from 'effect'
+import { Effect } from 'effect'
 import { Command, Flag } from 'effect/cli'
-import { ConfigLayer } from '../config.ts'
 import { migrateToLatest } from '../database/migrator.ts'
-import { AppRuntime, DatabaseLayer } from '../runtime.ts'
+import { AppLayer } from '../kernel/layers.ts'
 import { serveHttp } from '../server.ts'
 
 /** `serve` — start the HTTP server, optionally migrating first. */
@@ -28,9 +27,6 @@ export const serveCmd = Command.make(
         }
       }
 
-      yield* serveHttp
-    }).pipe(Effect.ensuring(Effect.promise(() => AppRuntime.dispose())))
-).pipe(
-  Command.provide(Layer.merge(ConfigLayer, DatabaseLayer)),
-  Command.withDescription('Start the HTTP server')
-)
+      return yield* serveHttp
+    })
+).pipe(Command.provide(AppLayer), Command.withDescription('Start the HTTP server'))

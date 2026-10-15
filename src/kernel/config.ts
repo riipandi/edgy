@@ -1,4 +1,4 @@
-import { Config, ConfigProvider, Context, Effect, Layer, LogLevel } from 'effect'
+import { Config, ConfigProvider, Context, Duration, Effect, Layer, LogLevel } from 'effect'
 
 /** Parsed CORS policy, consumed by the CORS middleware. */
 export interface CorsConfig {
@@ -14,6 +14,9 @@ export interface CorsConfig {
   readonly maxAge: string | false
 }
 
+/** Wire format of the log sink: human-readable lines or one JSON object per line. */
+export type LogFormat = 'pretty' | 'json'
+
 /**
  * Shape of the parsed, validated application configuration.
  */
@@ -23,6 +26,10 @@ export interface AppConfig {
   readonly port: number
   /** Minimum severity emitted by the Effect logger. */
   readonly logLevel: LogLevel.LogLevel
+  /** Output format of the log sink. */
+  readonly logFormat: LogFormat
+  /** How long log lines are buffered before a single batched write to stdout. */
+  readonly logFlushInterval: Duration.Duration
   /** Cross-origin policy applied to every route. */
   readonly cors: CorsConfig
 }
@@ -89,13 +96,18 @@ const corsSchema = Config.all({
  * with a typed `ConfigError` while the layer is being built.
  *
  * `LOG_LEVEL` accepts Effect's level names (`All`, `Fatal`, `Error`, `Warn`,
- * `Info`, `Debug`, `Trace`, `None`) and is case-sensitive.
+ * `Info`, `Debug`, `Trace`, `None`) and is case-sensitive. `LOG_FORMAT` is
+ * `pretty` or `json`; `LOG_FLUSH_INTERVAL` is a duration such as `250 millis`.
  */
 const schema = Config.all({
   databasePath: Config.String('DATABASE_PATH').pipe(Config.withDefault('./storage/data/edgy.db')),
   host: Config.String('HOST').pipe(Config.withDefault('0.0.0.0')),
   port: Config.Port('PORT').pipe(Config.withDefault(3000)),
   logLevel: Config.LogLevel('LOG_LEVEL').pipe(Config.withDefault('Info')),
+  logFormat: Config.Literals(['pretty', 'json'], 'LOG_FORMAT').pipe(Config.withDefault('pretty')),
+  logFlushInterval: Config.Duration('LOG_FLUSH_INTERVAL').pipe(
+    Config.withDefault(Duration.millis(250))
+  ),
   cors: corsSchema
 })
 

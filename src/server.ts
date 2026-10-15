@@ -1,14 +1,19 @@
 import { Effect } from 'effect'
 import { serve } from 'h3'
-import { app } from './app.ts'
-import { ConfigService } from './config.ts'
+import { createApp } from './app.ts'
+import { makeHttpRuntime } from './httputils/runtime.ts'
+import { ConfigService } from './kernel/config.ts'
 
 /**
  * Starts the HTTP server and keeps the effect running until it is interrupted
- * (for example by `SIGINT`). The server is closed when the scope finalises.
+ * (for example by `SIGINT`). The server closes when the scope finalises, and
+ * because the services are the command's own layers, the database connection
+ * and the log buffer are released right after it, in reverse order.
  */
-export const serveHttp: Effect.Effect<void, never, ConfigService> = Effect.gen(function* () {
-  const { host, port } = yield* ConfigService
+export const serveHttp = Effect.gen(function* () {
+  const { host, port, cors } = yield* ConfigService
+  const runtime = yield* makeHttpRuntime
+  const app = createApp({ runtime, cors })
 
   yield* Effect.logInfo(`Starting server on http://${host}:${port}`)
 

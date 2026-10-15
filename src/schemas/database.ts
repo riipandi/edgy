@@ -1,5 +1,3 @@
-import type { Kysely } from 'kysely'
-
 /**
  * Aggregated database schema.
  *
@@ -8,6 +6,3 @@ import type { Kysely } from 'kysely'
  * without a central registry to maintain.
  */
 export interface Database {}
-
-/** Kysely database handle bound to the aggregated {@link Database} schema. */
-export type Db = Kysely<Database>

@@ -25,7 +25,7 @@ export const usersRoutes: H3Plugin = defineGroup({
  * group carries its own middleware — `Cache-Control` here — without leaking it
  * to any other route.
  */
-export const wellKnownRoutes: H3Plugin = defineGroup({
+const wellKnownRoutes: H3Plugin = defineGroup({
   prefix: '/.well-known',
   middleware: [cacheControl({ value: 'public, max-age=86400' })],
   routes: (r) => {
@@ -41,7 +41,7 @@ export const wellKnownRoutes: H3Plugin = defineGroup({
  *
  * Declared as a plugin so `app.ts` composes it like every other group.
  */
-export const rootRoutes: H3Plugin = (app) => {
+const rootRoutes: H3Plugin = (app) => {
   app.get('/', () => ({ message: 'All is well' }))
 }
 

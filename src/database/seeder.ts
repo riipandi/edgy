@@ -1,7 +1,7 @@
 import { Effect } from 'effect'
-import type { DatabaseService } from '../database/runtime.ts'
-import type { DatabaseError } from '../httputils/errors.ts'
+import type { DatabaseError } from '../kernel/errors.ts'
 import { seedUsers } from './seeders/user_factory.ts'
+import type { DatabaseService } from './service.ts'
 
 export interface Seeder {
   /** Registry name shown by `migrate:seed --dry-run` and `migrate:status`. */

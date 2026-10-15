@@ -5,7 +5,7 @@ The layout, the toolchain, and the commands. Read once; return when a path or a 
 ## Stack
 
 - Node.js >= 24.22 (native TypeScript stripping — source runs directly, no build step in development), pnpm 12 (`devEngines`; `npx` rejected)
-- Effect v4 (typed errors, DI layers, CLI, Config, Logger, Schema, Cache)
+- Effect v4 (typed errors, DI layers, CLI, Config, Logger, Schema, Cache, Metric)
 - h3 v2 (plugin-based routing, rou3 trie)
 - Kysely 0.29 on `node:sqlite` (zero native addons)
 - oxfmt + oxlint for formatting/linting, `tsc -b --noEmit` for typecheck, Rolldown for bundling
@@ -14,21 +14,22 @@ The layout, the toolchain, and the commands. Read once; return when a path or a 
 
 ```text
 src/
-  main.ts            # CLI entry (run by Node directly)
-  app.ts             # composition root: global plugins + route groups
-  server.ts          # h3 serve + Effect lifecycle
-  config.ts          # ConfigService (validated env config, ConfigLayer)
-  runtime.ts         # ObservabilityLayer, DatabaseLayer, CacheLayer, MainLayer, AppRuntime
+  main.ts            # CLI entry (run by Node directly); the only Effect.provide
+  app.ts             # createApp(options): global plugins + route groups
+  server.ts          # serveHttp: captures the HttpRuntime, starts h3 inside a scope
+  kernel/            # config.ts (ConfigService), errors.ts (AppError union), layers.ts (CoreLayer, AppLayer)
+  observer/          # logger.ts (non-blocking batched sink), metrics.ts, http_observer.ts (request log + metrics)
   command/           # effect/cli commands (cli.ts + one file per command + helper.ts)
   routes/            # group.ts (defineGroup plugin), route.ts (groups + registration order)
-  middleware/        # cors, request_id, request_logger, cache_control
+  middleware/        # cors, request_id, cache_control
   handler/           # H3 event handlers, thin
-  service/           # Effect programs (business logic), user_service owns UserCache
-  stores/            # Kysely queries
+  service/           # UserService (Context.Service + layer; owns the private user cache)
+  stores/            # UserRepository (Context.Service + layer; Kysely queries)
   schemas/           # Effect Schema: database.ts (table types), user_schema.ts
-  httputils/         # errors.ts (AppError union), responder.ts (runEffect), validator.ts
+  httputils/         # runtime.ts (HttpRuntime bridge), responder.ts (runEffect), validator.ts (decode)
   database/
     dialect/         # NodeSQLiteDialect over node:sqlite (+ connection, driver, mutex)
+    service.ts       # DatabaseService (db + query helper) and its layer
     migrator.ts      # Migrator wiring: getMigrationInfos, migrateToLatest, migrateTo, migrateDown
     migrations/      # index.ts static registry + one file per migration
     seeder.ts        # named seeder registry + runSeeders
@@ -50,9 +51,10 @@ docs/                # human-facing docs: commandline.md, configuration.md, api-
 ## Conventions
 
 - **TypeScript strict**, `.ts` extension on relative imports (Node type stripping)
-- Effects are typed `Effect<A, AppError, AppEnv>`; handlers stay thin and delegate to `runEffect` (`src/httputils/responder.ts`)
-- DI by `Context.Service` + `Layer`; the composition root is `src/runtime.ts` (`AppRuntime`)
+- Handler programs are `Effect<A, AppError, HttpEnv>`; handlers stay thin and delegate to `runEffect` (`src/httputils/responder.ts`)
+- DI by `Context.Service` with a `static layer` on the class; layers are composed in `src/kernel/layers.ts` (`CoreLayer` once in `main.ts`, `AppLayer` per command). There is no global runtime
+- Service methods use `Effect.fn('Service.method')` so every call gets a span
 - `Effect.provide(layer)` appears only at the entry point (`src/main.ts`, lint rule `effecttsgo/strict-effect-provide`); per-command layers go through `Command.provide`. Argument checks use `ensure` (`src/command/helper.ts`), not a bare `return` next to `return yield*`
-- Route groups are h3 plugins (`defineGroup`); global middleware runs in registration order (`src/app.ts`: cors → requestId → requestLogger) and is registered before groups mount
+- Route groups are h3 plugins (`defineGroup`); global middleware runs in registration order (`src/app.ts`: provideRuntime → cors → requestId → httpObserver) and is registered before groups mount
 - Comments carry a why/contract/trap, never restate the next line
 - Prose: `.llms/` is for agents (technical, file:line evidence); `docs/` is for humans (no internals, no paths); tree documents are English, no hard wrapping

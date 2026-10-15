@@ -8,6 +8,8 @@ All configuration is read from environment variables through Effect's `Config`, 
 | `HOST`               | `0.0.0.0`                  | Bind address                                                           |
 | `PORT`               | `3000`                     | Bind port                                                              |
 | `LOG_LEVEL`          | `Info`                     | `All` \| `Fatal` \| `Error` \| `Warn` \| `Info` \| `Debug` \| `Trace` \| `None` (**case-sensitive**) |
+| `LOG_FORMAT`         | `pretty`                   | `pretty` for readable lines, `json` for one JSON object per line       |
+| `LOG_FLUSH_INTERVAL` | `250 millis`               | How long log lines are buffered before they are written together        |
 | `CORS_ORIGINS`       | `*`                        | `*` or a comma-separated allowlist                                     |
 | `CORS_METHODS`       | `*`                        | `*` or a comma-separated list                                          |
 | `CORS_ALLOW_HEADERS` | `*`                        | `*` or a comma-separated list                                          |

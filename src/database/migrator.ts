@@ -8,9 +8,9 @@ import type {
   MigrationResult,
   MigrationResultSet
 } from 'kysely/migration'
-import { DatabaseError } from '../httputils/errors.ts'
+import type { DatabaseError } from '../kernel/errors.ts'
 import { migrations } from './migrations/index.ts'
-import { DatabaseService } from './runtime.ts'
+import { DatabaseService } from './service.ts'
 
 /**
  * Migration provider backed by the static registry in `./migrations/index.ts`.
@@ -38,14 +38,11 @@ const makeMigrator = (db: DatabaseService['Service']['db']): Migrator =>
 const runMigration = (
   execute: (migrator: Migrator) => Promise<MigrationResultSet>
 ): Effect.Effect<ReadonlyArray<MigrationResult>, DatabaseError, DatabaseService> =>
-  DatabaseService.use(({ db }) =>
-    Effect.tryPromise({
-      try: async () => {
-        const { error, results } = await execute(makeMigrator(db))
-        if (error) throw error
-        return results ?? []
-      },
-      catch: (cause) => new DatabaseError({ cause })
+  DatabaseService.use(({ query }) =>
+    query(async (db) => {
+      const { error, results } = await execute(makeMigrator(db))
+      if (error) throw error
+      return results ?? []
     })
   )
 
@@ -57,12 +54,7 @@ export const getMigrationInfos: Effect.Effect<
   ReadonlyArray<MigrationInfo>,
   DatabaseError,
   DatabaseService
-> = DatabaseService.use(({ db }) =>
-  Effect.tryPromise({
-    try: () => makeMigrator(db).getMigrations(),
-    catch: (cause) => new DatabaseError({ cause })
-  })
-)
+> = DatabaseService.use(({ query }) => query((db) => makeMigrator(db).getMigrations()))
 
 /** Runs every migration that has not been applied yet. */
 export const migrateToLatest: Effect.Effect<

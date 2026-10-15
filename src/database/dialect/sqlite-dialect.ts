@@ -5,7 +5,7 @@
  * Adaptations for this project:
  * - The `node:sqlite` `DatabaseSync` handle is injected instead of being
  *   constructed from constructor args, because the Effect runtime owns the
- *   connection lifecycle (`database/runtime.ts`).
+ *   connection lifecycle (`database/service.ts`).
  * - Reuses Kysely's stock SQLite adapter, introspector and query compiler; only
  *   the driver is custom.
  */

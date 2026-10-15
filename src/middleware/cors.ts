@@ -1,6 +1,5 @@
 import { definePlugin, handleCors, type CorsOptions } from 'h3'
-import { ConfigService, type CorsConfig } from '../config.ts'
-import { AppRuntime } from '../runtime.ts'
+import type { CorsConfig } from '../kernel/config.ts'
 
 /** Translates the app's CORS configuration into h3's `CorsOptions`. */
 const toCorsOptions = (cors: CorsConfig): CorsOptions => ({
@@ -24,13 +23,12 @@ const toCorsOptions = (cors: CorsConfig): CorsOptions => ({
  * h3 writes these headers to both `event.res.headers` and `event.res.errHeaders`,
  * so CORS survives on error responses too.
  *
- * Configuration is resolved once, when the plugin is registered, and the
- * `credentials` + wildcard-origin combination is rejected at startup by the
- * config layer.
+ * The policy is passed in by the composition root (`createApp`), which reads it
+ * from `ConfigService`; the `credentials` + wildcard-origin combination is
+ * already rejected at startup by the config layer.
  */
-export const cors = definePlugin((app) => {
-  const { cors: corsConfig } = AppRuntime.runSync(ConfigService)
-  const options = toCorsOptions(corsConfig)
+export const cors = definePlugin<CorsConfig>((app, config) => {
+  const options = toCorsOptions(config)
 
   app.use((event, next) => {
     const preflight = handleCors(event, options)

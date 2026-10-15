@@ -5,7 +5,7 @@
  * Adaptations for this project:
  * - The `node:sqlite` `DatabaseSync` handle is injected instead of being
  *   constructed here, because its lifecycle is owned by the Effect runtime
- *   (`Effect.acquireRelease` in `database/runtime.ts`).
+ *   (`Effect.acquireRelease` in `database/service.ts`).
  * - `insertId` / `numAffectedRows` are normalised to `bigint`.
  */
 import type { CompiledQuery, DatabaseConnection, QueryResult } from 'kysely'
