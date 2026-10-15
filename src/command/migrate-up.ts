@@ -45,5 +45,5 @@ export const migrateUpCmd = Command.make(
       for (const result of results) {
         yield* print(`${result.status}: ${result.migrationName}`)
       }
-    }).pipe(Effect.provide(DatabaseLayer))
-).pipe(Command.withDescription('Run database migrations'))
+    })
+).pipe(Command.provide(DatabaseLayer), Command.withDescription('Run database migrations'))

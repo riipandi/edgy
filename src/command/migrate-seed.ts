@@ -25,5 +25,8 @@ export const migrateSeedCmd = Command.make(
 
       yield* runSeeders
       yield* print('Seeders completed')
-    }).pipe(Effect.provide(DatabaseLayer))
-).pipe(Command.withDescription('Seed the database with initial data'))
+    })
+).pipe(
+  Command.provide(DatabaseLayer),
+  Command.withDescription('Seed the database with initial data')
+)

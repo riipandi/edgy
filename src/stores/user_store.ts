@@ -13,13 +13,12 @@ export const findUserById = (id: number) =>
   )
 
 /** Lists every user ordered by id. */
-export const findAllUsers = () =>
-  DatabaseService.use(({ db }) =>
-    Effect.tryPromise({
-      try: () => db.selectFrom('users').selectAll().orderBy('id').execute(),
-      catch: (cause) => new DatabaseError({ cause })
-    })
-  )
+export const findAllUsers = DatabaseService.use(({ db }) =>
+  Effect.tryPromise({
+    try: () => db.selectFrom('users').selectAll().orderBy('id').execute(),
+    catch: (cause) => new DatabaseError({ cause })
+  })
+)
 
 /** Inserts a user and returns the stored row. */
 export const insertUser = (input: CreateUserInput) =>

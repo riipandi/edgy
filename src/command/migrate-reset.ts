@@ -1,10 +1,10 @@
 import { Effect } from 'effect'
-import { CliError, Command, Flag } from 'effect/cli'
+import { Command, Flag } from 'effect/cli'
 import { NO_MIGRATIONS } from 'kysely/migration'
 import { getMigrationInfos, migrateTo, migrateToLatest } from '../database/migrator.ts'
 import { runSeeders, seederNames } from '../database/seeder.ts'
 import { DatabaseLayer } from '../runtime.ts'
-import { confirmDestructive, print } from './helper.ts'
+import { confirmDestructive, ensure, print } from './helper.ts'
 
 /** `migrate:reset` — roll back every migration, optionally re-apply and seed. */
 export const migrateResetCmd = Command.make(
@@ -29,14 +29,7 @@ export const migrateResetCmd = Command.make(
   },
   (config) =>
     Effect.gen(function* () {
-      if (config.seed && !config.up) {
-        yield* Effect.fail(
-          new CliError.UserError({
-            cause: 'seed requires up',
-            userMessage: 'The --seed flag requires --up'
-          })
-        )
-      }
+      yield* ensure(!config.seed || config.up, 'The --seed flag requires --up')
 
       if (config['dry-run']) {
         const infos = yield* getMigrationInfos
@@ -79,5 +72,5 @@ export const migrateResetCmd = Command.make(
         yield* runSeeders
         yield* print('Seeders completed')
       }
-    }).pipe(Effect.provide(DatabaseLayer))
-).pipe(Command.withDescription('Rollback all migrations'))
+    })
+).pipe(Command.provide(DatabaseLayer), Command.withDescription('Rollback all migrations'))

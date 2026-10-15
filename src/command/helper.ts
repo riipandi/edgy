@@ -1,5 +1,5 @@
 import { Effect } from 'effect'
-import { Prompt } from 'effect/cli'
+import { CliError, Prompt } from 'effect/cli'
 
 /**
  * Plain console output for CLI commands.
@@ -21,6 +21,18 @@ export const print = (...args: readonly unknown[]): Effect.Effect<void> =>
 /** Same as {@link print}, but writes to stderr (warnings and refusals). */
 export const printWarning = (...args: readonly unknown[]): Effect.Effect<void> =>
   Effect.sync(() => console.error(...args))
+
+/**
+ * Fails with a `UserError` (a usage message, not a stack trace) unless
+ * `condition` holds. Use it for flag combinations the parser cannot reject.
+ */
+export const ensure = (
+  condition: boolean,
+  message: string
+): Effect.Effect<void, CliError.UserError> =>
+  condition
+    ? Effect.void
+    : Effect.fail(new CliError.UserError({ cause: message, userMessage: message }))
 
 /**
  * Asks the user for confirmation before a destructive operation

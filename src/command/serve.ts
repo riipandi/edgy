@@ -1,4 +1,4 @@
-import { Effect } from 'effect'
+import { Effect, Layer } from 'effect'
 import { Command, Flag } from 'effect/cli'
 import { ConfigLayer } from '../config.ts'
 import { migrateToLatest } from '../database/migrator.ts'
@@ -17,7 +17,7 @@ export const serveCmd = Command.make(
   (config) =>
     Effect.gen(function* () {
       if (config['auto-migrate']) {
-        const results = yield* migrateToLatest.pipe(Effect.provide(DatabaseLayer))
+        const results = yield* migrateToLatest
         if (results.length === 0) {
           yield* Effect.logInfo('No pending migrations')
         } else {
@@ -29,8 +29,8 @@ export const serveCmd = Command.make(
       }
 
       yield* serveHttp
-    }).pipe(
-      Effect.provide(ConfigLayer),
-      Effect.ensuring(Effect.promise(() => AppRuntime.dispose()))
-    )
-).pipe(Command.withDescription('Start the HTTP server'))
+    }).pipe(Effect.ensuring(Effect.promise(() => AppRuntime.dispose())))
+).pipe(
+  Command.provide(Layer.merge(ConfigLayer, DatabaseLayer)),
+  Command.withDescription('Start the HTTP server')
+)

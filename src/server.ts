@@ -18,5 +18,5 @@ export const serveHttp: Effect.Effect<void, never, ConfigService> = Effect.gen(f
   )
 
   // Keep the fiber alive so the scope (and the server) stays open.
-  yield* Effect.never
+  return yield* Effect.never
 }).pipe(Effect.scoped)

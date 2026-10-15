@@ -10,4 +10,6 @@ import { ObservabilityLayer } from './runtime.ts'
  * (`LOG_LEVEL`) to every subcommand, so `migrate`, `seed` and `serve` all
  * respect the same verbosity setting.
  */
+// Single composition point for process-wide services; commands add their own via `Command.provide`.
+// oxlint-disable-next-line effecttsgo/strict-effect-provide
 run.pipe(Effect.provide(Layer.merge(NodeServices.layer, ObservabilityLayer)), NodeRuntime.runMain)

@@ -27,5 +27,5 @@ export const migrateStatusCmd = Command.make('migrate:status', {}, () =>
       yield* print(`  ${info.name}`)
     }
     if (pending.length === 0) yield* print('  (none)')
-  }).pipe(Effect.provide(DatabaseLayer))
-).pipe(Command.withDescription('Check database migration status'))
+  })
+).pipe(Command.provide(DatabaseLayer), Command.withDescription('Check database migration status'))

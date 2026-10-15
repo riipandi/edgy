@@ -48,15 +48,16 @@ export const UserCacheLayer: Layer.Layer<UserCache, never, DatabaseService> = La
 /** Returns a user or fails with `NotFound`. Reads are served through the cache. */
 export function getUser(id: number): Effect.Effect<UserRow, NotFound | DatabaseError, UserCache> {
   return UserCache.use((cache) => Cache.get(cache, GetUserRequest({ id }))).pipe(
-    Effect.flatMap((user) => (user ? Effect.succeed(user) : Effect.fail(new NotFound({ id })))),
+    Effect.filterOrFail(
+      (user): user is UserRow => user !== undefined,
+      () => new NotFound({ id })
+    ),
     Effect.withSpan('UserService.getUser', { attributes: { userId: id } })
   )
 }
 
 /** Returns every user. */
-export function listUsers(): Effect.Effect<Array<UserRow>, DatabaseError, DatabaseService> {
-  return findAllUsers()
-}
+export const listUsers: Effect.Effect<Array<UserRow>, DatabaseError, DatabaseService> = findAllUsers
 
 /** Creates a user from validated input. */
 export function createUser(

@@ -5,7 +5,7 @@ import { createUser, getUser, listUsers } from '../service/user_service.ts'
 
 /** `GET /users` — list every user. */
 export async function listUsersHandler(event: H3Event) {
-  return runEffect(event, listUsers())
+  return runEffect(event, listUsers)
 }
 
 /** `GET /users/:id` — fetch a single user. */

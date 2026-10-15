@@ -1,8 +1,8 @@
 import { Effect } from 'effect'
-import { CliError, Command, Flag } from 'effect/cli'
+import { Command, Flag } from 'effect/cli'
 import { getMigrationInfos, migrateDown } from '../database/migrator.ts'
 import { DatabaseLayer } from '../runtime.ts'
-import { confirmDestructive, print } from './helper.ts'
+import { confirmDestructive, ensure, print } from './helper.ts'
 
 /** `migrate:down` — roll back executed database migrations. */
 export const migrateDownCmd = Command.make(
@@ -25,14 +25,7 @@ export const migrateDownCmd = Command.make(
   },
   (config) =>
     Effect.gen(function* () {
-      if (config.count < 1) {
-        yield* Effect.fail(
-          new CliError.UserError({
-            cause: 'count must be at least 1',
-            userMessage: 'The --count flag must be at least 1'
-          })
-        )
-      }
+      yield* ensure(config.count >= 1, 'The --count flag must be at least 1')
 
       if (config['dry-run']) {
         const infos = yield* getMigrationInfos
@@ -63,5 +56,5 @@ export const migrateDownCmd = Command.make(
       for (const result of results) {
         yield* print(`${result.status}: ${result.migrationName}`)
       }
-    }).pipe(Effect.provide(DatabaseLayer))
-).pipe(Command.withDescription('Rollback database migrations'))
+    })
+).pipe(Command.provide(DatabaseLayer), Command.withDescription('Rollback database migrations'))

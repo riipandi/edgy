@@ -52,6 +52,7 @@ docs/                # human-facing docs: commandline.md, configuration.md, api-
 - **TypeScript strict**, `.ts` extension on relative imports (Node type stripping)
 - Effects are typed `Effect<A, AppError, AppEnv>`; handlers stay thin and delegate to `runEffect` (`src/httputils/responder.ts`)
 - DI by `Context.Service` + `Layer`; the composition root is `src/runtime.ts` (`AppRuntime`)
+- `Effect.provide(layer)` appears only at the entry point (`src/main.ts`, lint rule `effecttsgo/strict-effect-provide`); per-command layers go through `Command.provide`. Argument checks use `ensure` (`src/command/helper.ts`), not a bare `return` next to `return yield*`
 - Route groups are h3 plugins (`defineGroup`); global middleware runs in registration order (`src/app.ts`: cors → requestId → requestLogger) and is registered before groups mount
 - Comments carry a why/contract/trap, never restate the next line
 - Prose: `.llms/` is for agents (technical, file:line evidence); `docs/` is for humans (no internals, no paths); tree documents are English, no hard wrapping
