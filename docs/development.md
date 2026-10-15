@@ -49,8 +49,8 @@ the pages themselves.
 
 ## Database workflow
 
-Migrations are applied explicitly — nothing runs automatically unless the server starts with
-`serve --auto-migrate` (migrations only, never seeds):
+Migrations are applied explicitly — nothing runs automatically except under `pnpm dev`, or when the
+server starts with `serve --auto-migrate` (migrations only, never seeds):
 
 ```bash
 pnpm app migrate:status     # check what is applied / pending

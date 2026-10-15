@@ -45,6 +45,20 @@ describe('paginationQuery', () => {
     expect(decode(open, { page: '-1' })).toBe(true)
     expect(decode(open, { limit: '101' })).toBe(false)
   })
+
+  it('refuses a page that starts deeper than MAX_OFFSET rows', () => {
+    const schema = paginationQuery(sortable)
+    // Default limit 20: page 501 starts at row 10000, page 502 beyond it.
+    expect(decode(schema, { page: '501' })).toBe(true)
+    expect(decode(schema, { page: '502' })).toBe(false)
+    expect(decode(schema, { page: '101', limit: '100' })).toBe(true)
+    expect(decode(schema, { page: '102', limit: '100' })).toBe(false)
+    expect(decode(schema, { page: String(Number.MAX_SAFE_INTEGER) })).toBe(false)
+  })
+
+  it('lets "all records" through where the resource allows it', () => {
+    expect(decode(paginationQuery(sortable, { allowAll: true }), { page: '-1' })).toBe(true)
+  })
 })
 
 describe('paginationMeta', () => {

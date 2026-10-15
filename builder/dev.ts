@@ -26,7 +26,8 @@ const isDevModule = (value: unknown): value is DevModule =>
 const startsOver = (root: string, file: string): boolean => {
   const relative = path.relative(root, file)
   if (relative.startsWith('..')) return false
-  if (/^\.env(\..+)?$/.test(relative)) return true
+  // `.env.example` is generated documentation, not configuration.
+  if (/^\.env(\..+)?$/.test(relative)) return relative !== '.env.example'
   return relative.startsWith(`src${path.sep}`) && !relative.endsWith('.test.ts')
 }
 
@@ -47,6 +48,7 @@ const startsOver = (root: string, file: string): boolean => {
  */
 export const devServerPlugin = (): Plugin => {
   let runner: ModuleRunner | undefined
+  let restarting: Promise<void> = Promise.resolve()
   let root = process.cwd()
   let running: Promise<Awaited<ReturnType<DevModule['startDevApp']>>> | undefined
   /** Variables set from env files here, so an edited file can replace them. */
@@ -98,15 +100,16 @@ export const devServerPlugin = (): Plugin => {
         logger.info(`${path.relative(root, file)} changed, restarting the application`, {
           timestamp: true
         })
-        void (async () => {
+        // Chained, so a second save during a restart waits instead of starting another app.
+        restarting = restarting.then(async () => {
           await stop()
           applyEnv(devServer.config.mode)
-          current().then(
+          await current().then(
             () => devServer.hot.send({ type: 'full-reload' }),
             (error: unknown) =>
               logger.error(error instanceof Error ? (error.stack ?? error.message) : String(error))
           )
-        })()
+        })
       })
 
       devServer.httpServer?.once('close', () => void stop().then(() => runner?.close()))

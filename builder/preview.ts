@@ -59,6 +59,8 @@ const forward = (port: number, req: http.IncomingMessage, res: http.ServerRespon
     },
     (answer) => {
       res.writeHead(answer.statusCode ?? 502, answer.headers)
+      // The child can die mid-body; an unhandled 'error' here would take the preview down.
+      answer.on('error', () => res.destroy())
       answer.pipe(res)
     }
   )

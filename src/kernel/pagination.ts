@@ -4,6 +4,12 @@ export const DEFAULT_LIMIT = 20
 /** Largest `limit` a caller may ask for; `ALL_RECORDS` is the only way past it. */
 export const MAX_LIMIT = 100
 
+/**
+ * Deepest row a page may start at. An offset scan reads and discards every row before it, and a
+ * synchronous driver cannot be interrupted midway, so a huge `page` would stall the process.
+ */
+export const MAX_OFFSET = 10_000
+
 /** `page` or `limit` value that selects every record in a single page. */
 export const ALL_RECORDS = -1
 

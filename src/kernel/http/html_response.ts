@@ -10,7 +10,7 @@ export interface HtmlTemplate<Input> {
  * `nonce` only. Dev mode widens `style-src` and `connect-src`, because Vite injects styles and
  * opens a hot-reload socket there, and nowhere else.
  */
-export const contentSecurityPolicy = (nonce: string, dev: boolean): string =>
+const contentSecurityPolicy = (nonce: string, dev: boolean): string =>
   [
     "default-src 'none'",
     `script-src 'self' 'nonce-${nonce}'`,

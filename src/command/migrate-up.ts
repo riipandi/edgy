@@ -2,7 +2,7 @@ import { Effect, Option } from 'effect'
 import { Command, Flag } from 'effect/cli'
 import { DatabaseLayer } from '../database/layer.ts'
 import { getMigrationInfos, migrateTo, migrateToLatest } from '../database/migrator.ts'
-import { print } from './helper.ts'
+import { ensure, print } from './helper.ts'
 
 /** Applies pending migrations, stopping at `--to` when given. */
 export const migrateUpCmd = Command.make(
@@ -19,8 +19,19 @@ export const migrateUpCmd = Command.make(
   },
   (config) =>
     Effect.gen(function* () {
+      const infos = yield* getMigrationInfos
+      if (Option.isSome(config.to)) {
+        const target = config.to.value
+        const at = infos.findIndex((info) => info.name === target)
+        yield* ensure(at !== -1, `Unknown migration: ${target}`)
+        // Kysely would roll back the later ones to reach an earlier target; that is migrate:down.
+        yield* ensure(
+          infos.slice(at + 1).every((info) => info.executedAt === undefined),
+          `${target} is already applied and later migrations ran after it; use migrate:down to roll back`
+        )
+      }
+
       if (config['dry-run']) {
-        const infos = yield* getMigrationInfos
         const pending = infos.filter(
           (info) =>
             info.executedAt === undefined &&

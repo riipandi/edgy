@@ -32,12 +32,8 @@
                 "name": "@effect/language-service",
                 "diagnostics": false
             }
-        ],
-        "paths": {
-            "#/*": ["./app/*"],
-            "$/*": ["./src/*"]
-        }
+        ]
     },
     "include": ["**/*.ts", "**/*.marko"],
-    "exclude": [".output", ".wrangler", "dist", "storage", "temp", "vendor"]
+    "exclude": [".output", ".wrangler", "dist", "storage", "vendor"]
 }

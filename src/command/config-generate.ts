@@ -6,7 +6,7 @@ import { confirmDestructive, ensure, print } from './helper.ts'
 
 /** Real dotenv files hold secrets and local overrides, so they are never written. */
 const isRealDotenv = (name: string): boolean =>
-  /^\.env(\..+)?$/.test(name) && name !== '.env.example'
+  /^\.env(\..+)?$/i.test(name) && name.toLowerCase() !== '.env.example'
 
 /**
  * Writes `.env.example` from the declarations the parser reads, so the two cannot drift.

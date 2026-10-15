@@ -4,9 +4,9 @@ import { TestClock } from 'effect/testing'
 import { sql } from 'kysely'
 import { type FakeD1Options, fakeD1 } from '../../tests/d1.ts'
 import { userRow } from '../../tests/ids.ts'
-import { DatabaseError } from '../kernel/errors.ts'
+import { DatabaseError, isTransientFailure } from '../kernel/errors.ts'
 import { D1Binding, D1DatabaseLayer } from './d1.ts'
-import { DatabaseService, isTransientFailure } from './service.ts'
+import { DatabaseService } from './service.ts'
 
 const selectOne = DatabaseService.use(({ read }) =>
   read(

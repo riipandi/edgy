@@ -8,10 +8,10 @@
 | `GET`  | `/users`                    | The user directory as an HTML page (same `page`, `limit` and sort parameters as the API) |
 | `GET`  | `/api/users`                | List users, paginated                             |
 | `GET`  | `/api/users/:id`            | Fetch one user                                    |
-| `POST` | `/api/users`                | Create a user from a JSON body with a required `email` and `name` (`201`) |
+| `POST` | `/api/users`                | Create a user from a JSON body with a required `email` and `name` (`201`). Emails are stored in lowercase, and the same address in another spelling is a `409` |
 | `GET`  | `/.well-known/security.txt` | Contact metadata (RFC 9116 style)                 |
 
-Every endpoint under `/api`, and `/health`, answers in the envelope below. `/health` carries only a `message`, with no `data`. `/` and `/.well-known/*` do not, and neither do the pages (`/`, `/users`), which answer in HTML.
+`HEAD` is answered wherever `GET` is, without a body. Every endpoint under `/api`, and `/health`, answers in the envelope below. `/health` carries only a `message`, with no `data`. `/` and `/.well-known/*` do not, and neither do the pages (`/`, `/users`), which answer in HTML.
 
 **Errors follow the path.** A failure under `/api` is always JSON in the error shape below. A failure anywhere else (an unknown address, a page that could not be built, `/health` while the server shuts down) is an HTML error page showing the status and the request ID, with the same status code and headers. A client that wants JSON stays under `/api`.
 
@@ -63,7 +63,7 @@ List endpoints accept these query parameters:
 
 | Parameter    | Default | Meaning                                                              |
 | ------------ | ------- | -------------------------------------------------------------------- |
-| `page`       | `1`     | Page number, starting at 1                                           |
+| `page`       | `1`     | Page number, starting at 1. A page may start at row 10,000 at most (`400` beyond) |
 | `limit`      | `20`    | Items per page, 1 to 100 (`/api/users` refuses `-1`, "every record") |
 | `sort_by`    | `id`    | Field to sort by. `/api/users` accepts `id`, `email` and `name`      |
 | `sort_order` | `asc`   | `asc` or `desc`                                                      |

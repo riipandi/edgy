@@ -17,6 +17,11 @@ export async function up(db: Kysely<Database>): Promise<void> {
     .columns(['name', 'id'])
     .ifNotExists()
     .execute()
+
+  // One address in two spellings is one user; the repository stores emails lowercase.
+  await sql
+    .raw(`create unique index if not exists users_email_lower_idx on users (lower(email))`)
+    .execute(db)
 }
 
 export async function down(db: Kysely<Database>): Promise<void> {

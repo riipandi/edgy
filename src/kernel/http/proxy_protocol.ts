@@ -152,6 +152,7 @@ export const acceptProxyProtocol = (server: ConnectionSource, trusted: TrustedPr
       const header = parseProxyHeader(received)
       if (header.status === 'need-more') return
       socket.off('data', onData)
+      socket.off('error', onError)
       clearTimeout(timer)
       if (header.status === 'invalid') {
         socket.destroy()
@@ -173,7 +174,13 @@ export const acceptProxyProtocol = (server: ConnectionSource, trusted: TrustedPr
       for (const handler of handlers) handler.call(server, socket)
     }
 
+    // Until the handlers take over there is no 'error' listener, and a reset would crash the process.
+    const onError = () => socket.destroy()
+    socket.on('error', onError)
     socket.on('data', onData)
-    socket.once('close', () => clearTimeout(timer))
+    socket.once('close', () => {
+      clearTimeout(timer)
+      socket.off('error', onError)
+    })
   })
 }

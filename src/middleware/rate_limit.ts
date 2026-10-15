@@ -1,5 +1,5 @@
 import { Duration } from 'effect'
-import { definePlugin, type H3Event, HTTPError } from 'h3'
+import { definePlugin, type H3Event, HTTPError, type Middleware } from 'h3'
 import type { ApiRateLimit } from '../kernel/http/envelope.ts'
 
 /** Outcome of counting one request against a client's allowance. */
@@ -97,18 +97,10 @@ export const makeMemoryRateCheck = (options: {
   }
 }
 
-/**
- * Rate limiter plugin: one allowance per client address, counted by `options.check`.
- *
- * Every response under the limiter carries `x-ratelimit-limit`, `x-ratelimit-remaining` and
- * `x-ratelimit-reset`, and the same values reach the success envelope. An exhausted allowance
- * answers `429` with `retry-after`.
- *
- * Register it on the API group, not globally, so probes and `/.well-known` stay reachable.
- * Whether it is registered at all is `RATE_LIMIT_ENABLED`, decided by the caller.
- */
-export const rateLimit = definePlugin<RateLimitOptions>((app, options) => {
-  app.use(async (event, next) => {
+/** The limiter as one middleware, for a route that sits outside a group (`{ middleware: [...] }`). */
+export const rateLimitMiddleware =
+  (options: RateLimitOptions): Middleware =>
+  async (event, next) => {
     const decision = await options.check(options.clientOf(event))
 
     const info: ApiRateLimit = {
@@ -135,5 +127,18 @@ export const rateLimit = definePlugin<RateLimitOptions>((app, options) => {
     }
 
     return next()
-  })
+  }
+
+/**
+ * Rate limiter plugin: one allowance per client address, counted by `options.check`.
+ *
+ * Every response under the limiter carries `x-ratelimit-limit`, `x-ratelimit-remaining` and
+ * `x-ratelimit-reset`, and the same values reach the success envelope. An exhausted allowance
+ * answers `429` with `retry-after`.
+ *
+ * Register it on the API group, not globally, so probes and `/.well-known` stay reachable.
+ * Whether it is registered at all is `RATE_LIMIT_ENABLED`, decided by the caller.
+ */
+export const rateLimit = definePlugin<RateLimitOptions>((app, options) => {
+  app.use(rateLimitMiddleware(options))
 })

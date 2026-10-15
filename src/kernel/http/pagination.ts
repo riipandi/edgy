@@ -1,5 +1,5 @@
 import { Schema } from 'effect'
-import { ALL_RECORDS, DEFAULT_LIMIT, MAX_LIMIT } from '../pagination.ts'
+import { ALL_RECORDS, DEFAULT_LIMIT, MAX_LIMIT, MAX_OFFSET } from '../pagination.ts'
 import type { PageRequest, PageSummary, SortOrder } from '../pagination.ts'
 
 /** Pagination metadata of a success response (snake_case: it is the wire contract). */
@@ -40,7 +40,7 @@ const positiveOrAll = (what: string, max: number, allowAll: boolean) =>
  *
  * `-1` for `page` or `limit` (every record in one page) is refused unless `allowAll` is set: it
  * lets any caller read a whole table at once, which only a bounded, trusted table should offer.
- * Defaults are applied by `toPageRequest`, so this schema decodes exactly what was sent.
+ * A page that would start beyond `MAX_OFFSET` rows is refused. Defaults are applied by `toPageRequest`, so this schema decodes exactly what was sent.
  */
 export const paginationQuery = <const S extends readonly [string, ...string[]]>(
   sortable: S,
@@ -53,7 +53,17 @@ export const paginationQuery = <const S extends readonly [string, ...string[]]>(
     limit: Schema.optional(positiveOrAll('limit', MAX_LIMIT, options.allowAll === true)),
     sort_by: Schema.optional(Schema.Literals(sortable)),
     sort_order: Schema.optional(Schema.Literals(['asc', 'desc']))
-  })
+  }).pipe(
+    Schema.check(
+      Schema.makeFilter((query) => {
+        const { page, limit } = query
+        if (page === undefined || page === ALL_RECORDS || limit === ALL_RECORDS) return undefined
+        return (page - 1) * (limit ?? DEFAULT_LIMIT) <= MAX_OFFSET
+          ? undefined
+          : `page is too deep: a page may start at row ${MAX_OFFSET} at most`
+      })
+    )
+  )
 
 /** Applies defaults and normalises "all records" into the request a repository consumes. */
 export const toPageRequest = <S extends string>(

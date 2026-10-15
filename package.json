@@ -29,7 +29,6 @@
         "prepare": "effect-tsgo patch --typescript --oxlint",
         "test:report": "pnpm dlx node-http-server --root .output/tests-results --host 0.0.0.0 --port 8000 --spa --no-cache",
         "test:coverage": "vitest run --coverage --project unit",
-        "test:ui": "vitest --ui",
         "test": "vitest --run --project unit",
         "check": "oxfmt --check && oxlint",
         "format": "oxfmt --write .",

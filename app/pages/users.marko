@@ -1,12 +1,13 @@
 export interface Input {
   users: Array<{ id: string; email: string; name: string }>;
-  total: number;
+  /** Rows after this page, in the order listed. */
+  remaining: number;
 }
 
 <app-shell title="Users">
   <h1>Users</h1>
   <user-list users=input.users/>
-  <if=(input.total > input.users.length)>
-    <p>${input.total - input.users.length} more not shown.</p>
+  <if=(input.remaining > 0)>
+    <p>${input.remaining} more not shown.</p>
   </if>
 </app-shell>

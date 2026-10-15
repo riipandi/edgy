@@ -182,6 +182,33 @@ describe('acceptProxyProtocol', () => {
     expect(socket.destroyed).toBe(true)
   })
 
+  it('survives a reset while the header is still being read', async () => {
+    const server = new FakeServer()
+    acceptProxyProtocol(server, trusted)
+    const socket = connect(server, '10.0.0.5')
+
+    socket.write(text('PROXY TCP4 203.0.'))
+    await settle()
+    // An unhandled 'error' event would throw out of the process here.
+    socket.destroy(Object.assign(new Error('read ECONNRESET'), { code: 'ECONNRESET' }))
+    await settle()
+
+    expect(socket.destroyed).toBe(true)
+    expect(server.accepted).toHaveLength(0)
+    expect(socket.listenerCount('error')).toBe(0)
+  })
+
+  it('leaves the error handling to the HTTP handlers once the header is read', async () => {
+    const server = new FakeServer()
+    acceptProxyProtocol(server, trusted)
+    const socket = connect(server, '10.0.0.5')
+
+    socket.write(text('PROXY TCP4 203.0.113.7 10.0.0.5 51000 443\r\n'))
+    await settle()
+    await settle()
+    expect(socket.listenerCount('error')).toBe(0)
+  })
+
   it('does nothing when no balancer is listed', () => {
     const server = new FakeServer()
     acceptProxyProtocol(server, { kind: 'none' })

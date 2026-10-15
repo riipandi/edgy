@@ -112,6 +112,24 @@ describe('migrate:status, migrate:up', () => {
   })
 })
 
+describe('migrate:up --to guards', () => {
+  it('refuses a name that is not a migration', async () => {
+    const outcome = await cli('guard.db', 'migrate:up', '--to', 'nope')
+    expect(Exit.isFailure(outcome.exit)).toBe(true)
+    expect(JSON.stringify(outcome.exit)).toContain('Unknown migration: nope')
+    expect(lines(await cli('guard.db', 'migrate:status'))).toMatch(/Executed \(0\)/)
+  })
+
+  it('never rolls back: a target already applied is a no-op when nothing ran after it', async () => {
+    const status = await cli('guard2.db', 'migrate:status')
+    const names = [...lines(status).matchAll(/^ {2}(\S+)$/gm)].map((match) => match[1]!)
+    await cli('guard2.db', 'migrate:up')
+    const again = await cli('guard2.db', 'migrate:up', '--to', names.at(-1)!)
+    expect(Exit.isSuccess(again.exit)).toBe(true)
+    expect(lines(again)).toBe('No pending migrations')
+  })
+})
+
 describe('migrate:down', () => {
   it('rejects a count below 1', async () => {
     const outcome = await cli('down.db', 'migrate:down', '--count', '0')
@@ -133,7 +151,8 @@ describe('migrate:down', () => {
   it('refuses without --force when there is no terminal, and runs with it', async () => {
     await cli('down2.db', 'migrate:up')
     const refused = await cli('down2.db', 'migrate:down')
-    expect(refused.err.join('\n')).toContain('Refusing to run non-interactively without --force')
+    expect(Exit.isFailure(refused.exit)).toBe(true)
+    expect(JSON.stringify(refused.exit)).toContain('Refusing to run non-interactively')
     expect(lines(await cli('down2.db', 'migrate:status'))).toMatch(/Executed \([1-9]/)
 
     const forced = await cli('down2.db', 'migrate:down', '--force')
@@ -175,7 +194,8 @@ describe('migrate:reset', () => {
   it('refuses without --force when there is no terminal', async () => {
     await cli('reset3.db', 'migrate:up')
     const refused = await cli('reset3.db', 'migrate:reset')
-    expect(refused.err.join('\n')).toContain('Refusing to run non-interactively')
+    expect(Exit.isFailure(refused.exit)).toBe(true)
+    expect(JSON.stringify(refused.exit)).toContain('Refusing to run non-interactively')
     expect(lines(await cli('reset3.db', 'migrate:status'))).toMatch(/Executed \([1-9]/)
   })
 })
@@ -231,7 +251,7 @@ describe('config:generate', () => {
   })
 
   it('never writes a real dotenv file', async () => {
-    for (const name of ['.env', '.env.local', '.env.production']) {
+    for (const name of ['.env', '.ENV', '.env.local', '.env.production']) {
       const file = target(name)
       const outcome = await cli('cfg.db', 'config:generate', '-o', file)
       expect(Exit.isFailure(outcome.exit)).toBe(true)
@@ -248,7 +268,8 @@ describe('config:generate', () => {
     expect(readFileSync(file, 'utf8')).toBe('mine\n')
 
     const declined = await cli('cfg.db', 'config:generate', '-o', file, '--overwrite')
-    expect(declined.err.join('\n')).toContain('Refusing to run non-interactively')
+    expect(Exit.isFailure(declined.exit)).toBe(true)
+    expect(JSON.stringify(declined.exit)).toContain('Refusing to run non-interactively')
     expect(readFileSync(file, 'utf8')).toBe('mine\n')
 
     await cli('cfg.db', 'config:generate', '-o', file, '--overwrite', '--force')

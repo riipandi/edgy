@@ -1,16 +1,31 @@
-import { type H3Plugin, HTTPError } from 'h3'
+import { type H3Plugin, HTTPError, type Middleware } from 'h3'
 import type { AppConfig } from '../kernel/config/service.ts'
 import { type AssetSource, assetRoutes } from '../kernel/http/assets.ts'
 import { API_PREFIX, defineRouteGroup } from '../kernel/http/router.ts'
 import { unlessDraining } from '../kernel/http/runtime.ts'
 import { cacheControl } from '../middleware/cache_control.ts'
 import { makeClientResolver } from '../middleware/client_ip.ts'
-import { makeMemoryRateCheck, type RateCheck, rateLimit } from '../middleware/rate_limit.ts'
+import {
+  makeMemoryRateCheck,
+  type RateCheck,
+  rateLimit,
+  rateLimitMiddleware,
+  type RateLimitOptions
+} from '../middleware/rate_limit.ts'
 import { healthHandler } from '../modules/health/health_handler.ts'
 import { homePageHandler } from '../modules/home/home_pages.ts'
 import { userPages } from '../modules/user/user_pages.ts'
 import { userRoutes } from '../modules/user/user_routes.ts'
 import { metricsHandler } from '../observer/metrics_handler.ts'
+
+/** How the groups that do work per request (the API and the pages) count a client. */
+const limitOptions = (config: AppConfig, check: RateCheck): RateLimitOptions => ({
+  check,
+  clientOf: makeClientResolver({
+    proxies: config.server.trustProxy,
+    platformHeader: config.server.trustedPlatform
+  })
+})
 
 /**
  * `/api` group: every resource endpoint that answers in the API envelope. Middleware shared by the
@@ -23,17 +38,7 @@ const apiRoutes = (config: AppConfig, check: RateCheck): H3Plugin =>
     middleware: [
       // API answers are per caller, so no cache may store them.
       cacheControl({ value: 'no-store', errors: true }),
-      ...(config.security.rateLimitEnabled
-        ? [
-            rateLimit({
-              check,
-              clientOf: makeClientResolver({
-                proxies: config.server.trustProxy,
-                platformHeader: config.server.trustedPlatform
-              })
-            })
-          ]
-        : [])
+      ...(config.security.rateLimitEnabled ? [rateLimit(limitOptions(config, check))] : [])
     ],
     routes: (api) => {
       api.register(userRoutes)
@@ -69,15 +74,28 @@ const rootRoutes = (config: AppConfig): H3Plugin => {
  * the app's `onError` hook sees it, leaking h3's own error body.
  */
 const notFoundRoutes: H3Plugin = (app) => {
-  app.all('/**', () => {
-    throw new HTTPError({ status: 404 })
-  })
+  // Every method but HEAD: h3 answers a HEAD from the matching GET route only when nothing else
+  // matches it first, and a catch-all for HEAD would hide every GET route from health probes.
+  for (const method of ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'] as const) {
+    app.on(method, '/**', () => {
+      throw new HTTPError({ status: 404 })
+    })
+  }
 }
 
-/** HTML pages at the origin root, outside the API envelope. */
-const pageRoutes: H3Plugin = (app) => {
-  app.get('/', homePageHandler)
-  app.register(userPages)
+/**
+ * HTML pages at the origin root, outside the API envelope, under the same rate limit as the API.
+ * They are not a group (a group at the root would wrap every later route), so each page carries
+ * the limiter as route middleware. Probes, assets and `/.well-known` stay outside it.
+ */
+const pageRoutes = (config: AppConfig, check: RateCheck): H3Plugin => {
+  const middleware: Middleware[] = config.security.rateLimitEnabled
+    ? [rateLimitMiddleware(limitOptions(config, check))]
+    : []
+  return (app) => {
+    app.get('/', homePageHandler, { middleware })
+    app.register(userPages(middleware))
+  }
 }
 
 /** Route dependencies beyond the configuration. Both are absent in tests and on Workers. */
@@ -92,18 +110,20 @@ export interface RouteOptions {
 export const createRoutePlugins = (
   config: AppConfig,
   options: RouteOptions = {}
-): readonly H3Plugin[] => [
-  rootRoutes(config),
-  apiRoutes(
-    config,
+): readonly H3Plugin[] => {
+  // One check for both groups, so a client's allowance is shared between pages and API.
+  const check =
     options.rateCheck ??
-      makeMemoryRateCheck({
-        max: config.security.rateLimitMax,
-        window: config.security.rateLimitWindow
-      })
-  ),
-  pageRoutes,
-  ...(options.assets === undefined ? [] : [assetRoutes(options.assets)]),
-  wellKnownRoutes,
-  notFoundRoutes
-]
+    makeMemoryRateCheck({
+      max: config.security.rateLimitMax,
+      window: config.security.rateLimitWindow
+    })
+  return [
+    rootRoutes(config),
+    apiRoutes(config, check),
+    pageRoutes(config, check),
+    ...(options.assets === undefined ? [] : [assetRoutes(options.assets)]),
+    wellKnownRoutes,
+    notFoundRoutes
+  ]
+}

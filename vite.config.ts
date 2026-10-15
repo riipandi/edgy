@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const address = {
     host: env['HOST'] ?? '127.0.0.1',
-    port: Number(env['PORT'] ?? 3000),
+    port: Number(env['PORT'] || 3000),
     strictPort: true
   }
   return {

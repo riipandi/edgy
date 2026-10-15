@@ -75,6 +75,14 @@ describe('envelope', () => {
     }
   })
 
+  it('treats two spellings of one email as one user, and stores it lowercase', async () => {
+    const first = await createUser('Mixed.Case@Example.com')
+    expect(first.status).toBe(201)
+    expect((await json(first)).data.email).toBe('mixed.case@example.com')
+
+    expect((await createUser('MIXED.case@example.COM')).status).toBe(409)
+  })
+
   it('renders typed failures from the error itself', async () => {
     const missing = await t.request(`/api/users/${MISSING_USER_ID}`)
     expect(missing.status).toBe(404)

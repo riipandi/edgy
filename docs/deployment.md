@@ -5,7 +5,7 @@ How to build, bundle, and ship the server.
 ## Building
 
 [Vite](https://vite.dev) builds both targets: the server (or Worker) and the browser assets, in one
-run (`vite build --app`). After it, one small step makes the Node entry executable and writes a
+run (`vite build`). After it, one small step makes the Node entry executable and writes a
 minimal `package.json`, so the result runs without the project's own `node_modules`. Only the single
 executable is a separate command.
 

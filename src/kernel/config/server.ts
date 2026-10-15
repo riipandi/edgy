@@ -5,7 +5,11 @@ import { parseTrustedPlatform, parseTrustProxy } from './proxy.ts'
 /** HTTP server: where it listens, what it enforces per request, how it stops. */
 export const serverConfig = group(
   {
-    host: text('HOST', '0.0.0.0', 'Interface the HTTP server binds to'),
+    host: text(
+      'HOST',
+      '127.0.0.1',
+      'Interface the HTTP server binds to; 0.0.0.0 exposes it on every interface (containers)'
+    ),
     port: port('PORT', 3000, 'Port the HTTP server listens on'),
     bodyLimit: int('BODY_LIMIT', 1_048_576, 'Largest accepted request body, in bytes (413 above)'),
     requestTimeout: milliseconds(

@@ -5,6 +5,7 @@ import { TestClock } from 'effect/testing'
 import { makeTestApp, type TestApp } from '../../tests/app.ts'
 import { attributeOf, type FakeCollector, spansOf, startCollector } from '../../tests/collector.ts'
 import { MISSING_USER_ID } from '../../tests/ids.ts'
+import { runEffect } from '../kernel/http/responder.ts'
 import { ExportHttpClient, parseOtlpHeaders } from './telemetry.ts'
 import { traceHexOf } from './trace_id.ts'
 
@@ -119,6 +120,23 @@ describe('exported telemetry', () => {
     const resource = trace?.body.resourceSpans[0].resource.attributes as any[]
     expect(resource.find((a) => a.key === 'service.name').value.stringValue).toBe('edgy-test')
     expect(resource.some((a) => a.key === 'service.instance.id')).toBe(true)
+  })
+
+  it('keeps secrets out of the exception a failed span exports', async () => {
+    t = await start()
+    t.app.get('/boom', (event) =>
+      runEffect(
+        event,
+        Effect.die(new Error('connect failed postgres://app:hunter2pw@db/x token=tok_abcdef123456'))
+      )
+    )
+    expect((await t.request('/boom')).status).toBe(500)
+    await flushed()
+
+    const exported = JSON.stringify(spansOf(collector))
+    expect(exported).toContain('connect failed')
+    expect(exported).not.toContain('hunter2pw')
+    expect(exported).not.toContain('tok_abcdef123456')
   })
 
   it('exports metrics too', async () => {

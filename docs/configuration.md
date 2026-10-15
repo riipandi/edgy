@@ -29,7 +29,7 @@ The command never writes a real `.env` file.
 
 | Variable               | Default      | Description                                                                 |
 | ---------------------- | ------------ | --------------------------------------------------------------------------- |
-| `HOST`                 | `0.0.0.0`    | Bind address                                                                |
+| `HOST`                 | `127.0.0.1`  | Bind address; set `0.0.0.0` in a container or behind a proxy on another host |
 | `PORT`                 | `3000`       | Bind port                                                                   |
 | `BODY_LIMIT`           | `1048576`    | Largest accepted request body in bytes; bigger bodies get `413`             |
 | `REQUEST_TIMEOUT`      | `30000`      | Milliseconds a request may run before it is cancelled and answered with `504` |

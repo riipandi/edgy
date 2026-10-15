@@ -31,7 +31,12 @@ export const SqliteDatabaseLayer: Layer.Layer<DatabaseService, DatabaseError, Co
             mkdirSync(dirname(databasePath), { recursive: true })
             const sqlite = new DatabaseSync(databasePath, { timeout: BUSY_TIMEOUT_MS })
             // WAL lets the migrator and the server share one file without blocking each other.
-            if (databasePath !== ':memory:') sqlite.exec('PRAGMA journal_mode = WAL')
+            // NORMAL under WAL syncs at checkpoints, not every commit: a power loss can drop the
+            // last commits but cannot corrupt the file. Writes are about twice as fast.
+            if (databasePath !== ':memory:') {
+              sqlite.exec('PRAGMA journal_mode = WAL')
+              sqlite.exec('PRAGMA synchronous = NORMAL')
+            }
             const db = new Kysely<Database>({ dialect: new NodeSQLiteDialect(sqlite), log })
             return { db, sqlite }
           },

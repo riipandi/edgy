@@ -1,5 +1,8 @@
-import { describe, expect, it } from '@effect/vitest'
+import { afterAll, describe, expect, it } from '@effect/vitest'
 import { H3 } from 'h3'
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { makeTestApp } from '../../../tests/app.ts'
 import { type AssetSource, assetRoutes } from './assets.ts'
 import { directoryAssets } from './node_assets.ts'
@@ -83,6 +86,41 @@ describe('directoryAssets', () => {
     '/..',
     '/'
   ])('refuses %s', async (id) => {
+    expect(await source.meta(id)).toBeUndefined()
+    expect(await source.contents(id)).toBeUndefined()
+  })
+})
+
+describe('directoryAssets confinement', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'edgy-assets-'))
+  const root = join(dir, 'public')
+  mkdirSync(join(root, 'inner'), { recursive: true })
+  writeFileSync(join(root, 'inner', 'ok.js'), 'ok')
+  writeFileSync(join(root, '.secret'), 'hidden')
+  mkdirSync(join(root, '.git'))
+  writeFileSync(join(root, '.git', 'config'), 'x')
+  writeFileSync(join(dir, 'outside.txt'), 'outside')
+  symlinkSync(join(dir, 'outside.txt'), join(root, 'link.txt'))
+  symlinkSync(dir, join(root, 'dirlink'))
+  symlinkSync(join(root, 'inner', 'ok.js'), join(root, 'inside-link.js'))
+  const source = directoryAssets(root)
+
+  afterAll(() => rmSync(dir, { recursive: true, force: true }))
+
+  it('serves a file, and a link that stays inside the root', async () => {
+    expect(await source.meta('/inner/ok.js')).toMatchObject({ size: 2 })
+    expect(await source.meta('/inside-link.js')).toMatchObject({ size: 2 })
+  })
+
+  it.each(['/link.txt', '/dirlink/outside.txt'])(
+    'refuses %s, a link out of the root',
+    async (id) => {
+      expect(await source.meta(id)).toBeUndefined()
+      expect(await source.contents(id)).toBeUndefined()
+    }
+  )
+
+  it.each(['/.secret', '/.git/config', '/inner/.hidden'])('refuses the dotfile %s', async (id) => {
     expect(await source.meta(id)).toBeUndefined()
     expect(await source.contents(id)).toBeUndefined()
   })

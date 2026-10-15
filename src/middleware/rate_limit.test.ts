@@ -79,11 +79,11 @@ describe('rate limiting', () => {
     expect(body.metadata.rate_limit).toMatchObject({ limit: 2, remaining: 0 })
   })
 
-  it('does not limit probes or the root', async () => {
+  it('does not limit probes, /.well-known or assets', async () => {
     t = await makeTestApp({ RATE_LIMIT_ENABLED: 'true', RATE_LIMIT_MAX: '1' })
     for (let i = 0; i < 4; i += 1) {
       expect((await t.request('/health')).status).toBe(200)
-      expect((await t.request('/')).status).toBe(200)
+      expect((await t.request('/.well-known/security.txt')).status).toBe(200)
     }
   })
 
@@ -150,38 +150,6 @@ describe('rate limiting', () => {
     const as = (ip: string) => t!.request('/api/users', { headers: { 'cf-connecting-ip': ip } })
     expect((await as('203.0.113.1')).status).toBe(200)
     expect((await as('203.0.113.2')).status).toBe(429)
-  })
-
-  it('counts down in the envelope and headers, then answers 429 with retry-after', async () => {
-    t = await makeTestApp({
-      RATE_LIMIT_ENABLED: 'true',
-      RATE_LIMIT_MAX: '2',
-      RATE_LIMIT_WINDOW: '60000'
-    })
-
-    const first = await t.request('/api/users')
-    const firstBody: any = await first.json()
-    expect(firstBody.metadata.rate_limit).toMatchObject({ limit: 2, remaining: 1 })
-    expect(first.headers.get('x-ratelimit-remaining')).toBe('1')
-
-    expect((await t.request('/api/users')).status).toBe(200)
-
-    const limited = await t.request('/api/users')
-    const body: any = await limited.json()
-    expect(limited.status).toBe(429)
-    expect(Number(limited.headers.get('retry-after'))).toBeGreaterThan(0)
-    expect(limited.headers.get('x-ratelimit-remaining')).toBe('0')
-    expect(body).toMatchObject({ status: 'error', message: 'Too many requests' })
-    // the refusal reports the same allowance as a success does
-    expect(body.metadata.rate_limit).toMatchObject({ limit: 2, remaining: 0 })
-  })
-
-  it('does not limit probes or the root', async () => {
-    t = await makeTestApp({ RATE_LIMIT_ENABLED: 'true', RATE_LIMIT_MAX: '1' })
-    for (let i = 0; i < 4; i += 1) {
-      expect((await t.request('/health')).status).toBe(200)
-      expect((await t.request('/')).status).toBe(200)
-    }
   })
 })
 

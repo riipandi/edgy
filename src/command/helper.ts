@@ -5,10 +5,6 @@ import { CliError, Prompt } from 'effect/cli'
 export const print = (...args: readonly unknown[]): Effect.Effect<void> =>
   Effect.sync(() => console.log(...args))
 
-/** Like {@link print}, but writes to stderr. */
-export const printWarning = (...args: readonly unknown[]): Effect.Effect<void> =>
-  Effect.sync(() => console.error(...args))
-
 /**
  * Fails with a `UserError` (a usage message, not a stack trace) unless
  * `condition` holds. Use it for flag combinations the parser cannot reject.
@@ -23,7 +19,8 @@ export const ensure = (
 
 /**
  * Asks before a destructive operation. `--force` skips the prompt. Without a TTY the operation is
- * refused rather than run unasked. Resolves `false` when declined.
+ * refused with a `UserError` (a non-zero exit, so a script notices) rather than run unasked.
+ * Resolves `false` when the prompt is declined.
  *
  * Needs the platform services (`FileSystem`, `Path`, `Terminal`), supplied by `NodeServices.layer`
  * at the CLI root.
@@ -31,9 +28,8 @@ export const ensure = (
 export const confirmDestructive = (force: boolean, message: string) => {
   if (force) return Effect.succeed(true)
   if (!process.stdin.isTTY) {
-    return Effect.as(
-      printWarning(`Refusing to run non-interactively without --force (${message})`),
-      false
+    return ensure(false, `Refusing to run non-interactively without --force (${message})`).pipe(
+      Effect.as(false)
     )
   }
   return Effect.gen(function* () {

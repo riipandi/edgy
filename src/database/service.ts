@@ -5,8 +5,6 @@ import { currentRequestId } from '../kernel/http/request_context.ts'
 import { describeFailure, redactText } from '../kernel/redact.ts'
 import type { Database } from './schema.ts'
 
-export { isTransientFailure }
-
 declare module '../kernel/http/runtime.ts' {
   interface HttpServices {
     database: DatabaseService

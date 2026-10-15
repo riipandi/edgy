@@ -14,7 +14,10 @@ export class UserRepository extends Context.Service<
     readonly findPage: (
       request: PageRequest<UserSortKey>
     ) => Effect.Effect<Page<User>, DatabaseError>
-    /** Inserts a user and returns the stored row; fails with `Conflict` on a duplicate email. */
+    /**
+     * Inserts a user and returns the stored row; fails with `Conflict` on a duplicate email. The
+     * email is stored lowercase, so two spellings of one address are one user.
+     */
     readonly insert: (input: UserCreateRequest) => Effect.Effect<User, Conflict | DatabaseError>
   }
 >()('UserRepository') {
@@ -67,7 +70,7 @@ export class UserRepository extends Context.Service<
           query((db) =>
             db
               .insertInto('users')
-              .values({ id: UserId.make(), email: input.email, name: input.name })
+              .values({ id: UserId.make(), email: input.email.toLowerCase(), name: input.name })
               .returningAll()
               .executeTakeFirstOrThrow()
           ).pipe(

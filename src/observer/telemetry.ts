@@ -1,4 +1,4 @@
-import { Duration, Effect, Layer, Redacted } from 'effect'
+import { Cause, Duration, Effect, Exit, Layer, Redacted, Tracer } from 'effect'
 import { FetchHttpClient, HttpClient, HttpClientError } from 'effect/http'
 import {
   OtlpExporter,
@@ -14,6 +14,7 @@ import {
   telemetryEnabled
 } from '../kernel/config/service.ts'
 import { defineId } from '../kernel/objectids.ts'
+import { redactText } from '../kernel/redact.ts'
 
 /**
  * Parses `OTEL_EXPORTER_OTLP_HEADERS` (`key=value,key2=value2`). Only the first `=` splits,
@@ -68,6 +69,42 @@ const signalUrl = (config: ObservabilityConfig, signal: 'traces' | 'metrics' | '
   `${config.otlpEndpoint.replace(/\/+$/, '')}/v1/${signal}`
 
 /**
+ * A failed span exports its exception message and stack, which can quote a connection string or
+ * a credential just as a log line can. The exit is replaced by one whose error went through
+ * `redactText`; an interruption carries no text and passes unchanged.
+ */
+const redactExit = (exit: Exit.Exit<unknown, unknown>): Exit.Exit<unknown, unknown> => {
+  if (Exit.isSuccess(exit) || Cause.hasInterruptsOnly(exit.cause)) return exit
+  const [first] = Cause.prettyErrors(exit.cause)
+  if (first === undefined) return exit
+  const safe = new Error(redactText(first.message))
+  safe.name = first.name
+  if (first.stack !== undefined) safe.stack = redactText(first.stack)
+  return Exit.die(safe)
+}
+
+/** The tracer, with every span's exit redacted when it ends. */
+export const redactingTracer = (tracer: Tracer.Tracer): Tracer.Tracer =>
+  Tracer.make({
+    span(options) {
+      const span = tracer.span(options)
+      const end = span.end.bind(span)
+      // Replaced on the instance: a wrapper object would split the lazily minted ids.
+      Object.defineProperty(span, 'end', {
+        value: (endTime: bigint, exit: Exit.Exit<unknown, unknown>) =>
+          end(endTime, redactExit(exit))
+      })
+      return span
+    },
+    context: tracer.context
+  })
+
+const tracerLayer = (options: Parameters<typeof OtlpTracer.make>[0]) =>
+  Layer.effect(Tracer.Tracer, Effect.map(OtlpTracer.make(options), redactingTracer)).pipe(
+    Layer.provideMerge(OtlpExporter.layerFlusher)
+  )
+
+/**
  * Trace and metric export over OTLP/HTTP with JSON bodies (no gRPC, no protobuf dependency),
  * plus the `Flusher` that drains every exporter on demand.
  *
@@ -88,7 +125,7 @@ export const TelemetryLayer = Layer.unwrap(
 
     const options = exportOptions(observability)
     return Layer.mergeAll(
-      OtlpTracer.layer({ ...options, url: signalUrl(observability, 'traces') }),
+      tracerLayer({ ...options, url: signalUrl(observability, 'traces') }),
       OtlpMetrics.layer({ ...options, url: signalUrl(observability, 'metrics') })
     ).pipe(Layer.provide(OtlpSerialization.layerJson))
   })

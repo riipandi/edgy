@@ -16,7 +16,7 @@ export const migratesInDev = (
 ): boolean => autoMigrate || env['DATABASE_AUTO_MIGRATE'] === undefined
 
 /** A running development application: the request handler Vite mounts, and how to stop it. */
-export interface DevApp {
+interface DevApp {
   readonly handler: ReturnType<typeof toNodeHandler>
   /** Refuses new health checks, waits briefly for in-flight requests, then releases everything. */
   readonly stop: () => Promise<void>
