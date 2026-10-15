@@ -43,7 +43,7 @@ const shared = (platform: Platform): Plugin => ({
  *
  * It is async because the Cloudflare plugin is loaded only when the Worker is the platform.
  */
-export const edgy = async (env: ConfigEnv): Promise<PluginOption[]> => {
+export const edgy = async (env: Pick<ConfigEnv, 'mode'>): Promise<PluginOption[]> => {
   const platform = platformOf(env)
   return [
     shared(platform),

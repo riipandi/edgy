@@ -10,9 +10,9 @@ minimal `package.json`, so the result runs without the project's own `node_modul
 executable is a separate command.
 
 ```bash
-pnpm build                    # -> dist/server  (index.mjs + public/ for the browser)
+pnpm build                  # -> dist/server  (index.mjs + public/ for the browser)
 pnpm build --mode worker    # -> dist/worker  (index.js + public/ for the browser)
-pnpm compile                  # -> dist/edgy  (single executable, experimental)
+pnpm compile                # -> dist/edgy  (single executable, experimental)
 ```
 
 `dev`, `build` and `preview` are Vite's own commands, and `--mode worker` makes any of them the
@@ -50,7 +50,7 @@ runtime and the database differ.
 pnpm dev --mode worker       # run the source in workerd, with hot updates
 pnpm build --mode worker     # build into dist/worker (the Worker and, in public/, the browser assets)
 pnpm preview --mode worker   # run the Worker built in dist/worker, in workerd (build it first)
-pnpm run deploy                # build a minified Worker, then publish it with wrangler
+pnpm run deploy              # build a minified Worker, then publish it with wrangler
 ```
 
 The Worker is the same Vite configuration with `--mode worker`. Vite's Cloudflare plugin
@@ -112,8 +112,10 @@ not multiplied. `MAX_IN_FLIGHT` caps the requests one process handles at once; p
 
 ## Build configuration
 
-Bundling is configured in one file, `vite.config.ts`, which holds both targets; it is an ordinary
-Vite configuration, so Vite's own flags apply (`--minify`). There is nothing else to set.
+Bundling is configured in one file, `vite.config.ts`, which serves both targets (`--mode worker`
+selects the Worker). It is an ordinary Vite configuration, so Vite's own flags apply (`--minify`), and
+so does anything you add to it (`server`, `build`, `resolve`, more plugins): what you set there wins
+over the defaults of the project's Vite plugin. There is nothing else to set.
 
 The Node.js server is one bundle with its dependencies inlined. A dependency that ships a native
 addon cannot be bundled that way; none of the current dependencies do (the database is

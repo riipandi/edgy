@@ -6,9 +6,6 @@ import { withDefaults } from './platform.ts'
 /**
  * How the Worker is built and run: through the Cloudflare plugin, with the pieces it needs around it.
  *
- * - One address for the dev server and the preview. Vite's own defaults differ (5173, 4173), so the
- *   same app would answer on another port depending on the command; this is the one, and the Node
- *   server's default port. `strictPort` makes a busy port an error, not a silent move.
  * - `builder.buildApp` writes Marko's order out (server, then browser). With the Cloudflare plugin
  *   present, Vite's default would build the Worker a second time after Marko's pass.
  * - A missing `wrangler.jsonc` is said plainly, before the Cloudflare plugin fails less clearly.
@@ -16,10 +13,7 @@ import { withDefaults } from './platform.ts'
 const workerConfig = (): Plugin => ({
   name: 'edgy:worker',
   config(config) {
-    const address = { host: '127.0.0.1', port: 3000, strictPort: true }
     withDefaults(config, {
-      server: address,
-      preview: address,
       builder: {
         async buildApp(builder) {
           const { ssr, client } = builder.environments
@@ -57,6 +51,9 @@ export const workerPlatform = async (): Promise<Plugin[]> => {
   // Worker's local secrets and overrides belong in `.dev.vars`, which Wrangler reads by itself.
   process.env['CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV'] ??= 'false'
 
+  // Loaded only here: importing it costs most of a second and opens a Wrangler log file, which a
+  // Node run has no use for. (A lazy import needs Vite's default config loader; `configLoader:
+  // 'runner'` closes its module runner before an async plugin factory gets to run.)
   const { cloudflare } = await import('@cloudflare/vite-plugin')
   return [workerConfig(), releaseSsrExternal(), ...cloudflare({ viteEnvironment: { name: 'ssr' } })]
 }

@@ -1,7 +1,6 @@
 import path from 'node:path'
 import { createServerModuleRunner, loadEnv, type Plugin } from 'vite'
 import type { ModuleRunner } from 'vite/module-runner'
-import { withDefaults } from './platform.ts'
 
 /** The module `startDevApp` lives in, as Vite's module runner names it. */
 const DEV_MODULE = '/src/dev.ts'
@@ -41,9 +40,8 @@ const startsOver = (root: string, file: string): boolean => {
  * pages and `.css.ts` styles.
  *
  * - **Environment.** `.env`, `.env.local` and the files of the mode (Vite's rules) are read here and put in `process.env` where it is not
- *   already set (what `node --env-file` did); `HOST` and `PORT` also decide where Vite listens, so
- *   they mean the same in `pnpm dev` as for the Node server. Loopback is the default host: a
- *   development server should not be reachable from the network unless asked.
+ *   already set (what `node --env-file` did), so the application sees them. Where Vite listens
+ *   (`server.host`, `server.port`) is the configuration's to say (`vite.config.ts`), not this plugin's.
  * - **Server code changes** (`src/`, tests excluded, and the env files) stop the application
  *   (`stop`: drain, then release the database and flush logs) and start a new one in the same
  *   process, then tell the browser to reload. Vite and its connection survive; page and style
@@ -58,7 +56,7 @@ export const devServerPlugin = (): Plugin => {
   /** Variables this plugin put in `process.env`, so an edited env file can replace them. */
   const fromFile = new Set<string>()
 
-  const applyEnv = (mode: string): Record<string, string> => {
+  const applyEnv = (mode: string): void => {
     const env = loadEnv(mode, root, '')
     for (const key of fromFile) delete process.env[key]
     fromFile.clear()
@@ -67,7 +65,6 @@ export const devServerPlugin = (): Plugin => {
       process.env[key] = value
       fromFile.add(key)
     }
-    return env
   }
 
   const start = async () => {
@@ -93,15 +90,7 @@ export const devServerPlugin = (): Plugin => {
 
     config(config, env) {
       root = path.resolve(config.root ?? process.cwd())
-      const loaded = applyEnv(env.mode)
-      // The preview (`pnpm preview`) listens where the dev server does.
-      const address = {
-        host: process.env['HOST'] ?? loaded['HOST'] ?? '127.0.0.1',
-        port: Number(process.env['PORT'] ?? loaded['PORT'] ?? 3000),
-        // A busy port is an error, not a silent move to another one (the docs name one address).
-        strictPort: true
-      }
-      withDefaults(config, { server: address, preview: address })
+      applyEnv(env.mode)
     },
 
     configureServer(devServer) {

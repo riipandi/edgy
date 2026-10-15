@@ -1,13 +1,28 @@
-import { defineConfig } from 'vite'
-import { edgy } from './builder/edgy.ts'
-
 /**
- * Everything is in `builder/edgy.ts`: pages, styles, the dev server,
- * the build and the preview, for the Node server and, with `--mode worker`,
- * for Cloudflare Workers.
+ * Plain Vite configuration. The `edgy` plugin (`builder/edgy.ts`) supplies
+ * the application's setup, for the Node server and, with `--mode worker`,
+ * for Cloudflare Workers; it only fills in what is not set here, so anything
+ * below (and anything you add: `server.proxy`, `build.sourcemap`, `resolve.alias`,
+ * `define`, more `plugins`, ...) takes precedence over the plugin's defaults.
  *
  *   pnpm dev        pnpm dev --mode worker
  *   pnpm build      pnpm build --mode worker
  *   pnpm preview    pnpm preview --mode worker
  */
-export default defineConfig((env) => ({ plugins: [edgy(env)] }))
+
+import { defineConfig, loadEnv } from 'vite'
+import { edgy } from './builder/edgy.ts'
+
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '')
+  const address = {
+    host: env['HOST'] ?? '127.0.0.1',
+    port: Number(env['PORT'] ?? 3000),
+    strictPort: true
+  }
+  return {
+    plugins: [edgy({ mode })],
+    server: address,
+    preview: address
+  }
+})

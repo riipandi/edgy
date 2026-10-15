@@ -38,7 +38,8 @@ pnpm app <command> [flags]
 Starting the server (`serve`) is the exception: pages are templates that only Vite can load, so use
 `pnpm dev` while developing and a build (`pnpm build`) to run it otherwise. `pnpm dev` is the
 Vite dev server with the application running inside it: one process, one port (`HOST` and `PORT`,
-by default `127.0.0.1:3000`; a busy port is an error), reading `.env.local` for you. Editing a page
+by default `127.0.0.1:3000`; a busy port is an error; both are set in `vite.config.ts`, where any other
+server option goes too), reading `.env.local` for you. Editing a page
 or a style updates the browser; editing server code starts the application over in the same process
 and reloads the page. The database is migrated for you on each start (set
 `DATABASE_AUTO_MIGRATE=false` to stop that); there is no `--auto-migrate` flag here. See the
