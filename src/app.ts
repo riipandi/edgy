@@ -1,6 +1,6 @@
 import { H3 } from 'h3'
 import type { CorsConfig } from './kernel/config.ts'
-import { renderH3Error } from './kernel/http/h3_error.ts'
+import { renderHTTPError } from './kernel/http/errors.ts'
 import { type HttpRuntime, provideRuntime } from './kernel/http/runtime.ts'
 import { bodyLimit } from './middleware/body_limit.ts'
 import { cors } from './middleware/cors.ts'
@@ -31,7 +31,7 @@ export interface AppOptions {
  */
 export const createApp = (options: AppOptions): H3 =>
   new H3({
-    onError: renderH3Error,
+    onError: renderHTTPError,
     plugins: [
       provideRuntime(options.runtime),
       cors(options.cors),

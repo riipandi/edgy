@@ -12,7 +12,7 @@ import { errorEnvelope } from './envelope.ts'
  * returned from the error hook — without the copy CORS and `x-request-id`
  * would vanish from exactly the responses that need them.
  */
-export const renderH3Error = (error: HTTPError, event: H3Event): Response => {
+export const renderHTTPError = (error: HTTPError, event: H3Event): Response => {
   const message =
     error.status === 404
       ? 'Not found'

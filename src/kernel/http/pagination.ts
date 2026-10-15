@@ -1,12 +1,6 @@
 import { Schema } from 'effect'
-import {
-  ALL_RECORDS,
-  DEFAULT_LIMIT,
-  MAX_LIMIT,
-  type PageRequest,
-  type PageSummary,
-  type SortOrder
-} from '../pagination.ts'
+import { ALL_RECORDS, DEFAULT_LIMIT, MAX_LIMIT } from '../pagination.ts'
+import type { PageRequest, PageSummary, SortOrder } from '../pagination.ts'
 
 /** Pagination metadata of a success response (snake_case: it is the wire contract). */
 export interface ApiPagination {
