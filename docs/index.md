@@ -1,0 +1,19 @@
+# Documentation Index
+
+Human-facing documentation for the Edgy reference server.
+
+| Document                                    | What it covers                                              |
+| ------------------------------------------- | ----------------------------------------------------------- |
+| [Getting started](../README.md)             | What the project is, requirements, first run                |
+| [CLI](./commandline.md)                     | Commands, flags, confirmation and dry-run behaviour         |
+| [Configuration](./configuration.md)         | Environment variables, defaults, examples                   |
+| [API endpoints](./api-endpoint.md)          | Endpoint list, request ID tracing, error response shapes    |
+| [Development](./development.md)             | Day-to-day commands, database workflow, validation          |
+| [Deployment](./deployment.md)               | Building, bundling, build configuration, single executable  |
+
+## Reading order by goal
+
+- **Run it locally for the first time** — README (getting started) → [Configuration](./configuration.md)
+- **Work on the code** — [Development](./development.md) → [CLI](./commandline.md)
+- **Ship it** — [Deployment](./deployment.md) → [Configuration](./configuration.md)
+- **Integrate with it** — [API endpoints](./api-endpoint.md)
