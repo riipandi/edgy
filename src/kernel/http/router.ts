@@ -1,6 +1,6 @@
 import { definePlugin, H3, type H3Plugin } from 'h3'
 
-/** Declaration accepted by {@link defineGroup}. */
+/** Declaration accepted by {@link defineRouteGroup}. */
 export interface GroupOptions {
   /** URL prefix the group is mounted under, e.g. `/users` or `/.well-known`. */
   readonly prefix: string
@@ -29,7 +29,7 @@ export interface GroupOptions {
  *
  * @example
  * ```ts
- * const usersRoutes = defineGroup({
+ * const usersRoutes = defineRouteGroup({
  *   prefix: '/users',
  *   middleware: [auth()],
  *   routes: (group) => {
@@ -39,7 +39,7 @@ export interface GroupOptions {
  * })
  * ```
  */
-export const defineGroup = definePlugin<GroupOptions>((app, options) => {
+export const defineRouteGroup = definePlugin<GroupOptions>((app, options) => {
   const group = new H3()
 
   for (const middleware of options.middleware ?? []) group.register(middleware)

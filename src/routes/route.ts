@@ -1,8 +1,8 @@
 import { HTTPError, type H3Plugin } from 'h3'
 import { healthHandler } from '../handler/health_handler.ts'
 import { createUserHandler, getUserHandler, listUsersHandler } from '../handler/user_handler.ts'
+import { defineRouteGroup } from '../kernel/http/router.ts'
 import { cacheControl } from '../middleware/cache_control.ts'
-import { defineGroup } from './group.ts'
 
 /**
  * `/users` resource group.
@@ -10,7 +10,7 @@ import { defineGroup } from './group.ts'
  * Patterns are relative to the prefix, so this file reads as a single
  * resource rather than a slice of one flat route table.
  */
-export const usersRoutes: H3Plugin = defineGroup({
+export const usersRoutes: H3Plugin = defineRouteGroup({
   prefix: '/users',
   routes: (r) => {
     r.get('/', listUsersHandler)
@@ -26,7 +26,7 @@ export const usersRoutes: H3Plugin = defineGroup({
  * group carries its own middleware — `Cache-Control` here — without leaking it
  * to any other route.
  */
-const wellKnownRoutes: H3Plugin = defineGroup({
+const wellKnownRoutes: H3Plugin = defineRouteGroup({
   prefix: '/.well-known',
   middleware: [cacheControl({ value: 'public, max-age=86400' })],
   routes: (r) => {

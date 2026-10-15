@@ -17,7 +17,13 @@ Contracts, how-to-change recipes, traps. Read the section a change touches befor
 - **Create answers `201`** (`runEffect(..., { successStatus: 201 })`).
 - **Request ID**: minted by `requestId` middleware as TypeID `req_…` (TypeID v7), inbound `x-request-id` echoed when <= 128 chars. Written to both `res.headers` and `res.errHeaders` because h3 merges only the latter into error responses (`src/middleware/request_id.ts`). Never drop the `errHeaders` write.
 - **Middleware order is a contract** (`src/app.ts`): `provideRuntime` → `cors` → `requestId` → `httpObserver` → `bodyLimit`, registered before route groups mount, so the runtime exists for everyone, preflight is answered early, the observer can read the id, and a rejected body is still logged and carries the id. Reordering breaks the observer and the runtime lookup.
-- **Route groups** (`src/routes/group.ts`): a group owns an isolated `H3` instance mounted at `prefix`; its middleware runs only for its routes. Group routes are written relative to the prefix. Mounted groups merge into the parent rou3 trie — no nested fetch hop. App-level config/hooks do not flow into a mounted app; shared behaviour goes in global middleware.
+- **Route groups** (`defineRouteGroup`, `src/kernel/http/router.ts`; the route table itself is `src/routes/route.ts`): a group owns an isolated `H3` instance mounted at `prefix`; its middleware runs only for its routes. Group routes are written relative to the prefix. Mounted groups merge into the parent rou3 trie — no nested fetch hop. App-level config/hooks do not flow into a mounted app; shared behaviour goes in global middleware.
+
+## Where HTTP code lives
+
+- **`src/kernel/http/`** holds generic mechanisms: code that knows h3 and Effect but nothing about a resource, and that does not grow with the endpoint count (`defineHandler`, `defineRouteGroup`, `runEffect`, `decode`, the runtime bridge, the h3 error renderer). It must not import from `handler/`, `service/`, `repository/` or `routes/`; the only domain type it names is the `HttpEnv` service list.
+- **`src/middleware/`** holds global plugins that `createApp` registers once, in a fixed order (`cors`, `requestId`, `bodyLimit`, …).
+- **`src/routes/`** and **`src/handler/`** are the domain's side: which paths exist and what each does. They grow with the API.
 
 ## Naming conventions
 
