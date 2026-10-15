@@ -18,6 +18,8 @@ export interface ApiErrorMetadata {
   readonly request_id: string
   /** The `trc_` id of the recorded trace; set only when traces are exported and this one was recorded. */
   readonly trace_id?: string
+  /** How a cached read was answered; set only when the request read through the cache. */
+  readonly cache?: 'hit' | 'miss' | 'bypass'
   /** Present on every response under the rate limiter, a `429` included. */
   readonly rate_limit?: ApiRateLimit
 }
@@ -79,6 +81,12 @@ const traceMeta = (event: H3Event): { readonly trace_id?: string } => {
   return id === undefined ? {} : { trace_id: id }
 }
 
+/** `cache` when the request read through the cache (see `runEffect`). */
+const cacheMeta = (event: H3Event): { readonly cache?: 'hit' | 'miss' | 'bypass' } => {
+  const { cache } = event.context
+  return cache === undefined ? {} : { cache }
+}
+
 /** The id minted by the `requestId` plugin; `unknown` only if that plugin was not registered. */
 const requestIdFor = (event: H3Event): string => requestIdOf(event) ?? 'unknown'
 
@@ -92,6 +100,7 @@ export const successEnvelope = (event: H3Event, statusCode: number, reply: Reply
     status_code: statusCode,
     request_id: requestIdFor(event),
     ...traceMeta(event),
+    ...cacheMeta(event),
     ...(rateLimit === undefined ? {} : { rate_limit: rateLimit })
   }
   const body = {
@@ -124,6 +133,7 @@ export const errorEnvelope = (
       status_code: statusCode,
       request_id: requestIdFor(event),
       ...traceMeta(event),
+      ...cacheMeta(event),
       ...(event.context.rateLimit === undefined ? {} : { rate_limit: event.context.rateLimit })
     }
   }

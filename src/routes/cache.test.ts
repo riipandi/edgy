@@ -83,6 +83,38 @@ describe('X-Cache header', () => {
   })
 })
 
+describe('metadata.cache', () => {
+  it('says miss, hit and bypass in the envelope, the same as the header', async () => {
+    t = await makeTestApp()
+    const created = await t.request('/api/users', {
+      method: 'POST',
+      body: { email: 'm@example.com' }
+    })
+    const id: string = (await created.json()).data.id
+
+    const seen: (string | undefined)[] = []
+    for (const path of [`/api/users/${id}`, `/api/users/${id}`, `/api/users/${id}?nocache=true`]) {
+      const response = await t.request(path)
+      const { metadata } = await response.json()
+      expect(response.headers.get('x-cache')).toBe(String(metadata.cache).toUpperCase())
+      seen.push(metadata.cache)
+    }
+    expect(seen).toEqual(['miss', 'hit', 'bypass'])
+  })
+
+  it('is absent when nothing was read through the cache', async () => {
+    t = await makeTestApp()
+    const { metadata } = await (await t.request('/api/users')).json()
+    expect(metadata).not.toHaveProperty('cache')
+  })
+
+  it('is in an error envelope too', async () => {
+    t = await makeTestApp()
+    const body = await (await t.request('/api/users/user_00000000000000000000000000')).json()
+    expect(body.metadata.cache).toBe('miss')
+  })
+})
+
 describe('request log', () => {
   /** The `cache` annotation of each request line printed while `run` ran, in order. */
   const cacheOfEach = async (env: Record<string, string>, paths: (id: string) => string[]) => {

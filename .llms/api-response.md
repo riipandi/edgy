@@ -27,6 +27,9 @@ Complete success response:
         // Rate limit information
         rate_limit?: ApiRateLimit
 
+        // How a cached read was answered: hit | miss | bypass (absent when nothing was cached)
+        cache?: 'hit' | 'miss' | 'bypass'
+
         // Pagination information (HATEOAS-first)
         ...ApiPagination
     }
@@ -74,6 +77,7 @@ Error response:
         request_id: string
         trace_id?: string // trc_… when the trace was recorded, errors included
         rate_limit?: ApiRateLimit // also on a 429 and on any error under the rate limiter
+        cache?: 'hit' | 'miss' | 'bypass' // also on an error, when a cached read preceded it
     }
 }
 ```

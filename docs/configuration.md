@@ -135,7 +135,7 @@ another instance. With `memory` that lasts up to `CACHE_TTL`; with a shared stor
 everyone at once, apart from the local copies, which last up to `CACHE_LOCAL_TTL`. Lower it (or set `0`)
 if that matters more to you than saving a round trip to the store.
 
-The `X-Cache` response header and the request log say how a cached read was answered: `cache=hit`, `cache=miss` (the database was asked) or
+The `X-Cache` response header, `metadata.cache` in the response body and the request log say how a cached read was answered: `cache=hit`, `cache=miss` (the database was asked) or
 `cache=bypass` (`?nocache=true`). A request that read nothing through the cache, or runs with the cache off,
 has no `cache` field.
 
