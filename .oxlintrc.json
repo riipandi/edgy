@@ -25,18 +25,8 @@
         "no-console": "off",
         "no-debugger": "warn",
         "no-underscore-dangle": "off",
-        "no-empty": [
-            "error",
-            {
-                "allowEmptyCatch": true
-            }
-        ],
-        "no-unused-vars": [
-            "error",
-            {
-                "args": "after-used"
-            }
-        ],
+        "no-empty": ["error", { "allowEmptyCatch": true }],
+        "no-unused-vars": ["error", { "args": "after-used" }],
         "sort-imports": "off",
         "typescript/consistent-type-definitions": ["error", "interface"],
         "typescript/no-explicit-any": "error",
@@ -66,6 +56,7 @@
         "**/*.yaml",
         "**/*.toml",
         "/public/**",
-        "/temp/**"
+        "/temp/**",
+        "/vendor/**"
     ]
 }
