@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from '@effect/vitest'
-import { Effect, Exit, Layer, ManagedRuntime } from 'effect'
+import { Effect, Exit, Layer, Logger, ManagedRuntime } from 'effect'
 import { makeTestApp, type TestApp } from '../../tests/app.ts'
 import { fakeD1 } from '../../tests/d1.ts'
 import { userRow } from '../../tests/ids.ts'
@@ -78,7 +78,9 @@ describe('isUniqueViolation', () => {
 describe('D1 dialect', () => {
   const layer = UserRepository.layer.pipe(
     Layer.provideMerge(D1DatabaseLayer),
-    Layer.provide(Layer.succeed(D1Binding, fakeD1()))
+    Layer.provide(Layer.succeed(D1Binding, fakeD1())),
+    // No logger: the default one would print the migrator's warnings into the test run.
+    Layer.provideMerge(Logger.layer([]))
   )
   const runtime = ManagedRuntime.make(layer)
   afterAll(() => runtime.dispose())

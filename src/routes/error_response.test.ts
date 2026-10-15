@@ -36,6 +36,8 @@ describe('error responses', () => {
       const body: any = await (await t.request('/api/users')).json()
       expect(body.error.debug.type).toBe('DatabaseError')
       expect(body.error.debug.message).toContain('no such table')
+      // The failure is logged, to the app's captured log and not to the test run.
+      expect(t.logs.join('\n')).toContain('Query failed')
       await t.dispose()
       t = undefined
     }

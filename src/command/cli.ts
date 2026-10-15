@@ -23,3 +23,6 @@ const rootCmd = Command.make('edgy').pipe(
 
 /** Root CLI program. Without a subcommand it prints help. The version comes from `package.json`. */
 export const run = Command.run(rootCmd, { version: pkg.version })
+
+/** The same program over explicit arguments, instead of the process's. */
+export const runWith = Command.runWith(rootCmd, { version: pkg.version })

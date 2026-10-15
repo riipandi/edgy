@@ -94,6 +94,8 @@ describe('the platform', () => {
     const out = execFileSync(process.execPath, ['--input-type=module', '-e', script], {
       cwd: root,
       encoding: 'utf8',
+      // Wrangler writes its own notices to stderr (proxy warnings, its log file); they are not the test's.
+      stdio: ['ignore', 'pipe', 'pipe'],
       env: { ...process.env, CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV: 'false' }
     })
     const answer: { names: string[]; server: string; client: string } = JSON.parse(

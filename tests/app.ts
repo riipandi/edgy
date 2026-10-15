@@ -36,7 +36,7 @@ const sinks: ((line: string) => void)[] = []
 const consoleLog = console.log
 console.log = (...args: unknown[]): void => {
   const sink = sinks.at(-1)
-  if (sink === undefined) { process.stderr.write("LEAK " + String(args[0]).slice(0, 90) + "\n"); consoleLog(...args) }
+  if (sink === undefined) consoleLog(...args)
   else sink(args.map(String).join(' '))
 }
 
