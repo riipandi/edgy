@@ -6,12 +6,15 @@ import type { AssetSource } from './assets.ts'
 /** Ids start with `/`; anything that is not a plain name, or that starts a segment with `.`, is refused. */
 const SAFE_NAME = /^\/(?!\.)[\w@.+~%-]+(?:\/(?!\.)[\w@.+~%-]+)*$/
 
-/** Assets read from a directory. Reads are confined to `root`, symbolic links included. */
-export const directoryAssets = (root: string): AssetSource => {
+/**
+ * Assets read from a directory. Reads are confined to `root`, symbolic links included, and to ids
+ * under `scope` (`/assets/`), for a root that also holds server code.
+ */
+export const directoryAssets = (root: string, scope = '/'): AssetSource => {
   const base = path.resolve(root)
   const realBase = realpath(base).catch(() => base)
   const resolve = async (id: string): Promise<string | undefined> => {
-    if (!SAFE_NAME.test(id) || id.includes('..')) return undefined
+    if (!id.startsWith(scope) || !SAFE_NAME.test(id) || id.includes('..')) return undefined
     const file = path.join(base, id)
     if (!file.startsWith(base + path.sep)) return undefined
     // A link inside `root` may point out of it; the lexical check above cannot see that.
@@ -32,11 +35,11 @@ export const directoryAssets = (root: string): AssetSource => {
   }
 }
 
-/** Assets embedded in a single-executable app, keyed `public/<path>`. `undefined` outside one. */
+/** Assets embedded in a single-executable app, keyed `assets/<name>`. `undefined` outside one. */
 export const embeddedAssets = (): AssetSource | undefined => {
   if (!isSea()) return undefined
   const keys = new Set(getAssetKeys())
-  const key = (id: string) => `public${id}`
+  const key = (id: string) => id.slice(1)
   return {
     meta: (id) => (keys.has(key(id)) ? { size: getRawAsset(key(id)).byteLength } : undefined),
     contents: (id) => (keys.has(key(id)) ? new Uint8Array(getRawAsset(key(id))) : undefined)

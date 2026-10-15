@@ -125,3 +125,19 @@ describe('directoryAssets confinement', () => {
     expect(await source.contents(id)).toBeUndefined()
   })
 })
+
+describe('directoryAssets scope', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'edgy-scope-'))
+  mkdirSync(join(dir, 'assets'))
+  writeFileSync(join(dir, 'assets', 'a.js'), 'a')
+  writeFileSync(join(dir, 'index.mjs'), 'server')
+  const source = directoryAssets(dir, '/assets/')
+
+  afterAll(() => rmSync(dir, { recursive: true, force: true }))
+
+  it('serves only ids under the scope', async () => {
+    expect(await source.meta('/assets/a.js')).toMatchObject({ size: 1 })
+    expect(await source.meta('/index.mjs')).toBeUndefined()
+    expect(await source.contents('/index.mjs')).toBeUndefined()
+  })
+})

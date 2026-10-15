@@ -6,7 +6,7 @@ import { nodePreview } from './preview.ts'
 
 /**
  * The Node server is one bundle with every dependency inlined, so it deploys without
- * `node_modules`. Its entry starts with a shebang, and browser assets go in `public/`.
+ * `node_modules`. Its entry starts with a shebang, and browser assets go in `assets/`.
  *
  * - `ssr.noExternal` applies only to builds. Under `vite` the module runner leaves `node_modules`
  *   to Node.

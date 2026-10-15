@@ -2,12 +2,12 @@ import marko from '@marko/vite'
 import { vanillaExtractPlugin } from '@vanilla-extract/vite-plugin'
 import type { ConfigEnv, Plugin, PluginOption } from 'vite'
 import { nodePlatform } from './node.ts'
-import { OUT_DIR, type Platform, platformOf, withDefaults } from './platform.ts'
+import { CLIENT_DIR, OUT_DIR, type Platform, platformOf, withDefaults } from './platform.ts'
 import { workerPlatform } from './worker.ts'
 
 /**
- * Shared by both platforms: the server (or Worker) in one directory and the browser assets in its
- * `public/`. No HTML from Vite, since pages belong to the application (`appType: 'custom'`).
+ * Shared by both platforms: the server (or Worker) in one directory and the browser assets in
+ * `assets/` beside the Node server, or in the Worker's `public/`. No HTML from Vite, since pages belong to the application (`appType: 'custom'`).
  *
  * Marko optimizes templates only in Vite's `production` mode, but a build can run under another
  * mode (`--mode worker`), so a build sets `MARKO_DEBUG` itself. This plugin comes first so the
@@ -21,7 +21,13 @@ const shared = (platform: Platform): Plugin => ({
     withDefaults(config, {
       appType: 'custom',
       environments: {
-        client: { build: { outDir: `${OUT_DIR[platform]}/public` } },
+        // The server builds first and empties its directory; the browser build only adds to it.
+        client: {
+          build: {
+            outDir: CLIENT_DIR[platform],
+            emptyOutDir: CLIENT_DIR[platform] !== OUT_DIR[platform]
+          }
+        },
         ssr: { build: { outDir: OUT_DIR[platform] } }
       }
     })

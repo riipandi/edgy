@@ -66,7 +66,7 @@ describe('vite.config.ts', () => {
     expect(ssr?.outDir).toBe('somewhere-else')
     expect(ssr?.target).toBe('node22')
     // ...while what was not set stays the plugin's.
-    expect(config.environments['client']?.build.outDir).toBe('dist/server/public')
+    expect(config.environments['client']?.build.outDir).toBe('dist/server')
   })
 })
 

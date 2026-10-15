@@ -21,9 +21,10 @@ import { acceptProxyProtocol } from './kernel/http/proxy_protocol.ts'
 export const serveHttp = Effect.gen(function* () {
   const config = yield* ConfigService
   const { host, port, shutdownTimeout, shutdownDrainDelay, proxyProtocol } = config.server
-  // Assets come from the embedded executable, or from the `public/` directory beside the entry.
+  // Assets come from the embedded executable, or from `assets/` beside the entry.
   const { app, runtime } = yield* makeNodeApp({
-    assets: embeddedAssets() ?? directoryAssets(fileURLToPath(new URL('./public', import.meta.url)))
+    assets:
+      embeddedAssets() ?? directoryAssets(fileURLToPath(new URL('.', import.meta.url)), '/assets/')
   })
 
   const server = yield* Effect.acquireRelease(

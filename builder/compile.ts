@@ -57,7 +57,7 @@ const build = async (outDir: string): Promise<void> => {
     mode: 'production',
     build: { emptyOutDir: true },
     environments: {
-      client: { build: { outDir: path.join(outDir, 'public') } },
+      client: { build: { outDir, emptyOutDir: false } },
       ssr: {
         build: {
           outDir,
@@ -86,7 +86,7 @@ const compile = async (): Promise<string> => {
   try {
     await build(server)
 
-    const publicDir = path.join(server, 'public')
+    const assetsDir = path.join(server, 'assets')
     const blob = path.join(temp, 'sea-prep.blob')
     const seaConfig = path.join(temp, 'sea-config.json')
     writeFileSync(
@@ -95,10 +95,10 @@ const compile = async (): Promise<string> => {
         main: path.join(server, 'main.cjs'),
         output: blob,
         disableExperimentalSEAWarning: true,
-        // Browser assets, keyed `public/<path>` as the SEA runtime reads them.
+        // Browser assets, keyed `assets/<name>` as the SEA runtime reads them.
         assets: Object.fromEntries(
-          walk(publicDir).map((file) => [
-            `public/${path.relative(publicDir, file).split(path.sep).join('/')}`,
+          walk(assetsDir).map((file) => [
+            `assets/${path.relative(assetsDir, file).split(path.sep).join('/')}`,
             file
           ])
         )

@@ -10,7 +10,7 @@ minimal `package.json`, so the result runs without the project's own `node_modul
 executable is a separate command.
 
 ```bash
-pnpm build                  # -> dist/server  (index.mjs + public/ for the browser)
+pnpm build                  # -> dist/server  (index.mjs, with assets/ for the browser beside it)
 pnpm build --mode worker    # -> dist/worker  (index.js + public/ for the browser)
 pnpm compile                # -> dist/edgy  (single executable, experimental)
 ```
@@ -30,7 +30,7 @@ node dist/server/index.mjs serve
 ./dist/server/index.mjs serve   # the Node entry is executable and starts with a shebang
 ```
 
-The server finds its browser assets in `public/`, next to `index.mjs`, so keep the two together
+The server finds its browser assets in `assets/`, next to `index.mjs`, so keep the two together
 when you copy the build. The Worker entry (`dist/worker/index.js`) is not executable: the platform
 loads it, nothing runs it.
 

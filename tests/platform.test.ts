@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@effect/vitest'
-import { OUT_DIR, platformOf } from '../builder/platform.ts'
+import { CLIENT_DIR, OUT_DIR, platformOf } from '../builder/platform.ts'
 
 describe('platformOf', () => {
   it('is the Worker only for --mode worker', () => {
@@ -14,5 +14,9 @@ describe('platformOf', () => {
 
   it('writes each platform to its own directory', () => {
     expect(OUT_DIR).toEqual({ node: 'dist/server', worker: 'dist/worker' })
+  })
+
+  it('keeps the Node assets beside the entry and the Worker assets in their own directory', () => {
+    expect(CLIENT_DIR).toEqual({ node: 'dist/server', worker: 'dist/worker/public' })
   })
 })

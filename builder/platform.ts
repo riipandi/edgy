@@ -13,11 +13,20 @@ export type Platform = 'node' | 'worker'
 export const platformOf = (env: Pick<ConfigEnv, 'mode'>): Platform =>
   env.mode === 'worker' ? 'worker' : 'node'
 
-/** Output directory per platform: the server or Worker, with browser assets in `public/`. */
+/** Output directory per platform: the server, or the Worker. */
 export const OUT_DIR = { node: 'dist/server', worker: 'dist/worker' } as const satisfies Record<
   Platform,
   string
 >
+
+/**
+ * Where the browser assets go. Beside the server's entry for Node (`assets/`). Cloudflare serves
+ * everything in the directory it is given, so the Worker's go in a `public/` of their own.
+ */
+export const CLIENT_DIR = {
+  node: 'dist/server',
+  worker: 'dist/worker/public'
+} as const satisfies Record<Platform, string>
 
 /**
  * Applies `defaults` under the configuration a `config` hook receives, so explicit settings win.
