@@ -133,10 +133,28 @@ describe('configuration', () => {
     await expect(parse({ CACHE_STORE: 'kv' })).rejects.toThrow(/CACHE_STORE/)
   })
 
-  it('counts proxies for X-Forwarded-For, at least one', async () => {
-    expect((await parse({})).server.trustProxyHops).toBe(1)
-    expect((await parse({ TRUST_PROXY_HOPS: '2' })).server.trustProxyHops).toBe(2)
-    await expect(parse({ TRUST_PROXY_HOPS: '0' })).rejects.toThrow(/TRUST_PROXY_HOPS/)
+  it('reads TRUST_PROXY as none, all, or a list of addresses and ranges', async () => {
+    expect((await parse({})).server.trustProxy).toEqual({ kind: 'none' })
+    expect((await parse({ TRUST_PROXY: 'false' })).server.trustProxy).toEqual({ kind: 'none' })
+    expect((await parse({ TRUST_PROXY: 'TRUE' })).server.trustProxy).toEqual({ kind: 'all' })
+
+    const list = (await parse({ TRUST_PROXY: '10.0.0.10, 172.18.0.0/16,fd00::/8' })).server
+    expect(list.trustProxy.kind).toBe('list')
+    expect(list.trustProxy.kind === 'list' ? list.trustProxy.ranges : []).toHaveLength(3)
+  })
+
+  it('refuses a TRUST_PROXY entry that is not an address or range, naming it', async () => {
+    for (const bad of ['10.0.0.10,proxy.internal', '10.0.0.0/33', 'yes', '10.0.0.10,,']) {
+      await expect(parse({ TRUST_PROXY: bad })).rejects.toThrow(/TRUST_PROXY/)
+    }
+  })
+
+  it('reads TRUSTED_PLATFORM as a header name, lower-cased, or nothing', async () => {
+    expect((await parse({})).server.trustedPlatform).toBeUndefined()
+    expect((await parse({ TRUSTED_PLATFORM: 'CF-Connecting-IP' })).server.trustedPlatform).toBe(
+      'cf-connecting-ip'
+    )
+    await expect(parse({ TRUSTED_PLATFORM: 'bad header' })).rejects.toThrow(/TRUSTED_PLATFORM/)
   })
 
   it('rejects an unknown or empty LOG_TRANSPORT', async () => {

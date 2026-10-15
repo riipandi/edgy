@@ -29,6 +29,34 @@ const field = <A>(spec: FieldSpec, config: Config.Config<A>): Node<A> => ({
   specs: [spec]
 })
 
+/**
+ * A variable with its own grammar, parsed from its text. `parse` answers with the value or with
+ * what is wrong; a wrong value stops startup naming the variable and the problem, like every
+ * other field. `fallback` is the default as it is written in a dotenv file.
+ */
+export const parsed = <A>(
+  name: string,
+  fallback: string,
+  description: string,
+  parse: (raw: string) => { readonly value: A } | { readonly problem: string }
+) =>
+  field(
+    { name, description, kind: 'string', default: fallback },
+    Config.String(name).pipe(
+      Config.withDefault(fallback),
+      Config.mapEffect((raw): Effect.Effect<A, Config.ConfigError> => {
+        const result = parse(raw.trim())
+        return 'value' in result
+          ? Effect.succeed(result.value)
+          : Effect.fail(
+              new Config.ConfigError(
+                new ConfigProvider.SourceError({ message: `${name}: ${result.problem}` })
+              )
+            )
+      })
+    )
+  )
+
 /** A free-form string. */
 export const text = (name: string, fallback: string, description: string) =>
   field(

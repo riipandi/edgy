@@ -1,5 +1,5 @@
 import { Duration } from 'effect'
-import { definePlugin, getRequestIP, type H3Event, HTTPError } from 'h3'
+import { definePlugin, type H3Event, HTTPError } from 'h3'
 import type { ApiRateLimit } from '../kernel/http/envelope.ts'
 
 /** Outcome of counting one request against a client's allowance. */
@@ -22,15 +22,8 @@ export type RateCheck = (key: string) => RateDecision | Promise<RateDecision>
 export interface RateLimitOptions {
   /** How a request is counted: {@link makeMemoryRateCheck} or a shared store's. */
   readonly check: RateCheck
-  /** Read the client address from proxy headers instead of the socket. */
-  readonly trustProxy: boolean
-  /** Proxies that append to `X-Forwarded-For`; the client is that many entries from the right. */
-  readonly proxyHops: number
-  /**
-   * Whether `CF-Connecting-IP` is set by the platform (Workers: always, and a client cannot
-   * override it). Anywhere else the header is the client's to write, so it is ignored.
-   */
-  readonly cloudflareHeader: boolean
+  /** The client's address for a request (`makeClientResolver`): the key a client is counted under. */
+  readonly clientOf: (event: H3Event) => string
 }
 
 declare module 'h3' {
@@ -105,38 +98,6 @@ export const makeMemoryRateCheck = (options: {
 }
 
 /**
- * The client address in an `X-Forwarded-For` value, given the number of proxies that append to
- * it. Each trusted proxy adds the address it received the request from, so the client is the
- * entry `hops` from the **right**; everything left of it was written by the client or by
- * something before our proxies, and a client that sends its own header only lengthens the
- * list on the left. `undefined` when the header has fewer entries than there are proxies.
- */
-export const forwardedClient = (header: string | null, hops: number): string | undefined => {
-  if (header === null) return undefined
-  const entries = header.split(',').map((entry) => entry.trim())
-  const client = entries[entries.length - hops]
-  return client === undefined || client === '' ? undefined : client
-}
-
-/**
- * Client address for the bucket key. Proxy headers are client-controlled unless
- * a proxy we trust overwrites or appends to them, so they are read only with `trustProxy`:
- * `CF-Connecting-IP` where the platform sets it, otherwise `X-Forwarded-For` counted from the
- * right (see {@link forwardedClient}). Without a usable header the socket's address is used.
- */
-const clientOf = (event: H3Event, options: RateLimitOptions): string => {
-  if (options.trustProxy) {
-    if (options.cloudflareHeader) {
-      const cloudflare = event.req.headers.get('cf-connecting-ip')
-      if (cloudflare) return cloudflare
-    }
-    const forwarded = forwardedClient(event.req.headers.get('x-forwarded-for'), options.proxyHops)
-    if (forwarded !== undefined) return forwarded
-  }
-  return getRequestIP(event) ?? 'unknown'
-}
-
-/**
  * Rate limiter plugin, one allowance per client address, counted by `options.check`.
  *
  * Every response under the limiter carries `x-ratelimit-limit`,
@@ -147,7 +108,7 @@ const clientOf = (event: H3Event, options: RateLimitOptions): string => {
  */
 export const rateLimit = definePlugin<RateLimitOptions>((app, options) => {
   app.use(async (event, next) => {
-    const decision = await options.check(clientOf(event, options))
+    const decision = await options.check(options.clientOf(event))
 
     const info: ApiRateLimit = {
       limit: decision.limit,

@@ -133,7 +133,6 @@ const buildApp = async (env: WorkerEnv): Promise<WorkerApp> => {
           app: createApp({
             runtime: http,
             config,
-            platform: 'workers',
             ...(rateCheck === undefined ? {} : { rateCheck })
           }),
           flush: () =>

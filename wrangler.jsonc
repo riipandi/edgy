@@ -60,12 +60,14 @@
         // Worker cannot reach. To export, set OTEL_EXPORTER_OTLP_ENDPOINT and
         // OTEL_EXPORTER_OTLP_HEADERS (a secret) and remove this line.
         "OTEL_SDK_DISABLED": "true",
-        // Cloudflare always sets CF-Connecting-IP, so it is safe to trust here.
         "LOG_FORMAT": "json",
-        "TRUST_PROXY": "true",
-        // Off: a preview upload shares these vars, and migrating the production database from
-        // one is not what a preview is for. `pnpm watch:worker` and `pnpm preview` switch it on
-        // for the local database; for the first remote deploy see docs/deployment.md.
+        // Cloudflare always sets CF-Connecting-IP, and a Worker is reachable
+        // only through Cloudflare, so this header is the client address.
+        "TRUSTED_PLATFORM": "CF-Connecting-IP",
+        // Off: a preview upload shares these vars, and migrating the production
+        // database from one is not what a preview is for. `pnpm watch:worker`
+        // and `pnpm preview` switch it on for the local database; for the first
+        // remote deploy see docs/deployment.md.
         "DATABASE_AUTO_MIGRATE": "false",
         // Read cache through the Workers Cache API: per location, and not served
         // on workers.dev (there every read reaches D1), so use a custom domain.

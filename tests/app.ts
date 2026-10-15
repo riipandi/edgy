@@ -15,7 +15,6 @@ import type { UserService } from '../src/modules/user/user_service.ts'
 import { ErrorReporterLayer } from '../src/observer/error_reporter.ts'
 import { ConsoleLoggerLayer } from '../src/observer/logger.ts'
 import { TelemetryRuntimeLayer } from '../src/observer/telemetry.ts'
-import type { Platform } from '../src/routes/route.ts'
 import { ServicesLayer } from '../src/services.ts'
 
 /** Variables every test app starts from: a private in-memory database and no log output. */
@@ -39,6 +38,8 @@ export interface TestApp {
       readonly method?: string
       readonly body?: unknown
       readonly headers?: Record<string, string>
+      /** The address of the TCP peer, which an in-process request does not have (`req.ip`). */
+      readonly ip?: string
     }
   ) => Promise<Response>
   /** Runs an Effect against the app's services (repositories, database, ...). */
@@ -59,8 +60,6 @@ export const makeTestApp = async (
   options: {
     readonly fetch?: typeof globalThis.fetch
     readonly rateCheck?: RateCheck
-    /** Where the app runs; `workers` makes `CF-Connecting-IP` the client address. */
-    readonly platform?: Platform
     /** Stands in for the shared cache store (`CACHE_STORE=redis`); in-process when absent. */
     readonly cacheBacking?: Layer.Layer<Persistence.BackingPersistence>
   } = {}
@@ -100,7 +99,6 @@ export const makeTestApp = async (
         app: createApp({
           runtime: httpRuntime,
           config,
-          ...(options.platform === undefined ? {} : { platform: options.platform }),
           ...(options.rateCheck === undefined ? {} : { rateCheck: options.rateCheck })
         }),
         http: httpRuntime
@@ -112,17 +110,18 @@ export const makeTestApp = async (
   return {
     app,
     http,
-    request: async (path, init = {}) =>
-      app.fetch(
-        new Request(`http://test${path}`, {
-          method: init.method ?? 'GET',
-          headers: {
-            ...(init.body === undefined ? {} : { 'content-type': 'application/json' }),
-            ...init.headers
-          },
-          ...(init.body === undefined ? {} : { body: JSON.stringify(init.body) })
-        })
-      ),
+    request: async (path, init = {}) => {
+      const request = new Request(`http://test${path}`, {
+        method: init.method ?? 'GET',
+        headers: {
+          ...(init.body === undefined ? {} : { 'content-type': 'application/json' }),
+          ...init.headers
+        },
+        ...(init.body === undefined ? {} : { body: JSON.stringify(init.body) })
+      })
+      // What srvx sets from the socket; h3's `getRequestIP` reads it.
+      return app.fetch(init.ip === undefined ? request : Object.assign(request, { ip: init.ip }))
+    },
     run: (effect) => runtime.runPromise(effect),
     dispose: () => runtime.dispose()
   }

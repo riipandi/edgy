@@ -1,5 +1,6 @@
-import { Config, ConfigProvider, Effect } from 'effect'
-import { flag, group, int, milliseconds, port, text, type ValueOf } from './field.ts'
+import type { TrustedProxies } from '../ip.ts'
+import { group, int, milliseconds, parsed, port, text, type ValueOf } from './field.ts'
+import { parseTrustedPlatform, parseTrustProxy } from './proxy.ts'
 
 /** HTTP server: where it listens, what it enforces per request, how it stops. */
 export const serverConfig = group(
@@ -28,29 +29,20 @@ export const serverConfig = group(
       1024,
       'Requests handled at once before new ones are refused with 503 (overload guard); 0 disables'
     ),
-    trustProxy: flag(
+    trustProxy: parsed<TrustedProxies>(
       'TRUST_PROXY',
-      false,
-      'Trust X-Forwarded-For (and, on Workers, CF-Connecting-IP) for the client address (enable only behind a proxy you control)'
+      'false',
+      'Proxies that may set the client address in X-Forwarded-For / X-Real-IP: false (none), true (every address; only when the app is unreachable except through your proxy), or a comma-separated list of IP addresses and CIDR ranges',
+      parseTrustProxy
     ),
-    trustProxyHops: int(
-      'TRUST_PROXY_HOPS',
-      1,
-      'How many proxies append to X-Forwarded-For before the request reaches the app; the client is the entry that many from the right (at least 1)'
+    trustedPlatform: parsed<string | undefined>(
+      'TRUSTED_PLATFORM',
+      '',
+      "Header a CDN or platform sets to the client address, read directly instead of X-Forwarded-For (CF-Connecting-IP, Fly-Client-IP, X-Appengine-Remote-Addr, or your own proxy's); empty for none",
+      parseTrustedPlatform
     )
   },
-  {
-    title: 'Server',
-    // Zero hops would read the proxy's own address, or past the start of the list.
-    transform: (raw) =>
-      raw.trustProxyHops < 1
-        ? Effect.fail(
-            new Config.ConfigError(
-              new ConfigProvider.SourceError({ message: 'TRUST_PROXY_HOPS must be at least 1' })
-            )
-          )
-        : Effect.succeed(raw)
-  }
+  { title: 'Server' }
 )
 
 export type ServerConfig = ValueOf<typeof serverConfig>

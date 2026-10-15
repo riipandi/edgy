@@ -36,8 +36,33 @@ The command never writes a real `.env` file.
 | `SHUTDOWN_TIMEOUT`     | `10000`      | Milliseconds a stop signal waits for requests still being handled           |
 | `SHUTDOWN_DRAIN_DELAY` | `0`          | Milliseconds between `/health` turning `503` and the server closing         |
 | `MAX_IN_FLIGHT`        | `1024`       | Requests handled at once before new ones are refused with `503`; `0` turns the guard off |
-| `TRUST_PROXY`          | `false`      | Read the client address from proxy headers (only behind a proxy you control) |
-| `TRUST_PROXY_HOPS`     | `1`          | How many proxies add to `X-Forwarded-For` before the request reaches the server; the client is that many entries from the right |
+| `TRUST_PROXY`          | `false`      | Proxies that may set the client address: `false`, `true`, or a list of addresses and CIDR ranges (see below) |
+| `TRUSTED_PLATFORM`     | (empty)      | Header a CDN or platform sets to the client address, such as `CF-Connecting-IP` (see below) |
+
+### Behind a reverse proxy
+
+Behind a reverse proxy every request reaches the server from the proxy's address, yet the rate limit
+needs the client's. There are two ways to pass it on.
+
+`TRUST_PROXY` says which proxies may speak for a client:
+
+- `false` (the default) trusts no proxy: the client is the address of the connection.
+- A comma-separated list of the proxies' IP addresses or CIDR ranges, such as `10.0.0.10,172.18.0.0/16`.
+  A request from one of them may set the client in `X-Forwarded-For` or `X-Real-IP`; a request from
+  any other address is counted under its own address, whatever the headers claim.
+- `true` trusts every address. Use it only when the server cannot be reached without going through
+  your proxy.
+
+`X-Forwarded-For` is read from the right. Each proxy adds the address it received the request from, so
+the entries on the right belong to your proxies; those are skipped, and the first address that is not
+one of them is the client. A client that sends its own `X-Forwarded-For` only adds entries on the left,
+which are never believed.
+
+`TRUSTED_PLATFORM` names a header that a CDN or platform sets to the client address, which is then read
+directly instead of `X-Forwarded-For`: `CF-Connecting-IP` for Cloudflare, `Fly-Client-IP` for Fly.io,
+`X-Appengine-Remote-Addr` for Google App Engine, or any header your own proxy sets. The header is
+trusted without checking where the request came from, so use it only when the server is reachable
+through that platform alone. If the header is missing, the connection's address is used.
 
 ## Database
 
@@ -111,8 +136,8 @@ consistent: it holds back abuse but is not an exact global quota. The allowance 
 `RATE_LIMIT_WINDOW` only sets the `Retry-After` a refused client is told, so keep it equal to the
 period. The binding does not report what is left, so those responses omit the remaining count.
 A store that is not available on the running platform (`redis` on Workers, `cloudflare` on Node.js)
-stops startup with a message instead of failing quietly. Set `TRUST_PROXY=true` behind a
-proxy, otherwise every client appears to have the proxy's address.
+stops startup with a message instead of failing quietly. Behind a proxy, set `TRUST_PROXY` or
+`TRUSTED_PLATFORM` (below), otherwise every client appears to have the proxy's address.
 
 `MAX_IN_FLIGHT` is the overload guard: past that many requests at once the server answers `503` with
 `Retry-After: 1` immediately, instead of queueing everyone until they time out. `/health` and

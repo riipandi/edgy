@@ -3,13 +3,11 @@ import type { AppConfig } from '../kernel/config/service.ts'
 import { defineRouteGroup } from '../kernel/http/router.ts'
 import { unlessDraining } from '../kernel/http/runtime.ts'
 import { cacheControl } from '../middleware/cache_control.ts'
+import { makeClientResolver } from '../middleware/client_ip.ts'
 import { makeMemoryRateCheck, type RateCheck, rateLimit } from '../middleware/rate_limit.ts'
 import { healthHandler } from '../modules/health/health_handler.ts'
 import { userRoutes } from '../modules/user/user_routes.ts'
 import { metricsHandler } from '../observer/metrics_handler.ts'
-
-/** Where the app runs; decides which proxy headers are the platform's own. */
-export type Platform = 'node' | 'workers'
 
 /**
  * `/api` group: every resource endpoint that answers in the API envelope.
@@ -21,7 +19,7 @@ export type Platform = 'node' | 'workers'
  *
  * A new module's routes are registered in this callback.
  */
-const apiRoutes = (config: AppConfig, check: RateCheck, platform: Platform): H3Plugin =>
+const apiRoutes = (config: AppConfig, check: RateCheck): H3Plugin =>
   defineRouteGroup({
     prefix: '/api',
     middleware: [
@@ -31,9 +29,10 @@ const apiRoutes = (config: AppConfig, check: RateCheck, platform: Platform): H3P
         ? [
             rateLimit({
               check,
-              trustProxy: config.server.trustProxy,
-              proxyHops: config.server.trustProxyHops,
-              cloudflareHeader: platform === 'workers'
+              clientOf: makeClientResolver({
+                proxies: config.server.trustProxy,
+                platformHeader: config.server.trustedPlatform
+              })
             })
           ]
         : [])
@@ -101,8 +100,7 @@ const notFoundRoutes: H3Plugin = (app) => {
 /** Every route plugin, in registration order. The catch-all must stay last. */
 export const createRoutePlugins = (
   config: AppConfig,
-  rateCheck?: RateCheck,
-  platform: Platform = 'node'
+  rateCheck?: RateCheck
 ): readonly H3Plugin[] => [
   rootRoutes(config),
   apiRoutes(
@@ -111,8 +109,7 @@ export const createRoutePlugins = (
       makeMemoryRateCheck({
         max: config.security.rateLimitMax,
         window: config.security.rateLimitWindow
-      }),
-    platform
+      })
   ),
   wellKnownRoutes,
   notFoundRoutes

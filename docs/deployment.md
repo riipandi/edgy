@@ -74,15 +74,15 @@ Differences from the Node.js server:
 - Cached reads are kept per isolate with `CACHE_STORE=memory`, or per location in Cloudflare's Cache API with `CACHE_STORE=cloudflare` (the default in `wrangler.jsonc`); the Cache API stores nothing on `*.workers.dev`, so use a custom domain for it to have an effect.
 - Rate limiting is counted per isolate with `memory`, and per Cloudflare location with `RATE_LIMIT_STORE=cloudflare`, which uses the `ratelimits` binding in `wrangler.jsonc` (allowance and period are set there). Neither is an exact global quota.
 - Logs go straight to the platform's log stream (`console`), without batching.
-- Set `TRUST_PROXY=true`: Cloudflare always sets `CF-Connecting-IP`, and without it every client shares
-  one rate-limit bucket.
+- Set `TRUSTED_PLATFORM=CF-Connecting-IP` (`wrangler.jsonc` does): a Worker has no socket address, and
+  without it every client shares one rate-limit bucket.
 
 ## Scaling the Node.js server
 
 One process serves roughly 10,000 list requests (20 rows each) per second on a laptop, and SQLite access is
 synchronous, so a slow query holds up every other request on that process. To go further, run several
 processes (SQLite's WAL mode lets them read and write the same file) behind a reverse proxy, and set
-`TRUST_PROXY=true` with `TRUST_PROXY_HOPS` set to the number of proxies in front (the client address is then the `X-Forwarded-For` entry that many from the right, so a client cannot choose it). Rate limits then apply to each process separately.
+`TRUST_PROXY` to your proxy's address or network (see [Configuration](./configuration.md#behind-a-reverse-proxy)). Rate limits then apply to each process separately.
 
 Behind a load balancer, set `SHUTDOWN_DRAIN_DELAY` to a few seconds: on a stop signal `/health`
 answers `503` first, and the server closes the listener only after that pause, so the balancer stops

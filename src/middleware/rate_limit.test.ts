@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from '@effect/vitest'
 import { Duration } from 'effect'
 import { makeTestApp, type TestApp } from '../../tests/app.ts'
-import { forwardedClient, makeMemoryRateCheck } from './rate_limit.ts'
+import { makeMemoryRateCheck } from './rate_limit.ts'
 
 let t: TestApp | undefined
 afterEach(async () => {
@@ -87,51 +87,101 @@ describe('rate limiting', () => {
     }
   })
 
-  it('ignores CF-Connecting-IP off Workers: there it is the client who writes it', async () => {
-    t = await makeTestApp({ RATE_LIMIT_ENABLED: 'true', RATE_LIMIT_MAX: '1', TRUST_PROXY: 'true' })
-    const as = (ip: string) => t!.request('/api/users', { headers: { 'cf-connecting-ip': ip } })
+  it('counts a client by the address the proxy reports, from a trusted proxy only', async () => {
+    t = await makeTestApp({
+      RATE_LIMIT_ENABLED: 'true',
+      RATE_LIMIT_MAX: '1',
+      TRUST_PROXY: '10.0.0.0/8'
+    })
+    const as = (client: string, peer = '10.0.0.5') =>
+      t!.request('/api/users', { ip: peer, headers: { 'x-forwarded-for': client } })
+
     expect((await as('203.0.113.1')).status).toBe(200)
-    expect((await as('203.0.113.2')).status).toBe(429) // same socket, so the same client
+    expect((await as('203.0.113.2')).status).toBe(200) // another client behind the same proxy
+    expect((await as('203.0.113.1')).status).toBe(429)
   })
 
-  it('keys clients by CF-Connecting-IP on Workers, where the platform sets it', async () => {
-    t = await makeTestApp(
-      { RATE_LIMIT_ENABLED: 'true', RATE_LIMIT_MAX: '1', TRUST_PROXY: 'true' },
-      { platform: 'workers' }
-    )
-    const as = (ip: string) => t!.request('/api/users', { headers: { 'cf-connecting-ip': ip } })
+  it('ignores X-Forwarded-For from anyone who is not a trusted proxy', async () => {
+    t = await makeTestApp({
+      RATE_LIMIT_ENABLED: 'true',
+      RATE_LIMIT_MAX: '1',
+      TRUST_PROXY: '10.0.0.0/8'
+    })
+    const as = (spoof: string) =>
+      t!.request('/api/users', { ip: '198.51.100.9', headers: { 'x-forwarded-for': spoof } })
+
+    expect((await as('1.1.1.1')).status).toBe(200)
+    expect((await as('2.2.2.2')).status).toBe(429) // same peer, whatever it claims
+  })
+
+  it('does not let a spoofed first entry buy a fresh bucket behind a trusted proxy', async () => {
+    t = await makeTestApp({
+      RATE_LIMIT_ENABLED: 'true',
+      RATE_LIMIT_MAX: '1',
+      TRUST_PROXY: '10.0.0.5'
+    })
+    // the proxy appended the real client; the attacker prepended a new value each time
+    const as = (spoof: string) =>
+      t!.request('/api/users', {
+        ip: '10.0.0.5',
+        headers: { 'x-forwarded-for': `${spoof}, 198.51.100.7` }
+      })
+    expect((await as('1.1.1.1')).status).toBe(200)
+    expect((await as('2.2.2.2')).status).toBe(429)
+    expect((await as('3.3.3.3')).status).toBe(429)
+  })
+
+  it('reads the platform header directly, wherever the request seems to come from', async () => {
+    t = await makeTestApp({
+      RATE_LIMIT_ENABLED: 'true',
+      RATE_LIMIT_MAX: '1',
+      TRUSTED_PLATFORM: 'CF-Connecting-IP'
+    })
+    const as = (client: string) =>
+      t!.request('/api/users', { headers: { 'cf-connecting-ip': client } })
+
     expect((await as('203.0.113.1')).status).toBe(200)
     expect((await as('203.0.113.2')).status).toBe(200)
     expect((await as('203.0.113.1')).status).toBe(429)
   })
 
-  it('counts X-Forwarded-For from the right, so a spoofed first entry buys nothing', async () => {
+  it('ignores the platform header when none is configured: the client writes it', async () => {
+    t = await makeTestApp({ RATE_LIMIT_ENABLED: 'true', RATE_LIMIT_MAX: '1' })
+    const as = (ip: string) => t!.request('/api/users', { headers: { 'cf-connecting-ip': ip } })
+    expect((await as('203.0.113.1')).status).toBe(200)
+    expect((await as('203.0.113.2')).status).toBe(429)
+  })
+
+  it('counts down in the envelope and headers, then answers 429 with retry-after', async () => {
     t = await makeTestApp({
       RATE_LIMIT_ENABLED: 'true',
-      RATE_LIMIT_MAX: '1',
-      TRUST_PROXY: 'true',
-      TRUST_PROXY_HOPS: '1'
+      RATE_LIMIT_MAX: '2',
+      RATE_LIMIT_WINDOW: '60000'
     })
-    // the proxy appends the real client (198.51.100.7); the attacker prepends a new value each time
-    const as = (spoof: string) =>
-      t!.request('/api/users', { headers: { 'x-forwarded-for': `${spoof}, 198.51.100.7` } })
-    expect((await as('1.1.1.1')).status).toBe(200)
-    expect((await as('2.2.2.2')).status).toBe(429)
-    expect((await as('3.3.3.3')).status).toBe(429)
-  })
-})
 
-describe('forwardedClient', () => {
-  it('picks the entry the given number of proxies from the right', () => {
-    expect(forwardedClient('a, b, c', 1)).toBe('c')
-    expect(forwardedClient('a, b, c', 2)).toBe('b')
-    expect(forwardedClient('203.0.113.9', 1)).toBe('203.0.113.9')
+    const first = await t.request('/api/users')
+    const firstBody: any = await first.json()
+    expect(firstBody.metadata.rate_limit).toMatchObject({ limit: 2, remaining: 1 })
+    expect(first.headers.get('x-ratelimit-remaining')).toBe('1')
+
+    expect((await t.request('/api/users')).status).toBe(200)
+
+    const limited = await t.request('/api/users')
+    const body: any = await limited.json()
+    expect(limited.status).toBe(429)
+    expect(Number(limited.headers.get('retry-after'))).toBeGreaterThan(0)
+    expect(limited.headers.get('x-ratelimit-remaining')).toBe('0')
+    expect(body).toMatchObject({ status: 'error', message: 'Too many requests' })
+    // the refusal reports the same allowance as a success does
+    expect(body.metadata.rate_limit).toMatchObject({ limit: 2, remaining: 0 })
   })
 
-  it('has nothing to say when the header is missing, short or blank', () => {
-    expect(forwardedClient(null, 1)).toBeUndefined()
-    expect(forwardedClient('a', 2)).toBeUndefined()
-    expect(forwardedClient('a, ', 1)).toBeUndefined()
+  it('does not limit probes or the root', async () => {
+    t = await makeTestApp({ RATE_LIMIT_ENABLED: 'true', RATE_LIMIT_MAX: '1' })
+    for (let i = 0; i < 4; i += 1) {
+      expect((await t.request('/health')).status).toBe(200)
+      expect((await t.request('/')).status).toBe(200)
+    }
   })
 })
 
