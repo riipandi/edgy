@@ -1,7 +1,8 @@
 import { Context, Effect, Layer } from 'effect'
 import { DatabaseService, isUniqueViolation } from '../database/service.ts'
 import { Conflict, type DatabaseError } from '../kernel/errors.ts'
-import type { User, UserCreateRequest } from '../schemas/user_schema.ts'
+import { makePage, type Page, type PageRequest } from '../kernel/pagination.ts'
+import type { User, UserCreateRequest, UserSortKey } from '../schemas/user_schema.ts'
 
 /**
  * Persistence port for users. The service layer depends on this key, never on
@@ -12,8 +13,10 @@ export class UserRepository extends Context.Service<
   {
     /** Finds one user by primary key, or `undefined` when absent. */
     readonly findById: (id: number) => Effect.Effect<User | undefined, DatabaseError>
-    /** Lists every user ordered by id. */
-    readonly findAll: Effect.Effect<Array<User>, DatabaseError>
+    /** Returns one page of users in the requested order, with the total across all pages. */
+    readonly findPage: (
+      request: PageRequest<UserSortKey>
+    ) => Effect.Effect<Page<User>, DatabaseError>
     /** Inserts a user and returns the stored row; fails with `Conflict` on a duplicate email. */
     readonly insert: (input: UserCreateRequest) => Effect.Effect<User, Conflict | DatabaseError>
   }
@@ -27,7 +30,26 @@ export class UserRepository extends Context.Service<
         findById: Effect.fn('UserRepository.findById')((id: number) =>
           query((db) => db.selectFrom('users').selectAll().where('id', '=', id).executeTakeFirst())
         ),
-        findAll: query((db) => db.selectFrom('users').selectAll().orderBy('id').execute()),
+        findPage: Effect.fn('UserRepository.findPage')((request: PageRequest<UserSortKey>) =>
+          query(async (db) => {
+            // Two statements, not one transaction: a write between them can skew
+            // `total` by a row, which a listing tolerates.
+            const { total } = await db
+              .selectFrom('users')
+              .select((eb) => eb.fn.countAll<number>().as('total'))
+              .executeTakeFirstOrThrow()
+
+            // `id` last makes the order total, so a page boundary never splits ties.
+            let rows = db
+              .selectFrom('users')
+              .selectAll()
+              .orderBy(request.sortBy, request.sortOrder)
+              .orderBy('id')
+            if (request.limit !== null) rows = rows.limit(request.limit).offset(request.offset)
+
+            return makePage(await rows.execute(), request, total)
+          })
+        ),
         insert: Effect.fn('UserRepository.insert')((input: UserCreateRequest) =>
           query((db) =>
             db

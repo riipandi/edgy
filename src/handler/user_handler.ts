@@ -1,17 +1,20 @@
-import { defineHandler } from '../kernel/http/handler.ts'
+import { defineHandler, definePagedHandler } from '../kernel/http/handler.ts'
+import { toPageRequest } from '../kernel/http/pagination.ts'
 import {
   UserCreateRequestSchema,
   UserCreateResponseSchema,
   UserGetResponseSchema,
   UserIdParamsSchema,
-  UserListResponseSchema
+  UserListItemSchema,
+  UserListQuerySchema
 } from '../schemas/user_schema.ts'
 import { UserService } from '../service/user_service.ts'
 
-/** `GET /users` — list every user. */
-export const listUsersHandler = defineHandler({
-  response: UserListResponseSchema,
-  run: () => UserService.use((users) => users.list)
+/** `GET /users` — one page of users, `id` ascending unless `sort_by`/`sort_order` say otherwise. */
+export const listUsersHandler = definePagedHandler({
+  query: UserListQuerySchema,
+  items: UserListItemSchema,
+  run: ({ query }) => UserService.use((users) => users.list(toPageRequest(query, { sortBy: 'id' })))
 })
 
 /** `GET /users/:id` — fetch a single user. */

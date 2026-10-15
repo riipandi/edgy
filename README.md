@@ -39,10 +39,10 @@ Verify it is up:
 
 ```bash
 curl http://localhost:3000/
-# {"message":"All is well"}
+# All is well
 
-curl http://localhost:3000/users
-# [{"id":1,"email":"ada@example.com","name":"Ada Lovelace"}, ...]
+curl 'http://localhost:3000/api/users?limit=10'
+# {"status":"success","data":[{"id":1,"email":"ada@example.com","name":"Ada Lovelace"}, ...],"metadata":{...},"links":{...}}
 ```
 
 ## Documentation

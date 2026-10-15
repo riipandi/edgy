@@ -8,14 +8,30 @@ import { cacheControl } from '../middleware/cache_control.ts'
  * `/users` resource group.
  *
  * Patterns are relative to the prefix, so this file reads as a single
- * resource rather than a slice of one flat route table.
+ * resource rather than a slice of one flat route table. It is mounted under
+ * {@link apiRoutes}, so its public path is `/api/users`.
  */
-export const usersRoutes: H3Plugin = defineRouteGroup({
+const usersRoutes: H3Plugin = defineRouteGroup({
   prefix: '/users',
   routes: (r) => {
     r.get('/', listUsersHandler)
     r.get('/:id', getUserHandler)
     r.post('/', createUserHandler)
+  }
+})
+
+/**
+ * `/api` group: every resource endpoint that answers in the API envelope.
+ *
+ * Resource groups register here, not on the app, so the prefix is written once
+ * and middleware shared by the whole API (auth, rate limiting) has one place to
+ * go. Probes and reserved paths stay outside it on purpose: load balancers and
+ * RFC 8615 clients expect them at the origin root.
+ */
+const apiRoutes: H3Plugin = defineRouteGroup({
+  prefix: '/api',
+  routes: (api) => {
+    api.register(usersRoutes)
   }
 })
 
@@ -38,12 +54,16 @@ const wellKnownRoutes: H3Plugin = defineRouteGroup({
 })
 
 /**
- * Root routes that do not belong to a resource group.
+ * Root routes that do not belong to the API.
  *
- * Declared as a plugin so `app.ts` composes it like every other group.
+ * `/` is a liveness check for humans and proxies, so it answers plain text, not
+ * the envelope. `/health` is the readiness probe and keeps its root path.
  */
 const rootRoutes: H3Plugin = (app) => {
-  app.get('/', () => ({ message: 'All is well' }))
+  app.get('/', (event) => {
+    event.res.headers.set('content-type', 'text/plain; charset=utf-8')
+    return 'All is well'
+  })
   app.get('/health', healthHandler)
 }
 
@@ -65,7 +85,7 @@ const notFoundRoutes: H3Plugin = (app) => {
 /** Every route plugin, in registration order. */
 export const routePlugins: readonly H3Plugin[] = [
   rootRoutes,
-  usersRoutes,
+  apiRoutes,
   wellKnownRoutes,
   notFoundRoutes
 ]

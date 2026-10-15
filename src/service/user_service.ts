@@ -1,8 +1,9 @@
 import { Cache, Context, Duration, Effect, Layer, Request, RequestResolver } from 'effect'
 import type { Conflict, DatabaseError } from '../kernel/errors.ts'
 import { NotFound } from '../kernel/errors.ts'
+import type { Page, PageRequest } from '../kernel/pagination.ts'
 import { UserRepository } from '../repository/user_repo.ts'
-import type { User, UserCreateRequest } from '../schemas/user_schema.ts'
+import type { User, UserCreateRequest, UserSortKey } from '../schemas/user_schema.ts'
 
 /**
  * Cache key and resolver request for one user. Deliberately not named
@@ -21,8 +22,8 @@ export class UserService extends Context.Service<
   {
     /** Returns a user or fails with `NotFound`. Reads are served through a cache. */
     readonly get: (id: number) => Effect.Effect<User, NotFound | DatabaseError>
-    /** Returns every user. */
-    readonly list: Effect.Effect<Array<User>, DatabaseError>
+    /** Returns one page of users. Lists bypass the cache. */
+    readonly list: (request: PageRequest<UserSortKey>) => Effect.Effect<Page<User>, DatabaseError>
     /** Creates a user from validated input. */
     readonly create: (input: UserCreateRequest) => Effect.Effect<User, Conflict | DatabaseError>
   }
@@ -48,10 +49,10 @@ export class UserService extends Context.Service<
       return UserService.of({
         get: Effect.fn('UserService.get')(function* (id: number) {
           const user = yield* Cache.get(cache, UserLookup({ id }))
-          if (user === undefined) return yield* new NotFound({ id })
+          if (user === undefined) return yield* new NotFound({ resource: 'User', id })
           return user
         }),
-        list: repository.findAll,
+        list: repository.findPage,
         create: Effect.fn('UserService.create')((input: UserCreateRequest) =>
           repository.insert(input)
         )

@@ -1,5 +1,6 @@
 import { Schema } from 'effect'
 import type { Generated } from 'kysely'
+import { paginationQuery } from '../kernel/http/pagination.ts'
 
 const EmailSchema = Schema.String.pipe(
   Schema.check(
@@ -39,13 +40,21 @@ export const UserIdParamsSchema = Schema.Struct({
   id: Schema.NumberFromString.pipe(Schema.check(Schema.isInt(), Schema.isGreaterThan(0)))
 })
 
+/** Columns `GET /users` may be sorted by; anything else is a `400`. */
+const userSortKeys = ['id', 'email', 'name'] as const
+
+export type UserSortKey = (typeof userSortKeys)[number]
+
+/** Query of `GET /users`: `page`, `limit`, `sort_by`, `sort_order`. */
+export const UserListQuerySchema = paginationQuery(userSortKeys)
+
 /**
- * Response bodies are encoded through these schemas, so only the declared
- * fields ever reach the client — a column added to the table later does not
- * leak through `selectAll()`.
+ * Response data is encoded through these schemas, so only the declared fields
+ * ever reach the client — a column added to the table later does not leak
+ * through `selectAll()`. A collection declares its item; the page wraps it.
  */
 export const UserGetResponseSchema = UserSchema
-export const UserListResponseSchema = Schema.Array(UserSchema)
+export const UserListItemSchema = UserSchema
 export const UserCreateResponseSchema = UserSchema
 
 /** Row shape of the `users` table: `User` with a database-generated `id`. */

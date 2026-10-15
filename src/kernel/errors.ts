@@ -1,9 +1,8 @@
 import { Data, type Duration, Schema, SchemaIssue, type StandardSchema } from 'effect'
 
-/**
- * Domain error: user not found.
- */
+/** A resource looked up by id does not exist. */
 export class NotFound extends Data.TaggedError('NotFound')<{
+  readonly resource: string
   readonly id: number
 }> {}
 

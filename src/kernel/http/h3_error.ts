@@ -1,9 +1,9 @@
 import type { H3Event, HTTPError } from 'h3'
-import type { ErrorResponse } from './responder.ts'
+import { errorEnvelope } from './envelope.ts'
 
 /**
  * Renders errors raised by h3 itself (unknown route, malformed JSON, body too
- * large, a thrown exception) in the same `{ error }` shape `runEffect` uses, so
+ * large, a thrown exception) in the same error envelope `runEffect` uses, so
  * clients parse one error format.
  *
  * Messages of unhandled exceptions are replaced: only the log, never the
@@ -23,7 +23,7 @@ export const renderH3Error = (error: HTTPError, event: H3Event): Response => {
   const headers = new Headers(event.res.errHeaders)
   headers.set('content-type', 'application/json; charset=utf-8')
 
-  return new Response(JSON.stringify({ error: message } satisfies ErrorResponse), {
+  return new Response(JSON.stringify(errorEnvelope(event, error.status, message)), {
     status: error.status,
     headers
   })

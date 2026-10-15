@@ -16,7 +16,7 @@ The documentation map. Read AGENTS.md first, then this file, then the document a
 
 ## Implemented surfaces
 
-- HTTP server (h3 v2): health, users CRUD (create answers 201), `/.well-known/security.txt` — see `rules.md` ("HTTP contracts")
+- HTTP server (h3 v2): `/` and `/health` at the root, `/api/users` (paginated list, get, create answering 201) in the response envelope, `/.well-known/security.txt` — see `rules.md` ("HTTP contracts")
 - CLI (`effect/cli`): `serve [--auto-migrate]`, `migrate:up`, `migrate:down`, `migrate:status`, `migrate:reset`, `migrate:seed` — see `rules.md` ("CLI contracts")
 - Database: `node:sqlite` via a custom Kysely dialect, static-registry migrator, idempotent seeders — see `rules.md` ("Database contracts")
 - Observability: non-blocking batched logger (`pretty`/`json`), request log + HTTP metrics — see `rules.md` ("Observability contracts")

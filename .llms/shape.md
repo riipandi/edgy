@@ -17,8 +17,8 @@ src/
   main.ts            # CLI entry (run by Node directly); the only Effect.provide
   app.ts             # createApp(options): global plugins + route groups
   server.ts          # serveHttp: captures the HttpRuntime, starts h3 inside a scope
-  kernel/            # config.ts (ConfigService), errors.ts (AppError union), layers.ts (CoreLayer, AppLayer)
-    http/            # runtime.ts (HttpRuntime bridge), handler.ts (defineHandler), router.ts (defineRouteGroup), responder.ts (runEffect), decode.ts, inflight.ts, h3_error.ts
+  kernel/            # config.ts (ConfigService), errors.ts (AppError union), pagination.ts (Page, PageRequest), layers.ts (CoreLayer, AppLayer)
+    http/            # runtime.ts (HttpRuntime bridge), handler.ts (defineHandler, definePagedHandler, defineMessageHandler), router.ts (defineRouteGroup), responder.ts (runEffect), envelope.ts (response envelope), pagination.ts (query schema, metadata, links), decode.ts, inflight.ts, h3_error.ts
   observer/          # logger.ts (non-blocking batched sink), metrics.ts, http_observer.ts (request log + metrics)
   command/           # effect/cli commands (cli.ts + one file per command + helper.ts)
   routes/            # route.ts: the route table (groups, root routes, catch-all, registration order)
