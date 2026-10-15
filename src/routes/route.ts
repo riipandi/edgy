@@ -21,9 +21,13 @@ import { metricsHandler } from '../observer/metrics_handler.ts'
 const apiRoutes = (config: AppConfig, check: RateCheck): H3Plugin =>
   defineRouteGroup({
     prefix: '/api',
-    middleware: config.security.rateLimitEnabled
-      ? [rateLimit({ check, trustProxy: config.server.trustProxy })]
-      : [],
+    middleware: [
+      // Answers are per caller and per moment: no cache, shared or private, may keep one.
+      cacheControl({ value: 'no-store', errors: true }),
+      ...(config.security.rateLimitEnabled
+        ? [rateLimit({ check, trustProxy: config.server.trustProxy })]
+        : [])
+    ],
     routes: (api) => {
       api.register(userRoutes)
     }

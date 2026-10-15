@@ -5,8 +5,10 @@ import { type ApiLinks, type ApiPagination, paginationLinks, paginationMeta } fr
 
 /** Rate-limit state of the caller; filled by a rate-limit middleware when one exists. */
 export interface ApiRateLimit {
+  /** Maximum requests allowed in the window. */
   readonly limit: number
-  readonly remaining: number
+  /** Left in the window; absent when the store only says allowed or refused (the Workers binding). */
+  readonly remaining?: number
   /** Unix timestamp at which the window resets. */
   readonly reset: number
 }
@@ -14,11 +16,12 @@ export interface ApiRateLimit {
 export interface ApiErrorMetadata {
   readonly status_code: number
   readonly request_id: string
+  /** Present on every response under the rate limiter, a `429` included. */
+  readonly rate_limit?: ApiRateLimit
 }
 
 export interface ApiMetadata extends ApiErrorMetadata, Partial<ApiPagination> {
   readonly trace_id?: string
-  readonly rate_limit?: ApiRateLimit
 }
 
 /** `{ status: 'success' }` body. `data` and `links` are omitted when empty. */
@@ -90,5 +93,20 @@ export const errorEnvelope = (
   status: 'error',
   message,
   ...(error === undefined ? {} : { error }),
-  metadata: { status_code: statusCode, request_id: requestIdFor(event) }
+  metadata: {
+    status_code: statusCode,
+    request_id: requestIdFor(event),
+    ...(event.context.rateLimit === undefined ? {} : { rate_limit: event.context.rateLimit })
+  }
 })
+
+/**
+ * The `Link` header (RFC 8288) for a link map, so a client that follows headers instead of the
+ * body finds the same `next`/`prev`/`first`/`last`. `null` relations are left out.
+ */
+export const linkHeader = (links: ApiLinks): string | undefined => {
+  const parts = Object.entries(links).flatMap(([rel, url]) =>
+    url === null || url === undefined ? [] : [`<${url}>; rel="${rel}"`]
+  )
+  return parts.length === 0 ? undefined : parts.join(', ')
+}

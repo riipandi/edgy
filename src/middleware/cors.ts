@@ -1,11 +1,26 @@
 import { definePlugin, handleCors, type CorsOptions } from 'h3'
 import type { CorsConfig } from '../kernel/config/cors.ts'
 
+/**
+ * Response headers a browser script may read across origins. Without this list only the
+ * CORS-safelisted ones are visible, so a web client could not see its request id, its rate
+ * limit or the next page.
+ */
+const EXPOSED_HEADERS = [
+  'x-request-id',
+  'x-ratelimit-limit',
+  'x-ratelimit-remaining',
+  'x-ratelimit-reset',
+  'retry-after',
+  'link'
+] as const
+
 /** Translates the app's CORS configuration into h3's `CorsOptions`. */
 const toCorsOptions = (cors: CorsConfig): CorsOptions => ({
   origin: cors.origins === '*' ? '*' : [...cors.origins],
   methods: cors.methods === '*' ? '*' : [...cors.methods],
   allowHeaders: cors.allowHeaders === '*' ? '*' : [...cors.allowHeaders],
+  exposeHeaders: [...EXPOSED_HEADERS],
   credentials: cors.credentials,
   maxAge: cors.maxAge,
   preflight: { statusCode: 204 }

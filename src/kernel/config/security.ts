@@ -4,11 +4,11 @@ import { choice, flag, group, int, milliseconds, secret, text, type ValueOf } fr
 /** Abuse protection for the API routes. */
 export const securityConfig = group(
   {
-    rateLimitEnabled: flag('RATE_LIMIT_ENABLED', false, 'Rate-limit the /api routes per client'),
+    rateLimitEnabled: flag('RATE_LIMIT_ENABLED', true, 'Rate-limit the /api routes per client'),
     rateLimitMax: int(
       'RATE_LIMIT_MAX',
       100,
-      'Requests allowed per client per window on /api (memory and redis stores)'
+      'Requests allowed per client per window on /api; with the cloudflare store only reported, so keep it equal to the limit in wrangler.jsonc'
     ),
     rateLimitWindow: milliseconds('RATE_LIMIT_WINDOW', 60_000, 'Length of the rate-limit window', {
       min: 1
@@ -17,7 +17,7 @@ export const securityConfig = group(
       'RATE_LIMIT_STORE',
       ['memory', 'redis', 'cloudflare'],
       'memory',
-      "Where counters live: per process (memory), shared by every instance (redis; Node.js only) or Cloudflare's rate-limit binding (cloudflare; Workers only, limit and period come from wrangler.jsonc)"
+      "Where counters live: per process (memory), shared by every instance (redis; Node.js only) or Cloudflare's rate-limit binding (cloudflare; Workers only, the real limit and period are set in wrangler.jsonc)"
     ),
     rateLimitBinding: text(
       'RATE_LIMIT_BINDING',
@@ -34,7 +34,7 @@ export const securityConfig = group(
     title: 'Security',
     // Enabled with an allowance below one would refuse every request.
     transform: (raw) =>
-      raw.rateLimitEnabled && raw.rateLimitStore !== 'cloudflare' && raw.rateLimitMax < 1
+      raw.rateLimitEnabled && raw.rateLimitMax < 1
         ? Effect.fail(
             new Config.ConfigError(
               new ConfigProvider.SourceError({

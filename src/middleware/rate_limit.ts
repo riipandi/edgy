@@ -5,11 +5,8 @@ import type { ApiRateLimit } from '../kernel/http/envelope.ts'
 /** Outcome of counting one request against a client's allowance. */
 export interface RateDecision {
   readonly allowed: boolean
-  /**
-   * The allowance and what is left of it. A store that only answers yes or no (the Workers
-   * binding) leaves them out, and the response then carries no `x-ratelimit-*` headers.
-   */
-  readonly limit?: number
+  readonly limit: number
+  /** What is left; a store that only answers yes or no (the Workers binding) leaves it out. */
   readonly remaining?: number
   /** When the window ends, in epoch milliseconds. */
   readonly resetAt: number
@@ -119,20 +116,21 @@ export const rateLimit = definePlugin<RateLimitOptions>((app, options) => {
   app.use(async (event, next) => {
     const decision = await options.check(clientOf(event, options.trustProxy))
 
-    const { limit, remaining } = decision
-    if (limit !== undefined && remaining !== undefined) {
-      const info: ApiRateLimit = { limit, remaining, reset: Math.ceil(decision.resetAt / 1000) }
-      event.context.rateLimit = info
+    const info: ApiRateLimit = {
+      limit: decision.limit,
+      ...(decision.remaining === undefined ? {} : { remaining: decision.remaining }),
+      reset: Math.ceil(decision.resetAt / 1000)
+    }
+    event.context.rateLimit = info
 
-      const headers: Record<string, string> = {
-        'x-ratelimit-limit': String(info.limit),
-        'x-ratelimit-remaining': String(info.remaining),
-        'x-ratelimit-reset': String(info.reset)
-      }
-      for (const [name, value] of Object.entries(headers)) {
-        event.res.headers.set(name, value)
-        event.res.errHeaders.set(name, value)
-      }
+    const headers: Record<string, string> = {
+      'x-ratelimit-limit': String(info.limit),
+      ...(info.remaining === undefined ? {} : { 'x-ratelimit-remaining': String(info.remaining) }),
+      'x-ratelimit-reset': String(info.reset)
+    }
+    for (const [name, value] of Object.entries(headers)) {
+      event.res.headers.set(name, value)
+      event.res.errHeaders.set(name, value)
     }
 
     if (!decision.allowed) {

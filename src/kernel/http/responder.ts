@@ -4,7 +4,7 @@ import type { H3Event } from 'h3'
 import { requestIdOf } from '../../middleware/request_id.ts'
 import { isProbe } from '../../observer/quiet_paths.ts'
 import { type AppError, RequestTimeout } from '../errors.ts'
-import { errorEnvelope, successEnvelope } from './envelope.ts'
+import { errorEnvelope, linkHeader, successEnvelope } from './envelope.ts'
 import type { ApiError, ApiSuccess, Reply } from './envelope.ts'
 import { type HttpEnv, runtimeOf } from './runtime.ts'
 
@@ -150,7 +150,10 @@ export const runEffect = <E extends AppError>(
         return fail(code, clientMessage, detail)
       }
       event.res.status = status
-      return successEnvelope(event, status, outcome.reply)
+      const body = successEnvelope(event, status, outcome.reply)
+      const link = body.links === undefined ? undefined : linkHeader(body.links)
+      if (link !== undefined) event.res.headers.set('link', link)
+      return body
     }
 
     if (Cause.hasInterruptsOnly(exit.cause)) return fail(CLIENT_CLOSED_REQUEST, 'Request cancelled')

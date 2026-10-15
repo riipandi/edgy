@@ -109,11 +109,8 @@ describe('configuration', () => {
       /RATE_LIMIT_MAX/
     )
     await expect(parse({ RATE_LIMIT_STORE: 'kv' })).rejects.toThrow(/RATE_LIMIT_STORE/)
-    // a disabled limiter, or a store that takes its limit from wrangler, ignores the maximum
+    // a disabled limiter ignores the maximum
     await expect(parse({ RATE_LIMIT_MAX: '0' })).resolves.toBeDefined()
-    await expect(
-      parse({ RATE_LIMIT_ENABLED: 'true', RATE_LIMIT_STORE: 'cloudflare', RATE_LIMIT_MAX: '0' })
-    ).resolves.toBeDefined()
   })
 
   it('rejects an unknown or empty LOG_TRANSPORT', async () => {

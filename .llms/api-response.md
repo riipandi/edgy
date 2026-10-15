@@ -72,6 +72,7 @@ Error response:
     metadata: {
         status_code: number (http code)
         request_id: string
+        rate_limit?: ApiRateLimit // also on a 429 and on any error under the rate limiter
     }
 }
 ```
@@ -94,7 +95,7 @@ ApiRateLimit:
 ```json
 {
     limit: number // maximum number of requests allowed in the current window
-    remaining: number // number of requests left in the current window
+    remaining?: number // requests left in the current window; absent when the store cannot tell (Cloudflare binding)
     reset: number // unix timestamp when the limit resets
 }
 ```

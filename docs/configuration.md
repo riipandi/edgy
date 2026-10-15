@@ -92,7 +92,7 @@ logs go to the platform's stream.
 | Variable            | Default    | Description                                                              |
 | ------------------- | ---------- | ------------------------------------------------------------------------ |
 | `RATE_LIMIT_ENABLED` | `false`   | Turns rate limiting on `/api` on or off                                  |
-| `RATE_LIMIT_MAX`    | `100`      | Requests per client per window (`memory` and `redis`); at least `1`      |
+| `RATE_LIMIT_MAX`    | `100`      | Requests per client per window; at least `1`. With `cloudflare` it is only reported, so keep it equal to the limit in `wrangler.jsonc` |
 | `RATE_LIMIT_WINDOW` | `60000`    | Length of the rate-limit window, in milliseconds                         |
 | `RATE_LIMIT_STORE`  | `memory`   | Where counters live: `memory` (per process), `redis` (shared by every instance, Node.js only) or `cloudflare` (Workers only) |
 | `RATE_LIMIT_BINDING` | `RATE_LIMITER` | Name of the Workers rate-limit binding, used when `RATE_LIMIT_STORE=cloudflare` |
@@ -106,9 +106,9 @@ seconds), because a rate limiter must not take the API down with it.
 
 With `cloudflare` the count is kept by Cloudflare's rate-limit binding, per location and eventually
 consistent: it holds back abuse but is not an exact global quota. The allowance and the period (10 or
-60 seconds) are declared under `ratelimits` in `wrangler.jsonc`, so `RATE_LIMIT_MAX` is not read;
+60 seconds) are declared under `ratelimits` in `wrangler.jsonc`, so `RATE_LIMIT_MAX` is only reported as the limit (keep it equal to the one in `wrangler.jsonc`);
 `RATE_LIMIT_WINDOW` only sets the `Retry-After` a refused client is told, so keep it equal to the
-period. The binding does not report what is left, so those responses carry no `X-RateLimit-*` headers.
+period. The binding does not report what is left, so those responses omit the remaining count.
 A store that is not available on the running platform (`redis` on Workers, `cloudflare` on Node.js)
 stops startup with a message instead of failing quietly. Set `TRUST_PROXY=true` behind a
 proxy, otherwise every client appears to have the proxy's address.

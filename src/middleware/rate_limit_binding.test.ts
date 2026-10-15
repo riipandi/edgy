@@ -30,16 +30,17 @@ describe('isRateLimitBinding', () => {
 })
 
 describe('binding rate check', () => {
-  it('refuses per key once the binding says so, with no allowance figures', async () => {
+  it('refuses per key once the binding says so, with the configured limit but no remaining count', async () => {
     const check = makeBindingRateCheck({
       binding: countingBinding(1),
+      limit: 100,
       windowMs: 60_000,
       warn: () => {}
     })
 
     const first = await check('203.0.113.1')
     expect(first.allowed).toBe(true)
-    expect(first.limit).toBeUndefined()
+    expect(first.limit).toBe(100)
     expect(first.remaining).toBeUndefined()
 
     const second = await check('203.0.113.1')
@@ -62,6 +63,7 @@ describe('binding rate check', () => {
           return { success: false }
         }
       },
+      limit: 100,
       windowMs: 60_000,
       warn: (_message, cause) => warnings.push(cause),
       cooldownMs: 10_000,
@@ -83,6 +85,7 @@ describe('binding rate check', () => {
     const warnings: unknown[] = []
     const check = makeBindingRateCheck({
       binding: { limit: () => new Promise(() => {}) },
+      limit: 100,
       windowMs: 60_000,
       warn: (_message, cause) => warnings.push(cause),
       timeoutMs: 20

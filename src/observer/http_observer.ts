@@ -12,6 +12,12 @@ const elapsedMs = (event: H3Event): number => {
 }
 
 /**
+ * `Server-Timing`: what the server spent, shown in browser dev tools and read by tracing
+ * proxies. Set on both paths (a response, an error), which h3 builds from different headers.
+ */
+const serverTiming = (event: H3Event): string => `total;dur=${elapsedMs(event)}`
+
+/**
  * Emits one structured log line and one metric sample for a finished request.
  *
  * The message stays human-readable (`GET /users 200 3.2ms`) while the fields
@@ -81,10 +87,12 @@ const observe = (event: H3Event, status: number): void => {
  */
 export const httpObserver = definePlugin((app) => {
   const onSuccess = onResponse((response, event) => {
+    response.headers.set('server-timing', serverTiming(event))
     observe(event, response.status)
   })
 
   const onFailure = onError((error, event) => {
+    event.res.errHeaders.set('server-timing', serverTiming(event))
     observe(event, error.status)
   })
 

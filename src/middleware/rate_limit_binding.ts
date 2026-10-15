@@ -21,9 +21,9 @@ export const isRateLimitBinding = (value: unknown): value is RateLimitBinding =>
  *
  * The binding counts per Cloudflare location and is eventually consistent, so it blunts
  * abuse rather than enforcing an exact global quota. It does not report what is left of the
- * allowance, so decisions carry no `limit` or `remaining` and the response has no
- * `x-ratelimit-*` headers; a refusal still sets `retry-after`, from `window`, which should
- * equal the binding's `period`.
+ * allowance, so decisions carry `limit` (`RATE_LIMIT_MAX`, which must mirror the binding's
+ * `limit`) and the window's end, but no `remaining`; a refusal sets `retry-after`, from
+ * `windowMs`, which should equal the binding's `period`.
  *
  * It fails open like the other stores: a call that throws or takes longer than `timeout`
  * lets the request through, and the binding is skipped for `cooldown` so the requests that
@@ -31,6 +31,8 @@ export const isRateLimitBinding = (value: unknown): value is RateLimitBinding =>
  */
 export const makeBindingRateCheck = (options: {
   readonly binding: RateLimitBinding
+  /** Reported as the allowance; the binding itself does not say. */
+  readonly limit: number
   /** Used only to tell a refused client when to come back, in milliseconds. */
   readonly windowMs: number
   readonly warn: (message: string, cause: unknown) => void
@@ -44,7 +46,11 @@ export const makeBindingRateCheck = (options: {
   const now = options.now ?? Date.now
   let bypassUntil = 0
 
-  const decide = (allowed: boolean) => ({ allowed, resetAt: now() + options.windowMs })
+  const decide = (allowed: boolean) => ({
+    allowed,
+    limit: options.limit,
+    resetAt: now() + options.windowMs
+  })
 
   const bypass = (cause: unknown) => {
     bypassUntil = now() + cooldownMs

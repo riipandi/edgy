@@ -44,9 +44,10 @@
             "database_id": "22fd37a3-771d-4ff4-8d9a-7ed0aed1d122"
         }
     ],
-    // Rate limiting for /api (RATE_LIMIT_STORE=cloudflare). The allowance and the period (10 or 60
-    // seconds) are fixed here; RATE_LIMIT_MAX is not read, and RATE_LIMIT_WINDOW only feeds
-    // Retry-After, so keep it equal to `period` in milliseconds.
+    // Rate limiting for /api (RATE_LIMIT_STORE=cloudflare). The allowance
+    // and the period (10 or 60 seconds) are fixed here. RATE_LIMIT_MAX is
+    // only reported to clients as the limit, so keep it equal to `limit`;
+    // RATE_LIMIT_WINDOW only feeds Retry-After, so keep it equal to `period` in ms.
     "ratelimits": [
         {
             "name": "RATE_LIMITER",
@@ -67,6 +68,7 @@
         "DATABASE_AUTO_MIGRATE": "true",
         "RATE_LIMIT_ENABLED": "true",
         "RATE_LIMIT_STORE": "cloudflare",
+        "RATE_LIMIT_MAX": "100",
         "RATE_LIMIT_WINDOW": "60000",
         // Settings -> Variables and secrets
         "NODE_VERSION": "24.22.0",

@@ -98,6 +98,7 @@ const buildApp = async (env: WorkerEnv): Promise<WorkerApp> => {
         }
         rateCheck = makeBindingRateCheck({
           binding: limiter,
+          limit: security.rateLimitMax,
           windowMs: Duration.toMillis(security.rateLimitWindow),
           warn: (message, cause) => http.runSync(Effect.logWarning(message, cause))
         })

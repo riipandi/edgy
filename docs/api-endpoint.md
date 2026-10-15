@@ -112,12 +112,30 @@ in `metadata.rate_limit`:
 "rate_limit": { "limit": 100, "remaining": 97, "reset": 1792077446 }
 ```
 
-`reset` is a Unix timestamp. On Cloudflare Workers with `RATE_LIMIT_STORE=cloudflare` the store only says allowed or refused, so the allowance, the headers and `rate_limit` are left out; a refusal is still `429` with `Retry-After`. Probes (`/health`, `/`) and `/.well-known` are never limited.
+The same numbers are in the `X-RateLimit-Limit`, `X-RateLimit-Remaining` and `X-RateLimit-Reset`
+headers. `reset` is a Unix timestamp. A refused request (`429`) carries them too, in the headers and in
+the error body's `metadata.rate_limit`, plus `Retry-After` (seconds to wait).
+
+On Cloudflare Workers with `RATE_LIMIT_STORE=cloudflare` the store only says allowed or refused, so
+`remaining` (and `X-RateLimit-Remaining`) is left out; `limit` is the configured `RATE_LIMIT_MAX`.
+Probes (`/health`, `/`) and `/.well-known` are never limited.
 
 ## Security headers
 
 Every response carries `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
 `Referrer-Policy: no-referrer` and a `Content-Security-Policy` that forbids loading anything.
+
+## Other response headers
+
+| Header | When | Meaning |
+| --- | --- | --- |
+| `Cache-Control: no-store` | every `/api` response, errors included | Answers are per caller and per moment; nothing may cache them |
+| `Server-Timing: total;dur=<ms>` | every response | Time the server spent on the request |
+| `Link` | collections | The pagination links of the body (`self`, `first`, `prev`, `next`, `last`) as RFC 8288 relations |
+| `Retry-After` | `429`, `503` | Seconds to wait before trying again |
+
+For a browser app on another origin, the `Access-Control-Expose-Headers` of every response lists
+`X-Request-ID`, the three `X-RateLimit-*` headers, `Retry-After` and `Link`, so a script can read them.
 
 ## Request ID
 
