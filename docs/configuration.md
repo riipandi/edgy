@@ -37,6 +37,7 @@ The command never writes a real `.env` file.
 | `SHUTDOWN_DRAIN_DELAY` | `0`          | Milliseconds between `/health` turning `503` and the server closing         |
 | `MAX_IN_FLIGHT`        | `1024`       | Requests handled at once before new ones are refused with `503`; `0` turns the guard off |
 | `TRUST_PROXY`          | `false`      | Read the client address from proxy headers (only behind a proxy you control) |
+| `TRUST_PROXY_HOPS`     | `1`          | How many proxies add to `X-Forwarded-For` before the request reaches the server; the client is that many entries from the right |
 
 ## Database
 

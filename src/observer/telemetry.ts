@@ -1,4 +1,4 @@
-import { Effect, Layer, Redacted } from 'effect'
+import { Duration, Effect, Layer, Redacted } from 'effect'
 import { FetchHttpClient, HttpClient, HttpClientError } from 'effect/http'
 import {
   OtlpExporter,
@@ -59,7 +59,10 @@ const exportOptions = (config: ObservabilityConfig) => ({
   },
   headers: parseOtlpHeaders(Redacted.value(config.otlpHeaders)),
   compression: config.compression,
-  exportInterval: config.exportInterval
+  exportInterval: config.exportInterval,
+  // The last flush at shutdown. Effect's default is longer; with the collector down it made every
+  // command (a `--help` included) take 3 s to exit. A healthy collector answers well within this.
+  shutdownTimeout: Duration.seconds(1)
 })
 
 const signalUrl = (config: ObservabilityConfig, signal: 'traces' | 'metrics' | 'logs'): string =>

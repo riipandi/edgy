@@ -1,5 +1,6 @@
 import { describe, expect, it } from '@effect/vitest'
-import { paginationLinks, paginationMeta, toPageRequest } from './pagination.ts'
+import { Schema } from 'effect'
+import { paginationLinks, paginationMeta, paginationQuery, toPageRequest } from './pagination.ts'
 
 describe('toPageRequest', () => {
   it('applies defaults', () => {
@@ -24,6 +25,25 @@ describe('toPageRequest', () => {
         offset: 0
       })
     }
+  })
+})
+
+describe('paginationQuery', () => {
+  const sortable = ['id'] as const
+  const decode = (schema: ReturnType<typeof paginationQuery<typeof sortable>>, input: unknown) =>
+    Schema.decodeUnknownExit(schema)(input)._tag === 'Success'
+
+  it('caps the limit and refuses -1 unless the resource opts in', () => {
+    const closed = paginationQuery(sortable)
+    expect(decode(closed, { limit: '100' })).toBe(true)
+    expect(decode(closed, { limit: '101' })).toBe(false)
+    expect(decode(closed, { limit: '-1' })).toBe(false)
+    expect(decode(closed, { page: '-1' })).toBe(false)
+
+    const open = paginationQuery(sortable, { allowAll: true })
+    expect(decode(open, { limit: '-1' })).toBe(true)
+    expect(decode(open, { page: '-1' })).toBe(true)
+    expect(decode(open, { limit: '101' })).toBe(false)
   })
 })
 

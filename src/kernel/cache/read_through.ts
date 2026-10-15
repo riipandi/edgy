@@ -106,6 +106,10 @@ export const makeReadThrough = Effect.fnUntraced(function* <
     requireServicesAt: 'lookup'
   }).pipe(Effect.provideService(Persistence.Persistence, persistence))
 
+  // Bumped by every `invalidate`. A read that began before one may be holding (and may have
+  // stored) a value that predates the write the invalidation announced; see `get`.
+  let epoch = 0
+
   return {
     get: (key: K) =>
       Effect.gen(function* () {
@@ -116,6 +120,7 @@ export const makeReadThrough = Effect.fnUntraced(function* <
         }
 
         const missesBefore = tally?.miss ?? 0
+        const epochAtStart = epoch
         const value = yield* persisted.get(key).pipe(
           Effect.catchIf(isCacheFailure, (error) =>
             Effect.logWarning(`Cache "${options.name}" unusable; reading the source`, error).pipe(
@@ -133,15 +138,22 @@ export const makeReadThrough = Effect.fnUntraced(function* <
           )
         )
         if (tally !== undefined && tally.miss === missesBefore) tally.hit += 1
+
+        // A write invalidated while this read was in flight. The lookup may have read the row
+        // before the write and stored it after the invalidation, which would keep the old value
+        // for the whole TTL (in a shared store, for every instance). Drop it: the caller still gets
+        // the value it read, which is as fresh as its read, and the next read looks again.
+        if (epoch !== epochAtStart) yield* Effect.ignore(persisted.invalidate(key))
         return value
       }),
     invalidate: (key: K) =>
-      persisted
-        .invalidate(key)
-        .pipe(
-          Effect.catchTag('PersistenceError', (error) =>
-            Effect.logWarning(`Cache "${options.name}" could not forget an entry`, error)
-          )
+      Effect.sync(() => {
+        epoch += 1
+      }).pipe(
+        Effect.andThen(persisted.invalidate(key)),
+        Effect.catchTag('PersistenceError', (error) =>
+          Effect.logWarning(`Cache "${options.name}" could not forget an entry`, error)
         )
+      )
   }
 })

@@ -1,14 +1,14 @@
 /**
  * Cloudflare Workers target. `pnpm watch:worker` runs the source locally in
  * workerd (miniflare) with a local D1 database; `pnpm preview` runs the built
- * bundle the same way; `pnpm deploy` publishes it. Application
+ * bundle the same way; `pnpm run deploy` publishes it. Application
  * settings are the same variables the Node server reads.
  *
  * Docs: https://developers.cloudflare.com/workers/wrangler/configuration
  *
  * Build configurations:
  * - Build command: `pnpm build:worker`
- * - Deploy command: `pnpm exec wrangler deploy dist/worker/index.mjs --no-bundle --env production`
+ * - Deploy command: `pnpm exec wrangler deploy dist/worker/index.mjs --no-bundle`
  * - Non-production branch deploy command: `pnpm exec wrangler versions upload`
  */
 {
@@ -63,9 +63,10 @@
         // Cloudflare always sets CF-Connecting-IP, so it is safe to trust here.
         "LOG_FORMAT": "json",
         "TRUST_PROXY": "true",
-        // Applies pending migrations when an isolate starts. Convenient for
-        // preview; for production prefer an explicit migration step.
-        "DATABASE_AUTO_MIGRATE": "true",
+        // Off: a preview upload shares these vars, and migrating the production database from
+        // one is not what a preview is for. `pnpm watch:worker` and `pnpm preview` switch it on
+        // for the local database; for the first remote deploy see docs/deployment.md.
+        "DATABASE_AUTO_MIGRATE": "false",
         // Read cache through the Workers Cache API: per location, and not served
         // on workers.dev (there every read reaches D1), so use a custom domain.
         "CACHE_STORE": "cloudflare",

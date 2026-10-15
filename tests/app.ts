@@ -15,6 +15,7 @@ import type { UserService } from '../src/modules/user/user_service.ts'
 import { ErrorReporterLayer } from '../src/observer/error_reporter.ts'
 import { ConsoleLoggerLayer } from '../src/observer/logger.ts'
 import { TelemetryRuntimeLayer } from '../src/observer/telemetry.ts'
+import type { Platform } from '../src/routes/route.ts'
 import { ServicesLayer } from '../src/services.ts'
 
 /** Variables every test app starts from: a private in-memory database and no log output. */
@@ -58,6 +59,8 @@ export const makeTestApp = async (
   options: {
     readonly fetch?: typeof globalThis.fetch
     readonly rateCheck?: RateCheck
+    /** Where the app runs; `workers` makes `CF-Connecting-IP` the client address. */
+    readonly platform?: Platform
     /** Stands in for the shared cache store (`CACHE_STORE=redis`); in-process when absent. */
     readonly cacheBacking?: Layer.Layer<Persistence.BackingPersistence>
   } = {}
@@ -97,6 +100,7 @@ export const makeTestApp = async (
         app: createApp({
           runtime: httpRuntime,
           config,
+          ...(options.platform === undefined ? {} : { platform: options.platform }),
           ...(options.rateCheck === undefined ? {} : { rateCheck: options.rateCheck })
         }),
         http: httpRuntime

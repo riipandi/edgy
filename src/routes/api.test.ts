@@ -160,12 +160,12 @@ describe('pagination', () => {
     expect(body.metadata.total_items).toBeGreaterThan(0)
   })
 
-  it('returns every record in one page for -1', async () => {
-    const body = await json(await t.request('/api/users?limit=-1'))
-    expect(body.metadata.limit).toBeNull()
-    expect(body.metadata.total_pages).toBe(1)
-    expect(body.data).toHaveLength(body.metadata.total_items)
-    expect(Object.keys(body.links)).toEqual(['self'])
+  it('refuses -1 (every record at once): a caller cannot read the table in one request', async () => {
+    for (const query of ['limit=-1', 'page=-1', 'limit=-1&page=2']) {
+      const response = await t.request(`/api/users?${query}`)
+      expect(response.status).toBe(400)
+      expect((await json(response)).error.code).toBe('VALIDATION_FAILED')
+    }
   })
 
   it('sorts by an allow-listed column and rejects the rest', async () => {

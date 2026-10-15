@@ -11,6 +11,7 @@ import {
 import type { HttpClient } from 'effect/http'
 import type { OtlpExporter, OtlpSerialization } from 'effect/observability'
 import { ConfigService, type LogFormat } from '../kernel/config/service.ts'
+import { withinBudget } from './flush.ts'
 import { makeFileSink } from './log_file.ts'
 import { jsonLogger } from './log_json.ts'
 import { makeOtlpLogSink } from './telemetry.ts'
@@ -118,10 +119,15 @@ const makeFormatter = (format: LogFormat, colors: boolean): Logger.Logger<unknow
 const makeBatchedStdout = (formatter: Logger.Logger<unknown, string>, window: Duration.Input) =>
   Logger.batched(formatter, {
     window,
+    // Waits for the write to leave Node's stream (the callback), not just to be queued: the last
+    // batch of a process that exits right after used to be cut when the pipe was full.
     flush: (lines) =>
-      Effect.sync(() => {
-        process.stdout.write(`${lines.join('\n')}\n`)
-      })
+      withinBudget(
+        'stdout',
+        Effect.callback<void>((resume) => {
+          process.stdout.write(`${lines.join('\n')}\n`, () => resume(Effect.void))
+        })
+      )
   })
 
 /**

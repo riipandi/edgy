@@ -30,7 +30,7 @@ One application, two runtimes. Node.js (`node:sqlite`) and Cloudflare Workers (D
 
 ## Data
 
-- **Kysely on one contract.** `DatabaseService` exposes `db`, `query`, `read`, `transaction` and `ping`. `node:sqlite` is driven by our own dialect (single synchronous connection, mutex, prepared-statement cache, WAL); D1 by a dialect adapted from `kysely-d1` with its own introspector (Kysely's calls `pragma_table_info`, which D1 rejects). The same Kysely migrator runs on both, so there is one migration history.
+- **Kysely on one contract.** `DatabaseService` exposes `db`, `query`, `read`, `transaction` and `ping`. `node:sqlite` is driven by our own dialect (single synchronous connection, prepared-statement cache, WAL; Kysely's own connection mutex is the queue, and `query` leaves it when the request is cancelled); D1 by a dialect adapted from `kysely-d1` with its own introspector (Kysely's calls `pragma_table_info`, which D1 rejects). The same Kysely migrator runs on both, so there is one migration history; on SQLite it runs in one transaction behind a write-lock, so a failing migration leaves nothing and two processes cannot both apply one.
 - **Reads and writes are different calls.** `read` repeats a transient failure twice with jittered backoff on D1 and is plain `query` elsewhere; writes have no retrying entry point. `transaction` works on SQLite and fails on D1.
 - **Schemas are the single source.** One entity `Struct` per resource derives the request, response and Kysely table types. Rows are not decoded on read.
 - **Pagination in one statement.** The page and its total come from one query (the total as a scalar subquery); only an empty later page needs a count.
@@ -54,12 +54,14 @@ All environment parsing is in `src/kernel/config/`. Each variable is declared on
 
 - **Baseline.** Fixed security headers on every response, JSON-only bodies (`415`), body limit (`413`), CORS (credentials with a wildcard origin refused at startup), no authentication (no policy exists to enforce).
 - **Rate limiting** on `/api`, switched by `RATE_LIMIT_ENABLED` (on by default) and backed by `RATE_LIMIT_STORE`. `memory` counts in the process; `redis` counts through Effect's `RateLimiter` over Redis/Valkey so the limit is global (Node only); `cloudflare` asks Workers' Rate Limiting binding, which is per location, eventually consistent and configured in `wrangler.jsonc` (Workers only). Every shared store has a 250 ms budget and a 10 s cooldown after a failure: it fails open, so a store outage never becomes an API outage or a per-request delay.
-- **Overload.** `MAX_IN_FLIGHT` refuses early with `503` + `Retry-After`, exempting `/health` and `/metrics`.
-- **Telemetry outages** cost a gap in data, never latency or memory.
+- **Overload.** `MAX_IN_FLIGHT` refuses early with `503` + `Retry-After`, exempting `/health` and `/metrics`. Reading a JSON body is bounded by `REQUEST_TIMEOUT` (`408`), so a client that stalls mid-body cannot keep an in-flight slot.
+- **One fail-open rule.** Every guard around an optional store (cache backings, the shared rate limiter, the Workers binding) uses the same state machine (`src/kernel/fail_open.ts`): skip the store for a cooldown after a failure, let exactly one call probe it when the cooldown ends, announce the outage once.
+- **The client address** for the rate limiter is the socket's, or with `TRUST_PROXY` the `X-Forwarded-For` entry `TRUST_PROXY_HOPS` from the right (a client controls the left), or `CF-Connecting-IP` on Workers only.
+- **Telemetry outages** cost a gap in data, never latency or memory: every export has a 5 s deadline, and the final flush at shutdown has 1 s. A log sink's write has a 5 s budget too (`observer/flush.ts`), so a stuck pipe or disk cannot stop the logger or hang shutdown.
 
 ## Build and deploy
 
-`builder/` is a Rolldown pipeline independent of `src/`, with two runtimes. `node` bundles the server (ESM, per-package chunks, native packages external and traced, minimal `package.json`) and can compile a single executable (SEA + postject). `workers` applies a preset over that config (one file, `workerd` conditions, no shebang, no tracing) and is what `pnpm preview` and `pnpm deploy` run, built the same way, with `--no-bundle`; `watch:worker` lets wrangler bundle the source. Scripts are split by target.
+`builder/` is a Rolldown pipeline independent of `src/`, with two runtimes. `node` bundles the server (ESM, per-package chunks, native packages external and traced, minimal `package.json`) and can compile a single executable (SEA + postject). `workers` applies a preset over that config (one file, `workerd` conditions, no shebang, no tracing) and is what `pnpm preview` and `pnpm run deploy` run, built the same way, with `--no-bundle`; `watch:worker` lets wrangler bundle the source. Scripts are split by target.
 
 ## Development services
 

@@ -76,6 +76,10 @@ export const serveHttp = Effect.gen(function* () {
           })
         )
         yield* Effect.promise(() => instance.close(true))
+        // Closing the sockets aborts what was cut off, but the fibers behind those requests stop on
+        // their own schedule. Give them a moment to settle, so none queries the closed database or
+        // logs after the final flush.
+        yield* runtime.inFlight.drained.pipe(Effect.timeoutOption('1 second'), Effect.asVoid)
         yield* Effect.promise(() => closed)
         yield* Effect.logInfo('Server stopped')
       })

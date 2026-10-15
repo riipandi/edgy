@@ -23,12 +23,14 @@ src/
   kernel/            # runtime-agnostic core
     config/          # service.ts (ConfigService, appConfig), field.ts (field helpers), one section file each (server, database, logging, security, observability, cors), example.ts (.env.example renderer)
     cache/           # read_through.ts (makeReadThrough, CacheBypass), guard.ts (fail-open store decorator), local.ts (memory), edge_cache.ts (Workers Cache API)
+    fail_open.ts     # the shared fail-open state machine (cooldown, one probe)
+    redact.ts        # redactText / redactValue: secrets out of anything shown or logged
     objectids.ts     # defineId: declares one TypeID kind (prefix, make, schema); the prefixes live beside what they identify
     errors.ts        # AppError interface + NotFound, ValidationError, DatabaseError, Conflict, RequestTimeout
     pagination.ts    # Page, PageRequest
     layers.ts        # CoreLayer (Node): config + stdout logger + platform services
     http/            # runtime.ts (HttpRuntime, HttpServices), handler.ts (defineHandler, definePagedHandler, defineMessageHandler), router.ts (defineRouteGroup), responder.ts (runEffect), envelope.ts, pagination.ts, decode.ts, errors.ts (renderHTTPError), request_context.ts, inflight.ts
-  observer/          # logger.ts (batched stdout for Node, console for Workers), log_file.ts (rotating JSON-lines file sink), log_json.ts (fixed-order JSON formatter), telemetry.ts (OTLP traces/metrics/log sink, Flusher), error_reporter.ts, metrics.ts, metrics_handler.ts (/metrics), http_observer.ts
+  observer/          # flush.ts (budget for one log write), trace_id.ts (trc_ ids), logger.ts (batched stdout for Node, console for Workers), log_file.ts (rotating JSON-lines file sink), log_json.ts (fixed-order JSON formatter), telemetry.ts (OTLP traces/metrics/log sink, Flusher), error_reporter.ts, metrics.ts, metrics_handler.ts (/metrics), http_observer.ts
   command/           # effect/cli commands (cli.ts + one file per command + helper.ts)
   routes/            # route.ts: the route table (root, /api, /.well-known, catch-all; registration order)
   middleware/        # cors, request_id, security_headers, load_shedding, body_limit, cache_control, rate_limit (+ rate_limit_shared: Redis-backed check, rate_limit_binding: Workers binding check)
@@ -41,7 +43,7 @@ src/
     sqlite.ts        # SqliteDatabaseLayer (node:sqlite) — Node only
     d1.ts            # D1Binding, D1DatabaseLayer (portable), D1BindingNodeLayer (wrangler platform proxy; Node, local only, loaded lazily)
     layer.ts         # DatabaseLayer: picks the driver from DATABASE_DRIVER — Node only
-    dialect/         # NodeSQLiteDialect (+ connection, driver, mutex) and D1Dialect (+ connection, driver)
+    dialect/         # NodeSQLiteDialect (+ connection, driver, migration-aware adapter) and D1Dialect (+ connection, driver)
     migrator.ts      # Migrator wiring: getMigrationInfos, migrateToLatest, migrateTo, migrateDown
     migrations/      # index.ts static registry + one file per migration
     seeder.ts        # named seeder registry + runSeeders
@@ -65,9 +67,9 @@ docs/                # human-facing docs
 - `pnpm dev` (= `pnpm watch:node`) — the Node server with `node --watch ./src/main.ts serve`
 - `pnpm build:node` / `pnpm build:worker` — Rolldown bundle for the Node server (`dist/server`) / for the Worker (`dist/worker/index.mjs`); both are `node ./builder/cli.ts build --target=…`, so builder flags append (`pnpm build:node --minify`). There is no plain `pnpm build`
 - `pnpm compile` — single executable (SEA), Node target only
-- `pnpm watch:worker` — `wrangler dev` of the source (workerd + a local D1 under `.wrangler/`), wrangler bundles on every change
+- `pnpm watch:worker` — `wrangler dev` of the source (workerd + a local D1 under `.wrangler/`, `--var DATABASE_AUTO_MIGRATE:true`), wrangler bundles on every change
 - `pnpm preview` — builds the Worker with `--minify`, then `wrangler dev dist/worker/index.mjs --no-bundle`: the built artifact, in workerd
-- `pnpm deploy` — builds the Worker with `--minify`, then `wrangler deploy dist/worker/index.mjs --no-bundle`
+- `pnpm run deploy` (not `pnpm deploy`: pnpm's own `deploy` command takes the bare name) — builds the Worker with `--minify`, then `wrangler deploy dist/worker/index.mjs --no-bundle`
 - `pnpm app config:generate [--check]` — regenerate or verify `.env.example`
 - `pnpm check` is read-only; `pnpm lint` runs `oxlint --fix` and rewrites files
 - `pnpm compose:up` / `compose:down` / `compose:restart` / `compose:cleanup` — the development services in `compose.yaml` (cleanup also deletes `./.storage`)

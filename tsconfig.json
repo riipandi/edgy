@@ -39,5 +39,5 @@
         }
     },
     "include": ["**/*.ts"],
-    "exclude": [".output", ".wrangler", "dist", "public", "storage", "temp", "vendor"]
+    "exclude": [".output", ".wrangler", "dist", "storage", "temp", "vendor"]
 }

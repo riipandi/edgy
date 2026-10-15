@@ -1,5 +1,5 @@
 import { describe, expect, layer } from '@effect/vitest'
-import { Data, Effect, Exit, Fiber, Schema } from 'effect'
+import { Data, Deferred, Effect, Exit, Fiber, Schema } from 'effect'
 import { Persistable, Persistence } from 'effect/persistence'
 import { TestClock } from 'effect/testing'
 import { cacheEnvironment, fakeBacking, makeFakeStore } from '../../../tests/cache.ts'
@@ -169,6 +169,55 @@ describe('read-through, shared store', () => {
       )
     }
   )
+})
+
+describe('a write that lands while a read is in flight', () => {
+  /** The first lookup waits on `gate`, standing for a read that began before a write. */
+  const slowFirst = (gate: Deferred.Deferred<void>) => {
+    let calls = 0
+    return {
+      calls: () => calls,
+      lookup: (key: Item) =>
+        Effect.gen(function* () {
+          calls += 1
+          const mine = calls
+          if (mine === 1) yield* Deferred.await(gate)
+          return { id: key.id, n: mine }
+        })
+    }
+  }
+
+  const scenario = Effect.fnUntraced(function* () {
+    const gate = yield* Deferred.make<void>()
+    const origin = slowFirst(gate)
+    const cache = yield* makeReadThrough({ name: 'items', lookup: origin.lookup })
+    const key = new Item({ id: 'race' })
+
+    const reading = yield* Effect.forkChild(cache.get(key)) // began before the write
+    yield* Effect.yieldNow
+    yield* cache.invalidate(key) // the write commits and announces it
+    yield* Deferred.succeed(gate, undefined) // the old read finishes afterwards
+    const old = yield* Fiber.join(reading)
+
+    const next = yield* cache.get(key)
+    return { old, next, calls: origin.calls() }
+  })
+
+  for (const [title, env, backing] of [
+    ['in the process', {}, undefined],
+    ['in a shared store', { CACHE_STORE: 'redis', CACHE_LOCAL_TTL: '0' }, makeFakeStore()]
+  ] as const) {
+    layer(cacheEnvironment(env, backing && fakeBacking(backing)))(title, (scoped) => {
+      scoped.effect('does not leave the old value cached: the next read looks again', () =>
+        Effect.gen(function* () {
+          const { old, next, calls } = yield* scenario()
+          expect(old.n).toBe(1) // the in-flight read gets what it read
+          expect(next.n).toBe(2) // but nobody after the write is served it
+          expect(calls).toBe(2)
+        })
+      )
+    })
+  }
 })
 
 describe('a shared store that comes back', () => {

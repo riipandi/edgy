@@ -6,9 +6,16 @@ export async function up(db: Kysely<Database>): Promise<void> {
     .createTable('users')
     .addColumn('id', 'text', (col) => col.primaryKey())
     .addColumn('email', 'text', (col) => col.notNull().unique())
-    .addColumn('name', 'text')
+    .addColumn('name', 'text', (col) => col.notNull())
     .ifNotExists()
     .modifyEnd(sql`STRICT`)
+    .execute()
+
+  await db.schema
+    .createIndex('users_name_id_idx')
+    .on('users')
+    .columns(['name', 'id'])
+    .ifNotExists()
     .execute()
 }
 

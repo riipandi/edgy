@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from '@effect/vitest'
 import { Duration } from 'effect'
 import { makeTestApp, type TestApp } from '../../tests/app.ts'
-import { makeMemoryRateCheck } from './rate_limit.ts'
+import { forwardedClient, makeMemoryRateCheck } from './rate_limit.ts'
 
 let t: TestApp | undefined
 afterEach(async () => {
@@ -87,12 +87,51 @@ describe('rate limiting', () => {
     }
   })
 
-  it('keys clients by CF-Connecting-IP only when the proxy is trusted', async () => {
+  it('ignores CF-Connecting-IP off Workers: there it is the client who writes it', async () => {
     t = await makeTestApp({ RATE_LIMIT_ENABLED: 'true', RATE_LIMIT_MAX: '1', TRUST_PROXY: 'true' })
+    const as = (ip: string) => t!.request('/api/users', { headers: { 'cf-connecting-ip': ip } })
+    expect((await as('203.0.113.1')).status).toBe(200)
+    expect((await as('203.0.113.2')).status).toBe(429) // same socket, so the same client
+  })
+
+  it('keys clients by CF-Connecting-IP on Workers, where the platform sets it', async () => {
+    t = await makeTestApp(
+      { RATE_LIMIT_ENABLED: 'true', RATE_LIMIT_MAX: '1', TRUST_PROXY: 'true' },
+      { platform: 'workers' }
+    )
     const as = (ip: string) => t!.request('/api/users', { headers: { 'cf-connecting-ip': ip } })
     expect((await as('203.0.113.1')).status).toBe(200)
     expect((await as('203.0.113.2')).status).toBe(200)
     expect((await as('203.0.113.1')).status).toBe(429)
+  })
+
+  it('counts X-Forwarded-For from the right, so a spoofed first entry buys nothing', async () => {
+    t = await makeTestApp({
+      RATE_LIMIT_ENABLED: 'true',
+      RATE_LIMIT_MAX: '1',
+      TRUST_PROXY: 'true',
+      TRUST_PROXY_HOPS: '1'
+    })
+    // the proxy appends the real client (198.51.100.7); the attacker prepends a new value each time
+    const as = (spoof: string) =>
+      t!.request('/api/users', { headers: { 'x-forwarded-for': `${spoof}, 198.51.100.7` } })
+    expect((await as('1.1.1.1')).status).toBe(200)
+    expect((await as('2.2.2.2')).status).toBe(429)
+    expect((await as('3.3.3.3')).status).toBe(429)
+  })
+})
+
+describe('forwardedClient', () => {
+  it('picks the entry the given number of proxies from the right', () => {
+    expect(forwardedClient('a, b, c', 1)).toBe('c')
+    expect(forwardedClient('a, b, c', 2)).toBe('b')
+    expect(forwardedClient('203.0.113.9', 1)).toBe('203.0.113.9')
+  })
+
+  it('has nothing to say when the header is missing, short or blank', () => {
+    expect(forwardedClient(null, 1)).toBeUndefined()
+    expect(forwardedClient('a', 2)).toBeUndefined()
+    expect(forwardedClient('a, ', 1)).toBeUndefined()
   })
 })
 

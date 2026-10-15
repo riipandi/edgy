@@ -1,5 +1,6 @@
 import { Array as Arr, Clock, Duration, Effect, Exit, Layer, Option } from 'effect'
 import { Persistence } from 'effect/persistence'
+import { makeFailOpenGate } from '../fail_open.ts'
 
 interface GuardOptions {
   /** Longest one store call may take before it counts as a failure. */
@@ -24,9 +25,10 @@ const guardStore = (
   options: GuardOptions
 ): Persistence.BackingPersistenceStore => {
   const timeout = options.timeout ?? '250 millis'
-  const timeoutMs = Duration.toMillis(Duration.fromInputUnsafe(timeout))
-  const cooldownMs = Duration.toMillis(Duration.fromInputUnsafe(options.cooldown ?? '10 seconds'))
-  let bypassUntil = 0
+  const gate = makeFailOpenGate({
+    cooldownMs: Duration.toMillis(Duration.fromInputUnsafe(options.cooldown ?? '10 seconds')),
+    probeMs: Duration.toMillis(Duration.fromInputUnsafe(timeout))
+  })
 
   const guarded = <A>(
     run: Effect.Effect<A, Persistence.PersistenceError>,
@@ -34,27 +36,22 @@ const guardStore = (
   ): Effect.Effect<A> =>
     Effect.gen(function* () {
       const startedAt = yield* Clock.currentTimeMillis
-      if (startedAt < bypassUntil) return fallback
-
-      // Past the cooldown: this call is the probe. Holding the others back for as long as it may
-      // take stops every concurrent caller from testing the store at once (no yield separates the
-      // read of `bypassUntil` from this write, and fibers do not run in parallel).
-      const recovering = bypassUntil !== 0
-      if (recovering) bypassUntil = startedAt + timeoutMs
+      const entry = gate.enter(startedAt)
+      if (!entry.allowed) return fallback
 
       const exit = yield* Effect.exit(run.pipe(Effect.timeoutOption(timeout)))
       if (Exit.isSuccess(exit) && Option.isSome(exit.value)) {
-        bypassUntil = 0
+        gate.succeeded()
         return exit.value.value
       }
 
-      bypassUntil = startedAt + cooldownMs
+      const announce = gate.failed(startedAt, entry.probe)
       const what = `Cache store "${name}" ${Exit.isSuccess(exit) ? 'timed out' : 'failed'}`
       const cause = Exit.isSuccess(exit) ? undefined : exit.cause
       // The outage is announced once; a probe that fails again is only a detail.
-      yield* recovering
-        ? Effect.logDebug(`${what} again; still bypassing it`, cause)
-        : Effect.logWarning(`${what}; bypassing it for a while`, cause)
+      yield* announce
+        ? Effect.logWarning(`${what}; bypassing it for a while`, cause)
+        : Effect.logDebug(`${what} again; still bypassing it`, cause)
       return fallback
     })
 

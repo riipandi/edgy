@@ -1,3 +1,4 @@
+import { Config, ConfigProvider, Effect } from 'effect'
 import { flag, group, int, milliseconds, port, text, type ValueOf } from './field.ts'
 
 /** HTTP server: where it listens, what it enforces per request, how it stops. */
@@ -30,10 +31,26 @@ export const serverConfig = group(
     trustProxy: flag(
       'TRUST_PROXY',
       false,
-      'Trust X-Forwarded-For / CF-Connecting-IP for the client address (enable only behind a proxy you control)'
+      'Trust X-Forwarded-For (and, on Workers, CF-Connecting-IP) for the client address (enable only behind a proxy you control)'
+    ),
+    trustProxyHops: int(
+      'TRUST_PROXY_HOPS',
+      1,
+      'How many proxies append to X-Forwarded-For before the request reaches the app; the client is the entry that many from the right (at least 1)'
     )
   },
-  { title: 'Server' }
+  {
+    title: 'Server',
+    // Zero hops would read the proxy's own address, or past the start of the list.
+    transform: (raw) =>
+      raw.trustProxyHops < 1
+        ? Effect.fail(
+            new Config.ConfigError(
+              new ConfigProvider.SourceError({ message: 'TRUST_PROXY_HOPS must be at least 1' })
+            )
+          )
+        : Effect.succeed(raw)
+  }
 )
 
 export type ServerConfig = ValueOf<typeof serverConfig>

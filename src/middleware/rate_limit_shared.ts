@@ -1,5 +1,6 @@
 import { Duration, Effect, Exit } from 'effect'
 import { RateLimiter } from 'effect/persistence'
+import { makeFailOpenGate } from '../kernel/fail_open.ts'
 import type { RateCheck } from './rate_limit.ts'
 
 /**
@@ -33,9 +34,11 @@ export const makeSharedRateCheck = (options: {
 }): RateCheck => {
   const windowMs = Duration.toMillis(options.window)
   const timeout = options.timeout ?? '250 millis'
-  const cooldownMs = Duration.toMillis(Duration.fromInputUnsafe(options.cooldown ?? '10 seconds'))
+  const gate = makeFailOpenGate({
+    cooldownMs: Duration.toMillis(Duration.fromInputUnsafe(options.cooldown ?? '10 seconds')),
+    probeMs: Duration.toMillis(Duration.fromInputUnsafe(timeout))
+  })
   const now = options.now ?? Date.now
-  let bypassUntil = 0
 
   const passThrough = () => ({
     allowed: true,
@@ -44,14 +47,9 @@ export const makeSharedRateCheck = (options: {
     resetAt: now() + windowMs
   })
 
-  const bypass = (message: string, cause: unknown) => {
-    bypassUntil = now() + cooldownMs
-    options.warn(message, cause)
-    return passThrough()
-  }
-
   return async (key) => {
-    if (now() < bypassUntil) return passThrough()
+    const entry = gate.enter(now())
+    if (!entry.allowed) return passThrough()
 
     const exit = await Effect.runPromiseExit(
       options.limiter
@@ -65,10 +63,17 @@ export const makeSharedRateCheck = (options: {
         .pipe(Effect.timeoutOption(timeout))
     )
 
+    /** The store did not answer: let the request through, and say so once per outage. */
+    const bypass = (message: string, cause: unknown) => {
+      if (gate.failed(now(), entry.probe)) options.warn(message, cause)
+      return passThrough()
+    }
+
     if (Exit.isSuccess(exit)) {
       if (exit.value._tag === 'None') {
         return bypass('Rate limit store timed out; letting requests through for a while', 'timeout')
       }
+      gate.succeeded()
       const { limit, remaining, resetAfter } = exit.value.value
       return { allowed: true, limit, remaining, resetAt: now() + Duration.toMillis(resetAfter) }
     }
@@ -79,6 +84,8 @@ export const makeSharedRateCheck = (options: {
       error instanceof RateLimiter.RateLimiterError &&
       error.reason._tag === 'RateLimitExceeded'
     ) {
+      // The store answered; the answer was "no".
+      gate.succeeded()
       const { limit, remaining, retryAfter } = error.reason
       return { allowed: false, limit, remaining, resetAt: now() + Duration.toMillis(retryAfter) }
     }

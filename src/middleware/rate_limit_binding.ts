@@ -1,3 +1,4 @@
+import { makeFailOpenGate } from '../kernel/fail_open.ts'
 import type { RateCheck } from './rate_limit.ts'
 
 /**
@@ -42,9 +43,8 @@ export const makeBindingRateCheck = (options: {
   readonly now?: () => number
 }): RateCheck => {
   const timeoutMs = options.timeoutMs ?? 250
-  const cooldownMs = options.cooldownMs ?? 10_000
+  const gate = makeFailOpenGate({ cooldownMs: options.cooldownMs ?? 10_000, probeMs: timeoutMs })
   const now = options.now ?? Date.now
-  let bypassUntil = 0
 
   const decide = (allowed: boolean) => ({
     allowed,
@@ -52,14 +52,16 @@ export const makeBindingRateCheck = (options: {
     resetAt: now() + options.windowMs
   })
 
-  const bypass = (cause: unknown) => {
-    bypassUntil = now() + cooldownMs
-    options.warn('Rate limit binding unavailable; letting requests through for a while', cause)
-    return decide(true)
-  }
-
   return async (key) => {
-    if (now() < bypassUntil) return decide(true)
+    const entry = gate.enter(now())
+    if (!entry.allowed) return decide(true)
+
+    const bypass = (cause: unknown) => {
+      if (gate.failed(now(), entry.probe)) {
+        options.warn('Rate limit binding unavailable; letting requests through for a while', cause)
+      }
+      return decide(true)
+    }
 
     let timer: ReturnType<typeof setTimeout> | undefined
     const timedOut = new Promise<'timeout'>((resolve) => {
@@ -68,7 +70,9 @@ export const makeBindingRateCheck = (options: {
 
     try {
       const outcome = await Promise.race([options.binding.limit({ key }), timedOut])
-      return outcome === 'timeout' ? bypass('timeout') : decide(outcome.success)
+      if (outcome === 'timeout') return bypass('timeout')
+      gate.succeeded()
+      return decide(outcome.success)
     } catch (cause) {
       return bypass(cause)
     } finally {

@@ -1,5 +1,6 @@
 import { Effect, Exit, FileSystem, Logger, Path, Scope } from 'effect'
 import type { Duration } from 'effect'
+import { withinBudget } from './flush.ts'
 import { jsonLogger } from './log_json.ts'
 
 /** How often a new log file is started. All periods are measured in UTC. */
@@ -168,11 +169,14 @@ export const makeFileSink = (options: LogFileOptions & { readonly window: Durati
     return yield* Logger.batched(entries, {
       window: options.window,
       flush: (batch) =>
-        writer.write(batch).pipe(
-          Effect.catch((error) =>
-            Effect.sync(() => {
-              process.stderr.write(`log file write failed: ${error.message}\n`)
-            })
+        withinBudget(
+          'file',
+          writer.write(batch).pipe(
+            Effect.catch((error) =>
+              Effect.sync(() => {
+                process.stderr.write(`log file write failed: ${error.message}\n`)
+              })
+            )
           )
         )
     })

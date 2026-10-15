@@ -44,8 +44,8 @@ runtime and the database differ.
 ```bash
 pnpm watch:worker    # run the source in workerd, rebuilt on every change
 pnpm build:worker    # bundle into dist/worker/index.mjs (one file)
-pnpm preview         # build a minified bundle, then run that exact file in workerd
-pnpm deploy          # build a minified bundle, then publish that exact file with wrangler
+pnpm preview         # build a minified bundle, then run that exact file in workerd (migrates the local database)
+pnpm run deploy      # build a minified bundle, then publish that exact file with wrangler
 ```
 
 `pnpm build:worker` is `pnpm build:node`'s counterpart: the same builder with `--target=workers`
@@ -54,7 +54,7 @@ pnpm deploy          # build a minified bundle, then publish that exact file wit
 `--minify` and `--obfuscate` work for both targets; `pnpm compile` (single executable) is Node.js only.
 
 `pnpm watch:worker` is the fast loop: wrangler bundles the source itself on every change.
-`pnpm preview` runs the artifact you will actually ship, minified exactly as `pnpm deploy` builds it,
+`pnpm preview` runs the artifact you will actually ship, minified exactly as `pnpm run deploy` builds it,
 so run it before deploying.
 
 Before the first deploy:
@@ -63,9 +63,10 @@ Before the first deploy:
    (`d1_databases[0].database_id`).
 2. Put application settings under `vars` in `wrangler.jsonc` and secrets in `wrangler secret put`.
    See [Configuration](./configuration.md).
-3. Decide how migrations are applied. `DATABASE_AUTO_MIGRATE=true` applies them when an isolate
-   starts, which is convenient for preview. Several isolates can start at once and race, so for
-   production prefer to apply the schema once, before deploying.
+3. Create the schema. `wrangler.jsonc` sets `DATABASE_AUTO_MIGRATE` to `false`, so a preview upload
+   cannot migrate the production database. For the first deploy apply the migrations once:
+   `pnpm run deploy --var DATABASE_AUTO_MIGRATE:true`, then deploy again without the flag. Several
+   isolates starting at once would race to migrate, which is why it is not left on.
 
 Differences from the Node.js server:
 
@@ -81,7 +82,7 @@ Differences from the Node.js server:
 One process serves roughly 10,000 list requests (20 rows each) per second on a laptop, and SQLite access is
 synchronous, so a slow query holds up every other request on that process. To go further, run several
 processes (SQLite's WAL mode lets them read and write the same file) behind a reverse proxy, and set
-`TRUST_PROXY=true`. Rate limits then apply to each process separately.
+`TRUST_PROXY=true` with `TRUST_PROXY_HOPS` set to the number of proxies in front (the client address is then the `X-Forwarded-For` entry that many from the right, so a client cannot choose it). Rate limits then apply to each process separately.
 
 Behind a load balancer, set `SHUTDOWN_DRAIN_DELAY` to a few seconds: on a stop signal `/health`
 answers `503` first, and the server closes the listener only after that pause, so the balancer stops

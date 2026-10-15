@@ -59,8 +59,8 @@ ApiPagination:
 PaginationParams (query params):
 ```json
 {
-    page?: number // number of the page to retrieve, set -1 for all records
-    limit?: number // number of items per page, set -1 for all records
+    page?: number // number of the page to retrieve; -1 (all records) only on a resource that opts in
+    limit?: number // number of items per page (max 100); -1 (all records) only on a resource that opts in
     sort_by?: string // sort by column or field name
     sort_order?: 'asc' | 'desc' // sort direction
 }

@@ -134,6 +134,8 @@ export const makeQueryLogger = Effect.gen(function* () {
 interface DatabaseOptions {
   /** Whether the driver can run interactive transactions. */
   readonly transactions: boolean
+  /** Whether every operation shares one connection that callers queue for (`node:sqlite`). */
+  readonly singleConnection: boolean
   /** Whether {@link DatabaseService.read} retries transient failures (a networked driver). */
   readonly retryReads: boolean
 }
@@ -149,7 +151,13 @@ export const makeDatabaseService = (
 ): DatabaseService['Service'] => {
   const query: DatabaseService['Service']['query'] = (run) =>
     Effect.tryPromise({
-      try: () => run(db),
+      // The fiber's signal aborts on interruption (a timeout, a client that left). On a driver
+      // with one connection, `connection().execute` is the queue a caller can leave: a query
+      // still waiting for its turn when the request is cancelled never runs, instead of running
+      // after the `504` and being created twice by the client's retry. `run` receives a handle
+      // bound to that connection, which is all it needs.
+      try: (signal) =>
+        options.singleConnection ? db.connection().execute(run, { signal }) : run(db),
       catch: (cause) => new DatabaseError({ cause })
     })
 

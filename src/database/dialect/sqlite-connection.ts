@@ -34,12 +34,17 @@ const asRows = <R>(rows: Record<string, SQLOutputValue>[]): R[] => rows as R[]
  * Reads rows via `StatementSync.all()` when the compiled query produces a
  * result set, otherwise executes it with `run()`.
  *
- * `node:sqlite` offers no way to ask a statement whether it returns rows, so
- * the decision is derived from the compiled Kysely AST: `SELECT` always returns
- * rows; writes only when they carry a `RETURNING` clause; raw statements are
- * sniffed from their leading keyword.
+ * The decision comes from the compiled Kysely AST where that is enough: `SELECT` always
+ * returns rows; writes only when they carry a `RETURNING` clause. A raw statement can be
+ * anything (`select`, `with`, `pragma`, `explain`, `values`, a write), so SQLite is asked:
+ * a statement that has result columns returns rows. Sniffing the leading keyword missed
+ * `explain query plan`, which came back empty.
  */
-const returnsRows = (query: CompiledQuery['query'], sql: string): boolean => {
+const returnsRows = (
+  query: CompiledQuery['query'],
+  sql: string,
+  statement: StatementSync
+): boolean => {
   if (query.kind === 'SelectQueryNode') return true
 
   if (
@@ -50,15 +55,7 @@ const returnsRows = (query: CompiledQuery['query'], sql: string): boolean => {
     return sql.toLowerCase().includes('returning')
   }
 
-  if (query.kind === 'RawNode') {
-    const lowerSql = sql.toLowerCase().trim()
-    return (
-      lowerSql.startsWith('select') ||
-      lowerSql.startsWith('pragma') ||
-      lowerSql.startsWith('with') ||
-      lowerSql.includes('returning')
-    )
-  }
+  if (query.kind === 'RawNode') return statement.columns().length > 0
 
   return false
 }
@@ -106,7 +103,7 @@ export class NodeSQLiteConnection implements DatabaseConnection {
     const { sql, parameters } = compiledQuery
     const statement = this.#prepare(sql)
 
-    if (returnsRows(compiledQuery.query, sql)) {
+    if (returnsRows(compiledQuery.query, sql, statement)) {
       return { rows: asRows<R>(statement.all(...bindable(parameters))) }
     }
 

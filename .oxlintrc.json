@@ -22,7 +22,7 @@
         "import/no-cycle": "warn",
         "import/no-unassigned-import": "off",
         "jsx-a11y/heading-has-content": "off",
-        "no-console": "off",
+        "no-console": "error",
         "no-debugger": "warn",
         "no-underscore-dangle": "off",
         "no-empty": ["error", { "allowEmptyCatch": true }],
@@ -36,6 +36,10 @@
         "typescript/triple-slash-reference": "allow"
     },
     "overrides": [
+        {
+            "files": ["src/observer/logger.ts", "src/command/helper.ts"],
+            "rules": { "no-console": "off" }
+        },
         {
             "files": ["**/*.test.ts", "**/*.spec.ts", "tests/**/*.ts"],
             "plugins": ["vitest"],
@@ -52,16 +56,13 @@
     "ignorePatterns": [
         ".output",
         ".storage",
-        ".tanstack",
         ".wrangler",
         "**/*.md",
         "**/*.mdx",
         "**/*.yml",
         "**/*.yaml",
         "**/*.toml",
-        "/public/**",
         "/storage/**",
-        "/temp/**",
         "/vendor/**"
     ]
 }

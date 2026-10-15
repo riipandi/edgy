@@ -12,7 +12,6 @@ import type { DatabaseConnection, Driver, QueryCompiler } from 'kysely'
 import { CompiledQuery, createQueryId, IdentifierNode, RawNode } from 'kysely'
 import type { DatabaseSync } from 'node:sqlite'
 import { NodeSQLiteConnection } from './sqlite-connection.ts'
-import { Mutex } from './sqlite-mutex.ts'
 
 const SAVEPOINT_COMMANDS = {
   savepoint: 'SAVEPOINT',
@@ -29,13 +28,16 @@ const savepointCommand = (
 /**
  * Kysely {@link Driver} for `node:sqlite`.
  *
- * `node:sqlite` exposes a single synchronous connection, so concurrency is
- * serialised through an async {@link Mutex}: only one Kysely operation touches
- * the handle at a time, mirroring the behaviour of `better-sqlite3`.
+ * `node:sqlite` exposes a single synchronous connection. The driver does not queue callers
+ * itself: Kysely's `RuntimeDriver` holds a connection mutex for any adapter that reports
+ * `supportsMultipleConnections === false` (the SQLite adapter does), so only one Kysely
+ * operation touches the handle at a time and a transaction keeps the connection across awaits.
+ * That queue is also the one a caller's abort signal can leave (`db.connection().execute(run,
+ * { signal })`, see `DatabaseService.query`). The fork's own mutex sat behind it and never
+ * had a waiter, so it was removed.
  */
 export class NodeSQLiteDriver implements Driver, AsyncDisposable {
   readonly #db: DatabaseSync
-  readonly #mutex = new Mutex()
   #connection: NodeSQLiteConnection | undefined
 
   constructor(db: DatabaseSync) {
@@ -54,13 +56,10 @@ export class NodeSQLiteDriver implements Driver, AsyncDisposable {
   }
 
   async acquireConnection(): Promise<DatabaseConnection> {
-    await this.#mutex.lock()
     return this.connection
   }
 
-  async releaseConnection(): Promise<void> {
-    this.#mutex.unlock()
-  }
+  async releaseConnection(): Promise<void> {}
 
   async destroy(): Promise<void> {
     this.#connection = undefined

@@ -8,6 +8,9 @@ import { healthHandler } from '../modules/health/health_handler.ts'
 import { userRoutes } from '../modules/user/user_routes.ts'
 import { metricsHandler } from '../observer/metrics_handler.ts'
 
+/** Where the app runs; decides which proxy headers are the platform's own. */
+export type Platform = 'node' | 'workers'
+
 /**
  * `/api` group: every resource endpoint that answers in the API envelope.
  *
@@ -18,14 +21,21 @@ import { metricsHandler } from '../observer/metrics_handler.ts'
  *
  * A new module's routes are registered in this callback.
  */
-const apiRoutes = (config: AppConfig, check: RateCheck): H3Plugin =>
+const apiRoutes = (config: AppConfig, check: RateCheck, platform: Platform): H3Plugin =>
   defineRouteGroup({
     prefix: '/api',
     middleware: [
       // Answers are per caller and per moment: no cache, shared or private, may keep one.
       cacheControl({ value: 'no-store', errors: true }),
       ...(config.security.rateLimitEnabled
-        ? [rateLimit({ check, trustProxy: config.server.trustProxy })]
+        ? [
+            rateLimit({
+              check,
+              trustProxy: config.server.trustProxy,
+              proxyHops: config.server.trustProxyHops,
+              cloudflareHeader: platform === 'workers'
+            })
+          ]
         : [])
     ],
     routes: (api) => {
@@ -91,7 +101,8 @@ const notFoundRoutes: H3Plugin = (app) => {
 /** Every route plugin, in registration order. The catch-all must stay last. */
 export const createRoutePlugins = (
   config: AppConfig,
-  rateCheck?: RateCheck
+  rateCheck?: RateCheck,
+  platform: Platform = 'node'
 ): readonly H3Plugin[] => [
   rootRoutes(config),
   apiRoutes(
@@ -100,7 +111,8 @@ export const createRoutePlugins = (
       makeMemoryRateCheck({
         max: config.security.rateLimitMax,
         window: config.security.rateLimitWindow
-      })
+      }),
+    platform
   ),
   wellKnownRoutes,
   notFoundRoutes

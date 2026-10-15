@@ -133,6 +133,12 @@ describe('configuration', () => {
     await expect(parse({ CACHE_STORE: 'kv' })).rejects.toThrow(/CACHE_STORE/)
   })
 
+  it('counts proxies for X-Forwarded-For, at least one', async () => {
+    expect((await parse({})).server.trustProxyHops).toBe(1)
+    expect((await parse({ TRUST_PROXY_HOPS: '2' })).server.trustProxyHops).toBe(2)
+    await expect(parse({ TRUST_PROXY_HOPS: '0' })).rejects.toThrow(/TRUST_PROXY_HOPS/)
+  })
+
   it('rejects an unknown or empty LOG_TRANSPORT', async () => {
     await expect(parse({ LOG_TRANSPORT: 'console,syslog' })).rejects.toThrow(/LOG_TRANSPORT/)
     await expect(parse({ LOG_TRANSPORT: ',' })).rejects.toThrow(/LOG_TRANSPORT/)

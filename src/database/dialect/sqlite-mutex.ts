@@ -12,22 +12,46 @@
  * overtake an early one. Plain queries rarely queue (the driver call is
  * synchronous), so this shows up only when a transaction holds the connection
  * across awaits; it was not measurable in the benchmark.
+ *
+ * A waiter can be cancelled: when its `signal` aborts before it is handed the
+ * lock it leaves the queue and its promise rejects, so work for a request that
+ * is already gone never runs.
  */
+interface Waiter {
+  readonly grant: () => void
+}
+
 export class Mutex {
   #locked = false
-  readonly #waiters: Array<() => void> = []
+  readonly #waiters: Array<Waiter> = []
 
-  lock(): Promise<void> {
+  lock(signal?: AbortSignal): Promise<void> {
+    if (signal?.aborted === true) return Promise.reject(signal.reason)
     if (!this.#locked) {
       this.#locked = true
       return Promise.resolve()
     }
-    return new Promise((resolve) => this.#waiters.push(resolve))
+    return new Promise((resolve, reject) => {
+      const onAbort = () => {
+        const index = this.#waiters.indexOf(waiter)
+        if (index === -1) return // already handed the lock
+        this.#waiters.splice(index, 1)
+        reject(signal?.reason)
+      }
+      const waiter: Waiter = {
+        grant: () => {
+          signal?.removeEventListener('abort', onAbort)
+          resolve()
+        }
+      }
+      signal?.addEventListener('abort', onAbort, { once: true })
+      this.#waiters.push(waiter)
+    })
   }
 
   unlock(): void {
     const next = this.#waiters.shift()
     if (next === undefined) this.#locked = false
-    else next()
+    else next.grant()
   }
 }

@@ -23,13 +23,13 @@ export interface PaginationQuery<S extends string> {
   readonly sort_order?: SortOrder | undefined
 }
 
-const positiveOrAll = (what: string, max: number) =>
+const positiveOrAll = (what: string, max: number, allowAll: boolean) =>
   Schema.FiniteFromString.pipe(
     Schema.check(
       Schema.makeFilter((n: number) =>
-        n === ALL_RECORDS || (Number.isSafeInteger(n) && n >= 1 && n <= max)
+        (allowAll && n === ALL_RECORDS) || (Number.isSafeInteger(n) && n >= 1 && n <= max)
           ? undefined
-          : `${what} must be an integer from 1 to ${max}, or ${ALL_RECORDS} for all records`
+          : `${what} must be an integer from 1 to ${max}${allowAll ? `, or ${ALL_RECORDS} for all records` : ''}`
       )
     )
   )
@@ -40,14 +40,21 @@ const positiveOrAll = (what: string, max: number) =>
  * validated here and typed as a union of them downstream — it can never be an
  * arbitrary column name.
  *
- * `-1` for `page` or `limit` asks for every record; any other `limit` is
- * capped at `MAX_LIMIT`. Defaults are applied by {@link toPageRequest}, not
+ * A `limit` is capped at `MAX_LIMIT`. `-1` for `page` or `limit` (every record in one
+ * page, no cap) is refused unless the resource opts in with `allowAll`: it
+ * lets any caller read a whole table in one request, which only a bounded,
+ * trusted table should offer. Defaults are applied by {@link toPageRequest}, not
  * here, so the schema decodes exactly what the caller sent.
  */
-export const paginationQuery = <const S extends readonly [string, ...string[]]>(sortable: S) =>
+export const paginationQuery = <const S extends readonly [string, ...string[]]>(
+  sortable: S,
+  options: { readonly allowAll?: boolean } = {}
+) =>
   Schema.Struct({
-    page: Schema.optional(positiveOrAll('page', Number.MAX_SAFE_INTEGER)),
-    limit: Schema.optional(positiveOrAll('limit', MAX_LIMIT)),
+    page: Schema.optional(
+      positiveOrAll('page', Number.MAX_SAFE_INTEGER, options.allowAll === true)
+    ),
+    limit: Schema.optional(positiveOrAll('limit', MAX_LIMIT, options.allowAll === true)),
     sort_by: Schema.optional(Schema.Literals(sortable)),
     sort_order: Schema.optional(Schema.Literals(['asc', 'desc']))
   })

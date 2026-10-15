@@ -60,8 +60,8 @@ List endpoints accept these query parameters:
 
 | Parameter    | Default | Meaning                                                              |
 | ------------ | ------- | -------------------------------------------------------------------- |
-| `page`       | `1`     | Page number, starting at 1. `-1` returns every record in one page    |
-| `limit`      | `20`    | Items per page, 1 to 100. `-1` returns every record in one page      |
+| `page`       | `1`     | Page number, starting at 1                                           |
+| `limit`      | `20`    | Items per page, 1 to 100 (`/api/users` refuses `-1`, "every record") |
 | `sort_by`    | `id`    | Field to sort by. `/api/users` accepts `id`, `email` and `name`      |
 | `sort_order` | `asc`   | `asc` or `desc`                                                      |
 

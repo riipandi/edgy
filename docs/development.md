@@ -52,9 +52,9 @@ command-level flags and the confirmation behaviour of destructive commands.
 ## Cloudflare Workers locally
 
 `pnpm watch:worker` starts the Worker in `workerd`, the runtime Cloudflare uses, with a local D1
-database stored under `.wrangler/`. Pending migrations are applied when the Worker starts
-(`DATABASE_AUTO_MIGRATE` in `wrangler.jsonc`), so a fresh checkout works with no extra step.
-`pnpm preview` does the same with the built, minified bundle, which is what `pnpm deploy` ships:
+database stored under `.wrangler/`. Pending migrations are applied when the Worker starts (the script
+switches `DATABASE_AUTO_MIGRATE` on for the local database), so a fresh checkout works with no extra step.
+`pnpm preview` does the same with the built, minified bundle, which is what `pnpm run deploy` ships:
 
 ```bash
 pnpm watch:worker     # http://127.0.0.1:3000, from source
@@ -73,7 +73,7 @@ DATABASE_DRIVER=d1 pnpm app migrate:up
 `pnpm compose:up` starts ClickStack
 (HyperDX with ClickHouse and an OpenTelemetry collector) and Valkey, a Redis-compatible store, in Docker.
 The application keeps running on your machine (`pnpm dev`); the containers only receive its telemetry
-and hold its shared rate-limit counters. The first start takes about a minute while ClickStack
+and hold its shared rate-limit counters and cache entries. The first start takes about a minute while ClickStack
 initialises, and creates a development account for you.
 
 ```bash
@@ -86,6 +86,10 @@ pnpm compose:up
 | OTLP over HTTP      | http://localhost:4318 (gRPC is deliberately not exposed)                              |
 | Ingestion key       | `edgy-dev-ingestion-key`                                                              |
 | Valkey              | `redis://:securedb@localhost:6379`                                                    |
+
+The containers listen on `127.0.0.1` only. The account, the key and the Valkey password are
+development defaults, not secrets, so they must not be reachable from the network; to share the stack
+with another machine, put your own credentials on it first.
 
 The application is already pointed at it: the defaults of `OTEL_EXPORTER_OTLP_ENDPOINT`,
 `OTEL_EXPORTER_OTLP_HEADERS` and `REDIS_URL` are exactly the values above, so traces and metrics flow

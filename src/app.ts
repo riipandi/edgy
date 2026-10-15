@@ -9,7 +9,7 @@ import type { RateCheck } from './middleware/rate_limit.ts'
 import { requestId } from './middleware/request_id.ts'
 import { securityHeaders } from './middleware/security_headers.ts'
 import { httpObserver } from './observer/http_observer.ts'
-import { createRoutePlugins } from './routes/route.ts'
+import { createRoutePlugins, type Platform } from './routes/route.ts'
 
 /** Everything `createApp` needs from the composition root. */
 export interface AppOptions {
@@ -17,6 +17,8 @@ export interface AppOptions {
   readonly config: AppConfig
   /** How API requests are counted against the rate limit; in-process memory when absent. */
   readonly rateCheck?: RateCheck
+  /** Where the app runs; `workers` trusts `CF-Connecting-IP` (with `TRUST_PROXY`). Default `node`. */
+  readonly platform?: Platform
 }
 
 /**
@@ -45,6 +47,6 @@ export const createApp = (options: AppOptions): H3 =>
       httpObserver(),
       loadShedding(),
       bodyLimit(options.config.server.bodyLimit),
-      ...createRoutePlugins(options.config, options.rateCheck)
+      ...createRoutePlugins(options.config, options.rateCheck, options.platform)
     ]
   })
