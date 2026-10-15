@@ -1,10 +1,11 @@
 import { NodeServices } from '@effect/platform-node'
-import { ConfigProvider, Effect, Layer, ManagedRuntime } from 'effect'
+import { Cause, ConfigProvider, Effect, Layer, Logger, ManagedRuntime } from 'effect'
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { ConfigLayer } from '../kernel/config/service.ts'
+import { jsonLogger } from './log_json.ts'
 import { LoggerLayer, renderPretty } from './logger.ts'
 
 const entry = (message: string, annotations: Record<string, unknown>) =>
@@ -46,6 +47,46 @@ describe('renderPretty', () => {
   it('does not match a value inside a longer word or number', () => {
     const line = renderPretty(entry('Applied 12 migrations', { count: 1 }), false)
     expect(line).toContain('count=1')
+  })
+})
+
+describe('JSON key order', () => {
+  const capture = async (program: Effect.Effect<void>): Promise<Record<string, unknown>> => {
+    const lines: string[] = []
+    const sink = Logger.map(jsonLogger, (line) => {
+      lines.push(line)
+    })
+    const runtime = ManagedRuntime.make(Logger.layer([sink]))
+    await runtime.runPromise(program)
+    await runtime.dispose()
+    return JSON.parse(lines[0] ?? '{}')
+  }
+
+  it('starts with timestamp and level, then message and annotations', async () => {
+    const record = await capture(
+      Effect.logInfo('hello').pipe(Effect.annotateLogs({ requestId: 'req_1' }))
+    )
+    expect(Object.keys(record)).toEqual([
+      'timestamp',
+      'level',
+      'message',
+      'annotations',
+      'spans',
+      'fiberId'
+    ])
+  })
+
+  it('places the cause after the annotations, only when there is one', async () => {
+    const record = await capture(Effect.logError('failed', Cause.fail('boom')))
+    expect(Object.keys(record)).toEqual([
+      'timestamp',
+      'level',
+      'message',
+      'annotations',
+      'cause',
+      'spans',
+      'fiberId'
+    ])
   })
 })
 

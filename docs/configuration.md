@@ -53,7 +53,9 @@ The command never writes a real `.env` file.
 | `LOG_FORMAT`         | `pretty`     | Console format: `pretty` for readable lines, `json` for one JSON object per line |
 | `LOG_FLUSH_INTERVAL` | `250 millis` | How long log lines are buffered before they are written together (Node.js) |
 
-The file always holds one JSON object per line, whatever `LOG_FORMAT` says. Its name is the base name
+The file always holds one JSON object per line, whatever `LOG_FORMAT` says, with the keys in a fixed
+order that starts with the time (`timestamp`, `level`, `message`, `annotations`, then `cause` when there is
+one). `LOG_FORMAT=json` on the console uses the same shape. The file's name is the base name
 from `LOG_FILE` plus the period it covers, with underscores as separators:
 
 | `LOG_ROTATION` | File name                      | Starts a new file     |

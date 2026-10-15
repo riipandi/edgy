@@ -10,6 +10,7 @@ import {
 } from 'effect'
 import { ConfigService, type LogFormat } from '../kernel/config/service.ts'
 import { makeFileSink } from './log_file.ts'
+import { jsonLogger } from './log_json.ts'
 
 type StructuredEntry =
   typeof Logger.formatStructured extends Logger.Logger<unknown, infer Output> ? Output : never
@@ -95,7 +96,7 @@ export const renderPretty = (entry: StructuredEntry, colors: boolean): string =>
  */
 const makeFormatter = (format: LogFormat, colors: boolean): Logger.Logger<unknown, string> =>
   format === 'json'
-    ? Logger.formatJson
+    ? jsonLogger
     : Logger.map(Logger.formatStructured, (entry) => renderPretty(entry, colors))
 
 /**

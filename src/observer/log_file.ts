@@ -1,5 +1,6 @@
 import { Effect, Exit, FileSystem, Logger, Path, Scope } from 'effect'
 import type { Duration } from 'effect'
+import { jsonLogger } from './log_json.ts'
 
 /** How often a new log file is started. All periods are measured in UTC. */
 export type LogRotation = 'hourly' | 'daily' | 'weekly' | 'monthly'
@@ -161,7 +162,7 @@ export const makeFileSink = (options: LogFileOptions & { readonly window: Durati
 
     const entries = Logger.make<unknown, LogEntry>((entry) => ({
       at: entry.date.getTime(),
-      line: Logger.formatJson.log(entry)
+      line: jsonLogger.log(entry)
     }))
 
     return yield* Logger.batched(entries, {
