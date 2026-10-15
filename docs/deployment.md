@@ -70,6 +70,7 @@ Before the first deploy:
 Differences from the Node.js server:
 
 - D1 has no interactive transactions, so code that needs one fails with a database error.
+- Cached reads are kept per isolate with `CACHE_STORE=memory`, or per location in Cloudflare's Cache API with `CACHE_STORE=cloudflare` (the default in `wrangler.jsonc`); the Cache API stores nothing on `*.workers.dev`, so use a custom domain for it to have an effect.
 - Rate limiting is counted per isolate with `memory`, and per Cloudflare location with `RATE_LIMIT_STORE=cloudflare`, which uses the `ratelimits` binding in `wrangler.jsonc` (allowance and period are set there). Neither is an exact global quota.
 - Logs go straight to the platform's log stream (`console`), without batching.
 - Set `TRUST_PROXY=true`: Cloudflare always sets `CF-Connecting-IP`, and without it every client shares

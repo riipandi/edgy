@@ -1,4 +1,5 @@
 import { Config, ConfigProvider, Context, Effect, Layer } from 'effect'
+import { cacheConfig } from './cache.ts'
 import { corsConfig } from './cors.ts'
 import { databaseConfig } from './database.ts'
 import { group, type ValueOf } from './field.ts'
@@ -7,6 +8,7 @@ import { observabilityConfig, telemetryEnabled } from './observability.ts'
 import { securityConfig } from './security.ts'
 import { serverConfig } from './server.ts'
 
+export type { CacheConfig } from './cache.ts'
 export type { CorsConfig } from './cors.ts'
 export type { DatabaseConfig } from './database.ts'
 export type { FieldSpec } from './field.ts'
@@ -35,6 +37,7 @@ export const appConfig = group(
     database: databaseConfig,
     logging: loggingConfig,
     security: securityConfig,
+    cache: cacheConfig,
     observability: observabilityConfig,
     cors: corsConfig
   },

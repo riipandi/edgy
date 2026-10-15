@@ -113,6 +113,26 @@ describe('configuration', () => {
     await expect(parse({ RATE_LIMIT_ENABLED: 'false', RATE_LIMIT_MAX: '0' })).resolves.toBeDefined()
   })
 
+  it('reads the cache settings, with defaults that keep the old behaviour', async () => {
+    const defaults = (await parse({})).cache
+    expect(defaults).toMatchObject({ enabled: true, store: 'memory', maxEntries: 256 })
+    expect(Duration.toMillis(defaults.ttl)).toBe(30_000)
+    expect(Duration.toMillis(defaults.localTtl)).toBe(5_000)
+
+    const custom = (await parse({ CACHE_STORE: 'redis', CACHE_TTL: '60000', CACHE_LOCAL_TTL: '0' }))
+      .cache
+    expect(custom.store).toBe('redis')
+    expect(Duration.toMillis(custom.ttl)).toBe(60_000)
+    expect(Duration.toMillis(custom.localTtl)).toBe(0)
+  })
+
+  it('refuses a cache that could hold nothing, a zero TTL and an unknown store', async () => {
+    await expect(parse({ CACHE_MAX_ENTRIES: '0' })).rejects.toThrow(/CACHE_MAX_ENTRIES/)
+    await expect(parse({ CACHE_ENABLED: 'false', CACHE_MAX_ENTRIES: '0' })).resolves.toBeDefined()
+    await expect(parse({ CACHE_TTL: '0' })).rejects.toThrow(/CACHE_TTL/)
+    await expect(parse({ CACHE_STORE: 'kv' })).rejects.toThrow(/CACHE_STORE/)
+  })
+
   it('rejects an unknown or empty LOG_TRANSPORT', async () => {
     await expect(parse({ LOG_TRANSPORT: 'console,syslog' })).rejects.toThrow(/LOG_TRANSPORT/)
     await expect(parse({ LOG_TRANSPORT: ',' })).rejects.toThrow(/LOG_TRANSPORT/)

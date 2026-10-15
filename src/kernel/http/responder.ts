@@ -4,6 +4,7 @@ import type { H3Event } from 'h3'
 import { requestIdOf } from '../../middleware/request_id.ts'
 import { isProbe } from '../../observer/quiet_paths.ts'
 import { traceTypeId } from '../../observer/trace_id.ts'
+import { CacheBypass } from '../cache/read_through.ts'
 import { type AppError, RequestTimeout } from '../errors.ts'
 import { errorEnvelope, linkHeader, successEnvelope } from './envelope.ts'
 import type { ApiError, ApiErrorBody, ApiSuccess, Reply } from './envelope.ts'
@@ -125,7 +126,11 @@ export const runEffect = <E extends AppError>(
     Effect.ignore
   )
 
+  // `?nocache=true` on a read: every read-through under this request goes to its source.
+  const bypassCache = event.req.method === 'GET' && event.url.searchParams.get('nocache') === 'true'
+
   const program = effect.pipe(
+    Effect.provideService(CacheBypass, bypassCache),
     Effect.timeoutOrElse({
       duration: requestTimeout,
       orElse: () => Effect.fail(new RequestTimeout({ after: requestTimeout }))

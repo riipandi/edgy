@@ -1,9 +1,13 @@
 import { ConfigProvider, Duration, Effect, Layer, ManagedRuntime } from 'effect'
 import { OtlpExporter } from 'effect/observability'
+import { Persistence } from 'effect/persistence'
 import type { H3 } from 'h3'
 import { createApp } from './app.ts'
 import { D1Binding, D1DatabaseLayer, isD1Database } from './database/d1.ts'
 import { migrateToLatest } from './database/migrator.ts'
+import { defaultEdgeCache, layerBackingEdgeCache } from './kernel/cache/edge_cache.ts'
+import { guardBacking } from './kernel/cache/guard.ts'
+import { LocalCachePersistence } from './kernel/cache/local.ts'
 import { ConfigLayer, ConfigService } from './kernel/config/service.ts'
 import { makeHttpRuntime } from './kernel/http/runtime.ts'
 import type { RateCheck } from './middleware/rate_limit.ts'
@@ -63,7 +67,25 @@ const buildApp = async (env: WorkerEnv): Promise<WorkerApp> => {
     })
   )
 
+  const cachePersistence = Layer.unwrap(
+    Effect.gen(function* () {
+      const { cache } = yield* ConfigService
+      if (!cache.enabled || cache.store === 'memory') return LocalCachePersistence
+      if (cache.store === 'redis') {
+        return yield* Effect.die(
+          new Error('CACHE_STORE=redis is not available on Workers (use memory or cloudflare)')
+        )
+      }
+      const edge = defaultEdgeCache()
+      if (edge === undefined) {
+        return yield* Effect.die(new Error('CACHE_STORE=cloudflare needs the Workers Cache API'))
+      }
+      return Persistence.layer.pipe(Layer.provide(guardBacking(layerBackingEdgeCache(edge))))
+    })
+  )
+
   const layer = ServicesLayer.pipe(
+    Layer.provide(cachePersistence),
     Layer.provideMerge(D1DatabaseLayer),
     Layer.provide(binding),
     Layer.provideMerge(core)

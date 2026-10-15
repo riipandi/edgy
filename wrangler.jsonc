@@ -66,6 +66,9 @@
         // Applies pending migrations when an isolate starts. Convenient for
         // preview; for production prefer an explicit migration step.
         "DATABASE_AUTO_MIGRATE": "true",
+        // Read cache through the Workers Cache API: per location, and not served
+        // on workers.dev (there every read reaches D1), so use a custom domain.
+        "CACHE_STORE": "cloudflare",
         "RATE_LIMIT_ENABLED": "true",
         "RATE_LIMIT_STORE": "cloudflare",
         "RATE_LIMIT_MAX": "100",

@@ -1,7 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from '@effect/vitest'
-import { Effect, Layer, ManagedRuntime } from 'effect'
+import { ConfigProvider, Effect, Layer, ManagedRuntime } from 'effect'
 import { makeTestApp, type TestApp } from '../../../tests/app.ts'
 import { MISSING_USER_ID } from '../../../tests/ids.ts'
+import { LocalCachePersistence } from '../../kernel/cache/local.ts'
+import { ConfigLayer } from '../../kernel/config/service.ts'
 import { DatabaseError, NotFound } from '../../kernel/errors.ts'
 import { UserRepository } from './user_repo.ts'
 import { UserService } from './user_service.ts'
@@ -41,7 +43,15 @@ describe('UserService cache and failures', () => {
       insert: () => Effect.die('unused')
     })
     const runtime = ManagedRuntime.make(
-      UserService.layer.pipe(Layer.provide(Layer.succeed(UserRepository, repository)))
+      UserService.layer.pipe(
+        Layer.provide(
+          Layer.mergeAll(
+            Layer.succeed(UserRepository, repository),
+            LocalCachePersistence,
+            ConfigLayer.pipe(Layer.provide(ConfigProvider.layer(ConfigProvider.fromEnvRecord({}))))
+          )
+        )
+      )
     )
 
     try {

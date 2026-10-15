@@ -22,6 +22,7 @@ src/
   services.ts        # ServicesLayer: every module's repos and services (portable)
   kernel/            # runtime-agnostic core
     config/          # service.ts (ConfigService, appConfig), field.ts (field helpers), one section file each (server, database, logging, security, observability, cors), example.ts (.env.example renderer)
+    cache/           # read_through.ts (makeReadThrough, CacheBypass), guard.ts (fail-open store decorator), local.ts (memory), edge_cache.ts (Workers Cache API)
     objectids.ts     # defineId: declares one TypeID kind (prefix, make, schema); the prefixes live beside what they identify
     errors.ts        # AppError interface + NotFound, ValidationError, DatabaseError, Conflict, RequestTimeout
     pagination.ts    # Page, PageRequest

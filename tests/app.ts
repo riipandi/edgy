@@ -1,10 +1,12 @@
 import { ConfigProvider, Effect, Layer, ManagedRuntime } from 'effect'
 import { FetchHttpClient } from 'effect/http'
+import { Persistence } from 'effect/persistence'
 import type { H3 } from 'h3'
 import { createApp } from '../src/app.ts'
 import { migrateToLatest } from '../src/database/migrator.ts'
 import type { DatabaseService } from '../src/database/service.ts'
 import { SqliteDatabaseLayer } from '../src/database/sqlite.ts'
+import { LocalCachePersistence } from '../src/kernel/cache/local.ts'
 import { ConfigLayer, ConfigService } from '../src/kernel/config/service.ts'
 import { type HttpRuntime, makeHttpRuntime } from '../src/kernel/http/runtime.ts'
 import type { RateCheck } from '../src/middleware/rate_limit.ts'
@@ -53,7 +55,12 @@ export interface TestApp {
  */
 export const makeTestApp = async (
   env: Readonly<Record<string, string>> = {},
-  options: { readonly fetch?: typeof globalThis.fetch; readonly rateCheck?: RateCheck } = {}
+  options: {
+    readonly fetch?: typeof globalThis.fetch
+    readonly rateCheck?: RateCheck
+    /** Stands in for the shared cache store (`CACHE_STORE=redis`); in-process when absent. */
+    readonly cacheBacking?: Layer.Layer<Persistence.BackingPersistence>
+  } = {}
 ): Promise<TestApp> => {
   const provider = ConfigProvider.fromEnvRecord({ ...BASE_ENV, ...env })
 
@@ -70,7 +77,12 @@ export const makeTestApp = async (
     ErrorReporterLayer,
     ConsoleLoggerLayer.pipe(Layer.provide(telemetry))
   ).pipe(Layer.provideMerge(ConfigLayer), Layer.provide(ConfigProvider.layer(provider)))
+  const cachePersistence =
+    options.cacheBacking === undefined
+      ? LocalCachePersistence
+      : Persistence.layer.pipe(Layer.provide(options.cacheBacking))
   const layer = ServicesLayer.pipe(
+    Layer.provide(cachePersistence),
     Layer.provideMerge(SqliteDatabaseLayer),
     Layer.provideMerge(core)
   )

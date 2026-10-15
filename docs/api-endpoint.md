@@ -123,6 +123,17 @@ The `trc_` id is the trace's 128-bit id in another spelling. Search for it as it
 "metadata": { "status_code": 200, "request_id": "req_01m5…", "trace_id": "trc_0ayxjhj5pd8fer8j7b44e80ccw" }
 ```
 
+## Skipping the cache
+
+A single user is served from a cache for up to `CACHE_TTL`. Add `?nocache=true` to a `GET` to read it
+from the database for that request:
+
+```bash
+curl 'http://localhost:3000/api/users/user_01m5k7w3p8fvx9r2c4t6y0hq1d?nocache=true'
+```
+
+Only the value `true` counts. The request does not refresh the cache for anyone else.
+
 ## Rate limiting
 
 When rate limiting is enabled (`RATE_LIMIT_ENABLED`), every `/api` response reports the caller's allowance, in headers and

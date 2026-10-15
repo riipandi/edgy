@@ -26,7 +26,7 @@ export const securityConfig = group(
     ),
     redisUrl: secret(
       'REDIS_URL',
-      'Redis or Valkey URL used when RATE_LIMIT_STORE=redis; the default is the Valkey of `pnpm compose:up`',
+      'Redis or Valkey URL used when RATE_LIMIT_STORE or CACHE_STORE is redis; the default is the Valkey of `pnpm compose:up`',
       'redis://:securedb@localhost:6379'
     )
   },

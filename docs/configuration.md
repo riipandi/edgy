@@ -96,7 +96,7 @@ logs go to the platform's stream.
 | `RATE_LIMIT_WINDOW` | `60000`    | Length of the rate-limit window, in milliseconds                         |
 | `RATE_LIMIT_STORE`  | `memory`   | Where counters live: `memory` (per process), `redis` (shared by every instance, Node.js only) or `cloudflare` (Workers only) |
 | `RATE_LIMIT_BINDING` | `RATE_LIMITER` | Name of the Workers rate-limit binding, used when `RATE_LIMIT_STORE=cloudflare` |
-| `REDIS_URL`         | `redis://:securedb@localhost:6379` | Redis or Valkey URL, used when `RATE_LIMIT_STORE=redis`. Secret; the default is the Valkey of `pnpm compose:up` |
+| `REDIS_URL`         | `redis://:securedb@localhost:6379` | Redis or Valkey URL, used when `RATE_LIMIT_STORE` or `CACHE_STORE` is `redis` (one connection serves both). Secret; the default is the Valkey of `pnpm compose:up` |
 
 With `memory` each running instance keeps its own counts, so the effective limit is `RATE_LIMIT_MAX`
 times the number of instances. With `redis` every instance counts against one allowance, which makes
@@ -116,6 +116,39 @@ proxy, otherwise every client appears to have the proxy's address.
 `MAX_IN_FLIGHT` is the overload guard: past that many requests at once the server answers `503` with
 `Retry-After: 1` immediately, instead of queueing everyone until they time out. `/health` and
 `/metrics` are never refused.
+
+## Cache
+
+User lookups by id are cached. The cache is on by default and lives in the process, which is what
+the server always did; a shared store is opt-in.
+
+| Variable           | Default  | Description                                                                 |
+| ------------------ | -------- | --------------------------------------------------------------------------- |
+| `CACHE_ENABLED`    | `true`   | Turns the cache on or off; off sends every read to the database             |
+| `CACHE_STORE`      | `memory` | `memory` (per process), `redis` (shared by every instance, Node.js only) or `cloudflare` (Workers only) |
+| `CACHE_TTL`        | `30000`  | How long an entry stays cached, in milliseconds                             |
+| `CACHE_LOCAL_TTL`  | `5000`   | With a shared store, how long a process also keeps its own copy (`0` keeps none), in milliseconds |
+| `CACHE_MAX_ENTRIES`| `256`    | Entries a process keeps in memory, per cache                                |
+
+A write removes the entry it changes, so the only stale reads are those that follow a write made by
+another instance. With `memory` that lasts up to `CACHE_TTL`; with a shared store the entry is gone for
+everyone at once, apart from the local copies, which last up to `CACHE_LOCAL_TTL`. Lower it (or set `0`)
+if that matters more to you than saving a round trip to the store.
+
+Add `?nocache=true` to a `GET` to read straight from the database for that request. It neither reads nor
+changes the cache, so it shows what is really stored without refreshing what other callers are served.
+Anyone who can call the API can use it, so it is not a way to protect the database; rate limiting is.
+
+Which store helps depends on the database. A row read from SQLite on the same machine takes tens of
+microseconds, quicker than any round trip to Redis, so for a single Node.js server `memory` is the right
+choice. `redis` pays off with several instances or a networked database. With `redis` an unreachable store
+costs the cached entries, not the requests: calls to it are given up on after a fraction of a second and
+skipped for ten seconds, the same as the rate limiter.
+
+`cloudflare` uses Cloudflare's Cache API. Entries are kept per location and expire after `CACHE_TTL`
+(rounded up to whole seconds); removing one removes it only in the location that handled the write, so
+another location can serve it until it expires. The Cache API stores nothing on `*.workers.dev`, so there
+every read reaches D1; use a custom domain.
 
 ## Observability
 
@@ -171,7 +204,7 @@ The development key and password above belong to the local Docker stack. Product
 On Workers the same variables go under `vars` in `wrangler.jsonc` (secrets through
 `wrangler secret put`). A Worker always uses D1, so `DATABASE_DRIVER` and `DATABASE_PATH` have no
 effect there; the binding is the one named by `D1_BINDING`. `LOG_TRANSPORT` can be `console`, `otlp` or
-both (`file` has no meaning there), and `RATE_LIMIT_STORE=redis` is not available on Workers (use `memory` or `cloudflare`).
+both (`file` has no meaning there), and `RATE_LIMIT_STORE=redis` and `CACHE_STORE=redis` are not available on Workers (use `memory` or `cloudflare`).
 Telemetry is flushed after a response, at most once per `OTEL_EXPORT_INTERVAL`, so the last
 requests before an idle period are sent when the next one arrives.
 
