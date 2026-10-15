@@ -4,19 +4,16 @@ import { makeFailOpenGate } from '../kernel/fail_open.ts'
 import type { RateCheck } from './rate_limit.ts'
 
 /**
- * A {@link RateCheck} backed by Effect's `RateLimiter` over a shared store (Redis or
- * Valkey), so every instance counts against the same allowance: `RATE_LIMIT_MAX`
- * becomes the global limit instead of a per-process one.
+ * A {@link RateCheck} backed by Effect's `RateLimiter` over a shared store (Redis or Valkey),
+ * so every instance counts against one allowance: `RATE_LIMIT_MAX` is a global limit.
  *
- * **It fails open, and fast.** A rate limiter protects the service; refusing every request
- * because the store is down would turn a Redis outage into an API outage. Two guards keep
- * the outage from also making every request slow, which is what a hung Redis does (the
- * client waits seconds before giving up):
+ * It fails open, and fast. Refusing every request while the store is down would turn a
+ * Redis outage into an API outage. A hung store is slow rather than down, so two guards keep
+ * it from slowing every request:
  *
  * - each store call has a `timeout`; past it the request goes through, and
- * - after any store failure the store is bypassed for `cooldown`, so the requests that
- *   follow do not each pay the timeout. When the cooldown ends one request tries the store
- *   again; if it answers, counting resumes.
+ * - after any store failure the store is skipped for `cooldown`. When it ends, one request
+ *   probes the store again, and counting resumes if it answers.
  *
  * Only a genuine "limit exceeded" refuses. Every bypass is reported once through `warn`.
  */
@@ -84,7 +81,7 @@ export const makeSharedRateCheck = (options: {
       error instanceof RateLimiter.RateLimiterError &&
       error.reason._tag === 'RateLimitExceeded'
     ) {
-      // The store answered; the answer was "no".
+      // A refusal is a healthy answer from the store.
       gate.succeeded()
       const { limit, remaining, retryAfter } = error.reason
       return { allowed: false, limit, remaining, resetAt: now() + Duration.toMillis(retryAfter) }

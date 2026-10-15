@@ -32,7 +32,7 @@ export const securityConfig = group(
   },
   {
     title: 'Security',
-    // Enabled with an allowance below one would refuse every request.
+    // An allowance below one refuses every request while enabled.
     transform: (raw) =>
       raw.rateLimitEnabled && raw.rateLimitMax < 1
         ? Effect.fail(

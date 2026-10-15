@@ -30,7 +30,7 @@ describe('defineId', () => {
     for (const bad of ['', '42', 'widget_', 'widget_xyz', 'WIDGET_01h2xcejqtf2nbrexx3vqjhp41']) {
       expect(is(bad)).toBe(false)
     }
-    // 26 characters carry 128 bits, so the first cannot be above 7; and there is no i, l, o or u
+    // 128 bits in 26 characters: the first is at most 7. The alphabet has no i, l, o or u.
     expect(is('widget_81h2xcejqtf2nbrexx3vqjhp41')).toBe(false)
     expect(is('widget_01h2xcejqtf2nbrexx3vqjhp4u')).toBe(false)
   })

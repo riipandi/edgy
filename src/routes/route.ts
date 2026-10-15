@@ -13,20 +13,15 @@ import { userRoutes } from '../modules/user/user_routes.ts'
 import { metricsHandler } from '../observer/metrics_handler.ts'
 
 /**
- * `/api` group: every resource endpoint that answers in the API envelope.
- *
- * Resource groups register here, not on the app, so the prefix is written once
- * and middleware shared by the whole API (rate limiting today, auth later) has
- * one place to go. Probes and reserved paths stay outside it on purpose: load
- * balancers and RFC 8615 clients expect them at the origin root.
- *
- * A new module's routes are registered in this callback.
+ * `/api` group: every resource endpoint that answers in the API envelope. Middleware shared by the
+ * whole API lives here. Probes and reserved paths stay outside, since load balancers and RFC 8615
+ * clients expect them at the origin root.
  */
 const apiRoutes = (config: AppConfig, check: RateCheck): H3Plugin =>
   defineRouteGroup({
     prefix: API_PREFIX,
     middleware: [
-      // Answers are per caller and per moment: no cache, shared or private, may keep one.
+      // API answers are per caller, so no cache may store them.
       cacheControl({ value: 'no-store', errors: true }),
       ...(config.security.rateLimitEnabled
         ? [
@@ -46,14 +41,8 @@ const apiRoutes = (config: AppConfig, check: RateCheck): H3Plugin =>
   })
 
 /**
- * `/.well-known` group.
- *
- * Reserved-path endpoints (RFC 8615) that must sit at the origin root. The
- * group carries its own middleware — `Cache-Control` here — without leaking it
- * to any other route.
- *
- * `security.txt` is plain text by definition (RFC 9116). The contact and expiry
- * are placeholders: replace them before deploying.
+ * `/.well-known` group (RFC 8615), at the origin root with its own Cache-Control. The security.txt
+ * contact and expiry are placeholders to replace before deploying.
  */
 const wellKnownRoutes: H3Plugin = defineRouteGroup({
   prefix: '/.well-known',
@@ -66,11 +55,7 @@ const wellKnownRoutes: H3Plugin = defineRouteGroup({
   }
 })
 
-/**
- * Root routes that do not belong to the API. `/health` is the readiness probe: it keeps its root
- * path and turns `503` while the server is shutting down. `/metrics` exists only when enabled. The
- * front page (`/`) is a page, registered with the others.
- */
+/** Root routes outside the API. `/health` returns `503` while draining. `/metrics` exists only when enabled. */
 const rootRoutes = (config: AppConfig): H3Plugin => {
   return (app) => {
     app.get('/health', unlessDraining(healthHandler))
@@ -79,13 +64,9 @@ const rootRoutes = (config: AppConfig): H3Plugin => {
 }
 
 /**
- * Catch-all for paths no route claims. The lowest-priority pattern in the trie,
- * so it only answers what nothing else matched.
- *
- * It throws instead of letting h3 return its internal not-found marker: h3's
- * `onResponse` middleware (used by the observer) converts that marker with the
- * default config before the app's `onError` hook can see it, which would leak
- * h3's own error body. A thrown `HTTPError` reaches the hook.
+ * Catch-all for unmatched paths. It throws an `HTTPError` rather than returning h3's internal
+ * not-found marker: h3's `onResponse` middleware converts that marker with the default config before
+ * the app's `onError` hook sees it, leaking h3's own error body.
  */
 const notFoundRoutes: H3Plugin = (app) => {
   app.all('/**', () => {
@@ -93,17 +74,13 @@ const notFoundRoutes: H3Plugin = (app) => {
   })
 }
 
-/**
- * HTML pages, at the origin root beside the API. Each page is a group of its own (its path is the
- * page's address) and renders through `definePageHandler`, not the API envelope. A new page's
- * group registers here.
- */
+/** HTML pages at the origin root, outside the API envelope. */
 const pageRoutes: H3Plugin = (app) => {
   app.get('/', homePageHandler)
   app.register(userPages)
 }
 
-/** What the route table needs besides the configuration. Both are absent in a test or on Workers. */
+/** Route dependencies beyond the configuration. Both are absent in tests and on Workers. */
 export interface RouteOptions {
   /** How API requests are counted against the rate limit; in-process memory when absent. */
   readonly rateCheck?: RateCheck | undefined

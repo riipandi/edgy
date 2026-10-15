@@ -7,7 +7,7 @@ import { type ApiLinks, type ApiPagination, paginationLinks, paginationMeta } fr
 export interface ApiRateLimit {
   /** Maximum requests allowed in the window. */
   readonly limit: number
-  /** Left in the window; absent when the store only says allowed or refused (the Workers binding). */
+  /** Left in the window. Absent when the store only reports allowed or refused. */
   readonly remaining?: number
   /** Unix timestamp at which the window resets. */
   readonly reset: number
@@ -16,7 +16,7 @@ export interface ApiRateLimit {
 export interface ApiErrorMetadata {
   readonly status_code: number
   readonly request_id: string
-  /** The `trc_` id of the recorded trace; set only when traces are exported and this one was recorded. */
+  /** The `trc_` id of the trace. Set only when this request's trace was recorded. */
   readonly trace_id?: string
   /** How a cached read was answered; set only when the request read through the cache. */
   readonly cache?: 'hit' | 'miss' | 'bypass'
@@ -35,10 +35,7 @@ export interface ApiSuccess {
   readonly links?: ApiLinks
 }
 
-/**
- * What lies behind a server-side failure. Present only at `LOG_LEVEL=Debug` or below, and always
- * redacted (see `error_body.ts`).
- */
+/** What lies behind a server-side failure. Present only at `LOG_LEVEL=Debug` or below, redacted. */
 export interface ApiErrorDebug {
   /** The error's tag (`DatabaseError`), or `Defect` for an unexpected exception. */
   readonly type: string
@@ -64,10 +61,7 @@ export interface ApiError {
   readonly metadata: ApiErrorMetadata
 }
 
-/**
- * What a handler program produces, already encoded through its response
- * schema: the `data` member plus, for a collection, the page it came from.
- */
+/** A handler's result, already encoded through its response schema. */
 export interface Reply {
   /** Omitted from the body when `undefined`. */
   readonly data?: unknown
@@ -75,13 +69,13 @@ export interface Reply {
   readonly pagination?: PageSummary
 }
 
-/** `trace_id` when this request's trace was recorded (see `runEffect`). */
+/** `trace_id` when this request's trace was recorded. */
 const traceMeta = (event: H3Event): { readonly trace_id?: string } => {
   const id = event.context.traceTypeId
   return id === undefined ? {} : { trace_id: id }
 }
 
-/** `cache` when the request read through the cache (see `runEffect`). */
+/** `cache` when the request read through the cache. */
 const cacheMeta = (event: H3Event): { readonly cache?: 'hit' | 'miss' | 'bypass' } => {
   const { cache } = event.context
   return cache === undefined ? {} : { cache }
@@ -90,10 +84,7 @@ const cacheMeta = (event: H3Event): { readonly cache?: 'hit' | 'miss' | 'bypass'
 /** The id minted by the `requestId` plugin; `unknown` only if that plugin was not registered. */
 const requestIdFor = (event: H3Event): string => requestIdOf(event) ?? 'unknown'
 
-/**
- * Wraps a reply in the success envelope. Pagination fields are spread into
- * `metadata` and the link map is added only for collections.
- */
+/** Success envelope. Pagination fields go into `metadata`; `links` appear only for collections. */
 export const successEnvelope = (event: H3Event, statusCode: number, reply: Reply): ApiSuccess => {
   const rateLimit = event.context.rateLimit
   const base = {
@@ -139,10 +130,7 @@ export const errorEnvelope = (
   }
 }
 
-/**
- * The `Link` header (RFC 8288) for a link map, so a client that follows headers instead of the
- * body finds the same `next`/`prev`/`first`/`last`. `null` relations are left out.
- */
+/** The `Link` header (RFC 8288) for a link map. `null` relations are left out. */
 export const linkHeader = (links: ApiLinks): string | undefined => {
   const parts = Object.entries(links).flatMap(([rel, url]) =>
     url === null || url === undefined ? [] : [`<${url}>; rel="${rel}"`]

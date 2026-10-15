@@ -6,10 +6,10 @@ const V2_SIGNATURE = Uint8Array.from([
   0x0d, 0x0a, 0x0d, 0x0a, 0x00, 0x0d, 0x0a, 0x51, 0x55, 0x49, 0x54, 0x0a
 ])
 
-/** Longest v1 line, `\r\n` included (the specification's figure for TCP6). */
+/** Longest v1 line, CRLF included. */
 const V1_MAX = 107
 
-/** Longest v2 address block read; the specification allows more (TLVs), no load balancer needs it. */
+/** Longest v2 address block accepted. The spec allows more; no balancer here needs it. */
 const V2_MAX_PAYLOAD = 536
 
 /** How long a trusted peer may take to send its header before the connection is dropped. */
@@ -84,9 +84,8 @@ const parseV2 = (buffer: Uint8Array): ProxyHeader => {
 }
 
 /**
- * Reads a PROXY protocol header (v1 text or v2 binary) from the start of a connection. Pure: it
- * says what the bytes mean and how many of them the header used, and asks for more when the header
- * is not all here yet. Anything that is not a header is `invalid`.
+ * Reads a PROXY protocol header (v1 text or v2 binary) at the start of a connection. Pure: returns
+ * what the bytes mean and how many of them the header used, or `need-more` while it is incomplete.
  */
 export const parseProxyHeader = (buffer: Uint8Array): ProxyHeader => {
   if (buffer.length === 0) return { status: 'need-more' }
@@ -111,24 +110,22 @@ interface ConnectionSource {
   on(event: 'connection', listener: (socket: Duplex) => void): unknown
 }
 
-/** A socket as far as this needs it: where the peer is, and a way to say it is somewhere else. */
+/** A socket with the peer address fields that this module redefines. */
 type PeerSocket = Duplex & { remoteAddress?: string; remotePort?: number }
 
 /**
- * Makes a server read a PROXY protocol header from the peers it is told to trust, and answer for
- * the client the header names instead of the load balancer.
+ * Reads a PROXY protocol header from trusted peers, and reports the client it names instead of
+ * the load balancer.
  *
- * The header comes before any HTTP, so the HTTP parser must not see the connection until it is
- * read: the server's own `connection` listeners are taken off and called only once the header has
- * been consumed (what follows it is pushed back, so the parser starts at the first request byte).
- * `remoteAddress` / `remotePort` are then redefined on that socket, which is where srvx and h3 read
- * the client from, so rate limiting, `TRUST_PROXY` and logs all see the real client.
+ * The header precedes HTTP, so the server's own `connection` listeners are detached and run only
+ * after the header is consumed; the bytes after it are pushed back. `remoteAddress` and
+ * `remotePort` are then redefined on the socket, which is where srvx and h3 read the client from,
+ * so rate limiting, `TRUST_PROXY` and logs all see the real client.
  *
- * - A peer that is not in `trusted` is passed straight through, header or not: anyone can claim
- *   to be a load balancer in a header, so only the socket's own address decides.
- * - A trusted peer must open with a header. One that does not, sends a malformed one, or is slower
- *   than {@link HEADER_TIMEOUT_MS} is disconnected: a balancer configured without the PROXY
- *   protocol would otherwise make every client look like the balancer, silently.
+ * - A peer not in `trusted` passes straight through, header or not: a header cannot prove that
+ *   its sender is a balancer, so only the socket's own address decides.
+ * - A trusted peer must send a valid header within `HEADER_TIMEOUT_MS`, or it is disconnected. A
+ *   balancer configured without PROXY protocol would otherwise make every client look like it.
  */
 export const acceptProxyProtocol = (server: ConnectionSource, trusted: TrustedProxies): void => {
   if (trusted.kind === 'none') return

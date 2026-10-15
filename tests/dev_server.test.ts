@@ -56,7 +56,7 @@ beforeAll(async () => {
     DATABASE_PATH: ':memory:',
     LOG_LEVEL: 'None',
     OTEL_SDK_DISABLED: 'true',
-    // Explicit, so a developer's own `.env.local` (which the plugin reads) cannot change the test.
+    // Set explicitly, so a developer's `.env.local` cannot change the test.
     DATABASE_AUTO_MIGRATE: 'true'
   })
   vite = await createServer({
@@ -64,7 +64,7 @@ beforeAll(async () => {
     configFile: path.join(root, 'vite.config.ts'),
     configLoader: 'runner',
     logLevel: 'silent',
-    // No port, no socket, no file watcher: the plugin's own behaviour is what is under test.
+    // No port, socket or file watcher. The test emits watcher events by hand.
     server: { middlewareMode: true, ws: false, watch: null },
     mode: 'development'
   })
@@ -114,7 +114,7 @@ describe('changing server code', () => {
       'ada@example.com'
     )
 
-    // A test file and a page are not server code: the application, and its data, stay.
+    // Test files and pages are not server code, so the application and its data stay.
     vite.watcher.emit('all', 'change', path.join(root, 'src/app.test.ts'))
     vite.watcher.emit('all', 'change', path.join(root, 'app/pages/users.marko'))
     await new Promise((resolve) => setTimeout(resolve, 600))
@@ -122,7 +122,7 @@ describe('changing server code', () => {
       'ada@example.com'
     )
 
-    // Server code is: a new application starts, over a new (in-memory) database.
+    // Server code starts a new application over a fresh in-memory database.
     vite.watcher.emit('all', 'change', path.join(root, 'src/app.ts'))
     await new Promise((resolve) => setTimeout(resolve, 1500))
     const after = await send(vite.middlewares, 'GET /api/users HTTP/1.1')

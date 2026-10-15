@@ -100,7 +100,7 @@ describe('parseProxyHeader v2', () => {
 type Socket = PassThrough & {
   remoteAddress: string
   remotePort?: number
-  /** What the "HTTP parser" (the listener below) was handed to read. */
+  /** Bytes the listener received, in order. */
   chunks: Uint8Array[]
 }
 
@@ -109,7 +109,7 @@ class FakeServer extends EventEmitter {
   accepted: Socket[] = []
   constructor() {
     super()
-    // Like Node's HTTP server, which starts reading the moment it is handed the connection.
+    // Node's HTTP server also starts reading as soon as it is handed a connection.
     this.on('connection', (socket: Socket) => {
       socket.on('data', (chunk: Uint8Array) => socket.chunks.push(chunk))
       this.accepted.push(socket)

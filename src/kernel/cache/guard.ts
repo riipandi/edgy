@@ -10,14 +10,13 @@ interface GuardOptions {
 }
 
 /**
- * Wraps one backing store so that a failing, hanging or unreachable store behaves as an empty
- * one: a read is a miss, a write and a removal are no-ops. A cache is an optimisation, so its
- * outage must cost the entries, never the request, and never a wait.
+ * Wraps one backing store so a failing, hanging or unreachable store behaves as an empty one:
+ * reads miss, writes and removals are no-ops. A cache outage must cost entries, never the
+ * request or a wait.
  *
- * Two guards, the same as the rate limiter's: each call has a `timeout`, and after any failure
- * the store is skipped for `cooldown`, so the requests that follow do not each wait out the
- * timeout. When the cooldown ends one call tries again (the others keep skipping the store until
- * it answers); if it answers, caching resumes. One warning per outage.
+ * Each call has a `timeout`. After a failure the store is skipped for `cooldown`, so requests
+ * do not each wait out the timeout. When the cooldown ends, a single probe call tries again;
+ * if it answers, caching resumes.
  */
 const guardStore = (
   store: Persistence.BackingPersistenceStore,
@@ -48,7 +47,7 @@ const guardStore = (
       const announce = gate.failed(startedAt, entry.probe)
       const what = `Cache store "${name}" ${Exit.isSuccess(exit) ? 'timed out' : 'failed'}`
       const cause = Exit.isSuccess(exit) ? undefined : exit.cause
-      // The outage is announced once; a probe that fails again is only a detail.
+      // Warn once per outage; a failed probe logs at debug level.
       yield* announce
         ? Effect.logWarning(`${what}; bypassing it for a while`, cause)
         : Effect.logDebug(`${what} again; still bypassing it`, cause)
@@ -69,10 +68,7 @@ const guardStore = (
   }
 }
 
-/**
- * Decorates a `BackingPersistence` layer so every store it makes is guarded
- * (see {@link guardStore}). Compose it around the real store, under `Persistence.layer`.
- */
+/** Guards every store the backing layer makes. Its output feeds `Persistence.layer`. */
 export const guardBacking = <E, R>(
   backing: Layer.Layer<Persistence.BackingPersistence, E, R>,
   options: GuardOptions = {}

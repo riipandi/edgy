@@ -1,7 +1,7 @@
 /** Page size used when the caller does not send `limit`. */
 export const DEFAULT_LIMIT = 20
 
-/** Largest `limit` a caller may ask for; the only way past it is {@link ALL_RECORDS}. */
+/** Largest `limit` a caller may ask for; `ALL_RECORDS` is the only way past it. */
 export const MAX_LIMIT = 100
 
 /** `page` or `limit` value that selects every record in a single page. */
@@ -10,11 +10,8 @@ export const ALL_RECORDS = -1
 export type SortOrder = 'asc' | 'desc'
 
 /**
- * A resolved page request: defaults applied, "all records" normalised, and the
- * SQL offset computed once, so a repository only reads fields.
- *
- * `S` is the union of columns a resource lets callers sort by, which keeps a
- * user-supplied `sort_by` from ever reaching a query unchecked.
+ * A resolved page request: defaults applied and the SQL offset computed once. `S` is the union of
+ * sortable columns, so a user-supplied `sort_by` never reaches a query unchecked.
  */
 export interface PageRequest<S extends string = string> {
   readonly page: number
@@ -34,7 +31,7 @@ export interface Page<A> {
   readonly total: number
 }
 
-/** A {@link Page} without its items: all the response metadata needs. */
+/** A `Page` without its items: the response metadata. */
 export type PageSummary = Omit<Page<unknown>, 'items'>
 
 export const makePage = <A>(

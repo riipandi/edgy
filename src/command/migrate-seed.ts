@@ -4,7 +4,7 @@ import { DatabaseLayer } from '../database/layer.ts'
 import { runSeeders, seederNames } from '../database/seeder.ts'
 import { print } from './helper.ts'
 
-/** `migrate:seed` — seed the database with initial data. */
+/** Runs every registered seeder. */
 export const migrateSeedCmd = Command.make(
   'migrate:seed',
   {

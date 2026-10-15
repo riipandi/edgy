@@ -15,7 +15,7 @@ export interface ApiPagination {
 /** Link relations (`self`, `next`, `prev`, `first`, `last`) to URLs; `null` when there is none. */
 export type ApiLinks = Readonly<Record<string, string | null>>
 
-/** Decoded `PaginationParams`; see {@link paginationQuery}. */
+/** Decoded `paginationQuery` input. */
 export interface PaginationQuery<S extends string> {
   readonly page?: number | undefined
   readonly limit?: number | undefined
@@ -35,16 +35,12 @@ const positiveOrAll = (what: string, max: number, allowAll: boolean) =>
   )
 
 /**
- * Query schema for a collection endpoint: `page`, `limit`, `sort_by`,
- * `sort_order`. `sortable` is the allow-list of columns, so `sort_by` is
- * validated here and typed as a union of them downstream — it can never be an
- * arbitrary column name.
+ * Query schema for a collection endpoint. `sortable` is the column allow-list, so `sort_by` is
+ * typed as a union of those columns. `limit` is capped at `MAX_LIMIT`.
  *
- * A `limit` is capped at `MAX_LIMIT`. `-1` for `page` or `limit` (every record in one
- * page, no cap) is refused unless the resource opts in with `allowAll`: it
- * lets any caller read a whole table in one request, which only a bounded,
- * trusted table should offer. Defaults are applied by {@link toPageRequest}, not
- * here, so the schema decodes exactly what the caller sent.
+ * `-1` for `page` or `limit` (every record in one page) is refused unless `allowAll` is set: it
+ * lets any caller read a whole table at once, which only a bounded, trusted table should offer.
+ * Defaults are applied by `toPageRequest`, so this schema decodes exactly what was sent.
  */
 export const paginationQuery = <const S extends readonly [string, ...string[]]>(
   sortable: S,
@@ -78,9 +74,8 @@ export const toPageRequest = <S extends string>(
 }
 
 /**
- * Describes a page for the response metadata. Item indexes are 1-based and
- * inclusive; they are `null` for a page past the end. A request for all records
- * reports one page and a `null` limit.
+ * Page metadata for the response. Item indexes are 1-based and inclusive, and `null` past the end.
+ * All records report one page and a `null` limit.
  */
 export const paginationMeta = ({ page, limit, total }: PageSummary): ApiPagination => {
   const totalPages = limit === null ? 1 : Math.max(1, Math.ceil(total / limit))
@@ -99,10 +94,8 @@ export const paginationMeta = ({ page, limit, total }: PageSummary): ApiPaginati
 }
 
 /**
- * Builds `self`/`first`/`prev`/`next`/`last` as relative URLs that keep every
- * other query parameter (sort, filters). Relative on purpose: behind a proxy
- * the origin is not ours to know. An all-records response has no other pages,
- * so it only links to itself.
+ * Builds `self`, `first`, `prev`, `next` and `last` as relative URLs that keep the other query
+ * parameters. Relative on purpose: behind a proxy the origin is not ours to know.
  */
 export const paginationLinks = (url: URL, meta: ApiPagination): ApiLinks => {
   const self = `${url.pathname}${url.search}`

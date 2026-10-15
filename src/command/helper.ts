@@ -1,24 +1,11 @@
 import { Effect } from 'effect'
 import { CliError, Prompt } from 'effect/cli'
 
-/**
- * Plain console output for CLI commands.
- *
- * Migration commands print user-facing output, not diagnostic logs, so they
- * bypass the configured Effect logger (`ObservabilityLayer`). This keeps the
- * output clean — no timestamp, no log-level prefix:
- *
- * ```
- * Rolled back 1 migration(s)
- * Re-applied 1 migration(s)
- * Running seeders...
- * Seeders completed
- * ```
- */
+/** Plain console output for CLI commands. Bypasses the Effect logger, so no timestamp or level prefix. */
 export const print = (...args: readonly unknown[]): Effect.Effect<void> =>
   Effect.sync(() => console.log(...args))
 
-/** Same as {@link print}, but writes to stderr (warnings and refusals). */
+/** Like {@link print}, but writes to stderr. */
 export const printWarning = (...args: readonly unknown[]): Effect.Effect<void> =>
   Effect.sync(() => console.error(...args))
 
@@ -35,17 +22,11 @@ export const ensure = (
     : Effect.fail(new CliError.UserError({ cause: message, userMessage: message }))
 
 /**
- * Asks the user for confirmation before a destructive operation
- * (`migrate:down`, `migrate:reset`).
+ * Asks before a destructive operation. `--force` skips the prompt. Without a TTY the operation is
+ * refused rather than run unasked. Resolves `false` when declined.
  *
- * - `--force` skips the prompt entirely.
- * - Without a TTY the prompt cannot run, so the command refuses and asks for
- *   `--force` instead of hanging or guessing.
- *
- * Returns `false` when the user denies, so callers can log and bail out.
- *
- * Requires the platform services (`FileSystem`, `Path`, `Terminal`), supplied
- * by `NodeServices.layer` at the CLI root.
+ * Needs the platform services (`FileSystem`, `Path`, `Terminal`), supplied by `NodeServices.layer`
+ * at the CLI root.
  */
 export const confirmDestructive = (force: boolean, message: string) => {
   if (force) return Effect.succeed(true)

@@ -4,21 +4,14 @@ import { renderExample } from '../kernel/config/example.ts'
 import { appConfig } from '../kernel/config/service.ts'
 import { confirmDestructive, ensure, print } from './helper.ts'
 
-/**
- * Real dotenv files hold secrets and local overrides, so this command never
- * writes them: only `.env.example` (or any other name) is accepted.
- */
+/** Real dotenv files hold secrets and local overrides, so they are never written. */
 const isRealDotenv = (name: string): boolean =>
   /^\.env(\..+)?$/.test(name) && name !== '.env.example'
 
 /**
- * `config:generate` — write `.env.example` from the declared configuration.
- *
- * The file is derived from the same declarations the parser uses, so it cannot
- * drift. A new file is created freely; replacing an existing one that differs needs
- * `--overwrite` and a confirmation (`--force` skips the prompt, as for the
- * destructive migration commands). `--check` compares instead of writing and fails
- * when the file is stale, which is what a pre-commit hook or a CI step should run.
+ * Writes `.env.example` from the declarations the parser reads, so the two cannot drift.
+ * Replacing a differing file needs `--overwrite` and a confirmation (`--force` skips the prompt).
+ * `--check` writes nothing and fails when the file is missing or stale, for a pre-commit hook or CI.
  */
 export const configGenerateCmd = Command.make(
   'config:generate',

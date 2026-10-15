@@ -1,13 +1,11 @@
 import { definePlugin, type H3Event, serveStatic, type StaticAssetMeta } from 'h3'
 
 /**
- * Where the built browser assets (`public/` of the build output) are read from. The Node server has
- * two implementations (a directory, or the assets embedded in a single executable); on Workers the
- * platform serves them before the Worker runs, so none is needed there.
+ * Browser assets from the build output. Node has two sources (a directory, or assets embedded in
+ * an executable); Workers serve assets before the Worker runs, so they need none.
  *
- * `id` is an opaque path under the asset root with a leading slash (`/assets/app-1a2b.js`). h3 has
- * already resolved dot segments and kept encoded separators encoded, so an implementation must
- * treat it as a name, never decode it again.
+ * `id` is an opaque path with a leading slash (`/assets/app-1a2b.js`). h3 has already resolved dot
+ * segments and kept encoded separators encoded, so treat it as a name and never decode it again.
  */
 export interface AssetSource {
   readonly meta: (id: string) => StaticAssetMeta | undefined | Promise<StaticAssetMeta | undefined>
@@ -19,10 +17,7 @@ export interface AssetSource {
 /** Build output names every file after its content hash, so a cached copy never goes stale. */
 const IMMUTABLE = 'public, max-age=31536000, immutable'
 
-/**
- * Serves `GET /assets/**` from an {@link AssetSource}. Registered only when the server has a source
- * for them; in development Vite serves the same URLs from the source tree.
- */
+/** Serves `GET /assets/**` from an `AssetSource`. Registered only with a source. */
 export const assetRoutes = definePlugin<AssetSource>((app, source) => {
   const serve = (event: H3Event) =>
     serveStatic(event, {

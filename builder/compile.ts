@@ -17,20 +17,16 @@ import { inject } from 'postject'
 import { createBuilder } from 'vite'
 
 /**
- * `pnpm compile`: a single executable (Node's Single Executable Applications, **experimental**) with
- * the application and its browser assets inside, so it serves its own pages with nothing beside it.
- * It is the one build step that is a script of its own, because Vite does not make executables.
+ * `pnpm compile`: one executable with the application and its browser assets inside. It is a
+ * script because Vite does not make executables; the packaging uses Node's experimental SEA.
  *
- * Node's SEA runs one embedded CommonJS file, so the application is built again for it (the Node
- * configuration, overridden: `cjs`, no code splitting, no shebang). Then, as in Node's guide:
- * `node --experimental-sea-config` makes a blob, the running `node` binary is copied, and
- * `postject` injects the blob and flips the fuse; on macOS the signature is removed first and the
- * binary is signed ad hoc afterwards, since macOS refuses a modified binary whose signature no
- * longer matches.
+ * SEA embeds one CommonJS file, so the server is built again as `cjs` with no code splitting and
+ * no shebang. The blob is injected with `postject` into a copy of the running `node` binary. On
+ * macOS the signature is removed first and re-applied ad hoc, since macOS rejects a modified binary
+ * with a stale signature.
  *
- * The result embeds the Node runtime (about 120 MB) and only runs on the platform that built it.
- * Node supports SEA on Windows, macOS arm64 and Linux except Alpine and s390x. `--minify` minifies
- * the server code.
+ * The output embeds the Node runtime (about 120 MB) and runs only on the platform that built it.
+ * SEA is supported on Windows, macOS arm64 and Linux except Alpine and s390x.
  */
 const rootDir = process.cwd()
 const DIST_DIR = 'dist'
@@ -49,7 +45,7 @@ const codesign = (args: readonly string[]): void => {
   try {
     execFileSync('codesign', args, { stdio: 'ignore' })
   } catch {
-    // Safe to continue.
+    // Unsigned binaries and machines without codesign are expected.
   }
 }
 
@@ -73,8 +69,7 @@ const build = async (outDir: string): Promise<void> => {
               codeSplitting: false,
               banner: () => ''
             },
-            // `import.meta` is what a CommonJS bundle does not have; the one place that reads it
-            // (`server.ts`) is reached only when the process is not an executable.
+            // CommonJS has no `import.meta`. Its one reader runs only outside the executable.
             transform: { define: { 'import.meta': '({})' } }
           }
         }
@@ -99,7 +94,7 @@ const compile = async (): Promise<string> => {
         main: path.join(server, 'main.cjs'),
         output: blob,
         disableExperimentalSEAWarning: true,
-        // The browser assets, keyed `public/<path>`, which is what `embeddedAssets` reads.
+        // Browser assets, keyed `public/<path>` as the SEA runtime reads them.
         assets: Object.fromEntries(
           walk(publicDir).map((file) => [
             `public/${path.relative(publicDir, file).split(path.sep).join('/')}`,

@@ -24,18 +24,17 @@ export const recordShedRequest: Effect.Effect<void> = Metric.update(httpShed, 1)
 const KNOWN_METHODS = new Set(['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'])
 
 /**
- * The method as a metric label. The method comes from the client, and every distinct label
- * value is a time series kept for the life of the process, so anything but the standard
- * methods is one `OTHER` series, not one per spelling.
+ * The method as a metric label. The method comes from the client and every distinct value is a
+ * time series kept for the life of the process, so anything but a standard method maps to one
+ * `OTHER` series.
  */
 export const metricMethod = (method: string): string =>
   KNOWN_METHODS.has(method) ? method : 'OTHER'
 
 /**
- * Records one finished request. Called from the HTTP observer for **every**
- * response (including 404s and errors), so the counter covers all of them. The timer
- * covers all but probes (`timed: false`): a probe polled every second answers in
- * microseconds and would drag the latency percentiles toward zero.
+ * Records one finished request. Called for **every** response, errors and 404s included. The
+ * timer skips probes (`timed: false`): a probe polled every second answers in microseconds and
+ * would drag the latency percentiles toward zero.
  */
 export const recordHttpRequest = (
   method: string,

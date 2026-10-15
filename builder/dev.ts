@@ -2,10 +2,10 @@ import path from 'node:path'
 import { createServerModuleRunner, loadEnv, type Plugin } from 'vite'
 import type { ModuleRunner } from 'vite/module-runner'
 
-/** The module `startDevApp` lives in, as Vite's module runner names it. */
+/** Module id, as the module runner names it, of the file that exports `startDevApp`. */
 const DEV_MODULE = '/src/dev.ts'
 
-/** What `src/dev.ts` exports, checked rather than assumed: the runner returns `unknown` module shapes. */
+/** The runner types modules as `unknown`, so the export is checked at runtime. */
 interface DevModule {
   readonly startDevApp: () => Promise<{
     readonly handler: (
@@ -22,7 +22,7 @@ const isDevModule = (value: unknown): value is DevModule =>
   'startDevApp' in value &&
   typeof value.startDevApp === 'function'
 
-/** Files whose change starts the application over: server code (tests excluded) and the env files. */
+/** Changes that restart the application: server code (tests excluded) and env files. */
 const startsOver = (root: string, file: string): boolean => {
   const relative = path.relative(root, file)
   if (relative.startsWith('..')) return false
@@ -31,29 +31,25 @@ const startsOver = (root: string, file: string): boolean => {
 }
 
 /**
- * `pnpm dev`: runs the application inside the Vite dev server, on the one port.
+ * `pnpm dev`: runs the application inside the Vite dev server, on one port.
  *
- * Vite serves what it serves (modules, the pages' scripts and styles, the hot-reload socket) and
- * everything it does not handle falls through to the application's own routes (the `post`
- * middleware hook runs after Vite's), so there is a single server, a single port and no proxy.
- * The application is loaded through Vite's SSR module runner, which is what lets it import `.marko`
- * pages and `.css.ts` styles.
+ * Vite handles what it can (modules, page scripts and styles, the hot-reload socket). Anything else
+ * falls through to the application's routes. The application loads through Vite's SSR module
+ * runner, so it can import `.marko` pages and `.css.ts` styles.
  *
- * - **Environment.** `.env`, `.env.local` and the files of the mode (Vite's rules) are read here and put in `process.env` where it is not
- *   already set (what `node --env-file` did), so the application sees them. Where Vite listens
- *   (`server.host`, `server.port`) is the configuration's to say (`vite.config.ts`), not this plugin's.
- * - **Server code changes** (`src/`, tests excluded, and the env files) stop the application
- *   (`stop`: drain, then release the database and flush logs) and start a new one in the same
- *   process, then tell the browser to reload. Vite and its connection survive; page and style
- *   edits never get here, Vite updates those itself.
- * - **A failed start** (an invalid variable, a broken module) is kept and shown for every request
- *   until the next change, instead of retrying a start that cannot work.
+ * - **Environment.** Env files fill `process.env` only for variables not already set, as
+ *   `node --env-file` does.
+ * - **Server code changes** (`src/`, tests excluded, and env files) stop the application, start a
+ *   new one in the same process, and reload the browser. Page and style edits never reach this
+ *   plugin; Vite updates those itself.
+ * - **A failed start** is shown for every request until the next change; retrying would only repeat
+ *   the error.
  */
 export const devServerPlugin = (): Plugin => {
   let runner: ModuleRunner | undefined
   let root = process.cwd()
   let running: Promise<Awaited<ReturnType<DevModule['startDevApp']>>> | undefined
-  /** Variables this plugin put in `process.env`, so an edited env file can replace them. */
+  /** Variables set from env files here, so an edited file can replace them. */
   const fromFile = new Set<string>()
 
   const applyEnv = (mode: string): void => {
@@ -115,7 +111,7 @@ export const devServerPlugin = (): Plugin => {
 
       devServer.httpServer?.once('close', () => void stop().then(() => runner?.close()))
 
-      // Returned, so it runs after Vite's own middleware: whatever Vite does not answer is ours.
+      // Returned, so it runs after Vite's middleware and receives only what Vite does not answer.
       return () => {
         devServer.middlewares.use((req, res, next) => {
           current().then(

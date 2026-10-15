@@ -1,17 +1,17 @@
 import { defineId, ID_SUFFIX } from '../kernel/objectids.ts'
 
-/** `trc_…`: a trace, for people. Backends index the hex id; see {@link traceTypeId}. */
+/** `trc_…`: a trace id for people. Backends index the hex form; see {@link traceTypeId}. */
 export const TraceId = defineId('trc')
 
 const ALPHABET = '0123456789abcdefghjkmnpqrstvwxyz'
 
 /**
  * The OpenTelemetry trace id (32 hex characters) as a `trc_` TypeID, and back. The mapping is the
- * identity on the 128 bits, so a `trc_` id found in a response or a log can be turned into the
- * hex id a tracing backend searches by (`traceHexOf`), and nothing is stored to relate the two.
+ * identity on the 128 bits, so a `trc_` id from a response or log converts to the hex id a tracing
+ * backend searches by (`traceHexOf`). Nothing is stored to relate the two.
  *
- * It is encoded here instead of through `typeid-js` because that library accepts only UUIDv7
- * values, and a trace id is random; that is also why `TraceId.make` is never used.
+ * Encoded here rather than with `typeid-js`, which accepts only UUIDv7 values, and a trace id is
+ * random. For the same reason `TraceId.make` is never used.
  */
 export const traceTypeId = (hex: string): string => {
   let value = BigInt(`0x${hex}`)

@@ -9,11 +9,7 @@ const SAMPLE_USERS: ReadonlyArray<Pick<UsersTable, 'email' | 'name'>> = [
   { email: 'linus@example.com', name: 'Linus Torvalds' }
 ]
 
-/**
- * Inserts a deterministic set of sample users.
- *
- * Idempotent: rows whose `email` already exists are skipped.
- */
+/** Inserts the sample users. Rows whose `email` already exists are skipped. */
 export const seedUsers: Effect.Effect<void, DatabaseError, DatabaseService> = DatabaseService.use(
   ({ query }) =>
     query(async (db) => {

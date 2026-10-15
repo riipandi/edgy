@@ -4,7 +4,7 @@ import { DatabaseLayer } from '../database/layer.ts'
 import { getMigrationInfos } from '../database/migrator.ts'
 import { print } from './helper.ts'
 
-/** `migrate:status` — show the migration status, grouped by state. */
+/** Lists executed and pending migrations. */
 export const migrateStatusCmd = Command.make('migrate:status', {}, () =>
   Effect.gen(function* () {
     const infos = yield* getMigrationInfos

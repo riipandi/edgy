@@ -1,11 +1,7 @@
 /**
- * IP addresses and CIDR ranges, as plain bytes. Written here instead of taking `node:net`'s
- * `BlockList` because the Workers bundle must not depend on Node-only modules, and the part
- * needed is small: parse, normalise, test membership.
- *
- * An address is 4 bytes (IPv4) or 16 (IPv6); an IPv4-mapped IPv6 address (`::ffff:10.0.0.1`,
- * what a dual-stack socket reports for an IPv4 peer) is reduced to its 4 bytes, so a range
- * written as `10.0.0.0/8` matches it.
+ * IP addresses and CIDR ranges as plain bytes, not `node:net`'s `BlockList`: the Workers bundle
+ * cannot depend on Node-only modules. An IPv4-mapped IPv6 address (`::ffff:10.0.0.1`, what a
+ * dual-stack socket reports for an IPv4 peer) counts as its 4 bytes, so an IPv4 range matches it.
  */
 
 const V4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/
@@ -64,15 +60,13 @@ const parseV6 = (text: string): Uint8Array | undefined => {
     bytes[i * 2 + 1] = value & 255
   })
 
-  // ::ffff:a.b.c.d, the IPv4-mapped form
   const mapped = bytes.slice(0, 10).every((b) => b === 0) && bytes[10] === 255 && bytes[11] === 255
   return mapped ? bytes.slice(12) : bytes
 }
 
 /**
- * Parses an address as it appears in a socket, `X-Forwarded-For` or a platform header: IPv4 or
- * IPv6, optionally in brackets and/or with a port (`1.2.3.4:5678`, `[::1]:80`) or a zone id.
- * `undefined` when it is not an address.
+ * Parses an address from a socket, `X-Forwarded-For` or a platform header. Brackets, a port
+ * (`1.2.3.4:5678`, `[::1]:80`) and a zone id are accepted; `undefined` if it is not an address.
  */
 export const parseIp = (input: string): Uint8Array | undefined => {
   let text = input.trim()
@@ -83,7 +77,7 @@ export const parseIp = (input: string): Uint8Array | undefined => {
     if (port !== '' && !/^:\d{1,5}$/.test(port)) return undefined
     text = text.slice(1, close)
   } else if (text.includes('.') && text.includes(':') && !text.includes('::')) {
-    // 1.2.3.4:5678 (an IPv4 address with a port); `::ffff:1.2.3.4` has `::` and is left alone
+    // `1.2.3.4:5678`. `::ffff:1.2.3.4` contains `::` and is left alone.
     const colon = text.lastIndexOf(':')
     if (/^\d{1,5}$/.test(text.slice(colon + 1)) && !text.slice(0, colon).includes(':')) {
       text = text.slice(0, colon)
@@ -92,7 +86,7 @@ export const parseIp = (input: string): Uint8Array | undefined => {
   return text.includes(':') ? parseV6(text) : parseV4(text)
 }
 
-/** The canonical text of an address: dotted decimal for IPv4, eight lower-case hextets for IPv6. */
+/** Canonical text: dotted decimal for IPv4, eight lower-case hextets for IPv6. */
 export const formatIp = (bytes: Uint8Array): string => {
   if (bytes.length === 4) return bytes.join('.')
   const groups: string[] = []
@@ -120,7 +114,7 @@ export const parseRange = (text: string): IpRange | undefined => {
   return { bytes, prefix: Number(length) }
 }
 
-/** Whether `ip` lies inside `range`; an IPv4 address is never inside an IPv6 range, nor the reverse. */
+/** Whether `ip` lies inside `range`. Families never mix: IPv4 never matches an IPv6 range. */
 export const inRange = (ip: Uint8Array, range: IpRange): boolean => {
   if (ip.length !== range.bytes.length) return false
   const whole = Math.floor(range.prefix / 8)

@@ -22,27 +22,19 @@ export interface AppOptions {
   readonly rateCheck?: RateCheck
   /** Where the built browser assets are read from (`/assets/**`); absent on Workers and in development. */
   readonly assets?: AssetSource
-  /**
-   * Under `pnpm dev`: the HTML policy allows what Vite needs (runtime styles, the hot-reload
-   * socket). Never set in production.
-   */
+  /** Development mode: the HTML policy allows what Vite needs (runtime styles, hot-reload socket). */
   readonly development?: boolean
 }
 
 /**
- * Builds the fully wired application router.
+ * Builds the application router. Composition is plugin-only and runs in a fixed order, because h3
+ * runs middleware in registration order: the runtime is attached first, CORS answers preflights
+ * before anything else, and the request id is assigned next. Security headers follow, so every later
+ * response, errors included, carries them. The observer reads the id, the overload guard refuses
+ * excess requests before they cost work, and the body limit applies last, so a rejected body is
+ * still logged with the id. Route groups mount after the globals, so the globals wrap them.
  *
- * Composition is plugin-only, in a fixed order: h3 registers plugins
- * immediately and runs middleware in registration order, so the runtime is
- * attached first, CORS answers a preflight before anything else, the request id
- * is assigned next, security headers follow so every later response (errors
- * included) carries them, the observer reads the id, the overload guard refuses excess
- * requests before anything else costs work, and the body limit applies
- * last before the routes (a rejected body is still logged and carries the id). Route
- * groups mount after the globals, which guarantees the globals wrap them.
- *
- * Taking its dependencies as arguments (instead of reading a global runtime)
- * lets a test build the app against any `HttpRuntime`.
+ * Dependencies are arguments, not a global runtime, so a test can build the app against any `HttpRuntime`.
  */
 export const createApp = (options: AppOptions): H3 =>
   new H3({

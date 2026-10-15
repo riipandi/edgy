@@ -13,11 +13,10 @@ export interface FakeCollector {
 }
 
 /**
- * An in-process OTLP/HTTP collector: a `fetch` that records what the exporters post and
- * always answers 200. It is handed to the exporters through Effect's `FetchHttpClient.Fetch`
- * reference, so no port is opened (it works where binding is forbidden) and no global is
- * replaced (Effect caches the default `fetch`, which would leak one test's stub into the
- * next).
+ * An in-process OTLP/HTTP collector. Its `fetch` records what the exporters post and always
+ * answers 200. It reaches the exporters through Effect's `FetchHttpClient.Fetch` reference: no
+ * port opens, and no global is replaced, because Effect caches the default `fetch` and a stub
+ * would leak into the next test.
  */
 export const startCollector = (): FakeCollector => {
   const url = 'http://collector.test'

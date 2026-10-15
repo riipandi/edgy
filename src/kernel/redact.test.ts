@@ -47,7 +47,7 @@ describe('redactText', () => {
     ]
     const started = performance.now()
     for (const attack of attacks) redactText(attack)
-    // quadratic matching took tens of seconds on the first of these
+    // A quadratic scan would take tens of seconds on the first of these.
     expect(performance.now() - started).toBeLessThan(1_000)
   })
 

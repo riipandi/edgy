@@ -4,11 +4,11 @@ import type { Plugin } from 'vite'
 import { withDefaults } from './platform.ts'
 
 /**
- * How the Worker is built and run: through the Cloudflare plugin, with the pieces it needs around it.
+ * How the Worker is built, around the Cloudflare plugin.
  *
- * - `builder.buildApp` writes Marko's order out (server, then browser). With the Cloudflare plugin
- *   present, Vite's default would build the Worker a second time after Marko's pass.
- * - A missing `wrangler.jsonc` is said plainly, before the Cloudflare plugin fails less clearly.
+ * - `builder.buildApp` builds the server, then the browser, in Marko's order. Vite's default would
+ *   build the Worker a second time.
+ * - A missing Worker config is reported here, because the Cloudflare plugin's error is unclear.
  */
 const workerConfig = (): Plugin => ({
   name: 'edgy:worker',
@@ -32,9 +32,8 @@ const workerConfig = (): Plugin => ({
 })
 
 /**
- * The Cloudflare plugin refuses a Worker environment whose `resolve.external` is set, and
- * vanilla-extract sets it (for its runtime package) on the SSR environment. A Worker bundles
- * everything, so the setting is dropped.
+ * The Cloudflare plugin rejects a Worker environment with `external` set, and vanilla-extract sets
+ * it on SSR for its runtime package. A Worker bundles everything, so it is removed.
  */
 const releaseSsrExternal = (): Plugin => ({
   name: 'edgy:worker-release-external',
@@ -44,16 +43,16 @@ const releaseSsrExternal = (): Plugin => ({
   }
 })
 
-/** Everything for the Worker platform. Async: the Cloudflare plugin is loaded only when it is needed. */
+/** Everything for the Worker platform. Async, so the Cloudflare plugin loads only when needed. */
 export const workerPlatform = async (): Promise<Plugin[]> => {
-  // `.env.local` feeds the Node server. Left on, the Cloudflare plugin would also copy it over the
-  // Worker's `wrangler.jsonc` variables (it once did exactly that, turning the rate limiter off). A
-  // Worker's local secrets and overrides belong in `.dev.vars`, which Wrangler reads by itself.
+  // `.env.local` belongs to the Node server. Left on, the Cloudflare plugin copies it over the
+  // Worker's `wrangler.jsonc` variables, which can silently change settings such as the rate
+  // limiter. Local Worker secrets and overrides go in `.dev.vars`, which Wrangler reads itself.
   process.env['CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV'] ??= 'false'
 
-  // Loaded only here: importing it costs most of a second and opens a Wrangler log file, which a
-  // Node run has no use for. (A lazy import needs Vite's default config loader; `configLoader:
-  // 'runner'` closes its module runner before an async plugin factory gets to run.)
+  // Imported lazily: loading it costs most of a second and opens a Wrangler log file that a Node
+  // run does not need. The lazy import needs Vite's default config loader, since `configLoader:
+  // 'runner'` closes its module runner before async factories run.
   const { cloudflare } = await import('@cloudflare/vite-plugin')
   return [workerConfig(), releaseSsrExternal(), ...cloudflare({ viteEnvironment: { name: 'ssr' } })]
 }

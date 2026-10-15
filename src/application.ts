@@ -6,20 +6,18 @@ import type { AssetSource } from './kernel/http/assets.ts'
 import { makeHttpRuntime } from './kernel/http/runtime.ts'
 import { makeSharedRateCheck } from './middleware/rate_limit_shared.ts'
 
-/** What the Node server needs besides the services in its context. */
 export interface NodeAppOptions {
-  /** Where `/assets/**` is read from; absent when Vite serves the assets (`pnpm dev`). */
+  /** Where `/assets/**` is read from; absent under `pnpm dev`, where Vite serves them. */
   readonly assets?: AssetSource
-  /** Set by `pnpm dev`; loosens what only development needs (see `createApp`). */
+  /** Set by `pnpm dev`; relaxes what only development needs. */
   readonly development?: boolean
 }
 
 /**
- * The application as the Node.js runtime builds it: the HTTP runtime captured from the services in
- * the context, the rate limiter on the store `RATE_LIMIT_STORE` names, and `createApp` over both.
- * It is the one place that does so, shared by `serveHttp` (production, and anything that runs the
- * built server) and by the development server (`src/dev.ts`), so the two cannot drift apart: what
- * differs between them is only who listens and who serves the browser assets.
+ * The application as Node builds it: the HTTP runtime from the context services, the rate limiter
+ * on the store `RATE_LIMIT_STORE` names, and `createApp` over both. Production and the development
+ * server share this, so they cannot drift apart. They differ only in who listens and who serves the
+ * browser assets.
  */
 export const makeNodeApp = (options: NodeAppOptions = {}) =>
   Effect.gen(function* () {
@@ -33,7 +31,7 @@ export const makeNodeApp = (options: NodeAppOptions = {}) =>
       config,
       ...(options.assets === undefined ? {} : { assets: options.assets }),
       ...(options.development === true ? { development: true } : {}),
-      // Shared counting only when asked for; otherwise the in-process counter serves.
+      // Shared counting only when configured; otherwise the in-process counter serves.
       ...(rateLimitEnabled && rateLimitStore === 'redis'
         ? {
             rateCheck: makeSharedRateCheck({

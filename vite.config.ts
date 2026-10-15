@@ -1,9 +1,9 @@
 /**
- * Plain Vite configuration. The `edgy` plugin (`builder/edgy.ts`) supplies
- * the application's setup, for the Node server and, with `--mode worker`,
- * for Cloudflare Workers; it only fills in what is not set here, so anything
- * below (and anything you add: `server.proxy`, `build.sourcemap`, `resolve.alias`,
- * `define`, more `plugins`, ...) takes precedence over the plugin's defaults.
+ * Plain Vite configuration. The `edgy` plugin supplies the application's setup for
+ * the Node server and, with `--mode worker`, for Cloudflare Workers. It fills in
+ * only what is not set here, so anything below or added here (`server.proxy`,
+ * `build.sourcemap`, `resolve.alias`, `define`, more `plugins`) takes precedence
+ * over the plugin's defaults.
  *
  *   pnpm dev        pnpm dev --mode worker
  *   pnpm build      pnpm build --mode worker

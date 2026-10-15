@@ -4,7 +4,7 @@ import { DatabaseLayer } from '../database/layer.ts'
 import { getMigrationInfos, migrateTo, migrateToLatest } from '../database/migrator.ts'
 import { print } from './helper.ts'
 
-/** `migrate:up` — run pending database migrations. */
+/** Applies pending migrations, stopping at `--to` when given. */
 export const migrateUpCmd = Command.make(
   'migrate:up',
   {

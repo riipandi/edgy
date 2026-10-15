@@ -1,8 +1,6 @@
 /**
- * The part of `import.meta.env` this code reads. Vite defines it in every
- * module it builds or serves, and replaces it with a constant in a build,
- * so `import.meta.env.DEV` is `false` (and the branch it guards is gone)
- * in anything deployed.
+ * The part of `import.meta.env` this code reads. Vite replaces `DEV` with `false` in builds, so the
+ * branch it guards is removed from deployed code.
  */
 
 interface ImportMetaEnv {

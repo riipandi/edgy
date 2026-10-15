@@ -1,9 +1,8 @@
 import { createTheme, globalStyle } from '@vanilla-extract/css'
 
 /**
- * Design tokens. The theme class goes on `<html>` (see `tags/app-shell.marko`), so every
- * `var(...)` below resolves for the whole page; another theme is another `createTheme` call
- * with the same shape.
+ * Design tokens. The theme class is set on `<html>`, so every `var(...)` resolves page-wide.
+ * Another theme is another `createTheme` call with the same shape.
  */
 export const [themeClass, vars] = createTheme({
   color: {

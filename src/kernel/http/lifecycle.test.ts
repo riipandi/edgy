@@ -27,7 +27,7 @@ describe('readiness during shutdown', () => {
 })
 
 describe('in-flight tracking', () => {
-  // `it.effect` runs on the TestClock, so the poll interval is stepped through, not waited for.
+  // `it.effect` runs on the TestClock: poll intervals are stepped, not waited for.
   it.effect('reports drained only after every request has left', () =>
     Effect.gen(function* () {
       const inFlight = makeInFlight()

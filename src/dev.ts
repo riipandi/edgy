@@ -7,9 +7,8 @@ import { CoreLayer } from './kernel/layers.ts'
 import { AppLayer } from './layers.ts'
 
 /**
- * Whether `pnpm dev` applies pending migrations: unless the operator said otherwise. A variable that
- * is not set at all means yes (the zero-step first run); `DATABASE_AUTO_MIGRATE=false`, in the
- * environment or in `.env.local`, opts out, and `true` is yes either way.
+ * Whether `pnpm dev` applies pending migrations. An unset `DATABASE_AUTO_MIGRATE` means yes, so a
+ * fresh checkout needs only `pnpm dev`. `false` opts out.
  */
 export const migratesInDev = (
   autoMigrate: boolean,
@@ -19,26 +18,22 @@ export const migratesInDev = (
 /** A running development application: the request handler Vite mounts, and how to stop it. */
 export interface DevApp {
   readonly handler: ReturnType<typeof toNodeHandler>
-  /** Refuses new health checks, waits briefly for requests in flight, then releases everything. */
+  /** Refuses new health checks, waits briefly for in-flight requests, then releases everything. */
   readonly stop: () => Promise<void>
 }
 
 /**
- * Builds the application for `pnpm dev`, inside the Vite dev server's process.
+ * Builds the application for `pnpm dev`, inside the Vite dev server's process. It is the development
+ * counterpart of `serve`, with the same layers and `makeNodeApp`, so requests are handled as in
+ * production. Vite listens and serves the browser assets and the hot-reload channel, so there is no
+ * assets route and no PROXY protocol reader here. The dev plugin calls this again after `stop`
+ * whenever server code changes.
  *
- * It is the development counterpart of the `serve` command: the same layers (`CoreLayer`,
- * `AppLayer`) and the same `makeNodeApp`, so a request is handled exactly as in production. What
- * differs is who listens (Vite, which also serves the browser assets and the hot-reload channel,
- * so there is neither an assets route nor a PROXY protocol reader here) and when it starts over:
- * the plugin in `builder/dev.ts` calls this again, after `stop`, whenever server code
- * changes.
+ * Pending migrations run at every start unless `DATABASE_AUTO_MIGRATE=false`. There is no
+ * `--auto-migrate` flag, since there is no command line.
  *
- * Pending migrations are applied at every start, so a fresh checkout needs nothing but `pnpm dev`;
- * `DATABASE_AUTO_MIGRATE=false` turns that off. (There is no `serve --auto-migrate` flag here:
- * there is no command line to give it.)
- *
- * This module is loaded through Vite's module runner (that is how it can import `.marko` pages),
- * never by the production entry.
+ * Loaded through Vite's module runner, which is what lets it import `.marko` pages. The production
+ * entry never loads it.
  */
 export const startDevApp = async (): Promise<DevApp> => {
   const runtime = ManagedRuntime.make(AppLayer.pipe(Layer.provideMerge(CoreLayer)))

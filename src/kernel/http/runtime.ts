@@ -4,9 +4,8 @@ import { ConfigService, telemetryEnabled } from '../config/service.ts'
 import { type InFlight, makeInFlight } from './inflight.ts'
 
 /**
- * Registry of the services an HTTP handler program may require. It starts empty
- * and each service declares itself next to its own definition by declaration
- * merging, so the kernel never names a domain service:
+ * Services an HTTP handler program may require. It starts empty; each service adds itself by
+ * declaration merging, so the kernel never names a domain service:
  *
  * ```ts
  * declare module '../kernel/http/runtime.ts' {
@@ -22,18 +21,12 @@ export interface HttpServices {}
 export type HttpEnv = HttpServices[keyof HttpServices]
 
 /**
- * Bridge from h3 (promise/callback world) back into the Effect runtime.
- *
- * It is a snapshot of the service context captured by the `serve` command, so
- * handlers run with exactly the layers the process was started with — one
- * database connection, one logger — and there is no second runtime to build or
- * dispose. Closing the scope that built the layers also closes the server.
+ * Bridge from h3's promise world back into Effect. It snapshots the service context the process
+ * started with, so handlers share its layers (one database connection, one logger) and no second
+ * runtime exists. Closing the scope that built the layers also closes the server.
  */
 export interface HttpRuntime {
-  /**
-   * Runs a handler program. Passing the request's `AbortSignal` interrupts the
-   * fiber when the client disconnects, so abandoned requests stop working.
-   */
+  /** Runs a handler program. The request's `AbortSignal` interrupts it on client disconnect. */
   readonly runPromiseExit: <A, E>(
     effect: Effect.Effect<A, E, HttpEnv>,
     options?: Effect.RunOptions
@@ -47,10 +40,7 @@ export interface HttpRuntime {
   readonly maxInFlight: number
   /** Whether traces are exported, and the share of requests whose trace is recorded. */
   readonly tracing: { readonly enabled: boolean; readonly sampleRatio: number }
-  /**
-   * Whether error responses carry `error.debug`: on when the logger is at `Debug` or below, so
-   * the response is exactly as chatty as the log and a production setting never leaks it.
-   */
+  /** Whether error responses carry `error.debug`: on when the logger is at `Debug` or below. */
   readonly diagnostics: boolean
   /** Whether shutdown has begun; readiness reports unavailable from then on. */
   readonly isDraining: () => boolean
@@ -58,7 +48,7 @@ export interface HttpRuntime {
   readonly beginDrain: () => void
 }
 
-/** Captures the current context into an {@link HttpRuntime}. */
+/** Captures the current context as an `HttpRuntime`. */
 export const makeHttpRuntime: Effect.Effect<HttpRuntime, never, HttpEnv | ConfigService> =
   Effect.gen(function* () {
     const { server, observability } = yield* ConfigService
@@ -86,31 +76,30 @@ export const makeHttpRuntime: Effect.Effect<HttpRuntime, never, HttpEnv | Config
 
 declare module 'h3' {
   interface H3EventContext {
-    /** Set by {@link provideRuntime}; read through {@link runtimeOf}. */
+    /** Set by `provideRuntime`; read through `runtimeOf`. */
     runtime?: HttpRuntime
     /** Set by the `requestId` plugin. */
     requestId?: string
     /** `performance.now()` at request start, set by the `httpObserver` plugin. */
     startedAt?: number
-    /** The span `runEffect` ran the request in, so later log lines can join its trace. */
+    /** The span the request ran in, so later log lines can join its trace. */
     trace?: { readonly traceId: string; readonly spanId: string; readonly sampled: boolean }
     /** The `trc_` form of the trace id, set when the trace was recorded and exported. */
     traceTypeId?: string
-    /** How the request's cached reads were answered, for the request log; set by `runEffect`. */
+    /** How the request's cached reads were answered, for the request log. */
     cache?: 'hit' | 'miss' | 'bypass'
-    /** Set by `developmentMode` under `pnpm dev`; read when building an HTML response's policy. */
+    /** Set in development; read when building an HTML response's policy. */
     development?: boolean
-    /** Country and city of the client, from the platform's headers; see `middleware/client_location.ts`. */
+    /** Country and city of the client, from the platform's headers. */
     location?: { readonly country?: string; readonly city?: string }
-    /** `error.code` of the response, set when the error envelope is built; the request log reads it. */
+    /** `error.code` of the response, for the request log. */
     errorCode?: string
   }
 }
 
 /**
- * Plugin that exposes the runtime to every handler and middleware and counts
- * the request as in flight until the rest of the chain has finished. Register
- * it first, so the count covers every other middleware.
+ * Exposes the runtime to every handler and counts the request in flight until the chain ends.
+ * Register it first.
  */
 export const provideRuntime = definePlugin<HttpRuntime>((app, runtime) => {
   app.use(async (event, next) => {
@@ -133,9 +122,7 @@ export const runtimeOf = (event: H3Event): HttpRuntime => {
 }
 
 /**
- * Wraps a readiness handler so it answers `503` once shutdown has begun. A load
- * balancer that polls it stops routing here before the server closes, instead of
- * discovering the shutdown through refused connections.
+ * Answers `503` once shutdown has begun, so a polling load balancer stops routing before close.
  */
 export const unlessDraining =
   <R>(handler: (event: H3Event) => R) =>

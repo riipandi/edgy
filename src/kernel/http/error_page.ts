@@ -14,13 +14,12 @@ export interface ErrorPageInput {
 }
 
 /**
- * The application's `onError` hook: an error under `/api` is the JSON envelope, any other path is
- * an HTML error page. One hook for both because h3 raises the same `HTTPError` for an unknown
- * path, a failed page, a malformed body and a thrown exception, and only the path says who is
- * reading.
+ * The `onError` hook. Under `/api` the error is the JSON envelope; elsewhere it is an HTML page.
+ * One hook serves both because h3 raises the same `HTTPError` for every failure, and only the
+ * path says who is reading.
  *
- * The page is loaded per request (the same reason pages are, see `definePageHandler`). If it cannot
- * be rendered, the JSON envelope answers instead: an error page that fails must not hide the error.
+ * The page loads per request. If it cannot render, the JSON envelope answers instead, so a broken
+ * page never hides the error.
  */
 export const makeErrorHandler =
   (loadPage: () => Promise<{ readonly default: HtmlTemplate<ErrorPageInput> }>) =>
@@ -40,8 +39,8 @@ export const makeErrorHandler =
           ...(requestId === undefined ? {} : { requestId }),
           ...(Number.isFinite(retryAfter) && retryAfter > 0 ? { retryAfter } : {})
         },
-        // h3 builds an error response from `errHeaders` only: copy them, or the request id,
-        // CORS and the rate-limit headers vanish from exactly the responses that need them.
+        // h3 builds an error response from `errHeaders` only, so copy them or the request id,
+        // CORS and rate-limit headers are lost.
         { status: error.status, headers: new Headers(event.res.errHeaders) }
       )
     } catch {

@@ -1,9 +1,9 @@
 import { definePlugin, onRequest } from 'h3'
 
 /**
- * Marks every request as served by the development server (`event.context.development`), which is
- * what lets an HTML response allow the few things Vite needs there. Registered only under
- * `pnpm dev`; a production request never carries the mark.
+ * Marks each request as served by the development server (`event.context.development`),
+ * which lets an HTML response allow what Vite needs. Registered only under `pnpm dev`;
+ * production requests never carry the mark.
  */
 export const developmentMode = definePlugin((app) => {
   app.use(

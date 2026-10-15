@@ -9,23 +9,19 @@ const EmailSchema = Schema.String.pipe(
   )
 )
 
-/** `user_…`: a row of `users`, minted by the repository on insert. */
+/** TypeID with the `user_` prefix, minted by the repository on insert. */
 export const UserId = defineId('user')
 
 export const UserIdSchema = UserId.schema
 
-/** A display name is required, and a blank one says nothing. */
+/** Non-blank, at most 200 characters. */
 const NameSchema = Schema.String.pipe(
   Schema.check(Schema.isMaxLength(200), Schema.isPattern(/\S/, { message: 'must not be blank' }))
 )
 
 /**
- * `UserSchema` is the single source of truth for the resource: the request,
- * response and Kysely table types below are all derived from it, so a new
- * column is declared once.
- *
- * Naming: a schema value is `<Name>Schema`; the type inferred from it is plain
- * `<Name>` and is exported only when code consumes it.
+ * The single source of truth for the resource: the request, response and table types derive from it,
+ * so a new column is declared once. A schema value is `<Name>Schema`; its inferred type is `<Name>`.
  */
 export const UserSchema = Schema.Struct({
   id: UserIdSchema,
@@ -55,9 +51,8 @@ export type UserSortKey = (typeof userSortKeys)[number]
 export const UserListQuerySchema = paginationQuery(userSortKeys)
 
 /**
- * Response data is encoded through these schemas, so only the declared fields
- * ever reach the client — a column added to the table later does not leak
- * through `selectAll()`. A collection declares its item; the page wraps it.
+ * Responses encode through these schemas, so only declared fields reach the client, and a column added
+ * later does not leak through `selectAll()`. A collection declares its item; the page wraps it.
  */
 export const UserGetResponseSchema = UserSchema
 export const UserListItemSchema = UserSchema

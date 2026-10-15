@@ -6,12 +6,9 @@ export interface HtmlTemplate<Input> {
 }
 
 /**
- * Content-Security-Policy of an HTML response. The API answers `default-src 'none'`; a page needs
- * its own scripts and styles, and nothing else. Marko writes one inline script per page (the
- * resume data), which is allowed by `nonce` and by nothing broader.
- *
- * Under `pnpm dev` Vite injects styles at runtime and opens a socket for hot reload, so those two
- * directives widen there and only there.
+ * Content-Security-Policy of an HTML response. Marko's one inline script per page is allowed by
+ * `nonce` only. Dev mode widens `style-src` and `connect-src`, because Vite injects styles and
+ * opens a hot-reload socket there, and nowhere else.
  */
 export const contentSecurityPolicy = (nonce: string, dev: boolean): string =>
   [
@@ -29,13 +26,11 @@ export const contentSecurityPolicy = (nonce: string, dev: boolean): string =>
 const newNonce = (): string => btoa(crypto.randomUUID())
 
 /**
- * Streams a template as the response. `headers` is where the response's headers start and are
- * written to: a page passes `event.res.headers` (h3 merges those over a returned `Response`, so the
- * policy must be set there or the fixed API one would win), an error page a copy of the
- * `errHeaders` h3 would have built the error from, so the request id, CORS and the rate-limit
- * headers survive either way.
+ * Streams a template as the response. Pages pass `event.res.headers`: h3 merges those over a
+ * returned `Response`, so the page's policy is not overridden by the API's. Error pages pass a
+ * copy of `errHeaders`, which keeps the request id, CORS and rate-limit headers.
  *
- * The response is never cached by a shared cache: the nonce is per response.
+ * Never cached by a shared cache: the nonce is per response.
  */
 export const htmlResponse = <Input extends object>(
   event: H3Event,

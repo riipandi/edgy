@@ -2,14 +2,12 @@ import { Schema } from 'effect'
 import { typeid } from 'typeid-js'
 
 /**
- * Identifiers are TypeIDs: a lowercase prefix naming what the id is, an underscore, and 26
- * characters of base32 (`user_01h2xcejqtf2nbrexx3vqjhp41`). A bare id pasted into a log search,
- * an issue or a chat still says what it identifies, and an id of the wrong kind is refused at the
- * edge instead of reaching a query.
+ * Identifiers are TypeIDs: a lowercase prefix naming the kind, an underscore, and 26 base32
+ * characters (`user_01h2xcejqtf2nbrexx3vqjhp41`). A pasted id still says what it identifies, and
+ * an id of the wrong kind is refused at the edge.
  *
- * This file is the mechanism only. The prefix of each kind is declared next to the thing it
- * identifies (`UserId` in the user schema, `RequestId` in the request-id plugin), so adding a
- * kind never edits a shared list; {@link defineId} refuses a prefix that is already taken.
+ * This module is the mechanism only. Each kind declares its prefix next to what it identifies, so
+ * adding one never edits a shared list; `defineId` refuses a prefix that is already taken.
  */
 
 /** The 26-character suffix: 128 bits, so the first character is at most `7`. */
@@ -22,15 +20,9 @@ const taken = new Set<string>()
 /** One kind of identifier: how to mint it, and how to recognise it. */
 export interface IdKind {
   readonly prefix: string
-  /**
-   * A new id. The suffix is a UUIDv7, so ids sort by creation time: a table keyed by them is
-   * naturally ordered, and an index on them appends instead of scattering.
-   */
+  /** A new id. The suffix is a UUIDv7, so ids sort by creation time and their index appends. */
   readonly make: () => string
-  /**
-   * The right prefix and a well-formed suffix. A check on the text, not a decode, so it costs a
-   * regex per id.
-   */
+  /** Checks prefix and suffix on the text. No decode, so each check is one regex. */
   readonly schema: Schema.String
 }
 

@@ -6,7 +6,7 @@ import path from 'node:path'
 import type { Plugin } from 'vite'
 import { OUT_DIR } from './platform.ts'
 
-/** A port nothing is listening on, asked of the operating system. */
+/** A free port, assigned by the operating system. */
 const freePort = (): Promise<number> =>
   new Promise((resolve, reject) => {
     const probe = net.createServer()
@@ -17,7 +17,7 @@ const freePort = (): Promise<number> =>
     })
   })
 
-/** Resolves once something accepts connections on `port`; rejects if the process has exited or it takes too long. */
+/** Resolves once `port` accepts connections; rejects if the process exits or startup times out. */
 const accepting = (
   port: number,
   exited: Promise<number | null>,
@@ -47,7 +47,7 @@ const accepting = (
     attempt()
   })
 
-/** Passes a request to the built server and its answer back. */
+/** Proxies one request to the built server and streams the answer back. */
 const forward = (port: number, req: http.IncomingMessage, res: http.ServerResponse): void => {
   const upstream = http.request(
     {
@@ -70,15 +70,11 @@ const forward = (port: number, req: http.IncomingMessage, res: http.ServerRespon
 }
 
 /**
- * `vite preview` for the Node server: runs the build in `dist/server` (the real server, started
- * exactly as `pnpm start` does, with `.env.local`) on a port of its own, and puts the preview
- * server's address in front of it. Vite's preview only knows how to serve static files, and this
- * application is a server; the proxy is what makes the one address, and `Ctrl+C`, work the same as
- * for `vite`.
+ * `vite preview` for the Node server: starts the built server on a private port, as `pnpm start`
+ * does, and proxies the preview address to it. Vite's preview serves only static files.
  *
- * Registered directly (not as a returned hook), so it comes before Vite's own static handler: the
- * build output is never served as files. It does not build: `vite preview` serves what exists, and
- * says so when nothing does.
+ * Registered directly rather than returned, so it runs before Vite's static handler and the build
+ * output is never served as files. It does not build.
  */
 export const nodePreview = (): Plugin => ({
   name: 'edgy:node-preview',

@@ -8,17 +8,12 @@ import type { Database } from './schema.ts'
 import { DatabaseService, makeDatabaseService, makeQueryLogger } from './service.ts'
 
 /**
- * The D1 binding, provided by whoever owns it: the Worker entry (from its `env`)
- * or, for CLI commands on Node, the local wrangler platform proxy
- * ({@link D1BindingNodeLayer}). Keeping it a service means the database layer never
- * learns where the binding came from.
+ * The D1 binding, from the Worker's `env` or, on Node, the local wrangler platform proxy
+ * ({@link D1BindingNodeLayer}). The database layer does not learn where it came from.
  */
 export class D1Binding extends Context.Service<D1Binding, D1Database>()('D1Binding') {}
 
-/**
- * `DATABASE_DRIVER=d1`: Kysely over a D1 binding. There is nothing to open or
- * close, and D1 has no interactive transactions, so `transaction` fails.
- */
+/** `DATABASE_DRIVER=d1`. Nothing to open or close. D1 has no interactive transactions. */
 export const D1DatabaseLayer: Layer.Layer<DatabaseService, never, D1Binding> = Layer.effect(
   DatabaseService,
   Effect.gen(function* () {
@@ -33,11 +28,7 @@ export const D1DatabaseLayer: Layer.Layer<DatabaseService, never, D1Binding> = L
   })
 )
 
-/**
- * Imported through a variable on purpose: a literal `import('wrangler')` would be
- * followed by the bundler and pull wrangler and miniflare (about 20 MB) into the
- * Node server bundle, which never uses them.
- */
+/** Kept in a variable: a literal `import('wrangler')` would bundle wrangler and miniflare (about 20 MB). */
 const WRANGLER = 'wrangler'
 
 export const isD1Database = (value: unknown): value is D1Database =>
@@ -47,14 +38,11 @@ export const isD1Database = (value: unknown): value is D1Database =>
   typeof value.prepare === 'function'
 
 /**
- * The D1 binding for CLI commands on Node, taken from wrangler's local platform
- * proxy (miniflare). It reads the same `wrangler.jsonc` and the same persisted
- * state `wrangler dev` uses, so `DATABASE_DRIVER=d1 pnpm app migrate:up` prepares
- * the database `pnpm dev --mode worker` and `pnpm preview --mode worker` then serve.
+ * D1 binding for Node, from wrangler's local platform proxy (miniflare). It reads the same
+ * `wrangler.jsonc` and persisted state as `wrangler dev`, so a migration run here prepares the
+ * database the worker mode serves. Local only: it does not reach a remote D1 database.
  *
- * `wrangler` is a development dependency and is imported lazily, so neither the
- * Node server nor the Worker ever loads it; the Worker simply never uses this layer. It is local only: it does not
- * reach a remote D1 database.
+ * wrangler is a development dependency, imported lazily so the Node server never loads it.
  */
 export const D1BindingNodeLayer: Layer.Layer<D1Binding, DatabaseError, ConfigService> =
   Layer.effect(

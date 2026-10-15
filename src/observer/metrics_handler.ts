@@ -6,9 +6,8 @@ import { runtimeOf } from '../kernel/http/runtime.ts'
 /**
  * `GET /metrics`: every recorded metric in Prometheus exposition format.
  *
- * Plain text by contract (Prometheus does not read the API envelope), and
- * unauthenticated, so it is mounted only when `METRICS_ENABLED` is set and should
- * be reachable only from a private network.
+ * Plain text, since Prometheus does not read the API envelope. It is unauthenticated, so it is
+ * mounted only when `METRICS_ENABLED` is set and should be reachable only from a private network.
  */
 export const metricsHandler = async (event: H3Event): Promise<Response> => {
   const exit = await runtimeOf(event).runPromiseExit(PrometheusMetrics.format())

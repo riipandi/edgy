@@ -7,11 +7,9 @@ interface RequestContext {
 const storage = new AsyncLocalStorage<RequestContext>()
 
 /**
- * Runs `fn` with the request id bound to its whole async chain. Code that runs
- * outside any Effect fiber (Kysely's `log` callback) cannot see `event.context`,
- * so it reads the id from here to correlate its log lines. `run` rather than
- * `enterWith`: workerd implements only the former. Works on Node and on Workers
- * (`nodejs_compat`).
+ * Runs `fn` with the request id bound to its whole async chain, for code outside any Effect fiber
+ * (such as Kysely's `log` callback) that cannot see `event.context`. Uses `run`, not `enterWith`,
+ * because workerd implements only the former.
  */
 export const runWithRequestId = <A>(requestId: string, fn: () => A): A =>
   storage.run({ requestId }, fn)

@@ -49,13 +49,10 @@ const formatValue = (value: unknown): string =>
   typeof value === 'string' && !/[\s="]/.test(value) ? value : JSON.stringify(value)
 
 /**
- * Whether the message already states this annotation's value, so printing
- * `key=value` again only repeats it. The request line carries `GET / 200 0.49ms`
- * in its message and `method`, `path`, `status` and `durationMs` as annotations
- * for the JSON sink; the terminal needs them once. Only the value is compared,
- * and only as a whole word (optionally followed by a unit, `0.49` in `0.49ms`),
- * so `1` is not found inside `12`. The key name adds nothing a reader cannot see
- * in the message.
+ * Whether the message already states this annotation's value, so printing `key=value` would
+ * only repeat it. The request line carries `GET / 200 0.49ms` as its message and `method`,
+ * `path`, `status` and `durationMs` as annotations. Only the value is compared, as a whole word
+ * optionally followed by a unit (`0.49` in `0.49ms`), so `1` is not found inside `12`.
  */
 const repeatsMessage = (message: string, value: unknown): boolean => {
   const text = typeof value === 'string' ? value : typeof value === 'number' ? String(value) : ''
@@ -69,9 +66,8 @@ const repeatsMessage = (message: string, value: unknown): boolean => {
 }
 
 /**
- * Renders a structured entry as `HH:MM:SS.mmm LEVEL message key=value …`,
- * followed by the pretty-printed cause when the entry carries one. Annotations
- * whose value the message already states are left out (JSON keeps them all).
+ * Renders a structured entry as `HH:MM:SS.mmm LEVEL message key=value …`, followed by the
+ * cause when present. Annotations the message already states are omitted; JSON keeps them all.
  */
 export const renderPretty = (entry: StructuredEntry, colors: boolean): string => {
   const paint = (text: string, color: string) => (colors ? `${color}${text}${ANSI.reset}` : text)
@@ -94,33 +90,26 @@ export const renderPretty = (entry: StructuredEntry, colors: boolean): string =>
   return entry.cause === undefined ? head : `${head}\n${entry.cause}`
 }
 
-/**
- * Pure formatter selection. Kept separate from the sink so formats stay
- * testable without touching stdout.
- */
+/** Formatter selection, kept apart from the sink so formats are testable without stdout. */
 const makeFormatter = (format: LogFormat, colors: boolean): Logger.Logger<unknown, string> =>
   format === 'json'
     ? jsonLogger
     : Logger.map(Logger.formatStructured, (entry) => renderPretty(entry, colors))
 
 /**
- * Non-blocking log sink.
+ * Non-blocking log sink. Formatting runs on the calling fiber (cheap, no I/O) and the line lands
+ * in an in-memory buffer. A detached fiber drains the buffer once per `window` with a single
+ * `stdout.write`, so no request waits on the terminal or a pipe, and a burst of N lines costs
+ * one syscall.
  *
- * Formatting happens on the calling fiber (cheap, no I/O); the resulting line
- * only lands in an in-memory buffer. A detached fiber drains the buffer once
- * per `window` with a **single** `stdout.write`, so no request ever waits on
- * the terminal or a pipe, and a burst of N lines costs one syscall instead of N.
- *
- * The scope finalizer flushes whatever is still buffered, so a graceful
- * shutdown (`SIGINT`/`SIGTERM` through `NodeRuntime.runMain`) loses nothing.
- * A hard crash can lose at most the last `window` of lines — the price of
- * keeping I/O off the hot path.
+ * The scope finalizer flushes what is still buffered, so a graceful shutdown (SIGINT/SIGTERM)
+ * loses nothing. A hard crash can lose the last `window` of lines.
  */
 const makeBatchedStdout = (formatter: Logger.Logger<unknown, string>, window: Duration.Input) =>
   Logger.batched(formatter, {
     window,
-    // Waits for the write to leave Node's stream (the callback), not just to be queued: the last
-    // batch of a process that exits right after used to be cut when the pipe was full.
+    // Resume only once Node has flushed the write: a process that exits right after would cut
+    // the last batch on a full pipe.
     flush: (lines) =>
       withinBudget(
         'stdout',
@@ -131,15 +120,12 @@ const makeBatchedStdout = (formatter: Logger.Logger<unknown, string>, window: Du
   })
 
 /**
- * Logger and minimum log level, derived from configuration.
+ * Logger and minimum log level, derived from configuration. It applies the `LOG_*` settings once
+ * per process, so CLI commands and the HTTP server print identical output.
  *
- * Reading `ConfigService` here applies `LOG_LEVEL`, `LOG_TRANSPORT`, `LOG_FORMAT`,
- * `LOG_FILE`, `LOG_ROTATION`, `LOG_FILE_MAX_FILES` and `LOG_FLUSH_INTERVAL` once for the whole process, so CLI commands
- * and the HTTP server share identical output. `LOG_TRANSPORT` picks the sinks —
- * the batched stdout sink, the rotating JSON file sink (`log_file.ts`), or both,
- * each receiving every line.
- * Replaces Effect's default console logger rather than merging with it, which
- * would double every line.
+ * `LOG_TRANSPORT` selects the sinks (batched stdout, the rotating JSON file sink, or both), and
+ * each receives every line. It replaces Effect's default console logger rather than merging with
+ * it, which would double every line.
  */
 export const LoggerLayer: Layer.Layer<
   never,
@@ -180,9 +166,9 @@ export const LoggerLayer: Layer.Layer<
 )
 
 /**
- * Logger for Workers: no buffer, no stdout. A Worker has no shutdown hook to
- * flush on, and `console.log` is already asynchronous in the runtime, so each line
- * goes straight out. Same formatter and level, minus ANSI colours.
+ * Logger for Workers. There is no buffer and no stdout: a Worker has no shutdown hook to flush
+ * on, and `console.log` is already asynchronous, so each line goes straight out. Same formatter
+ * and level, without ANSI colours.
  */
 export const ConsoleLoggerLayer: Layer.Layer<
   never,

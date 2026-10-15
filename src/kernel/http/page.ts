@@ -13,19 +13,15 @@ const refused = (error: AppError): HTTPError =>
   new HTTPError({ status: error.status, message: error.clientMessage })
 
 /**
- * Declares an HTML page: an Effect that loads what the page shows, and the Marko template that
- * renders it.
+ * Declares an HTML page: an Effect that loads what the page shows, and the template that renders
+ * it. The program runs like an API endpoint's (timeout, cancellation, tracing, `?nocache=true`,
+ * `X-Cache`); only the answer differs. The template streams, so the head flushes before slow
+ * parts resolve.
  *
- * The program runs exactly like an API endpoint's (request timeout, cancellation on disconnect,
- * tracing, error reporting, `?nocache=true`, `X-Cache`), through `runProgram`; only the answer
- * differs. The template streams: the head is flushed before slower parts of the page resolve.
+ * A failure is thrown as an `HTTPError` for the app's error hook to render.
  *
- * A failure is thrown as an `HTTPError` and answered by the app's error hook, which renders an
- * error page for a path outside `/api` (`error_page.ts`) and the API's error envelope inside it.
- *
- * `template` is loaded per request on purpose: a static import would make every module that
- * mentions a page unloadable outside Vite (the CLI, `pnpm app migrate:up`), and in development a
- * fresh `import()` is what picks up an edited template.
+ * The template loads per request: a static import would make every module that mentions a page
+ * unloadable outside Vite, and in development a fresh `import()` picks up an edited template.
  */
 export const definePageHandler =
   <A extends object, E extends AppError>(spec: {

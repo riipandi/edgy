@@ -5,17 +5,14 @@ import { withDefaults } from './platform.ts'
 import { nodePreview } from './preview.ts'
 
 /**
- * How the Node server is built: one bundle with every dependency inlined (a server that needs
- * `node_modules` next to it is not a deployable artifact), its entry a script that starts with a
- * shebang, and its browser assets in `public/`.
+ * The Node server is one bundle with every dependency inlined, so it deploys without
+ * `node_modules`. Its entry starts with a shebang, and browser assets go in `public/`.
  *
- * - `ssr.noExternal` only for a build: under `vite` the module runner leaves `node_modules` to Node,
- *   so only the application is transformed.
- * - `builder: {}` makes `vite build` build every environment, the server first and the browser
- *   second: Marko learns from the server build which browser entries each page needs, then patches
- *   that manifest into the server bundle.
- * - Server chunks go in `chunks/`, so they never share a name with the public `/assets` the browser
- *   asks for.
+ * - `ssr.noExternal` applies only to builds. Under `vite` the module runner leaves `node_modules`
+ *   to Node.
+ * - `builder: {}` builds every environment, the server first. Marko reads the server build to find
+ *   each page's browser entries, then patches that manifest into the server bundle.
+ * - Server chunks go in `chunks/` so they never collide with the browser's `/assets`.
  */
 const nodeConfig = (): Plugin => ({
   name: 'edgy:node',
@@ -32,7 +29,7 @@ const nodeConfig = (): Plugin => ({
               input: 'src/main.ts',
               output: {
                 entryFileNames: 'index.mjs',
-                // `./dist/server/index.mjs serve` runs as a script; `nodeOutput` sets the executable bit.
+                // Runs as `./dist/server/index.mjs serve`; the mode is set after the build.
                 banner: (chunk) => (chunk.isEntry ? '#!/usr/bin/env node' : '')
               }
             }
@@ -43,7 +40,7 @@ const nodeConfig = (): Plugin => ({
   }
 })
 
-/** Everything for the Node platform: the build's shape, the dev server, the finished output, the preview. */
+/** Everything for the Node platform: build shape, dev server, finished output, preview. */
 export const nodePlatform = (): Plugin[] => [
   nodeConfig(),
   devServerPlugin(),

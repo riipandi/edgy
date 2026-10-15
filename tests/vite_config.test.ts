@@ -33,8 +33,7 @@ afterEach(() => {
 
 describe('vite.config.ts', () => {
   it('owns where the dev server and the preview listen: one address, and no silent port change', async () => {
-    // What the address is depends on the developer's own `.env.local` (HOST, PORT); that it is one
-    // address, and strict, does not.
+    // The address comes from `.env.local`; only that it is one strict address is asserted.
     const config = await resolve()
 
     expect(config.server.strictPort).toBe(true)
@@ -81,8 +80,8 @@ describe('the platform', () => {
   })
 
   it('is the Worker with --mode worker, and then only the Worker', () => {
-    // In a process of its own, as the command line does it: the Worker platform loads the Cloudflare
-    // plugin lazily, which needs Vite's configuration loader and not this test runner's.
+    // Runs in its own process with Vite's config loader: the Cloudflare plugin is loaded lazily,
+    // which the test runner's loader does not support.
     const script = `
       import { resolveConfig } from 'vite'
       const config = await resolveConfig({ root: ${JSON.stringify(root)}, mode: 'worker', logLevel: 'silent' }, 'build')

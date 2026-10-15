@@ -3,10 +3,10 @@ import path from 'node:path'
 import { getAssetKeys, getRawAsset, isSea } from 'node:sea'
 import type { AssetSource } from './assets.ts'
 
-/** Opaque ids from h3 start with `/`; anything that is not a plain relative name is refused. */
+/** Ids start with `/`; anything that is not a plain name is refused. */
 const SAFE_NAME = /^\/[\w@.+~%-]+(?:\/[\w@.+~%-]+)*$/
 
-/** Assets read from a directory on disk (`dist/server/public`). Reads are confined to `root`. */
+/** Assets read from a directory. Reads are confined to `root`. */
 export const directoryAssets = (root: string): AssetSource => {
   const base = path.resolve(root)
   const resolve = (id: string): string | undefined => {
@@ -28,10 +28,7 @@ export const directoryAssets = (root: string): AssetSource => {
   }
 }
 
-/**
- * Assets embedded in a single-executable application (`seaConfig.assets`, keyed
- * `public/<path>`). `undefined` when the process is not one.
- */
+/** Assets embedded in a single-executable app, keyed `public/<path>`. `undefined` outside one. */
 export const embeddedAssets = (): AssetSource | undefined => {
   if (!isSea()) return undefined
   const keys = new Set(getAssetKeys())

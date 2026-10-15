@@ -7,23 +7,21 @@ import { directoryAssets, embeddedAssets } from './kernel/http/node_assets.ts'
 import { acceptProxyProtocol } from './kernel/http/proxy_protocol.ts'
 
 /**
- * Starts the HTTP server and keeps the effect running until it is interrupted
- * (`SIGINT`/`SIGTERM` reach `NodeRuntime.runMain`, which interrupts the fiber).
+ * Starts the HTTP server and runs until interrupted. SIGINT/SIGTERM reach `NodeRuntime.runMain`,
+ * which interrupts the fiber.
  *
- * Shutdown order is owned by the scope, not by the server library: srvx's own
- * signal handler is disabled (`gracefulShutdown: false`), so the finalizers run
- * in reverse acquisition order — stop accepting and drain, release the
- * database, and only then flush the log buffer.
+ * The scope owns shutdown order. srvx's own signal handler is off (`gracefulShutdown: false`), so
+ * finalizers run in reverse acquisition order: stop accepting and drain, release the database, then
+ * flush the log buffer.
  *
- * Draining waits for in-flight *requests* (bounded by `SHUTDOWN_TIMEOUT`), then
- * closes whatever sockets remain. Waiting on `server.close()` itself would stall
- * for the whole timeout whenever a connection never completed a request.
+ * Draining waits for in-flight requests, bounded by the shutdown timeout, then closes what remains.
+ * Waiting on `server.close()` would stall for the whole timeout whenever a connection never completed
+ * a request.
  */
 export const serveHttp = Effect.gen(function* () {
   const config = yield* ConfigService
   const { host, port, shutdownTimeout, shutdownDrainDelay, proxyProtocol } = config.server
-  // The browser assets come from the single executable, or from the `public/` directory the build
-  // leaves next to the entry.
+  // Assets come from the embedded executable, or from the `public/` directory beside the entry.
   const { app, runtime } = yield* makeNodeApp({
     assets: embeddedAssets() ?? directoryAssets(fileURLToPath(new URL('./public', import.meta.url)))
   })
@@ -40,7 +38,7 @@ export const serveHttp = Effect.gen(function* () {
       })
       const listener = instance.node?.server
       if (listener !== undefined) acceptProxyProtocol(listener, proxyProtocol)
-      // A failed bind is reported by `ready()` below, which is why this one is not.
+      // A failed bind surfaces through `ready()` below.
       void Promise.resolve(instance.serve()).catch(() => undefined)
       return instance
     }),
@@ -61,8 +59,7 @@ export const serveHttp = Effect.gen(function* () {
             : `Shutting down, waiting for ${pending} request(s) in flight`
         )
 
-        // Stops listening and closes idle connections; resolves only when
-        // every connection has ended, so it is awaited last.
+        // Stops listening and closes idle connections. Resolves only when every connection ends.
         const closed = instance.close()
         yield* runtime.inFlight.drained.pipe(
           Effect.timeoutOrElse({
@@ -77,20 +74,18 @@ export const serveHttp = Effect.gen(function* () {
           })
         )
         yield* Effect.promise(() => instance.close(true))
-        // Closing the sockets aborts what was cut off, but the fibers behind those requests stop on
-        // their own schedule. Give them a moment to settle, so none queries the closed database or
-        // logs after the final flush.
+        // Closing sockets aborts the requests, but their fibers stop on their own schedule. Give them
+        // a moment, so none queries the closed database or logs after the final flush.
         yield* runtime.inFlight.drained.pipe(Effect.timeoutOption('1 second'), Effect.asVoid)
         yield* Effect.promise(() => closed)
         yield* Effect.logInfo('Server stopped')
       })
   )
 
-  // `silent` also hides srvx's own listen failure (for example EADDRINUSE), so
-  // surface it here: a failed bind must stop the command, not leave it idle.
+  // `silent` also hides srvx's listen failures (EADDRINUSE, for example). `ready()` surfaces them.
   yield* Effect.promise(() => server.ready())
   yield* Effect.logInfo(`Listening on http://${host}:${port}`)
 
-  // Keep the fiber alive so the scope (and the server) stays open.
+  // Keeps the scope, and so the server, open until interrupted.
   return yield* Effect.never
 }).pipe(Effect.scoped)

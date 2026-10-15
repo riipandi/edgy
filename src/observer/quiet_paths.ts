@@ -1,18 +1,16 @@
 /**
  * Requests nobody needs to read about: a browser asking for a favicon, a crawler for
- * `robots.txt`, a load balancer polling `/health` every second, a bot probing for
- * WordPress. Left alone they bury the requests that matter, one `WARN` line per 404.
+ * `robots.txt`, a load balancer polling `/health`, a bot probing for WordPress. Left alone they
+ * bury the requests that matter, one `WARN` line per 404.
  *
- * They are *quieted*, not dropped: the request log line is written at `Debug`, so it
- * disappears at `Info` and returns with `LOG_LEVEL=Debug` when someone needs to know why
- * a browser keeps asking for a file. Metrics still count them (a spike in scanner 404s is
- * a signal), and a quiet request that fails is never quieted: a `/health` that answers 503
- * or 500 is logged like any other error.
+ * They are quieted, not dropped: the request log line is written at `Debug`, so it is hidden at
+ * `Info` and shown with `LOG_LEVEL=Debug`. Metrics still count them, since a spike in scanner
+ * 404s is a signal. A quiet request that fails is never quieted: a `/health` answering 503 or
+ * 500 is logged like any other error.
  *
- * The list is code, not configuration: it changes when the *world* changes (a browser
- * starts asking for a new file), not per deployment. To add one, add a path or pattern to
- * the right group in {@link RULES}; to add a kind, add a group. `quiet_paths.test.ts`
- * pins every entry, so a rule that stops matching fails a test.
+ * The list is code, not configuration: it changes when the world changes, not per deployment.
+ * Add a path or pattern to a group in {@link RULES}, or a group for a new kind. The tests pin
+ * every entry, so a rule that stops matching fails.
  */
 
 /** Which responses of a matching request are quiet. */
@@ -23,7 +21,7 @@ const succeededOrMissing: Quiet = (status) => status < 400 || status === 404
 const missing: Quiet = (status) => status === 404
 
 interface Rule {
-  /** Shown as the `quiet` annotation of the debug line, so it says why it was quieted. */
+  /** Shown as the `quiet` annotation of the debug line. */
   readonly name: string
   /** Exact paths. */
   readonly paths?: readonly string[]
@@ -33,9 +31,9 @@ interface Rule {
   readonly patterns?: readonly RegExp[]
   readonly quiet: Quiet
   /**
-   * A probe is polled on a timer by something that is not a user. Beyond a quiet log line
-   * it is left out of the latency histogram (a stream of instant answers drags p50 and
-   * p99 down) and its trace is not recorded; the request counter still counts it.
+   * A probe is polled on a timer by something that is not a user. Beyond the quiet log line, it
+   * is left out of the latency histogram (instant answers drag p50 and p99 down) and its trace is
+   * not recorded. The request counter still counts it.
    */
   readonly probe?: boolean
 }
@@ -92,9 +90,9 @@ const ruleOf = (path: string): Rule | undefined => {
 }
 
 /**
- * Name of the rule that makes this response quiet, or `undefined` when it should be logged
- * normally. Cheap on the hot path: one map lookup and a short prefix scan, and the
- * patterns only run for a path that matched nothing else.
+ * Name of the rule that makes this response quiet, or `undefined` when it is logged normally.
+ * On the hot path this is one map lookup and a short prefix scan; patterns run only for paths
+ * that matched nothing else.
  */
 export const quietReason = (path: string, status: number): string | undefined => {
   const rule = ruleOf(path)

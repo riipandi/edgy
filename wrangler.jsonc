@@ -1,42 +1,28 @@
 /**
- * Cloudflare Workers target. The Cloudflare Vite plugin (`vite.config.ts`, with `--mode worker`) reads this file:
- * `pnpm dev --mode worker` runs the source in workerd (Vite's dev server, with a local D1 database);
- * `pnpm preview --mode worker` builds and runs the artifact the same way; `pnpm run deploy` publishes it.
- * Application settings are the same variables the Node server reads.
+ * Cloudflare Workers target, read by the Cloudflare Vite plugin under `--mode worker`. `pnpm dev`
+ * runs the source in workerd with a local D1 database, `pnpm preview` runs the built artifact, and
+ * `pnpm run deploy` publishes it. Application settings are the variables the Node server reads.
  *
- * The plugin writes the deployable configuration to `dist/worker/wrangler.json` and points
- * Wrangler at it, so `main` below is the entry it bundles and `assets` is added for you (the
- * browser assets in `dist/worker/public`, served by Cloudflare without starting the Worker).
- * Do not declare `assets` or `no_bundle` here.
+ * The plugin writes the deployable configuration to `dist/worker/wrangler.json`. `assets` is added
+ * from `dist/worker/public`, which Cloudflare serves without starting the Worker, so do not declare
+ * `assets` or `no_bundle` here.
  *
- * Docs: https://developers.cloudflare.com/workers/wrangler/configuration
+ * Build: `pnpm build --mode worker`. Deploy: `pnpm exec wrangler deploy`.
  *
- * Build configurations:
- * - Build command: `pnpm build --mode worker`
- * - Deploy command: `pnpm exec wrangler deploy`
- * - Non-production branch deploy command: `pnpm exec wrangler versions upload`
- *
- * Environment variables notice:
- * - OTEL_SDK_DISABLED: Off: the default endpoint is the local ClickStack, which a deployed
- *   Worker cannot reach. To export, set OTEL_EXPORTER_OTLP_ENDPOINT and
- *   OTEL_EXPORTER_OTLP_HEADERS (a secret) and remove this line.
- *
- * - TRUSTED_PLATFORM: Cloudflare always sets CF-Connecting-IP, and a Worker is reachable
- *   only through Cloudflare, so this header is the client address.
- *
- * - DATABASE_AUTO_MIGRATE: On: each isolate migrates the database as it starts, so a new D1 (local
- *   or remote) needs no separate step. This value applies to `pnpm dev --mode worker`, `pnpm preview --mode worker`
- *   and `pnpm run deploy` alike. Isolates starting at once can race on the first migration; once the
- *   schema exists, `pnpm run deploy --var DATABASE_AUTO_MIGRATE:false` stops migrating.
- *
- * - CACHE_STORE: Read cache through the Workers Cache API: per location, and not served
- *   on workers.dev (there every read reaches D1), so use a custom domain.
- *
- * Rate limiting for /api (RATE_LIMIT_STORE=cloudflare). The allowance and the
- * period (10 or 60 seconds) are fixed here. RATE_LIMIT_MAX is only reported to
- * clients as the limit, so keep it equal to `limit`; RATE_LIMIT_WINDOW only
- * feeds Retry-After, so keep it equal to `period` in ms.
- *
+ * Variables that matter on Workers:
+ * - OTEL_SDK_DISABLED: Off targets the local ClickStack, which a deployed Worker cannot reach. To
+ *   export, set OTEL_EXPORTER_OTLP_ENDPOINT and OTEL_EXPORTER_OTLP_HEADERS (a secret) and remove
+ *   this line.
+ * - TRUSTED_PLATFORM: Cloudflare always sets CF-Connecting-IP, and the Worker is reachable only
+ *   through Cloudflare, so that header is the client address.
+ * - DATABASE_AUTO_MIGRATE: each isolate migrates on start, so a new D1 needs no separate step.
+ *   Isolates starting together can race on the first migration. Once the schema exists, deploy with
+ *   `--var DATABASE_AUTO_MIGRATE:false`.
+ * - CACHE_STORE: the Workers Cache API is per location and is not served on workers.dev, where
+ *   every read reaches D1. Use a custom domain.
+ * - Rate limiting for /api: the allowance and period are fixed in the `ratelimits` binding.
+ *   RATE_LIMIT_MAX is reported to clients, so keep it equal to `limit`. RATE_LIMIT_WINDOW feeds
+ *   Retry-After, so keep it equal to `period` in ms.
  */
 {
     "$schema": "node_modules/wrangler/config-schema.json",

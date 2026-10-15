@@ -8,9 +8,9 @@ export interface LocationHeadersOptions {
 }
 
 /**
- * Notes the client's country and city on the request (`event.context.location`) for the request
- * log. Registered only when `CLOUDFLARE_LOCATION_HEADERS` is on; the trust rule is in
- * `clientLocation`.
+ * Records the client's country and city on `event.context.location` for the request log.
+ * Registered only when `CLOUDFLARE_LOCATION_HEADERS` is on. Values are believed only on
+ * requests that carry the platform header.
  */
 export const locationHeaders = definePlugin<LocationHeadersOptions>((app, options) => {
   app.use(

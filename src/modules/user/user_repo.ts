@@ -4,10 +4,7 @@ import { Conflict, type DatabaseError } from '../../kernel/errors.ts'
 import { makePage, type Page, type PageRequest } from '../../kernel/pagination.ts'
 import { type User, type UserCreateRequest, UserId, type UserSortKey } from './user_schema.ts'
 
-/**
- * Persistence port for users. The service layer depends on this key, never on
- * Kysely, so a test can swap in an in-memory implementation.
- */
+/** Persistence port for users. The service depends on this key, never on Kysely. */
 export class UserRepository extends Context.Service<
   UserRepository,
   {
@@ -32,10 +29,8 @@ export class UserRepository extends Context.Service<
         ),
         findPage: Effect.fn('UserRepository.findPage')((request: PageRequest<UserSortKey>) =>
           read(async (db) => {
-            // The total rides along as a scalar subquery: SQLite evaluates it once
-            // per statement, and one statement is one consistent snapshot, so the
-            // page and its count cannot disagree. It also saves a round trip. The
-            // extra `total` column is stripped when the response is encoded.
+            // The total is a scalar subquery in the same statement, so the page and its count come from one
+            // snapshot and cannot disagree. The extra `total` column is stripped when the response is encoded.
             let rows = db
               .selectFrom('users')
               .selectAll()
@@ -52,8 +47,8 @@ export class UserRepository extends Context.Service<
 
             const items = await rows.execute()
 
-            // An empty page has no row to read the total from: the first page means
-            // the table is empty, a later one needs a count of its own.
+            // An empty page has no row to read the total from. On the first page that means an empty table;
+            // a later page needs its own count.
             const total =
               items[0]?.total ??
               (request.offset === 0

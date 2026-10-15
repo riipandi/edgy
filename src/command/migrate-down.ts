@@ -4,7 +4,7 @@ import { DatabaseLayer } from '../database/layer.ts'
 import { getMigrationInfos, migrateDown } from '../database/migrator.ts'
 import { confirmDestructive, ensure, print } from './helper.ts'
 
-/** `migrate:down` — roll back executed database migrations. */
+/** Rolls back the newest `--count` executed migrations. */
 export const migrateDownCmd = Command.make(
   'migrate:down',
   {

@@ -3,16 +3,15 @@ import { Persistence } from 'effect/persistence'
 import { LocalCachePersistence } from '../src/kernel/cache/local.ts'
 import { ConfigLayer } from '../src/kernel/config/service.ts'
 
-/** What a fake shared store saw, and what it holds. */
+/** Recorded calls and contents of a fake shared store. */
 export interface FakeStore {
   readonly entries: Map<string, object>
   readonly calls: { get: number; set: number; remove: number }
 }
 
 /**
- * A backing store in a `Map`, standing in for Redis: share one `FakeStore` between two layers
- * and they are two processes talking to one store. `failWith` makes every call fail (or hang,
- * for `'hang'`), which is how a test produces an outage.
+ * A backing store in a `Map`, standing in for Redis. Layers that share one `FakeStore` act as
+ * separate processes on one store. `failWith` makes every call fail, or hang for `'hang'`.
  */
 export const fakeBacking = (
   store: FakeStore,
@@ -59,7 +58,7 @@ export const makeFakeStore = (): FakeStore => ({
   calls: { get: 0, set: 0, remove: 0 }
 })
 
-/** Configuration (from `env`) plus the `Persistence` a read-through needs, in-process by default. */
+/** Configuration from `env`, plus a `Persistence` that is in-process unless `backing` is given. */
 export const cacheEnvironment = (
   env: Readonly<Record<string, string>> = {},
   backing?: Layer.Layer<Persistence.BackingPersistence>

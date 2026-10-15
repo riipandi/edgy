@@ -66,8 +66,7 @@ describe('GET /users (page)', () => {
   })
 
   it('points the browser at the built scripts and styles it needs', async () => {
-    // Under test the plugin is not linked, so there are no built assets to name; the page must
-    // still render its interactive part (the filter) with the serialized data.
+    // No built assets under test. The filter must still render from the serialized data.
     const html = await (await t.request('/users')).text()
     expect(html).toContain('type=search')
   })

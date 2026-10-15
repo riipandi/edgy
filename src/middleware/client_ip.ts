@@ -17,25 +17,24 @@ export interface ClientIpInput {
 }
 
 /**
- * The client's address, from the most to the least specific claim, believing only what the
- * configuration says may be believed:
+ * The client's address, from the most to the least specific claim. Only headers the
+ * configuration trusts are read:
  *
- * 1. **The platform header** (`TRUSTED_PLATFORM`, e.g. `CF-Connecting-IP`), when it holds an
- *    address. It is read without asking who sent the request: set it only when the app cannot be
- *    reached except through that platform. If the header is missing or malformed the socket's
- *    address is used, never `X-Forwarded-For`: the two are alternatives, not fallbacks.
- * 2. **The socket's address**, unless it belongs to a trusted proxy (`TRUST_PROXY`). A request
- *    from anyone else can write `X-Forwarded-For` as it likes, so the headers are ignored.
- * 3. **`X-Forwarded-For`**, read from the right: every proxy adds the address it received the
- *    request from, so the entries to the right are the proxies' own. Entries that belong to
- *    trusted proxies are skipped; the first one that does not is the client. Everything left of
- *    it was written by the client or before our proxies, and a client that forges the header only
- *    lengthens the list on the left. With `TRUST_PROXY=true` every entry is trusted, so the
- *    leftmost wins.
- * 4. **`X-Real-IP`**, when there is no usable `X-Forwarded-For`.
+ * 1. The platform header (`TRUSTED_PLATFORM`, e.g. `CF-Connecting-IP`), when it holds an
+ *    address. It is read without checking the sender, so set it only when the app is reachable
+ *    solely through that platform. If it is missing or malformed, the socket address is used,
+ *    never `X-Forwarded-For`: the two are alternatives, not fallbacks.
+ * 2. The socket address, unless it belongs to a trusted proxy (`TRUST_PROXY`). Any other peer
+ *    can send any `X-Forwarded-For`, so its headers are ignored.
+ * 3. `X-Forwarded-For`, read from the right. Each proxy appends the address it received the
+ *    request from, so entries belonging to trusted proxies are skipped and the first other
+ *    entry is the client. Entries further left were written by the client or by earlier
+ *    proxies. A forged header only adds entries on the left, so it cannot change the result.
+ *    With `TRUST_PROXY=true` every entry is trusted, so the leftmost wins.
+ * 4. `X-Real-IP`, when there is no usable `X-Forwarded-For`.
  *
- * A malformed entry ends the search: the socket's address is used rather than guessing. With no
- * address at all the answer is `unknown`, one shared bucket, which is the safe direction to fail.
+ * A malformed entry ends the search and the socket address is used. With no address at all
+ * the result is `unknown`, one shared bucket, which fails in the safe direction.
  */
 export const clientAddress = (input: ClientIpInput, trust: ClientIpTrust): string => {
   const socket = input.socket === undefined ? undefined : parseIp(input.socket)
@@ -86,12 +85,11 @@ export interface ClientLocation {
  * The client's country and city from Cloudflare's `CF-IPCountry` / `CF-IPCity`, or `undefined`
  * when they must not be believed.
  *
- * Anyone can send those headers to a server Cloudflare does not front, so they count only when
- * `CLOUDFLARE_LOCATION_HEADERS` is on **and** the platform header (`TRUSTED_PLATFORM`) is set and
- * carries a valid address on this very request: the one thing a request that skipped Cloudflare
- * does not have (and is the same assumption the client address already rests on). Both values are
- * sanitised, because they end up in log lines: a country is two letters or digits (`XX`, unknown,
- * is dropped), a city is printable text of at most 64 characters.
+ * Any client can send those headers to a server Cloudflare does not front, so they count only
+ * when `CLOUDFLARE_LOCATION_HEADERS` is on and the platform header (`TRUSTED_PLATFORM`) holds a
+ * valid address on this request. Both values are sanitised because they are written to logs:
+ * a country is two letters or digits (`XX`, unknown, is dropped), a city is printable and at
+ * most 64 characters.
  */
 export const clientLocation = (
   headers: Pick<Headers, 'get'>,

@@ -20,7 +20,7 @@ const storeOn = (cache: EdgeCache) =>
   Effect.gen(function* () {
     const backing = yield* Persistence.BackingPersistence
     return yield* backing.make('edgy:cache:users')
-    // A test helper is its own entry point: it builds one layer, once, for one store.
+    // The test helper is its own entry point, so it provides the layer itself.
     // oxlint-disable-next-line effecttsgo/strict-effect-provide
   }).pipe(Effect.provide(layerBackingEdgeCache(cache)))
 

@@ -21,10 +21,5 @@ const rootCmd = Command.make('edgy').pipe(
   ])
 )
 
-/**
- * Root CLI program. Running it without a subcommand prints the help document.
- *
- * The version is read from `package.json` so `--version` can never drift from
- * the published manifest.
- */
+/** Root CLI program. Without a subcommand it prints help. The version comes from `package.json`. */
 export const run = Command.run(rootCmd, { version: pkg.version })

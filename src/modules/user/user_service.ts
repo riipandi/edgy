@@ -15,10 +15,9 @@ declare module '../../kernel/http/runtime.ts' {
 }
 
 /**
- * Cache key for one user, and what the cache stores under it: the user, or `null` for an id
- * that is known not to exist (so a probe for a missing id does not reach the database each
- * time). The error schema only types the lookup's failure; a failure is never stored.
- * Deliberately not named `*Request`: that suffix is reserved for HTTP request schemas.
+ * Cache key for one user, and the value stored under it: the user, or `null` for an id known not to
+ * exist, so probes for a missing id do not reach the database. Failures are never stored. Not named
+ * `*Request`, a suffix reserved for HTTP request schemas.
  */
 class UserLookup extends Persistable.Class<{ payload: { readonly id: string } }>()('UserLookup', {
   primaryKey: ({ id }) => id,
@@ -39,11 +38,10 @@ export class UserService extends Context.Service<
   }
 >()('UserService') {
   /**
-   * `get` reads through a cache shaped by `CACHE_*` (`makeReadThrough`): off, in this process,
-   * or in a shared store with a short local copy on top. Every write invalidates the key it
-   * touches, so the staleness bound only covers writes made by another instance (and, for a
-   * shared store with a local copy, `CACHE_LOCAL_TTL`). `?nocache=true` skips it for one
-   * request. `list` bypasses the cache.
+   * `get` reads through a cache configured by `CACHE_*`: off, in-process, or a shared store with a
+   * short local copy on top. Writes invalidate the keys they touch, so staleness is bounded only for
+   * writes made by another instance (and by `CACHE_LOCAL_TTL` with a local copy). `?nocache=true`
+   * skips the cache for one request. `list` bypasses it.
    */
   static readonly layer: Layer.Layer<
     UserService,
@@ -67,9 +65,8 @@ export class UserService extends Context.Service<
           return user
         }),
         list: repository.findPage,
-        // Write policy: a write invalidates the cache keys it touches. A lookup of an id that
-        // did not exist is cached as `null`, so without this the user just created would stay
-        // "not found" until the entry expired.
+        // A missing id is cached as `null`. Without this invalidation, a user just created would read as
+        // not found until the entry expired.
         create: Effect.fn('UserService.create')(function* (input: UserCreateRequest) {
           const user = yield* repository.insert(input)
           yield* cache.invalidate(new UserLookup({ id: user.id }))

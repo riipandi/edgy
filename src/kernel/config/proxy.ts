@@ -3,10 +3,9 @@ import { type IpRange, parseRange, type TrustedProxies } from '../ip.ts'
 type Parsed<A> = { readonly value: A } | { readonly problem: string }
 
 /**
- * `TRUST_PROXY`: `false` (no proxy is trusted), `true` (every address is), or a comma-separated
- * list of addresses and CIDR ranges (`10.0.0.10,172.18.0.0/16`). Case is ignored for the
- * keywords; each list entry must be an address or a range, so a typo stops startup instead of
- * silently leaving a proxy untrusted (and every client sharing the proxy's rate-limit bucket).
+ * `TRUST_PROXY`: `false`, `true`, or a comma-separated list of addresses and CIDR ranges. Each
+ * list entry must parse: a typo would leave the proxy untrusted, putting every client in the
+ * proxy's rate-limit bucket, so startup fails instead.
  */
 export const parseTrustProxy = (raw: string): Parsed<TrustedProxies> => {
   const keyword = raw.toLowerCase()
@@ -26,11 +25,7 @@ export const parseTrustProxy = (raw: string): Parsed<TrustedProxies> => {
   return { value: { kind: 'list', ranges } }
 }
 
-/**
- * `TRUSTED_PLATFORM`: the name of a header the platform sets to the client address. A header name
- * is a token (letters, digits, hyphen); it is lower-cased because headers are case-insensitive.
- * Empty means none.
- */
+/** `TRUSTED_PLATFORM`: a header the platform sets to the client address. Empty means none. */
 export const parseTrustedPlatform = (raw: string): Parsed<string | undefined> => {
   if (raw === '') return { value: undefined }
   if (!/^[A-Za-z0-9-]+$/.test(raw)) {

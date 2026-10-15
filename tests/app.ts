@@ -22,7 +22,7 @@ import { ServicesLayer } from '../src/services.ts'
 const BASE_ENV: Readonly<Record<string, string>> = {
   DATABASE_PATH: ':memory:',
   LOG_LEVEL: 'None',
-  // The defaults point at the Docker Compose collector; a test must not export to it.
+  // The defaults point at a local collector; tests must not export to it.
   OTEL_SDK_DISABLED: 'true'
 }
 
@@ -49,12 +49,10 @@ export interface TestApp {
 }
 
 /**
- * Builds the real application — same `createApp`, same services, same migrations
- * — over a private in-memory SQLite database, and talks to it through
- * `app.fetch`, so tests exercise the whole stack without opening a port.
+ * Builds the real application (same `createApp`, services and migrations) over a private in-memory
+ * SQLite database. Requests go through `app.fetch`, so no port opens.
  *
- * `env` overrides configuration the way real environment variables would, so a
- * test can turn on rate limiting or metrics exactly as an operator does.
+ * `env` overrides configuration as real environment variables would.
  */
 export const makeTestApp = async (
   env: Readonly<Record<string, string>> = {},
@@ -63,7 +61,7 @@ export const makeTestApp = async (
     readonly rateCheck?: RateCheck
     /** Where `/assets/**` is read from; the route is absent when omitted, as on Workers. */
     readonly assets?: AssetSource
-    /** As under `pnpm dev`: the HTML policy allows what Vite needs. */
+    /** Development mode: the HTML policy allows what Vite needs. */
     readonly development?: boolean
     /** Stands in for the shared cache store (`CACHE_STORE=redis`); in-process when absent. */
     readonly cacheBacking?: Layer.Layer<Persistence.BackingPersistence>

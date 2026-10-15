@@ -26,7 +26,7 @@ export const cacheConfig = group(
   },
   {
     title: 'Cache',
-    // A cache that holds nothing would still pay for its bookkeeping on every read.
+    // An enabled cache with no room pays its bookkeeping on every read for nothing.
     transform: (raw) =>
       raw.enabled && raw.maxEntries < 1
         ? Effect.fail(

@@ -8,10 +8,9 @@ import { UserListQuerySchema } from './user_schema.ts'
 import { UserService } from './user_service.ts'
 
 /**
- * `GET /users`: the directory as an HTML page. It reads through the same service as
- * `GET /api/users` and takes the same `page`, `limit` and sort parameters, so the page and the API
- * cannot disagree about who exists. The list is fetched here, on the server; the template only
- * filters what it was given.
+ * `GET /users`: the user directory as an HTML page. It takes the same parameters as `GET /api/users`
+ * and reads through the same service, so the page and the API cannot disagree. The list is fetched on
+ * the server; the template only filters what it was given.
  */
 export const usersPageHandler = definePageHandler({
   load: (event) =>
@@ -25,7 +24,7 @@ export const usersPageHandler = definePageHandler({
   template: () => import('../../../app/pages/users.marko')
 })
 
-/** `/users` page group; `routes/route.ts` mounts it at the origin root, beside the API. */
+/** `/users` page group, mounted at the origin root beside the API. */
 export const userPages = defineRouteGroup({
   prefix: '/users',
   routes: (r) => {

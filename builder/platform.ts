@@ -4,29 +4,25 @@ import { type ConfigEnv, mergeConfig, type UserConfig } from 'vite'
 export type Platform = 'node' | 'worker'
 
 /**
- * The platform a Vite run is for, chosen with Vite's own `--mode`: `worker` is the Worker, anything
- * else (the default `development` / `production`, or `node`) is the Node server.
+ * The platform of a Vite run, chosen with `--mode`: `worker` is the Worker, anything else is Node.
  *
- * A mode is the one switch Vite's command line offers that reaches the configuration. It also
- * picks the env files Vite loads (`.env.worker`, `.env.worker.local`), which is what a platform
- * wants. (`--target`, the obvious name, is Vite's language level for `vite build`, and any flag
- * Vite does not know is refused before the configuration is read.)
+ * A mode is the only switch that reaches the configuration from Vite's command line, and it also
+ * selects the env files (`.env.worker`, `.env.worker.local`). `--target` cannot serve this purpose:
+ * it is Vite's language level for `vite build`.
  */
 export const platformOf = (env: Pick<ConfigEnv, 'mode'>): Platform =>
   env.mode === 'worker' ? 'worker' : 'node'
 
-/** Where a platform's build is written: the server (or Worker) and, in `public/`, the browser assets. */
+/** Output directory per platform: the server or Worker, with browser assets in `public/`. */
 export const OUT_DIR = { node: 'dist/server', worker: 'dist/worker' } as const satisfies Record<
   Platform,
   string
 >
 
 /**
- * Applies `defaults` to the configuration a plugin's `config` hook receives, without overriding
- * anything already there. A hook that *returns* its settings wins over the user's file and the
- * command line (that is how Vite merges the two), so a build that asks for another output directory
- * or format (`pnpm compile`) would be ignored; writing defaults underneath keeps every explicit
- * setting in charge, and the plugin's own the fallback.
+ * Applies `defaults` under the configuration a `config` hook receives, so explicit settings win.
+ * A returned config would override the user's file and the command line, which would ignore
+ * a build such as `pnpm compile` asking for another output directory.
  */
 export const withDefaults = (config: UserConfig, defaults: UserConfig): void => {
   Object.assign(config, mergeConfig(defaults, config))

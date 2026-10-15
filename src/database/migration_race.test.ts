@@ -31,7 +31,7 @@ describe('migrations on SQLite', () => {
     const tables = await sql<{
       name: string
     }>`select name from sqlite_master where name = 'half'`.execute(db)
-    expect(tables.rows).toEqual([]) // rolled back, and the migration is not recorded as run
+    expect(tables.rows).toEqual([]) // Rolled back, and not recorded as applied.
     await db.destroy()
   })
 
@@ -54,7 +54,7 @@ describe('migrations on SQLite', () => {
           child.on('close', (code) => resolve({ code, output }))
         })
 
-      // Before the lock, the second process died on `kysely_migration`'s primary key, every time.
+      // Without the lock, the second process fails on the kysely_migration primary key.
       const results = await Promise.all([run(), run()])
       for (const { code, output } of results) {
         expect({ code, output: code === 0 ? '' : output }).toEqual({ code: 0, output: '' })

@@ -1,14 +1,9 @@
 import { choice, flag, group, milliseconds, ratio, secret, text, type ValueOf } from './field.ts'
 
 /**
- * Operational endpoints and telemetry export. Telemetry is OTLP over HTTP/JSON (no
- * gRPC), sent to any OpenTelemetry collector.
- *
- * The defaults point at the ClickStack/HyperDX of `pnpm compose:up`, so a development
- * checkout exports with no setup. Where no collector is running the exporters fail
- * quietly and pause, so nothing breaks; a deployment that has none should set
- * `OTEL_SDK_DISABLED=true` (as `wrangler.jsonc` does) rather than keep exporting to
- * localhost.
+ * Telemetry is OTLP over HTTP/JSON (no gRPC). The defaults target the local collector of
+ * `pnpm compose:up`. Where no collector runs, exporters fail quietly and pause; a deployment
+ * without one should set `OTEL_SDK_DISABLED=true` rather than export to localhost.
  */
 export const observabilityConfig = group(
   {
@@ -56,10 +51,6 @@ export const observabilityConfig = group(
 
 export type ObservabilityConfig = ValueOf<typeof observabilityConfig>
 
-/**
- * Whether traces and metrics are exported: not disabled, and an endpoint to send them
- * to. One definition, so the exporters, the request tracing and the `trace_id` the
- * response carries cannot disagree about whether telemetry is on.
- */
+/** Whether traces and metrics are exported. One definition, so exporters and tracing agree. */
 export const telemetryEnabled = (config: ObservabilityConfig): boolean =>
   !config.sdkDisabled && config.otlpEndpoint !== ''

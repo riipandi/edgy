@@ -7,14 +7,9 @@ import { ConfigService } from './kernel/config/service.ts'
 import { ServicesLayer } from './services.ts'
 
 /**
- * The Redis/Valkey connection (`REDIS_URL`), shared by everything that uses Redis: this one
- * layer value is built once per `AppLayer`, so the rate limiter and the cache open a single
- * connection between them. Only referenced by a feature configured for `redis`.
- *
- * Loaded lazily: the client library is large, and importing it from the package's barrel would
- * load it on every start (and bundle it into the entry chunk) whether or not Redis is used.
- * It connects when the layer is built, so a wrong `REDIS_URL` stops `serve` at startup instead
- * of failing open on every request.
+ * Redis connection (`REDIS_URL`), built once per `AppLayer` so the rate limiter and the cache share
+ * it. Imported lazily because the client is large and would otherwise load on every start. It
+ * connects when built, so a wrong `REDIS_URL` stops `serve` at startup instead of failing requests.
  */
 const RedisLayer = Layer.unwrap(
   Effect.gen(function* () {
@@ -25,10 +20,8 @@ const RedisLayer = Layer.unwrap(
 )
 
 /**
- * Effect's `RateLimiter` over the store `RATE_LIMIT_STORE` names. `memory` is provided so
- * the service always exists; the in-process counter in `rate_limit.ts` is what serves
- * requests then, and it is all a disabled limiter gets: Redis is not contacted unless the
- * limiter is on.
+ * Effect's `RateLimiter` over the store `RATE_LIMIT_STORE` names. The memory store is always
+ * provided so the service exists. Redis is contacted only when the limiter is enabled.
  */
 const RateLimiterLayer = Layer.unwrap(
   Effect.gen(function* () {
@@ -48,9 +41,8 @@ const RateLimiterLayer = Layer.unwrap(
 )
 
 /**
- * `Persistence` for the read-through cache, by `CACHE_STORE`. `memory` (and a disabled cache)
- * get the in-process one, which keeps nothing outside the cache's own memory; `redis` is
- * guarded so an unreachable Redis costs entries, not requests (`guardBacking`).
+ * `Persistence` for the read-through cache, by `CACHE_STORE`. Redis is guarded, so an unreachable
+ * server costs cache entries, not requests.
  */
 const CachePersistenceLayer = Layer.unwrap(
   Effect.gen(function* () {
@@ -68,11 +60,9 @@ const CachePersistenceLayer = Layer.unwrap(
 )
 
 /**
- * Data-access stack for Node.js: the configured database driver, the rate limiter's
- * store, then every module's services on top. Built once per command
- * (`Command.provide`), while `CoreLayer` is provided once at the entry point. The Workers
- * entry composes `ServicesLayer` with D1 itself, so none of the Node-only pieces
- * (`node:sqlite`, Redis) reach it.
+ * Data-access stack for Node: the database driver, the rate limiter's store, then the module
+ * services. Node-only pieces (`node:sqlite`, Redis) stay out of the Workers entry, which composes
+ * `ServicesLayer` with D1 itself.
  */
 export const AppLayer = ServicesLayer.pipe(
   Layer.provide(CachePersistenceLayer),

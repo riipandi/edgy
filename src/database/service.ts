@@ -14,13 +14,8 @@ declare module '../kernel/http/runtime.ts' {
 }
 
 /**
- * Whether a database failure is a uniqueness violation. Repositories use it to
- * turn the generic {@link DatabaseError} into a domain `Conflict`.
- *
- * Two shapes exist: `node:sqlite` reports the extended result code (2067
- * `UNIQUE`, 1555 `PRIMARY KEY`) on `errcode`, while D1 only reports text
- * (`UNIQUE constraint failed: users.email`). Both are recognised, so a
- * repository does not care which driver is configured.
+ * Whether a database failure is a uniqueness violation. `node:sqlite` reports an extended result
+ * code on `errcode`; D1 reports only the message text. Both are recognised.
  */
 export const isUniqueViolation = (error: DatabaseError): boolean => {
   const { cause } = error
@@ -29,11 +24,7 @@ export const isUniqueViolation = (error: DatabaseError): boolean => {
   return 'message' in cause && String(cause.message).includes('UNIQUE constraint failed')
 }
 
-/**
- * Up to two more attempts, 50 ms then about 100 ms apart, each delay randomised by
- * jitter so that many requests failing together do not all retry in the same instant.
- * Bounded on purpose: the request timeout still caps the total.
- */
+/** Up to two retries, about 50 ms then 100 ms apart, with jitter. The request timeout caps the total. */
 const readRetry = {
   schedule: Schedule.jittered(Schedule.exponential('50 millis')),
   times: 2,
@@ -41,33 +32,25 @@ const readRetry = {
 } as const
 
 /**
- * Database service. Repositories, the migrator and seeders depend on this key
- * instead of a raw `Kysely` instance, so the connection lifecycle stays owned by
- * the Effect scope and the driver (`sqlite` or `d1`) stays a deployment choice.
+ * Database service. Callers depend on this key rather than a raw `Kysely`, so the connection
+ * lifecycle stays in the Effect scope and the driver (`sqlite` or `d1`) is a deployment choice.
  */
 export class DatabaseService extends Context.Service<
   DatabaseService,
   {
     readonly db: Kysely<Database>
-    /**
-     * Runs a Kysely operation and maps any rejection to {@link DatabaseError}.
-     * Every query goes through here, so the error channel is uniform and the
-     * `tryPromise` boilerplate lives in one place.
-     */
+    /** Runs a Kysely operation and maps any rejection to {@link DatabaseError}. */
     readonly query: <A>(
       run: (db: Kysely<Database>) => Promise<A>
     ) => Effect.Effect<A, DatabaseError>
     /**
-     * Like {@link query}, for operations that only **read**. On a driver where
-     * transient failures happen (D1, over the network) it repeats the read, up to
-     * two more times with jittered backoff, when the failure is transient; elsewhere it
-     * is exactly `query`. Never pass a write: repeating one is not safe.
+     * Like {@link query}, for read-only operations. On a networked driver (D1) it retries transient
+     * failures up to twice with jittered backoff; elsewhere it is exactly `query`. Never pass a write.
      */
     readonly read: <A>(run: (db: Kysely<Database>) => Promise<A>) => Effect.Effect<A, DatabaseError>
     /**
-     * Runs `run` atomically: it commits when the promise resolves and rolls back
-     * when it rejects. Inside, use the `trx` handle, never the outer `db`.
-     * Fails with {@link DatabaseError} on drivers without transactions (D1).
+     * Runs `run` atomically: commits when it resolves, rolls back when it rejects. Use the `trx`
+     * handle inside, not the outer `db`. Fails with {@link DatabaseError} on D1.
      */
     readonly transaction: <A>(
       run: (trx: Transaction<Database>) => Promise<A>
@@ -77,25 +60,19 @@ export class DatabaseService extends Context.Service<
   }
 >()('DatabaseService') {}
 
-/** Elapsed time rounded to 0.01 ms, the precision the request log uses. */
+/** Rounds to 0.01 ms, the request log precision. */
 const roundMs = (millis: number): number => Math.round(millis * 100) / 100
 
 /**
- * Builds Kysely's `log` callback on top of the Effect logger.
+ * Builds Kysely's `log` callback on the Effect logger.
  *
- * - `query` events log the SQL and its duration at `Trace`, the only level that
- *   prints statements. They are skipped before any Effect is built when `Trace`
- *   is disabled, so the hot path pays one boolean check.
- * - `error` events log at `Warn`. They add what a `DatabaseError` lacks (the
- *   statement) and are expected for a unique violation, so they are not errors.
+ * `query` events log at `Trace`, the only level that prints statements, and are skipped before any
+ * Effect is built when `Trace` is off. `error` events log at `Warn` with the statement, which a
+ * `DatabaseError` lacks. They are not errors: unique violations are expected.
  *
- * Bound parameters are never logged: they carry user data (emails today,
- * credentials tomorrow), and the SQL text already identifies the query.
+ * Bound parameters are never logged, since they carry user data.
  *
- * Kysely calls the callback from outside any fiber, so each entry runs on a
- * snapshot of the layer's context, which is where the configured logger lives.
- * The request id comes from {@link currentRequestId}, so the line can be tied to
- * the request that issued the query.
+ * Kysely calls the callback outside any fiber, so each entry runs on a snapshot of the layer's context.
  */
 export const makeQueryLogger = Effect.gen(function* () {
   const traceEnabled = yield* LogLevel.isEnabled('Trace')
@@ -132,30 +109,24 @@ export const makeQueryLogger = Effect.gen(function* () {
 })
 
 interface DatabaseOptions {
-  /** Whether the driver can run interactive transactions. */
+  /** Whether the driver runs interactive transactions. */
   readonly transactions: boolean
-  /** Whether every operation shares one connection that callers queue for (`node:sqlite`). */
+  /** Whether all operations share one connection that callers queue for (`node:sqlite`). */
   readonly singleConnection: boolean
   /** Whether {@link DatabaseService.read} retries transient failures (a networked driver). */
   readonly retryReads: boolean
 }
 
-/**
- * Wraps a Kysely instance in the service contract. Both drivers go through this
- * one function, so `query`, `transaction` and `ping` behave identically and only
- * the connection setup differs.
- */
+/** Wraps a Kysely instance in the service contract. Drivers differ only in connection setup. */
 export const makeDatabaseService = (
   db: Kysely<Database>,
   options: DatabaseOptions
 ): DatabaseService['Service'] => {
   const query: DatabaseService['Service']['query'] = (run) =>
     Effect.tryPromise({
-      // The fiber's signal aborts on interruption (a timeout, a client that left). On a driver
-      // with one connection, `connection().execute` is the queue a caller can leave: a query
-      // still waiting for its turn when the request is cancelled never runs, instead of running
-      // after the `504` and being created twice by the client's retry. `run` receives a handle
-      // bound to that connection, which is all it needs.
+      // Aborts on interruption. On a single-connection driver the queue is the cancellation point: a
+      // query still waiting when the request is cancelled never runs, so a client retry after a 504
+      // cannot create the row twice.
       try: (signal) =>
         options.singleConnection ? db.connection().execute(run, { signal }) : run(db),
       catch: (cause) => new DatabaseError({ cause })

@@ -34,36 +34,32 @@ const callerSpan = (event: H3Event): Option.Option<Tracer.ExternalSpan> => {
 }
 
 /**
- * What a program settled on. A client error (below 500) is an *answer*, not a failure of the
- * server span: it is carried as a value so the span ends `Ok` with `http.response.status_code`
- * set, as OpenTelemetry asks for server spans, and 404s and validation errors do not fill the
- * error dashboards. Only 5xx and defects fail the span.
+ * What a program settled on. A client error (below 500) is a value, not a failure: the server span
+ * ends `Ok` with `http.response.status_code` set, as OpenTelemetry asks for server spans, so 404s
+ * and validation errors stay out of error dashboards. Only 5xx and defects fail the span.
  */
 export type Outcome<A> =
   | { readonly kind: 'value'; readonly value: A }
   | { readonly kind: 'refused'; readonly error: AppError }
 
 /**
- * Bridge Effect -> HTTP: run a program on the shared runtime and report what it settled on, for
- * whichever response shape the caller renders (the API envelope in {@link runEffect}, an HTML page
- * in `page.ts`). A typed failure carries its own `status` and `clientMessage` ({@link AppError}),
- * so a new error needs no branch here.
+ * Runs a program on the shared runtime and reports what it settled on, for whichever response
+ * shape the caller renders (the API envelope in `runEffect`, or an HTML page). A typed failure
+ * carries its own `status` and `clientMessage`, so a new error needs no branch here.
  *
- * This function owns everything around the program: the request timeout, interruption on client
- * disconnect, error reporting, tracing, and the success or error envelope.
+ * Owns everything around the program: request timeout, interruption on client disconnect, error
+ * reporting, tracing, and the envelope.
  *
- * **Tracing.** The program runs inside a server span named after the matched route
- * (`GET /api/users/:id`, never the raw path, so span names stay low-cardinality) with
- * the method, path, route, request id and final status as attributes. A `traceparent`
- * header continues the caller's trace and its sampled flag is honoured; otherwise the
- * request is a trace root, recorded for `OTEL_TRACES_SAMPLE_RATIO` of requests. When
- * traces are exported and this one is recorded, its id is returned as
- * `metadata.trace_id`, which is what lets a client report a problem that can be found.
+ * **Tracing.** The program runs in a server span named after the matched route
+ * (`GET /api/users/:id`, never the raw path, so span names stay low-cardinality), with the method,
+ * path, route, request id and final status as attributes. A `traceparent` header continues the
+ * caller's trace and its sampled flag is honoured; otherwise the request is a trace root, recorded
+ * for `OTEL_TRACES_SAMPLE_RATIO` of requests. A recorded trace's id is returned as
+ * `metadata.trace_id`.
  *
- * **Errors.** The program is wrapped in `Effect.withErrorReporting`, so a database
- * failure, a timeout or a defect reaches the error reporters (`error_reporter.ts`)
- * once, while expected failures (validation, not found: `ErrorReporter.ignore`) and
- * interruptions do not. The client only ever sees a generic message for a 500.
+ * **Errors.** The program is wrapped in `Effect.withErrorReporting`: database failures, timeouts
+ * and defects reach the error reporters once, while expected failures (validation, not found) and
+ * interruptions do not. A 500 always carries only a generic client message.
  */
 export const runProgram = async <A, E extends AppError>(
   event: H3Event,
@@ -73,14 +69,12 @@ export const runProgram = async <A, E extends AppError>(
   const requestId = requestIdOf(event)
   const { requestTimeout, runPromiseExit, tracing } = runtimeOf(event)
 
-  // The pattern the router matched, without the trailing slash a mounted group leaves on
-  // its index route, so `/api/users/` and `/api/users` are one span name.
+  // Drop the trailing slash of a mounted group's index route, so both forms share one span name.
   const matched = event.context.matchedRoute?.route
   const route = matched !== undefined && matched.length > 1 ? matched.replace(/\/+$/, '') : matched
   const caller = callerSpan(event)
-  // A probe polled on a timer (`/health`) is not worth a recorded trace: it would fill the
-  // backend with identical spans. A caller that sends its own sampled `traceparent` still
-  // gets its trace; failures are not lost, they reach the log and the error reporters.
+  // Probes polled on a timer are not traced: they would fill the backend with identical spans.
+  // A caller's `traceparent` still gets its trace; failures still reach the log and reporters.
   const sampling = Option.isSome(caller)
     ? { parent: caller.value }
     : isProbe(event.url.pathname)
@@ -102,25 +96,17 @@ export const runProgram = async <A, E extends AppError>(
   }
 
   /**
-   * What the program settled on. A client error (below 500) is an *answer*, not a
-   * failure of the server span: it is carried here as a value so the span ends `Ok`
-   * with `http.response.status_code` set, as OpenTelemetry asks for server spans, and
-   * 404s and validation errors do not fill the error dashboards. Only 5xx and defects
-   * fail the span.
-   */
-  /**
-   * Notes the trace this request belongs to, on success and on failure alike: remembered on the
-   * event so the request log line, written after the fiber has finished, can join the same
-   * trace, and (when traces are exported and this one was recorded) offered to the client as
-   * `metadata.trace_id`, a `trc_` TypeID. A failed request needs it most.
+   * Records the request's trace on the event, on success and failure alike. The request log,
+   * written after the fiber ends, joins it through the event. A recorded trace is also offered
+   * to the client as `metadata.trace_id` (a `trc_` TypeID). A failed request needs it most.
    */
   const noteTrace = Effect.currentSpan.pipe(
     Effect.flatMap((span) =>
       Effect.sync(() => {
         event.context.trace = { traceId: span.traceId, spanId: span.spanId, sampled: span.sampled }
         if (!tracing.enabled || !span.sampled) return
-        // The backend indexes the hex id; the `trc_` form is what clients and log lines show.
-        // Putting it on the span too makes a pasted `trc_…` searchable there.
+        // The backend indexes the hex id; the `trc_` form is what clients see. Setting it on the
+        // span too makes a pasted `trc_` id searchable.
         const id = traceTypeId(span.traceId)
         event.context.traceTypeId = id
         // Both header sets: h3 builds an error response from `errHeaders` only.
@@ -168,7 +154,7 @@ export const runProgram = async <A, E extends AppError>(
   const cache = summarizeTally(cacheTally)
   if (cache !== undefined) {
     event.context.cache = cache
-    // Both header sets: h3 builds an error response (a 404 for a missing user) from `errHeaders` only.
+    // Both header sets: h3 builds error responses from `errHeaders` only.
     event.res.headers.set(CACHE_HEADER, cache.toUpperCase())
     event.res.errHeaders.set(CACHE_HEADER, cache.toUpperCase())
   }
@@ -211,11 +197,7 @@ const failure = (event: H3Event, cause: Cause.Cause<AppError>): ApiError => {
   return fail(500, 'Internal server error', defectBody(cause, diagnostics))
 }
 
-/**
- * Runs a program that answers in the API envelope (`.llms/api-response.md`): {@link runProgram}
- * does the work, this function turns what it settled on into the success or error envelope and
- * sets the response status.
- */
+/** Runs a program and shapes its outcome into the API envelope. `runProgram` does the work. */
 export const runEffect = <E extends AppError>(
   event: H3Event,
   effect: Effect.Effect<Reply, E, HttpEnv>,
