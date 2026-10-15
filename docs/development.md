@@ -43,7 +43,7 @@ Migrations are applied explicitly — nothing runs automatically unless the serv
 pnpm app migrate:status     # check what is applied / pending
 pnpm app migrate:up         # apply pending migrations
 pnpm app migrate:down       # roll back the last migration
-pnpm app migrate:reset --up --seed   # fresh schema + sample data
+pnpm app migrate:reset --up --seed   # fresh schema + sample data (also needed once after ids became TypeIDs)
 ```
 
 New migrations are added as a file plus a registry entry; see the CLI documentation for the

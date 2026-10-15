@@ -1,5 +1,6 @@
 import { Effect } from 'effect'
 import type { DatabaseError } from '../../kernel/errors.ts'
+import { newId } from '../../kernel/ids.ts'
 import type { UsersTable } from '../../modules/user/user_schema.ts'
 import { DatabaseService } from '../service.ts'
 
@@ -20,7 +21,7 @@ export const seedUsers: Effect.Effect<void, DatabaseError, DatabaseService> = Da
       for (const user of SAMPLE_USERS) {
         await db
           .insertInto('users')
-          .values(user)
+          .values({ id: newId('user'), ...user })
           .onConflict((oc) => oc.column('email').doNothing())
           .execute()
       }

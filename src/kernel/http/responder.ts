@@ -4,6 +4,7 @@ import type { H3Event } from 'h3'
 import { requestIdOf } from '../../middleware/request_id.ts'
 import { isProbe } from '../../observer/quiet_paths.ts'
 import { type AppError, RequestTimeout } from '../errors.ts'
+import { traceTypeId } from '../ids.ts'
 import { errorEnvelope, linkHeader, successEnvelope } from './envelope.ts'
 import type { ApiError, ApiSuccess, Reply } from './envelope.ts'
 import { type HttpEnv, runtimeOf } from './runtime.ts'
@@ -99,14 +100,19 @@ export const runEffect = <E extends AppError>(
   /**
    * Notes the trace this request belongs to: remembered on the event so the request log
    * line, written after the fiber has finished, can join the same trace, and offered to
-   * the client as `trace_id` when traces are exported and this one was recorded.
+   * the client as `trace_id` (a `trc_` TypeID) when traces are exported and this one was recorded.
    */
   const settle = (outcome: Outcome): Effect.Effect<Outcome> =>
     Effect.currentSpan.pipe(
       Effect.map((span): Outcome => {
         event.context.trace = { traceId: span.traceId, spanId: span.spanId, sampled: span.sampled }
-        return outcome.kind === 'reply' && tracing.enabled && span.sampled
-          ? { kind: 'reply', reply: { ...outcome.reply, traceId: span.traceId } }
+        if (!tracing.enabled || !span.sampled) return outcome
+        // The backend indexes the hex id; the `trc_` form is what clients and log lines show.
+        // Putting it on the span too makes a pasted `trc_…` searchable there.
+        const traceId = traceTypeId(span.traceId)
+        span.attribute('trace.typeid', traceId)
+        return outcome.kind === 'reply'
+          ? { kind: 'reply', reply: { ...outcome.reply, traceId } }
           : outcome
       }),
       Effect.orElseSucceed(() => outcome)

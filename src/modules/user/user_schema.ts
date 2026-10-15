@@ -1,6 +1,6 @@
 import { Schema } from 'effect'
-import type { Generated } from 'kysely'
 import { paginationQuery } from '../../kernel/http/pagination.ts'
+import { idSchema } from '../../kernel/ids.ts'
 
 const EmailSchema = Schema.String.pipe(
   Schema.check(
@@ -8,6 +8,9 @@ const EmailSchema = Schema.String.pipe(
     Schema.isPattern(/^[^@\s]+@[^@\s]+\.[^@\s]+$/, { message: 'must be a valid email address' })
   )
 )
+
+/** A `user_` TypeID, minted by the repository on insert. */
+export const UserIdSchema = idSchema('user')
 
 const NameSchema = Schema.String.pipe(Schema.check(Schema.isMaxLength(200)))
 
@@ -20,7 +23,7 @@ const NameSchema = Schema.String.pipe(Schema.check(Schema.isMaxLength(200)))
  * `<Name>` and is exported only when code consumes it.
  */
 export const UserSchema = Schema.Struct({
-  id: Schema.Int,
+  id: UserIdSchema,
   email: EmailSchema,
   name: Schema.NullOr(NameSchema)
 })
@@ -35,10 +38,8 @@ export const UserCreateRequestSchema = Schema.Struct({
 
 export type UserCreateRequest = typeof UserCreateRequestSchema.Type
 
-/** Router params arrive as strings: decode `:id` into a positive integer. */
-export const UserIdParamsSchema = Schema.Struct({
-  id: Schema.NumberFromString.pipe(Schema.check(Schema.isInt(), Schema.isGreaterThan(0)))
-})
+/** `:id` must be a `user_` TypeID; anything else is a `400` before a query is built. */
+export const UserIdParamsSchema = Schema.Struct({ id: UserIdSchema })
 
 /** Columns `GET /users` may be sorted by; anything else is a `400`. */
 const userSortKeys = ['id', 'email', 'name'] as const
@@ -57,10 +58,8 @@ export const UserGetResponseSchema = UserSchema
 export const UserListItemSchema = UserSchema
 export const UserCreateResponseSchema = UserSchema
 
-/** Row shape of the `users` table: `User` with a database-generated `id`. */
-export interface UsersTable extends Omit<User, 'id'> {
-  id: Generated<number>
-}
+/** Row shape of the `users` table: the entity itself, its id included. */
+export type UsersTable = User
 
 declare module '../../database/schema.ts' {
   interface Database {

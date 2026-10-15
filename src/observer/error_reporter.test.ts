@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from '@effect/vitest'
 import { makeTestApp, type TestApp } from '../../tests/app.ts'
+import { MISSING_USER_ID } from '../../tests/ids.ts'
 
 let t: TestApp | undefined
 afterEach(async () => {
@@ -48,7 +49,7 @@ describe('error reporting', () => {
     await t.request('/api/users', { method: 'POST', body: { email: 'dup@example.com' } })
 
     const lines = await printed(async () => {
-      expect((await t!.request('/api/users/777')).status).toBe(404)
+      expect((await t!.request(`/api/users/${MISSING_USER_ID}`)).status).toBe(404)
       expect(
         (await t!.request('/api/users', { method: 'POST', body: { email: 'nope' } })).status
       ).toBe(400)

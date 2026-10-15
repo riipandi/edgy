@@ -19,7 +19,7 @@ A successful response carries the payload in `data`, and always reports the HTTP
 ```json
 {
   "status": "success",
-  "data": { "id": 1, "email": "ada@example.com", "name": "Ada Lovelace" },
+  "data": { "id": "user_01m5k7w3p8fvx9r2c4t6y0hq1d", "email": "ada@example.com", "name": "Ada Lovelace" },
   "metadata": { "status_code": 200, "request_id": "req_01m4zyktdnfzva2mkmb76p93hq" }
 }
 ```
@@ -53,7 +53,7 @@ A paginated response adds the position to `metadata` and navigation to `links`:
 ```json
 {
   "status": "success",
-  "data": [{ "id": 1, "email": "ada@example.com", "name": "Ada Lovelace" }],
+  "data": [{ "id": "user_01m5k7w3p8fvx9r2c4t6y0hq1d", "email": "ada@example.com", "name": "Ada Lovelace" }],
   "metadata": {
     "status_code": 200,
     "request_id": "req_01m4zymemrfera61y7ekvtpz48",
@@ -83,7 +83,7 @@ A paginated response adds the position to `metadata` and navigation to `links`:
 | Status | Meaning |
 | ------ | ------- |
 | `400`  | Validation failed (body, path or query), or the body is not valid JSON |
-| `404`  | Unknown path, or unknown user (`"error": { "id": 9999 }`) |
+| `404`  | Unknown path, or unknown user (`"error": { "id": "user_…" }`); an `:id` that is not a `user_` id is a `400` |
 | `415`  | A request body that is not `application/json` |
 | `429`  | Rate limit exceeded; `Retry-After` says how many seconds to wait |
 | `409`  | The user already exists (duplicate email) |
@@ -96,11 +96,14 @@ A paginated response adds the position to `metadata` and navigation to `links`:
 ## Tracing
 
 When the server exports telemetry, a successful response carries `metadata.trace_id`, the id of its
-trace in your observability backend. Send a W3C `traceparent` header to make the server's spans part
-of your own trace; the same id then comes back.
+trace in your observability backend, written as a `trc_` id. Send a W3C `traceparent` header to make
+the server's spans part of your own trace; the same trace comes back.
+
+The `trc_` id is the trace's 128-bit id in another spelling. Search for it as it is in the backend's
+`trace.typeid` span attribute, or decode it to the 32-character hex id with `traceHexOf`.
 
 ```json
-"metadata": { "status_code": 200, "request_id": "req_01m5…", "trace_id": "0af7651916cd43dd8448eb211c80319c" }
+"metadata": { "status_code": 200, "request_id": "req_01m5…", "trace_id": "trc_0ayxjhj5pd8fer8j7b44e80ccw" }
 ```
 
 ## Rate limiting
@@ -136,6 +139,17 @@ Every response carries `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY
 
 For a browser app on another origin, the `Access-Control-Expose-Headers` of every response lists
 `X-Request-ID`, the three `X-RateLimit-*` headers, `Retry-After` and `Link`, so a script can read them.
+
+## Identifiers
+
+Every id is a TypeID: a prefix that says what it is, then 26 characters. They sort by creation time.
+
+| Prefix  | What                         | Where you see it |
+| ------- | ---------------------------- | ---------------- |
+| `req_`  | One request                  | `x-request-id`, `metadata.request_id`, every log line of the request |
+| `trc_`  | One trace                    | `metadata.trace_id`, the `traceId` of request log lines |
+| `user_` | A user                       | `data.id`, `/api/users/:id` |
+| `inst_` | A running server instance    | `service.instance.id` in telemetry |
 
 ## Request ID
 

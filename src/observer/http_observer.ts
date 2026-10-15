@@ -1,6 +1,7 @@
 import { Effect, Tracer } from 'effect'
 import { definePlugin, type H3Event, onError, onResponse } from 'h3'
 import { runtimeOf } from '../kernel/http/runtime.ts'
+import { traceTypeId } from '../kernel/ids.ts'
 import { recordHttpRequest } from './metrics.ts'
 import { isProbe, quietReason } from './quiet_paths.ts'
 
@@ -62,6 +63,7 @@ const observe = (event: H3Event, status: number): void => {
               path,
               status,
               durationMs,
+              ...(trace?.sampled === true ? { traceId: traceTypeId(trace.traceId) } : {}),
               ...(quiet === undefined ? {} : { quiet })
             })
           )

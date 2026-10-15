@@ -1,12 +1,9 @@
 import { definePlugin, type H3Event } from 'h3'
-import { typeid } from 'typeid-js'
 import { runWithRequestId } from '../kernel/http/request_context.ts'
+import { newId } from '../kernel/ids.ts'
 
 /** Response header that carries the request id. */
 export const REQUEST_ID_HEADER = 'x-request-id'
-
-/** TypeID prefix used for generated ids, producing values like `req_01h…`. */
-const REQUEST_ID_PREFIX = 'req'
 
 /** Longest inbound id that will be echoed back; guards against absurd values. */
 const MAX_REQUEST_ID_LENGTH = 128
@@ -34,7 +31,7 @@ export const requestIdOf = (event: H3Event): string | undefined => event.context
  *
  * Honours an inbound `x-request-id` (useful for distributed tracing) and
  * otherwise mints a fresh TypeID — a UUIDv7-based, sortable, prefixed id —
- * via `typeid('req')`. The id is exposed to handlers as
+ * via `newId('request')`. The id is exposed to handlers as
  * `event.context.requestId` and echoed back on the response. The rest of the
  * request runs inside {@link runWithRequestId}, so code outside any fiber can
  * read it.
@@ -48,7 +45,7 @@ export const requestIdOf = (event: H3Event): string | undefined => event.context
  */
 export const requestId = definePlugin((app) => {
   app.use((event, next) => {
-    const id = inboundRequestId(event) ?? typeid(REQUEST_ID_PREFIX).toString()
+    const id = inboundRequestId(event) ?? newId('request')
 
     event.context.requestId = id
     event.res.headers.set(REQUEST_ID_HEADER, id)

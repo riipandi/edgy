@@ -13,6 +13,7 @@ import {
   type ObservabilityConfig,
   telemetryEnabled
 } from '../kernel/config/service.ts'
+import { newId } from '../kernel/ids.ts'
 
 /**
  * Parses `OTEL_EXPORTER_OTLP_HEADERS` (`key=value,key2=value2`, the OpenTelemetry
@@ -44,7 +45,7 @@ export const parseOtlpHeaders = (raw: string): Record<string, string> => {
  * module loads (workerd refuses it with "Disallowed operation called within global scope").
  */
 let instanceId: string | undefined
-const instance = (): string => (instanceId ??= crypto.randomUUID())
+const instance = (): string => (instanceId ??= newId('instance'))
 
 /** Options every OTLP signal shares, built once from configuration. */
 const exportOptions = (config: ObservabilityConfig) => ({

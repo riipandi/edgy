@@ -27,14 +27,14 @@ export interface AppError {
 /** A resource looked up by id does not exist. */
 export class NotFound extends Data.TaggedError('NotFound')<{
   readonly resource: string
-  readonly id: number
+  readonly id: string | number
 }> {
   readonly status = 404
   override readonly [ErrorReporter.ignore] = true
   get clientMessage(): string {
     return `${this.resource} not found`
   }
-  get detail(): { readonly id: number } {
+  get detail(): { readonly id: string | number } {
     return { id: this.id }
   }
 }

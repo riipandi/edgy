@@ -26,7 +26,7 @@ One application, two runtimes. Node.js (`node:sqlite`) and Cloudflare Workers (D
 - **One response format.** Every `/api` response is `{ status, data | error, metadata, links? }` (`api-response.md`). Collections carry pagination metadata and relative links; `sort_by` is checked against a per-resource allow-list. h3-level errors (unknown path, malformed JSON, 413) go through `renderHTTPError` into the same error envelope.
 - **Errors render themselves.** `AppError` is an interface (`status`, `clientMessage`, `detail`); each error class implements it, so the responder only renders. `HttpEnv`, the services a handler may require, is the union of `HttpServices`, which each service extends by declaration merging next to its own definition.
 - **Overload and shutdown.** `provideRuntime` counts requests in flight. `loadShedding` refuses new ones with `503` past `MAX_IN_FLIGHT`. On a stop signal `/health` turns `503`, the server drains in-flight requests (bounded by `SHUTDOWN_TIMEOUT`, counting requests, not connections), then force-closes, then the database is released and the log buffer flushed last.
-- **Ids.** Requests carry a TypeID (`req_…`, or the caller's `x-request-id`), written to `res.headers` and `res.errHeaders`, and bound to the request's async chain so code outside any fiber (Kysely's log callback) can read it.
+- **Ids.** Every identifier is a TypeID from one table (`src/kernel/ids.ts`): `req_` for requests (or the caller's `x-request-id`), `trc_` for traces, `inst_` for the process or isolate, `user_` for users. The request id is written to `res.headers` and `res.errHeaders`, and bound to the request's async chain so code outside any fiber (Kysely's log callback) can read it. The trace id is the OpenTelemetry id's 128 bits re-encoded (`traceTypeId`/`traceHexOf`), so nothing relates the two but the encoding.
 
 ## Data
 
@@ -53,7 +53,7 @@ All environment parsing is in `src/kernel/config/`. Each variable is declared on
 ## Security and resilience
 
 - **Baseline.** Fixed security headers on every response, JSON-only bodies (`415`), body limit (`413`), CORS (credentials with a wildcard origin refused at startup), no authentication (no policy exists to enforce).
-- **Rate limiting** on `/api`, switched by `RATE_LIMIT_ENABLED` (off by default) and backed by `RATE_LIMIT_STORE`. `memory` counts in the process; `redis` counts through Effect's `RateLimiter` over Redis/Valkey so the limit is global (Node only); `cloudflare` asks Workers' Rate Limiting binding, which is per location, eventually consistent and configured in `wrangler.jsonc` (Workers only). Every shared store has a 250 ms budget and a 10 s cooldown after a failure: it fails open, so a store outage never becomes an API outage or a per-request delay.
+- **Rate limiting** on `/api`, switched by `RATE_LIMIT_ENABLED` (on by default) and backed by `RATE_LIMIT_STORE`. `memory` counts in the process; `redis` counts through Effect's `RateLimiter` over Redis/Valkey so the limit is global (Node only); `cloudflare` asks Workers' Rate Limiting binding, which is per location, eventually consistent and configured in `wrangler.jsonc` (Workers only). Every shared store has a 250 ms budget and a 10 s cooldown after a failure: it fails open, so a store outage never becomes an API outage or a per-request delay.
 - **Overload.** `MAX_IN_FLIGHT` refuses early with `503` + `Retry-After`, exempting `/health` and `/metrics`.
 - **Telemetry outages** cost a gap in data, never latency or memory.
 

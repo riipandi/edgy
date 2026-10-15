@@ -3,6 +3,7 @@ import { Effect, Fiber, Layer } from 'effect'
 import { TestClock } from 'effect/testing'
 import { sql } from 'kysely'
 import { type FakeD1Options, fakeD1 } from '../../tests/d1.ts'
+import { userRow } from '../../tests/ids.ts'
 import { DatabaseError } from '../kernel/errors.ts'
 import { D1Binding, D1DatabaseLayer } from './d1.ts'
 import { DatabaseService, isTransientFailure } from './service.ts'
@@ -15,7 +16,7 @@ const selectOne = DatabaseService.use(({ read }) =>
 )
 
 const insertOne = DatabaseService.use(({ query }) =>
-  query((db) => db.insertInto('users').values({ email: 'w@x.io', name: null }).execute())
+  query((db) => db.insertInto('users').values(userRow('w@x.io')).execute())
 )
 
 /** Runs the effect on a fiber, steps the TestClock past every backoff, and returns its exit. */

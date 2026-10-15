@@ -1,6 +1,7 @@
 import { Context, Effect, Layer } from 'effect'
 import { DatabaseService, isUniqueViolation } from '../../database/service.ts'
 import { Conflict, type DatabaseError } from '../../kernel/errors.ts'
+import { newId } from '../../kernel/ids.ts'
 import { makePage, type Page, type PageRequest } from '../../kernel/pagination.ts'
 import type { User, UserCreateRequest, UserSortKey } from './user_schema.ts'
 
@@ -12,7 +13,7 @@ export class UserRepository extends Context.Service<
   UserRepository,
   {
     /** Finds one user by primary key, or `undefined` when absent. */
-    readonly findById: (id: number) => Effect.Effect<User | undefined, DatabaseError>
+    readonly findById: (id: string) => Effect.Effect<User | undefined, DatabaseError>
     /** Returns one page of users in the requested order, with the total across all pages. */
     readonly findPage: (
       request: PageRequest<UserSortKey>
@@ -27,7 +28,7 @@ export class UserRepository extends Context.Service<
       const { query, read } = yield* DatabaseService
 
       return UserRepository.of({
-        findById: Effect.fn('UserRepository.findById')((id: number) =>
+        findById: Effect.fn('UserRepository.findById')((id: string) =>
           read((db) => db.selectFrom('users').selectAll().where('id', '=', id).executeTakeFirst())
         ),
         findPage: Effect.fn('UserRepository.findPage')((request: PageRequest<UserSortKey>) =>
@@ -72,7 +73,7 @@ export class UserRepository extends Context.Service<
           query((db) =>
             db
               .insertInto('users')
-              .values({ email: input.email, name: input.name ?? null })
+              .values({ id: newId('user'), email: input.email, name: input.name ?? null })
               .returningAll()
               .executeTakeFirstOrThrow()
           ).pipe(

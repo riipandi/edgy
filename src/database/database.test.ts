@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from '@effect/vitest'
 import { Effect, Exit, Layer, ManagedRuntime } from 'effect'
 import { makeTestApp, type TestApp } from '../../tests/app.ts'
 import { fakeD1 } from '../../tests/d1.ts'
+import { userRow } from '../../tests/ids.ts'
 import { Conflict, DatabaseError } from '../kernel/errors.ts'
 import { UserRepository } from '../modules/user/user_repo.ts'
 import { D1Binding, D1DatabaseLayer } from './d1.ts'
@@ -32,8 +33,8 @@ describe('transactions (sqlite)', () => {
     await t.run(
       DatabaseService.use(({ transaction }) =>
         transaction(async (trx) => {
-          await trx.insertInto('users').values({ email: 'tx1@example.com', name: null }).execute()
-          await trx.insertInto('users').values({ email: 'tx2@example.com', name: null }).execute()
+          await trx.insertInto('users').values(userRow('tx1@example.com')).execute()
+          await trx.insertInto('users').values(userRow('tx2@example.com')).execute()
         })
       )
     )
@@ -46,7 +47,7 @@ describe('transactions (sqlite)', () => {
       Effect.exit(
         DatabaseService.use(({ transaction }) =>
           transaction(async (trx) => {
-            await trx.insertInto('users').values({ email: 'tx3@example.com', name: null }).execute()
+            await trx.insertInto('users').values(userRow('tx3@example.com')).execute()
             throw new Error('boom')
           })
         )

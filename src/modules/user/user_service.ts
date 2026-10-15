@@ -17,7 +17,7 @@ declare module '../../kernel/http/runtime.ts' {
  */
 interface UserLookup extends Request.Request<User | undefined, DatabaseError> {
   readonly _tag: 'UserLookup'
-  readonly id: number
+  readonly id: string
 }
 
 const UserLookup = Request.tagged<UserLookup>('UserLookup')
@@ -27,7 +27,7 @@ export class UserService extends Context.Service<
   UserService,
   {
     /** Returns a user or fails with `NotFound`. Reads are served through a cache. */
-    readonly get: (id: number) => Effect.Effect<User, NotFound | DatabaseError>
+    readonly get: (id: string) => Effect.Effect<User, NotFound | DatabaseError>
     /** Returns one page of users. Lists bypass the cache. */
     readonly list: (request: PageRequest<UserSortKey>) => Effect.Effect<Page<User>, DatabaseError>
     /** Creates a user from validated input. */
@@ -57,7 +57,7 @@ export class UserService extends Context.Service<
       })
 
       return UserService.of({
-        get: Effect.fn('UserService.get')(function* (id: number) {
+        get: Effect.fn('UserService.get')(function* (id: string) {
           const user = yield* Cache.get(cache, UserLookup({ id }))
           if (user === undefined) return yield* new NotFound({ resource: 'User', id })
           return user

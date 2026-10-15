@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from '@effect/vitest'
 import { makeTestApp, type TestApp } from '../../tests/app.ts'
+import { MISSING_USER_ID } from '../../tests/ids.ts'
 
 let t: TestApp | undefined
 afterEach(async () => {
@@ -38,13 +39,15 @@ describe('request log noise', () => {
 
   it('still logs a real request and a real 404', async () => {
     const lines = await logged('Info', async (app) => {
-      await get(app, '/api/users', '/api/users/999999', '/nope')
+      await get(app, '/api/users', `/api/users/${MISSING_USER_ID}`, '/nope')
     })
     expect(lines.some((line) => line.includes('INFO') && line.includes('GET /api/users 200'))).toBe(
       true
     )
     expect(
-      lines.some((line) => line.includes('WARN') && line.includes('GET /api/users/999999 404'))
+      lines.some(
+        (line) => line.includes('WARN') && line.includes(`GET /api/users/${MISSING_USER_ID} 404`)
+      )
     ).toBe(true)
     expect(lines.some((line) => line.includes('WARN') && line.includes('GET /nope 404'))).toBe(true)
   })

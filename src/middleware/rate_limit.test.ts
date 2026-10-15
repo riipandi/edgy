@@ -8,9 +8,11 @@ afterEach(async () => {
 })
 
 describe('rate limiting', () => {
-  it('is off by default', async () => {
+  it('is on by default, with an allowance of 100 per window', async () => {
     t = await makeTestApp()
-    for (let i = 0; i < 5; i += 1) expect((await t.request('/api/users')).status).toBe(200)
+    const response = await t.request('/api/users')
+    expect(response.headers.get('x-ratelimit-limit')).toBe('100')
+    expect(response.headers.get('x-ratelimit-remaining')).toBe('99')
   })
 
   it('is off when RATE_LIMIT_ENABLED is false, whatever the other settings say', async () => {

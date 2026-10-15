@@ -91,7 +91,7 @@ logs go to the platform's stream.
 
 | Variable            | Default    | Description                                                              |
 | ------------------- | ---------- | ------------------------------------------------------------------------ |
-| `RATE_LIMIT_ENABLED` | `false`   | Turns rate limiting on `/api` on or off                                  |
+| `RATE_LIMIT_ENABLED` | `true`    | Turns rate limiting on `/api` on or off                                  |
 | `RATE_LIMIT_MAX`    | `100`      | Requests per client per window; at least `1`. With `cloudflare` it is only reported, so keep it equal to the limit in `wrangler.jsonc` |
 | `RATE_LIMIT_WINDOW` | `60000`    | Length of the rate-limit window, in milliseconds                         |
 | `RATE_LIMIT_STORE`  | `memory`   | Where counters live: `memory` (per process), `redis` (shared by every instance, Node.js only) or `cloudflare` (Workers only) |

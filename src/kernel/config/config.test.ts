@@ -18,7 +18,7 @@ describe('configuration', () => {
     const config = await parse({})
     expect(config.server.port).toBe(3000)
     expect(config.database.driver).toBe('sqlite')
-    expect(config.security.rateLimitEnabled).toBe(false)
+    expect(config.security.rateLimitEnabled).toBe(true)
     expect(config.security.rateLimitMax).toBe(100)
     expect(config.observability.metricsEnabled).toBe(false)
     expect(config.logging.transport).toEqual(['console'])
@@ -110,7 +110,7 @@ describe('configuration', () => {
     )
     await expect(parse({ RATE_LIMIT_STORE: 'kv' })).rejects.toThrow(/RATE_LIMIT_STORE/)
     // a disabled limiter ignores the maximum
-    await expect(parse({ RATE_LIMIT_MAX: '0' })).resolves.toBeDefined()
+    await expect(parse({ RATE_LIMIT_ENABLED: 'false', RATE_LIMIT_MAX: '0' })).resolves.toBeDefined()
   })
 
   it('rejects an unknown or empty LOG_TRANSPORT', async () => {

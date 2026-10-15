@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from '@effect/vitest'
 import { makeTestApp, type TestApp } from '../../tests/app.ts'
+import { MISSING_USER_ID } from '../../tests/ids.ts'
 
 let t: TestApp
 beforeAll(async () => {
@@ -58,12 +59,12 @@ describe('envelope', () => {
   })
 
   it('renders typed failures from the error itself', async () => {
-    const missing = await t.request('/api/users/987654')
+    const missing = await t.request(`/api/users/${MISSING_USER_ID}`)
     expect(missing.status).toBe(404)
     expect(await json(missing)).toMatchObject({
       status: 'error',
       message: 'User not found',
-      error: { id: 987654 },
+      error: { id: MISSING_USER_ID },
       metadata: { status_code: 404 }
     })
 
@@ -150,8 +151,8 @@ describe('pagination', () => {
 
   it('sorts by an allow-listed column and rejects the rest', async () => {
     const desc = await json(await t.request('/api/users?sort_by=id&sort_order=desc&limit=3'))
-    const ids = desc.data.map((user: { id: number }) => user.id)
-    expect(ids).toEqual([...ids].sort((a, b) => b - a))
+    const ids = desc.data.map((user: { id: string }) => user.id)
+    expect(ids).toEqual([...ids].sort((a, b) => (a < b ? 1 : -1)))
 
     expect((await t.request('/api/users?sort_by=password')).status).toBe(400)
     expect((await t.request('/api/users?limit=101')).status).toBe(400)

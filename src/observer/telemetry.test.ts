@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from '@effect/vitest'
 import { makeTestApp, type TestApp } from '../../tests/app.ts'
 import { attributeOf, type FakeCollector, spansOf, startCollector } from '../../tests/collector.ts'
+import { MISSING_USER_ID } from '../../tests/ids.ts'
+import { traceHexOf } from '../kernel/ids.ts'
 import { parseOtlpHeaders } from './telemetry.ts'
 
 describe('parseOtlpHeaders', () => {
@@ -55,20 +57,20 @@ describe('exported telemetry', () => {
 
   it('records a server span named after the route, with the response status', async () => {
     t = await start()
-    await t.request('/api/users/42')
+    await t.request(`/api/users/${MISSING_USER_ID}`)
     await flushed()
 
     const span = spansOf(collector).find((entry) => entry.name === 'GET /api/users/:id')
     expect(span).toBeDefined()
     expect(span.kind).toBe(2) // SERVER
     expect(attributeOf(span, 'http.route')).toBe('/api/users/:id')
-    expect(attributeOf(span, 'url.path')).toBe('/api/users/42')
+    expect(attributeOf(span, 'url.path')).toBe(`/api/users/${MISSING_USER_ID}`)
     expect(attributeOf(span, 'http.response.status_code')).toBe(404)
   })
 
   it('does not mark a client error as a failed server span', async () => {
     t = await start()
-    await t.request('/api/users/42') // 404
+    await t.request(`/api/users/${MISSING_USER_ID}`) // 404
     await flushed()
 
     const span = spansOf(collector).find((entry) => entry.name === 'GET /api/users/:id')
@@ -106,10 +108,13 @@ describe('exported telemetry', () => {
     const body: any = await response.json()
     await flushed()
 
-    expect(body.metadata.trace_id).toBe(traceId)
+    expect(body.metadata.trace_id).toMatch(/^trc_[0-7][0-9a-hjkmnp-tv-z]{25}$/)
+    expect(traceHexOf(body.metadata.trace_id)).toBe(traceId)
     const span = spansOf(collector).find((entry) => entry.name === 'GET /api/users')
     expect(span.traceId).toBe(traceId)
     expect(span.parentSpanId).toBe('b7ad6b7169203331')
+    // a pasted trc_ id finds the span
+    expect(attributeOf(span, 'trace.typeid')).toBe(body.metadata.trace_id)
   })
 
   it('gives a fresh trace to a request with no traceparent', async () => {
@@ -117,8 +122,9 @@ describe('exported telemetry', () => {
     const body: any = await (await t.request('/api/users')).json()
     await flushed()
 
-    expect(body.metadata.trace_id).toMatch(/^[0-9a-f]{32}$/)
-    expect(spansOf(collector).some((span) => span.traceId === body.metadata.trace_id)).toBe(true)
+    const hex = traceHexOf(body.metadata.trace_id)
+    expect(hex).toMatch(/^[0-9a-f]{32}$/)
+    expect(spansOf(collector).some((span) => span.traceId === hex)).toBe(true)
   })
 
   it('records nothing and returns no trace_id when the sample ratio is 0', async () => {
