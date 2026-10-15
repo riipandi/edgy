@@ -7,6 +7,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  renameSync,
   rmSync,
   statSync,
   writeFileSync
@@ -107,16 +108,25 @@ const compile = async (): Promise<string> => {
 
     mkdirSync(path.join(rootDir, DIST_DIR), { recursive: true })
     const output = path.join(rootDir, DIST_DIR, outputName)
-    copyFileSync(process.execPath, output)
-    chmodSync(output, 0o755)
+    // Built beside the result and renamed last, so a failure never leaves a plain Node binary
+    // under the executable's name.
+    const partial = `${output}.partial`
+    try {
+      copyFileSync(process.execPath, partial)
+      chmodSync(partial, 0o755)
 
-    const mac = process.platform === 'darwin'
-    if (mac) codesign(['--remove-signature', output])
-    await inject(output, 'NODE_SEA_BLOB', readFileSync(blob), {
-      sentinelFuse: NODE_SEA_FUSE,
-      ...(mac ? { machoSegmentName: 'NODE_SEA' } : {})
-    })
-    if (mac) codesign(['--sign', '-', output])
+      const mac = process.platform === 'darwin'
+      if (mac) codesign(['--remove-signature', partial])
+      await inject(partial, 'NODE_SEA_BLOB', readFileSync(blob), {
+        sentinelFuse: NODE_SEA_FUSE,
+        ...(mac ? { machoSegmentName: 'NODE_SEA' } : {})
+      })
+      if (mac) codesign(['--sign', '-', partial])
+      renameSync(partial, output)
+    } catch (error) {
+      rmSync(partial, { force: true })
+      throw error
+    }
     return output
   } finally {
     rmSync(temp, { recursive: true, force: true })

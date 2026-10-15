@@ -57,6 +57,38 @@ describe('export HTTP client', () => {
   )
 })
 
+describe('export HTTP client with a stalled body', () => {
+  /** Answers at once with headers, then never finishes the body. */
+  const stalled: typeof globalThis.fetch = async () =>
+    new Response(new ReadableStream({ pull: () => new Promise(() => {}) }), { status: 200 })
+
+  it.effect('fails the export instead of holding the fiber', () =>
+    Effect.gen(function* () {
+      const client = yield* HttpClient.HttpClient
+      const fiber = yield* Effect.forkChild(
+        Effect.exit(
+          client
+            .get('http://collector.invalid/v1/traces')
+            .pipe(Effect.flatMap((response) => response.arrayBuffer))
+        )
+      )
+      yield* TestClock.adjust('6 seconds')
+      const exit = yield* Fiber.join(fiber)
+
+      expect(Exit.isFailure(exit)).toBe(true)
+      expect(JSON.stringify(exit)).toContain('export timed out')
+    }).pipe(
+      // oxlint-disable-next-line effecttsgo/strict-effect-provide
+      Effect.provide(
+        ExportHttpClient.pipe(
+          Layer.provide(Layer.succeed(FetchHttpClient.Fetch)(stalled)),
+          Layer.provideMerge(Layer.empty)
+        )
+      )
+    )
+  )
+})
+
 describe('exported telemetry', () => {
   let collector: FakeCollector
   let t: TestApp | undefined

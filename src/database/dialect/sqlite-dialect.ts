@@ -6,30 +6,22 @@
  * migration behaviour of `NodeSQLiteAdapter`.
  */
 import type { DatabaseIntrospector, Dialect, Driver } from 'kysely'
-import { Kysely, SqliteAdapter, SqliteIntrospector, SqliteQueryCompiler, sql } from 'kysely'
+import { Kysely, SqliteAdapter, SqliteIntrospector, SqliteQueryCompiler } from 'kysely'
 import type { DatabaseSync } from 'node:sqlite'
 import { NodeSQLiteDriver } from './sqlite-driver.ts'
 
 /**
- * Kysely's stock SQLite adapter with two migration changes.
+ * Kysely's stock SQLite adapter, except that SQLite can roll DDL back: the stock adapter says it
+ * cannot. A migration that failed halfway would leave its tables behind unrecorded, so the migrator
+ * wraps the batch and its record in one transaction.
  *
- * - Transactional DDL: SQLite can roll back DDL, but the stock adapter says it cannot. A migration
- *   that failed halfway would leave its tables behind unrecorded, so the migrator wraps the batch and
- *   its record in one transaction.
- * - Migration lock: stock SQLite takes none, so two processes starting together could apply the same
- *   migration and one would fail on the `kysely_migration` primary key. The lock is a write to the
- *   lock table inside that transaction. The second process waits on SQLite's write lock, then finds
- *   nothing pending.
+ * There is no migration lock. Kysely takes it on the connection before the transaction starts, so
+ * it would not be held. The driver's `BEGIN IMMEDIATE` is the lock: a second process waits for the
+ * write lock, then finds nothing pending.
  */
 class NodeSQLiteAdapter extends SqliteAdapter {
   override get supportsTransactionalDdl(): boolean {
     return true
-  }
-
-  override async acquireMigrationLock(db: Kysely<unknown>): Promise<void> {
-    await sql`update kysely_migration_lock set is_locked = is_locked where id = 'migration_lock'`.execute(
-      db
-    )
   }
 }
 

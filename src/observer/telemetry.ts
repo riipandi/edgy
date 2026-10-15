@@ -145,18 +145,24 @@ export const ExportHttpClient = Layer.effect(
   HttpClient.HttpClient,
   Effect.map(HttpClient.HttpClient, (client) =>
     HttpClient.transform(client, (response, request) =>
-      Effect.timeoutOrElse(response, {
-        duration: EXPORT_TIMEOUT,
-        orElse: () =>
-          Effect.fail(
-            new HttpClientError.HttpClientError({
-              reason: new HttpClientError.TransportError({
-                request,
-                description: 'export timed out'
+      // The body is read here, under the deadline: the exporter reads it with none, and a
+      // collector that sends headers and then stalls would hold the export fiber forever.
+      // The read is cached, so the exporter's own read returns at once.
+      Effect.timeoutOrElse(
+        Effect.tap(response, (answer) => Effect.ignore(answer.arrayBuffer)),
+        {
+          duration: EXPORT_TIMEOUT,
+          orElse: () =>
+            Effect.fail(
+              new HttpClientError.HttpClientError({
+                reason: new HttpClientError.TransportError({
+                  request,
+                  description: 'export timed out'
+                })
               })
-            })
-          )
-      })
+            )
+        }
+      )
     )
   )
 ).pipe(Layer.provide(FetchHttpClient.layer))

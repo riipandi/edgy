@@ -15,8 +15,12 @@ const SENSITIVE_NAME =
 export const isSensitiveName = (name: string): boolean =>
   SENSITIVE_NAME.test(name.replace(/([a-z])([A-Z])/g, '$1_$2'))
 
-/** `scheme://user:password@host`, the form connection strings take (Redis, Postgres, HTTP). */
-const URL_CREDENTIALS = /(\b[a-z][a-z0-9+.-]*:\/\/[^\s/:@]*:)[^\s/@]+(@)/gi
+/**
+ * `scheme://user:password@host`, the form connection strings take (Redis, Postgres, HTTP). The
+ * password runs to the last `@` of the token, since an unescaped `/` or `@` inside it is common
+ * and a partial redaction would leak the rest.
+ */
+const URL_CREDENTIALS = /(\b[a-z][a-z0-9+.-]*:\/\/[^\s/:@]*:)\S+(@)/gi
 
 /** `Authorization`-style values: a scheme word followed by an opaque credential. */
 const AUTH_SCHEME = /\b(Bearer|Basic|Digest|Token)\s+[A-Za-z0-9._~+/=-]{8,}/g

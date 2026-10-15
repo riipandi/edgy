@@ -59,8 +59,13 @@ export class NodeSQLiteDriver implements Driver, AsyncDisposable {
     await this.destroy()
   }
 
+  /**
+   * `IMMEDIATE` takes the write lock at the start, waiting out the busy timeout. A plain `BEGIN`
+   * reads first and upgrades later, and under WAL that upgrade fails at once (`database is
+   * locked`, the busy timeout is not consulted) when another process committed in between.
+   */
   async beginTransaction(connection: DatabaseConnection): Promise<void> {
-    await connection.executeQuery(CompiledQuery.raw('BEGIN'))
+    await connection.executeQuery(CompiledQuery.raw('BEGIN IMMEDIATE'))
   }
 
   async commitTransaction(connection: DatabaseConnection): Promise<void> {

@@ -7,6 +7,11 @@ describe('redactText', () => {
     expect(redactText('connect ECONNREFUSED redis://:securedb@localhost:6379')).toBe(
       `connect ECONNREFUSED redis://:${REDACTED}@localhost:6379`
     )
+    for (const password of ['pa/ss', 'p@ss', 'p@s/s@x']) {
+      expect(redactText(`postgres://app:${password}@db.internal/app failed`)).toBe(
+        `postgres://app:${REDACTED}@db.internal/app failed`
+      )
+    }
     expect(redactText('postgres://app:hunter2@db.internal/app failed')).toBe(
       `postgres://app:${REDACTED}@db.internal/app failed`
     )
