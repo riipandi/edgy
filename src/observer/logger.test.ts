@@ -1,5 +1,6 @@
 import { NodeServices } from '@effect/platform-node'
 import { Cause, ConfigProvider, Effect, Layer, Logger, ManagedRuntime } from 'effect'
+import { TestClock } from 'effect/testing'
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -134,6 +135,42 @@ describe('file transport', () => {
     await run({ LOG_TRANSPORT: 'console', LOG_LEVEL: 'None' }, join(dir, 'app.jsonl'))
 
     expect(existsSync(dir) && readdirSync(dir)).toEqual([])
+    rmSync(dir, { recursive: true, force: true })
+  })
+})
+
+describe('file rotation through the logger', () => {
+  it('starts a new file when the clock crosses a boundary', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'edgy-log-'))
+    const core = LoggerLayer.pipe(
+      Layer.provide(NodeServices.layer),
+      Layer.provideMerge(ConfigLayer),
+      Layer.provide(
+        ConfigProvider.layer(
+          ConfigProvider.fromEnvRecord({
+            LOG_TRANSPORT: 'file',
+            LOG_ROTATION: 'daily',
+            LOG_FILE: join(dir, 'edgy.jsonl')
+          })
+        )
+      ),
+      Layer.merge(TestClock.layer())
+    )
+    const runtime = ManagedRuntime.make(core)
+
+    await runtime.runPromise(
+      Effect.gen(function* () {
+        yield* TestClock.setTime(Date.parse('2026-10-15T23:59:59Z'))
+        yield* Effect.logInfo('before midnight')
+        yield* TestClock.adjust('2 seconds')
+        yield* Effect.logInfo('after midnight')
+      })
+    )
+    await runtime.dispose()
+
+    expect(readdirSync(dir).sort()).toEqual(['edgy_20261015.jsonl', 'edgy_20261016.jsonl'])
+    expect(readFileSync(join(dir, 'edgy_20261015.jsonl'), 'utf8')).toContain('before midnight')
+    expect(readFileSync(join(dir, 'edgy_20261016.jsonl'), 'utf8')).toContain('after midnight')
     rmSync(dir, { recursive: true, force: true })
   })
 })

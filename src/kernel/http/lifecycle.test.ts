@@ -1,5 +1,6 @@
-import { Effect } from 'effect'
-import { afterEach, describe, expect, it } from 'vitest'
+import { Effect, Fiber, ManagedRuntime } from 'effect'
+import { TestClock } from 'effect/testing'
+import { afterAll, afterEach, describe, expect, it } from 'vitest'
 import { makeTestApp, type TestApp } from '../../../tests/app.ts'
 import { makeInFlight } from './inflight.ts'
 
@@ -24,23 +25,30 @@ describe('readiness during shutdown', () => {
 })
 
 describe('in-flight tracking', () => {
-  it('reports drained only after every request has left', async () => {
-    const inFlight = makeInFlight()
-    inFlight.enter()
-    inFlight.enter()
-    expect(await Effect.runPromise(inFlight.count)).toBe(2)
+  // Time is the TestClock's, so the poll interval is stepped through instead of waited for.
+  const runtime = ManagedRuntime.make(TestClock.layer())
+  afterAll(() => runtime.dispose())
 
-    let drained = false
-    const waiting = Effect.runPromise(inFlight.drained).then(() => {
-      drained = true
-    })
+  it('reports drained only after every request has left', () =>
+    runtime.runPromise(
+      Effect.gen(function* () {
+        const inFlight = makeInFlight()
+        inFlight.enter()
+        inFlight.enter()
+        expect(yield* inFlight.count).toBe(2)
 
-    inFlight.leave()
-    await new Promise((resolve) => setTimeout(resolve, 60))
-    expect(drained).toBe(false)
+        const waiting = yield* Effect.forkChild(inFlight.drained)
 
-    inFlight.leave()
-    await waiting
-    expect(drained).toBe(true)
-  })
+        // Plenty of polls pass while one request is still in flight.
+        yield* TestClock.adjust('1 second')
+        inFlight.leave()
+        yield* TestClock.adjust('1 second')
+        expect(waiting.pollUnsafe()).toBeUndefined()
+
+        inFlight.leave()
+        yield* TestClock.adjust('25 millis')
+        yield* Fiber.join(waiting)
+        expect(yield* inFlight.count).toBe(0)
+      })
+    ))
 })
