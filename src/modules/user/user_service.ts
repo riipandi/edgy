@@ -1,4 +1,4 @@
-import { Cache, Context, Duration, Effect, Layer, Request, RequestResolver } from 'effect'
+import { Cache, Context, Duration, Effect, Exit, Layer, Request, RequestResolver } from 'effect'
 import type { Conflict, DatabaseError } from '../../kernel/errors.ts'
 import { NotFound } from '../../kernel/errors.ts'
 import type { Page, PageRequest } from '../../kernel/pagination.ts'
@@ -36,7 +36,7 @@ export class UserService extends Context.Service<
 >()('UserService') {
   /**
    * The read-through cache is private to this layer: it is keyed by request
-   * equality (the id), holds 256 entries and expires after 30 seconds. Every
+   * equality (the id), holds 256 entries and expires after 30 seconds (failures are not kept). Every
    * write invalidates the keys it touches, so the staleness bound only covers
    * writes made by another process. `list` bypasses the cache.
    */
@@ -50,7 +50,10 @@ export class UserService extends Context.Service<
       )
       const cache = yield* RequestResolver.asCache(resolver, {
         capacity: 256,
-        timeToLive: () => Duration.seconds(30)
+        // Only a found (or confirmed-missing) user is worth keeping. `Cache` stores
+        // failures too, so without this a transient `SQLITE_BUSY` would be replayed
+        // to every caller for the whole TTL; a zero TTL makes the next call retry.
+        timeToLive: (exit) => (Exit.isSuccess(exit) ? Duration.seconds(30) : Duration.zero)
       })
 
       return UserService.of({
