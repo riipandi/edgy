@@ -1,8 +1,8 @@
 import { Context, Effect, Layer } from 'effect'
-import { DatabaseService, isUniqueViolation } from '../database/service.ts'
-import { Conflict, type DatabaseError } from '../kernel/errors.ts'
-import { makePage, type Page, type PageRequest } from '../kernel/pagination.ts'
-import type { User, UserCreateRequest, UserSortKey } from '../schemas/user_schema.ts'
+import { DatabaseService, isUniqueViolation } from '../../database/service.ts'
+import { Conflict, type DatabaseError } from '../../kernel/errors.ts'
+import { makePage, type Page, type PageRequest } from '../../kernel/pagination.ts'
+import type { User, UserCreateRequest, UserSortKey } from './user_schema.ts'
 
 /**
  * Persistence port for users. The service layer depends on this key, never on

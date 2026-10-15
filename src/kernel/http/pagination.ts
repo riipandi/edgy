@@ -105,7 +105,7 @@ export const paginationLinks = (url: URL, meta: ApiPagination): ApiLinks => {
   const to = (target: number) => {
     const params = new URLSearchParams(url.searchParams)
     params.set('page', String(target))
-    return `${url.pathname}?${params}`
+    return `${url.pathname}?${params.toString()}`
   }
 
   return {

@@ -1,7 +1,7 @@
 import { Effect } from 'effect'
 import { Command, Flag } from 'effect/cli'
 import { migrateToLatest } from '../database/migrator.ts'
-import { AppLayer } from '../kernel/layers.ts'
+import { AppLayer } from '../layers.ts'
 import { serveHttp } from '../server.ts'
 
 /** `serve` — start the HTTP server, optionally migrating first. */

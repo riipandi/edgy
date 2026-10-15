@@ -1,7 +1,7 @@
 import { Effect, Option } from 'effect'
 import { Command, Flag } from 'effect/cli'
+import { DatabaseLayer } from '../database/layer.ts'
 import { getMigrationInfos, migrateTo, migrateToLatest } from '../database/migrator.ts'
-import { DatabaseService } from '../database/service.ts'
 import { print } from './helper.ts'
 
 /** `migrate:up` — run pending database migrations. */
@@ -46,4 +46,4 @@ export const migrateUpCmd = Command.make(
         yield* print(`${result.status}: ${result.migrationName}`)
       }
     })
-).pipe(Command.provide(DatabaseService.layer), Command.withDescription('Run database migrations'))
+).pipe(Command.provide(DatabaseLayer), Command.withDescription('Run database migrations'))

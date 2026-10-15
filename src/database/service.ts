@@ -1,28 +1,60 @@
-import { Context, Effect, Layer, LogLevel } from 'effect'
-import { Kysely, type LogEvent, sql } from 'kysely'
-import { mkdirSync } from 'node:fs'
-import { dirname } from 'node:path'
-import { DatabaseSync } from 'node:sqlite'
-import { ConfigService } from '../kernel/config/service.ts'
+import { Context, Effect, LogLevel } from 'effect'
+import { type Kysely, type LogEvent, sql, type Transaction } from 'kysely'
 import { DatabaseError } from '../kernel/errors.ts'
-import type { Database } from '../schemas/database.ts'
-import { NodeSQLiteDialect } from './dialect/sqlite-dialect.ts'
+import { currentRequestId } from '../kernel/http/request_context.ts'
+import type { Database } from './schema.ts'
 
-/** SQLite extended result codes for `UNIQUE` and `PRIMARY KEY` violations. */
-const UNIQUE_VIOLATION_CODES: ReadonlySet<unknown> = new Set([2067, 1555])
+declare module '../kernel/http/runtime.ts' {
+  interface HttpServices {
+    database: DatabaseService
+  }
+}
 
 /**
- * Whether a `node:sqlite` failure is a uniqueness violation. Repositories use
- * it to turn the generic {@link DatabaseError} into a domain `Conflict`.
+ * Whether a database failure is a uniqueness violation. Repositories use it to
+ * turn the generic {@link DatabaseError} into a domain `Conflict`.
+ *
+ * Two shapes exist: `node:sqlite` reports the extended result code (2067
+ * `UNIQUE`, 1555 `PRIMARY KEY`) on `errcode`, while D1 only reports text
+ * (`UNIQUE constraint failed: users.email`). Both are recognised, so a
+ * repository does not care which driver is configured.
  */
-export const isUniqueViolation = (error: DatabaseError): boolean =>
-  typeof error.cause === 'object' &&
-  error.cause !== null &&
-  'errcode' in error.cause &&
-  UNIQUE_VIOLATION_CODES.has(error.cause.errcode)
+export const isUniqueViolation = (error: DatabaseError): boolean => {
+  const { cause } = error
+  if (typeof cause !== 'object' || cause === null) return false
+  if ('errcode' in cause && (cause.errcode === 2067 || cause.errcode === 1555)) return true
+  return 'message' in cause && String(cause.message).includes('UNIQUE constraint failed')
+}
 
-/** How long SQLite retries a locked database before failing with `SQLITE_BUSY`. */
-const BUSY_TIMEOUT_MS = 5000
+/**
+ * Database service. Repositories, the migrator and seeders depend on this key
+ * instead of a raw `Kysely` instance, so the connection lifecycle stays owned by
+ * the Effect scope and the driver (`sqlite` or `d1`) stays a deployment choice.
+ */
+export class DatabaseService extends Context.Service<
+  DatabaseService,
+  {
+    readonly db: Kysely<Database>
+    /**
+     * Runs a Kysely operation and maps any rejection to {@link DatabaseError}.
+     * Every query goes through here, so the error channel is uniform and the
+     * `tryPromise` boilerplate lives in one place.
+     */
+    readonly query: <A>(
+      run: (db: Kysely<Database>) => Promise<A>
+    ) => Effect.Effect<A, DatabaseError>
+    /**
+     * Runs `run` atomically: it commits when the promise resolves and rolls back
+     * when it rejects. Inside, use the `trx` handle, never the outer `db`.
+     * Fails with {@link DatabaseError} on drivers without transactions (D1).
+     */
+    readonly transaction: <A>(
+      run: (trx: Transaction<Database>) => Promise<A>
+    ) => Effect.Effect<A, DatabaseError>
+    /** Cheapest round trip to the database; used by the readiness probe. */
+    readonly ping: Effect.Effect<void, DatabaseError>
+  }
+>()('DatabaseService') {}
 
 /** Elapsed time rounded to 0.01 ms, the precision the request log uses. */
 const roundMs = (millis: number): number => Math.round(millis * 100) / 100
@@ -41,10 +73,17 @@ const roundMs = (millis: number): number => Math.round(millis * 100) / 100
  *
  * Kysely calls the callback from outside any fiber, so each entry runs on a
  * snapshot of the layer's context, which is where the configured logger lives.
+ * The request id comes from {@link currentRequestId}, so the line can be tied to
+ * the request that issued the query.
  */
-const makeQueryLogger = Effect.gen(function* () {
+export const makeQueryLogger = Effect.gen(function* () {
   const traceEnabled = yield* LogLevel.isEnabled('Trace')
   const run = Effect.runSyncWith(yield* Effect.context())
+
+  const annotations = (fields: Record<string, unknown>): Record<string, unknown> => {
+    const requestId = currentRequestId()
+    return requestId === undefined ? fields : { requestId, ...fields }
+  }
 
   return (event: LogEvent): void => {
     const durationMs = roundMs(event.queryDurationMillis)
@@ -52,85 +91,55 @@ const makeQueryLogger = Effect.gen(function* () {
 
     if (event.level === 'query') {
       if (traceEnabled) {
-        run(Effect.logTrace(statement).pipe(Effect.annotateLogs({ durationMs })))
+        run(Effect.logTrace(statement).pipe(Effect.annotateLogs(annotations({ durationMs }))))
       }
       return
     }
 
     run(
       Effect.logWarning('Query failed').pipe(
-        Effect.annotateLogs({ sql: statement, durationMs, error: String(event.error) })
+        Effect.annotateLogs(annotations({ sql: statement, durationMs, error: String(event.error) }))
       )
     )
   }
 })
 
+interface DatabaseOptions {
+  /** Whether the driver can run interactive transactions. */
+  readonly transactions: boolean
+}
+
 /**
- * Database service. Repositories, the migrator and seeders depend on this key
- * instead of a raw `Kysely` instance, so the connection lifecycle stays owned
- * by the Effect scope.
+ * Wraps a Kysely instance in the service contract. Both drivers go through this
+ * one function, so `query`, `transaction` and `ping` behave identically and only
+ * the connection setup differs.
  */
-export class DatabaseService extends Context.Service<
-  DatabaseService,
-  {
-    readonly db: Kysely<Database>
-    /**
-     * Runs a Kysely operation and maps any rejection to {@link DatabaseError}.
-     * Every query goes through here, so the error channel is uniform and the
-     * `tryPromise` boilerplate lives in one place.
-     */
-    readonly query: <A>(
-      run: (db: Kysely<Database>) => Promise<A>
-    ) => Effect.Effect<A, DatabaseError>
-    /** Cheapest round trip to the database; used by the readiness probe. */
-    readonly ping: Effect.Effect<void, DatabaseError>
-  }
->()('DatabaseService') {
-  /**
-   * Opens the SQLite connection once per scope and destroys it on release.
-   * Schema creation is owned by the migrator, not by this layer.
-   *
-   * Backed by Node's built-in `node:sqlite` (through {@link NodeSQLiteDialect}),
-   * so no native module has to be compiled or shipped alongside the bundle.
-   */
-  static readonly layer: Layer.Layer<DatabaseService, DatabaseError, ConfigService> = Layer.effect(
-    DatabaseService,
-    Effect.gen(function* () {
-      const { database } = yield* ConfigService
-      const databasePath = database.path
-      const log = yield* makeQueryLogger
+export const makeDatabaseService = (
+  db: Kysely<Database>,
+  options: DatabaseOptions
+): DatabaseService['Service'] => {
+  const query: DatabaseService['Service']['query'] = (run) =>
+    Effect.tryPromise({
+      try: () => run(db),
+      catch: (cause) => new DatabaseError({ cause })
+    })
 
-      const connection = yield* Effect.acquireRelease(
-        Effect.try({
-          try: () => {
-            mkdirSync(dirname(databasePath), { recursive: true })
-            const sqlite = new DatabaseSync(databasePath, { timeout: BUSY_TIMEOUT_MS })
-            // WAL lets `migrate:*` and the server share one file without readers
-            // and the writer blocking each other. Not applicable to `:memory:`.
-            if (databasePath !== ':memory:') sqlite.exec('PRAGMA journal_mode = WAL')
-            const db = new Kysely<Database>({ dialect: new NodeSQLiteDialect(sqlite), log })
-            return { db, sqlite }
-          },
-          catch: (cause) => new DatabaseError({ cause })
-        }),
-        ({ db, sqlite }) =>
-          Effect.promise(async () => {
-            await db.destroy()
-            sqlite.close()
-          })
-      )
-
-      const query: DatabaseService['Service']['query'] = (run) =>
-        Effect.tryPromise({
-          try: () => run(connection.db),
+  const transaction: DatabaseService['Service']['transaction'] = (run) =>
+    options.transactions
+      ? Effect.tryPromise({
+          try: () => db.transaction().execute(run),
           catch: (cause) => new DatabaseError({ cause })
         })
+      : Effect.fail(
+          new DatabaseError({
+            cause: new Error('Transactions are not supported by the configured database driver')
+          })
+        )
 
-      return DatabaseService.of({
-        db: connection.db,
-        query,
-        ping: Effect.asVoid(query((db) => sql`select 1`.execute(db)))
-      })
-    })
-  )
+  return DatabaseService.of({
+    db,
+    query,
+    transaction,
+    ping: Effect.asVoid(query((connection) => sql`select 1`.execute(connection)))
+  })
 }

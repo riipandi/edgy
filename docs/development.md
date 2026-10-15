@@ -6,10 +6,13 @@ Day-to-day commands for working on the server.
 
 ```bash
 pnpm watch        # server with --watch (auto-restart on change)
+pnpm preview      # run the Cloudflare Worker locally (workerd + a local D1 database)
+pnpm test         # vitest run
+pnpm test:watch   # vitest, re-runs on change
 pnpm typecheck    # tsc --noEmit
-pnpm check        # oxfmt --check + oxlint
+pnpm check        # oxfmt --check + oxlint (read-only; what a hook or CI should run)
 pnpm format       # oxfmt --write .
-pnpm lint         # oxlint --fix .
+pnpm lint         # oxlint --fix . (rewrites files)
 ```
 
 ## Running from source
@@ -38,20 +41,40 @@ pnpm app migrate:reset --up --seed   # fresh schema + sample data
 New migrations are added as a file plus a registry entry; see the CLI documentation for the
 command-level flags and the confirmation behaviour of destructive commands.
 
-## Validation before claiming a change works
+## Cloudflare Workers locally
 
-There is no test suite yet (`pnpm test` is a placeholder), so the working validation is:
+`pnpm preview` starts the Worker in `workerd`, the runtime Cloudflare uses, with a local D1 database
+stored under `.wrangler/`. Pending migrations are applied when the Worker starts
+(`DATABASE_AUTO_MIGRATE` in `wrangler.jsonc`), so a fresh checkout works with no extra step:
 
 ```bash
-pnpm typecheck && pnpm check
+pnpm preview            # http://127.0.0.1:3000
 ```
 
-Plus a runtime probe on a fresh database — a green typecheck does not exercise the composition
-root:
+To prepare or inspect that same database from the CLI, select the `d1` driver:
 
 ```bash
-DATABASE_PATH=$(mktemp -d)/probe.db pnpm app migrate:up
-DATABASE_PATH=$(mktemp -d)/probe.db pnpm app serve   # then curl an endpoint
+DATABASE_DRIVER=d1 pnpm app migrate:status
+DATABASE_DRIVER=d1 pnpm app migrate:up
+```
+
+## Tests
+
+Tests use [Vitest](https://vitest.dev) and sit next to the code they cover (`*.test.ts`). They build the
+real application over a private in-memory database and call it in-process, so no port is opened.
+`pnpm test` also checks that `.env.example` matches the configuration.
+
+## Validation before claiming a change works
+
+```bash
+pnpm typecheck && pnpm check && pnpm test
+```
+
+Plus a run against a real server — a green test suite does not exercise the built bundle:
+
+```bash
+pnpm build
+DATABASE_PATH=$(mktemp -d)/probe.db node dist/server/index.mjs serve --auto-migrate
 ```
 
 ## Related docs

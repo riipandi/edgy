@@ -28,6 +28,52 @@ Run the bundle anywhere, with no `node_modules` present:
 node dist/server/index.mjs serve
 ```
 
+## Two targets
+
+The same application runs in two places. The code, routes and configuration are shared; only the
+runtime and the database differ.
+
+| Target             | Runtime          | Database             | Built with        |
+| ------------------ | ---------------- | -------------------- | ----------------- |
+| Node.js server     | Node.js >= 24.22 | SQLite (`node:sqlite`) | `pnpm build`     |
+| Cloudflare Workers | workerd          | Cloudflare D1        | `wrangler`        |
+
+## Cloudflare Workers
+
+```bash
+pnpm preview     # run locally in workerd with a local D1 database
+pnpm deploy      # publish with wrangler
+```
+
+Before the first deploy:
+
+1. Create the database: `wrangler d1 create edgy`, then put the printed id in `wrangler.jsonc`
+   (`d1_databases[0].database_id`).
+2. Put application settings under `vars` in `wrangler.jsonc` and secrets in `wrangler secret put`.
+   See [Configuration](./configuration.md).
+3. Decide how migrations are applied. `DATABASE_AUTO_MIGRATE=true` applies them when an isolate
+   starts, which is convenient for preview. Several isolates can start at once and race, so for
+   production prefer to apply the schema once, before deploying.
+
+Differences from the Node.js server:
+
+- D1 has no interactive transactions, so code that needs one fails with a database error.
+- Rate limiting is counted per isolate, not globally.
+- Logs go straight to the platform's log stream (`console`), without batching.
+- Set `TRUST_PROXY=true`: Cloudflare always sets `CF-Connecting-IP`, and without it every client shares
+  one rate-limit bucket.
+
+## Scaling the Node.js server
+
+One process serves roughly 10,000 list requests (20 rows each) per second on a laptop, and SQLite access is
+synchronous, so a slow query holds up every other request on that process. To go further, run several
+processes (SQLite's WAL mode lets them read and write the same file) behind a reverse proxy, and set
+`TRUST_PROXY=true`. Rate limits then apply to each process separately.
+
+Behind a load balancer, set `SHUTDOWN_DRAIN_DELAY` to a few seconds: on a stop signal `/health`
+answers `503` first, and the server closes the listener only after that pause, so the balancer stops
+sending traffic before connections are refused.
+
 ## Build configuration
 
 `builder/builder.config.ts` is optional; every field has a sensible default. Common options:

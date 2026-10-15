@@ -13,9 +13,7 @@
     "overrides": [
         {
             "files": ["*.json", "*.jsonc"],
-            "options": {
-                "tabWidth": 4
-            }
+            "options": { "tabWidth": 4 }
         }
     ],
     "sortImports": {
@@ -32,6 +30,7 @@
     },
     "ignorePatterns": [
         ".output",
+        ".storage",
         ".tanstack",
         ".wrangler",
         "**/*.md",
@@ -40,6 +39,7 @@
         "**/*.yaml",
         "**/*.toml",
         "/public/**",
+        "/storage/**",
         "/temp/**",
         "/vendor/**"
     ]

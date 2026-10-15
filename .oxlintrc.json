@@ -41,6 +41,8 @@
             "plugins": ["vitest"],
             "rules": {
                 "no-console": "off",
+                "typescript/no-explicit-any": "off",
+                "typescript/no-unsafe-type-assertion": "off",
                 "vitest/no-focused-tests": "error",
                 "vitest/no-disabled-tests": "warn"
             }
@@ -48,6 +50,7 @@
     ],
     "ignorePatterns": [
         ".output",
+        ".storage",
         ".tanstack",
         ".wrangler",
         "**/*.md",
@@ -56,6 +59,7 @@
         "**/*.yaml",
         "**/*.toml",
         "/public/**",
+        "/storage/**",
         "/temp/**",
         "/vendor/**"
     ]

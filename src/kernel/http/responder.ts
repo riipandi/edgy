@@ -19,36 +19,11 @@ export interface RunOptions {
 /** Non-standard status (nginx) for a client that hung up before the response. */
 const CLIENT_CLOSED_REQUEST = 499
 
-interface Failure {
-  readonly status: number
-  readonly message: string
-  /** Machine-readable detail for the `error` member; omitted when there is none. */
-  readonly detail?: unknown
-}
-
-/** Maps a typed failure to a status code, a message and optional detail. */
-const toFailure = (error: AppError): Failure => {
-  switch (error._tag) {
-    case 'ValidationError':
-      return { status: 400, message: 'Validation failed', detail: error.issues }
-    case 'NotFound':
-      return { status: 404, message: `${error.resource} not found`, detail: { id: error.id } }
-    case 'Conflict':
-      return { status: 409, message: `${error.resource} already exists` }
-    case 'RequestTimeout':
-      return { status: 504, message: 'Request timed out' }
-    case 'DatabaseError':
-      return { status: 500, message: 'Database error' }
-    default:
-      return error satisfies never
-  }
-}
-
 /**
  * Bridge Effect -> HTTP: run the program on the shared runtime and render the
- * outcome as the API envelope (`.llms/api-response.md`). Failures are narrowed
- * through `_tag`, so adding a member to `AppError` fails to compile here until
- * it has a branch.
+ * outcome as the API envelope (`.llms/api-response.md`). A typed failure renders
+ * itself (`status`, `clientMessage`, `detail` on {@link AppError}), so a new
+ * error needs no branch here.
  *
  * The program already yields an encoded {@link Reply}; this function owns
  * everything around it: the request timeout, interruption on client
@@ -75,7 +50,7 @@ export const runEffect = <E extends AppError>(
     Effect.tapCause((cause) => {
       if (Cause.hasInterruptsOnly(cause)) return Effect.void
       const failure = Cause.findErrorOption(cause)
-      const expected = Option.isSome(failure) && failure.value._tag !== 'DatabaseError'
+      const expected = Option.isSome(failure) && failure.value.status < 500
       return expected ? Effect.void : Effect.logError('Request failed', cause)
     }),
     Effect.annotateLogs(requestId === undefined ? {} : { requestId }),
@@ -96,10 +71,10 @@ export const runEffect = <E extends AppError>(
 
     if (Cause.hasInterruptsOnly(exit.cause)) return fail(CLIENT_CLOSED_REQUEST, 'Request cancelled')
 
-    const failure = Cause.findErrorOption(exit.cause)
+    const failure: Option.Option<AppError> = Cause.findErrorOption(exit.cause)
     if (Option.isSome(failure)) {
-      const { status, message, detail } = toFailure(failure.value)
-      return fail(status, message, detail)
+      const { status, clientMessage, detail } = failure.value
+      return fail(status, clientMessage, detail)
     }
 
     return fail(500, 'Internal server error')

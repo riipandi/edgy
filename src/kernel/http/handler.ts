@@ -1,5 +1,5 @@
 import { Effect, Schema } from 'effect'
-import { getQuery, getRouterParams, type H3Event, readBody } from 'h3'
+import { getQuery, getRouterParams, type H3Event, HTTPError, readBody } from 'h3'
 import type { AppError, ValidationError } from '../errors.ts'
 import type { Page } from '../pagination.ts'
 import { decode } from './decode.ts'
@@ -35,6 +35,21 @@ const decodeInput = <T, I>(
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   schema === undefined ? Effect.succeed(undefined as T) : decode(schema)(read())
 
+/** `application/json` and `application/*+json` (e.g. `application/problem+json`). */
+const JSON_CONTENT_TYPE = /^application\/([\w.-]+\+)?json\s*(;|$)/i
+
+/**
+ * Rejects a body that is not declared as JSON with `415`. `readBody` would
+ * otherwise try to parse a form or text body as JSON and answer a misleading
+ * validation error, or accept a `text/plain` body that skips CORS preflight.
+ */
+const requireJson = (event: H3Event): void => {
+  const contentType = event.req.headers.get('content-type') ?? ''
+  if (!JSON_CONTENT_TYPE.test(contentType)) {
+    throw new HTTPError({ status: 415, message: 'Content-Type must be application/json' })
+  }
+}
+
 /**
  * The plumbing every endpoint shares: read the body, decode params, body and
  * query, run the program, turn its value into a {@link Reply}, and let
@@ -51,6 +66,7 @@ const makeHandler =
     toReply: (value: V) => Effect.Effect<Reply>
   ): Handler =>
   async (event) => {
+    if (spec.body !== undefined) requireJson(event)
     const rawBody = spec.body === undefined ? undefined : await readBody(event)
 
     return runEffect(

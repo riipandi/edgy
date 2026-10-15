@@ -8,7 +8,7 @@ import { ValidationError } from '../errors.ts'
  * error channel as {@link ValidationError} and `runEffect` maps it to a 400
  * with the flattened issue list — no exception thrown across the h3 boundary.
  *
- * The request schemas themselves live next to their entity in `src/schemas/`.
+ * The request schemas themselves live next to their entity in the resource's module (`src/modules/<resource>/`).
  */
 export const decode =
   <A, I>(schema: Schema.Codec<A, I>) =>

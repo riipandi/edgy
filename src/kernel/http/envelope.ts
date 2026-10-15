@@ -57,7 +57,12 @@ const requestIdFor = (event: H3Event): string => requestIdOf(event) ?? 'unknown'
  * `metadata` and the link map is added only for collections.
  */
 export const successEnvelope = (event: H3Event, statusCode: number, reply: Reply): ApiSuccess => {
-  const base = { status_code: statusCode, request_id: requestIdFor(event) }
+  const rateLimit = event.context.rateLimit
+  const base = {
+    status_code: statusCode,
+    request_id: requestIdFor(event),
+    ...(rateLimit === undefined ? {} : { rate_limit: rateLimit })
+  }
   const body = {
     status: 'success' as const,
     ...(reply.message === undefined ? {} : { message: reply.message }),

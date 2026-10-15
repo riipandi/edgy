@@ -1,5 +1,5 @@
-import { DatabaseService } from '../database/service.ts'
-import { defineMessageHandler } from '../kernel/http/handler.ts'
+import { DatabaseService } from '../../database/service.ts'
+import { defineMessageHandler } from '../../kernel/http/handler.ts'
 
 /**
  * `GET /health` — readiness probe.

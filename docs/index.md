@@ -9,11 +9,12 @@ Human-facing documentation for the Edgy reference server.
 | [Configuration](./configuration.md)         | Environment variables, defaults, examples                   |
 | [API endpoints](./api-endpoint.md)          | Endpoint list, request ID tracing, error response shapes    |
 | [Development](./development.md)             | Day-to-day commands, database workflow, validation          |
-| [Deployment](./deployment.md)               | Building, bundling, build configuration, single executable  |
+| [Deployment](./deployment.md)               | Node.js and Cloudflare Workers targets, bundling, scaling   |
 
 ## Reading order by goal
 
 - **Run it locally for the first time** — README (getting started) → [Configuration](./configuration.md)
 - **Work on the code** — [Development](./development.md) → [CLI](./commandline.md)
 - **Ship it** — [Deployment](./deployment.md) → [Configuration](./configuration.md)
+- **Try it on Cloudflare Workers** — [Development](./development.md#cloudflare-workers-locally) → [Deployment](./deployment.md#cloudflare-workers)
 - **Integrate with it** — [API endpoints](./api-endpoint.md)

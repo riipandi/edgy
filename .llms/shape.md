@@ -7,36 +7,50 @@ The layout, the toolchain, and the commands. Read once; return when a path or a 
 - Node.js >= 24.22 (native TypeScript stripping — source runs directly, no build step in development), pnpm 12 (`devEngines`; `npx` rejected)
 - Effect v4 (typed errors, DI layers, CLI, Config, Logger, Schema, Cache, Metric)
 - h3 v2 (plugin-based routing, rou3 trie)
-- Kysely 0.29 on `node:sqlite` (zero native addons)
-- oxfmt + oxlint for formatting/linting, `tsc -b --noEmit` for typecheck, Rolldown for bundling
+- Kysely 0.29 on `node:sqlite` (zero native addons) or Cloudflare D1 (`DATABASE_DRIVER`)
+- oxfmt + oxlint for formatting/linting, `tsc -b --noEmit` for typecheck, Rolldown for the Node bundle, Vitest for tests, wrangler for Workers
 
 ## Layout
 
 ```text
 src/
-  main.ts            # CLI entry (run by Node directly); the only Effect.provide
-  app.ts             # createApp(options): global plugins + route groups
+  main.ts            # Node CLI entry (run by Node directly); the only Effect.provide
+  worker.ts          # Cloudflare Workers entry: builds one runtime per isolate
+  app.ts             # createApp({ runtime, config }): global plugins + route table
   server.ts          # serveHttp: captures the HttpRuntime, starts h3 inside a scope
-  kernel/            # config/ (ConfigService; one file per section),  errors.ts (AppError union), pagination.ts (Page, PageRequest), layers.ts (CoreLayer, AppLayer)
-    http/            # runtime.ts (HttpRuntime bridge), handler.ts (defineHandler, definePagedHandler, defineMessageHandler), router.ts (defineRouteGroup), responder.ts (runEffect), envelope.ts (response envelope), pagination.ts (query schema, metadata, links), decode.ts, inflight.ts, errors.ts
-  observer/          # logger.ts (non-blocking batched sink), metrics.ts, http_observer.ts (request log + metrics)
+  layers.ts          # AppLayer (Node): configured database + services
+  services.ts        # ServicesLayer: every module's repos and services (portable)
+  kernel/            # runtime-agnostic core
+    config/          # service.ts (ConfigService, appConfig), field.ts (field helpers), one section file each (server, database, logging, security, observability, cors), example.ts (.env.example renderer)
+    errors.ts        # AppError interface + NotFound, ValidationError, DatabaseError, Conflict, RequestTimeout
+    pagination.ts    # Page, PageRequest
+    layers.ts        # CoreLayer (Node): config + stdout logger + platform services
+    http/            # runtime.ts (HttpRuntime, HttpServices), handler.ts (defineHandler, definePagedHandler, defineMessageHandler), router.ts (defineRouteGroup), responder.ts (runEffect), envelope.ts, pagination.ts, decode.ts, errors.ts (renderHTTPError), request_context.ts, inflight.ts
+  observer/          # logger.ts (batched stdout for Node, console for Workers), metrics.ts, metrics_handler.ts (/metrics), http_observer.ts
   command/           # effect/cli commands (cli.ts + one file per command + helper.ts)
-  routes/            # route.ts: the route table (groups, root routes, catch-all, registration order)
-  middleware/        # cors, request_id, body_limit, cache_control
-  handler/           # one defineHandler per endpoint, thin
-  service/           # UserService (Context.Service + layer; owns the private user cache)
-  repository/        # one *_repo.ts per resource: UserRepository (Context.Service + layer; Kysely queries)
-  schemas/           # Effect Schema per resource (entity, request/response, Kysely table type); database.ts aggregates tables
+  routes/            # route.ts: the route table (root, /api, /.well-known, catch-all; registration order)
+  middleware/        # cors, request_id, security_headers, body_limit, cache_control, rate_limit
+  modules/           # one vertical slice per resource
+    user/            # user_schema, user_repo, user_service, user_handler, user_routes (+ tests)
+    health/          # health_handler
   database/
-    dialect/         # NodeSQLiteDialect over node:sqlite (+ connection, driver, mutex)
-    service.ts       # DatabaseService (db + query helper) and its layer
+    service.ts       # DatabaseService contract, makeDatabaseService, makeQueryLogger, isUniqueViolation
+    schema.ts        # Database (tables merged in by each module's schema)
+    sqlite.ts        # SqliteDatabaseLayer (node:sqlite) — Node only
+    d1.ts            # D1Binding, D1DatabaseLayer (portable), D1BindingNodeLayer (wrangler platform proxy; Node, local only, loaded lazily)
+    layer.ts         # DatabaseLayer: picks the driver from DATABASE_DRIVER — Node only
+    dialect/         # NodeSQLiteDialect (+ connection, driver, mutex) and D1Dialect (+ connection, driver)
     migrator.ts      # Migrator wiring: getMigrationInfos, migrateToLatest, migrateTo, migrateDown
     migrations/      # index.ts static registry + one file per migration
     seeder.ts        # named seeder registry + runSeeders
     seeders/         # one file per seeder (idempotent)
-builder/             # Rolldown build pipeline, independent of src/
+builder/             # Rolldown build pipeline for the Node bundle, independent of src/
 bin/edgy.mjs         # published bin shim
-docs/                # human-facing docs: commandline.md, configuration.md, api-endpoint.md
+wrangler.jsonc       # Workers target: main src/worker.ts, D1 binding, vars
+tests/               # shared test helper: app.ts (makeTestApp, the real app over an in-memory database); the tests themselves sit beside the code
+vitest.config.ts     # test include pattern (src/** and tests/**)
+.env.example         # generated by `pnpm app config:generate`; never edit by hand
+docs/                # human-facing docs
 ```
 
 ## Commands
@@ -45,8 +59,11 @@ docs/                # human-facing docs: commandline.md, configuration.md, api-
 - `pnpm typecheck` — `tsc -b --noEmit`
 - `pnpm check` — `oxfmt --check && oxlint`
 - `pnpm format` — `oxfmt --write .`
-- `pnpm build` / `pnpm compile` — Rolldown bundle / single executable (SEA)
-- `pnpm test` — **placeholder, no test suite**; validation is typecheck + check + a runtime probe against a fresh DB (`DATABASE_PATH=$(mktemp -d)/x.db pnpm app migrate:up`, then curl)
+- `pnpm build` / `pnpm compile` — Rolldown bundle / single executable (SEA), Node target
+- `pnpm preview` / `pnpm deploy` — Workers target: `wrangler dev` (workerd + a local D1 under `.wrangler/`) / `wrangler deploy`
+- `pnpm app config:generate [--check]` — regenerate or verify `.env.example`
+- `pnpm check` is read-only; `pnpm lint` runs `oxlint --fix` and rewrites files
+- `pnpm test` / `pnpm test:watch` — Vitest (`vitest run`); tests live beside the code as `*.test.ts` and call the real app in-process. Beyond it, validate the bundle with `pnpm build` + `node dist/server/index.mjs serve --auto-migrate`, and the Worker with `pnpm preview`
 
 ## Conventions
 

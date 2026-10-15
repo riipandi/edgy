@@ -1,22 +1,27 @@
-import { Config, Duration } from 'effect'
+import { choice, duration, group, logLevel, type ValueOf } from './field.ts'
 
-/**
- * Logging settings. Variables: `LOG_LEVEL`, `LOG_FORMAT`, `LOG_FLUSH_INTERVAL`.
- *
- * `LOG_LEVEL` accepts Effect's level names (`All`, `Fatal`, `Error`, `Warn`,
- * `Info`, `Debug`, `Trace`, `None`) and is case-sensitive. `LOG_FORMAT` is
- * `pretty` (human-readable lines) or `json` (one object per line);
- * `LOG_FLUSH_INTERVAL` is a duration such as `250 millis`.
- */
-export const loggingConfig = Config.all({
-  /** Minimum severity emitted by the Effect logger. */
-  level: Config.LogLevel('LOG_LEVEL').pipe(Config.withDefault('Info')),
-  format: Config.Literals(['pretty', 'json'], 'LOG_FORMAT').pipe(Config.withDefault('pretty')),
-  /** How long log lines are buffered before a single batched write to stdout. */
-  flushInterval: Config.Duration('LOG_FLUSH_INTERVAL').pipe(
-    Config.withDefault(Duration.millis(250))
-  )
-})
+/** Logging: severity, format and how often buffered lines are written. */
+export const loggingConfig = group(
+  {
+    level: logLevel(
+      'LOG_LEVEL',
+      'Info',
+      'Minimum severity emitted (case-sensitive; Trace also prints SQL)'
+    ),
+    format: choice(
+      'LOG_FORMAT',
+      ['pretty', 'json'],
+      'pretty',
+      'Human-readable lines, or one JSON object per line'
+    ),
+    flushInterval: duration(
+      'LOG_FLUSH_INTERVAL',
+      '250 millis',
+      'How long log lines are buffered before one batched write to stdout'
+    )
+  },
+  { title: 'Logging' }
+)
 
-export type LoggingConfig = Config.Success<typeof loggingConfig>
+export type LoggingConfig = ValueOf<typeof loggingConfig>
 export type LogFormat = LoggingConfig['format']

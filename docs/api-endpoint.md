@@ -3,7 +3,8 @@
 | Method | Path                        | Description                                       |
 | ------ | --------------------------- | ------------------------------------------------- |
 | `GET`  | `/`                         | Liveness check, answers the plain text `All is well` |
-| `GET`  | `/health`                   | Readiness check (database reachable)              |
+| `GET`  | `/health`                   | Readiness check (database reachable); `503` while shutting down |
+| `GET`  | `/metrics`                  | Prometheus metrics, only when `METRICS_ENABLED=true` |
 | `GET`  | `/api/users`                | List users, paginated                             |
 | `GET`  | `/api/users/:id`            | Fetch one user                                    |
 | `POST` | `/api/users`                | Create a user from a JSON body (`201`)            |
@@ -83,11 +84,30 @@ A paginated response adds the position to `metadata` and navigation to `links`:
 | ------ | ------- |
 | `400`  | Validation failed (body, path or query), or the body is not valid JSON |
 | `404`  | Unknown path, or unknown user (`"error": { "id": 9999 }`) |
+| `415`  | A request body that is not `application/json` |
+| `429`  | Rate limit exceeded; `Retry-After` says how many seconds to wait |
 | `409`  | The user already exists (duplicate email) |
 | `413`  | Request body larger than `BODY_LIMIT` |
 | `499`  | The client closed the connection before the response |
 | `500`  | Server-side failure; details go to the log, never to the client |
+| `503`  | `/health` while the server is shutting down |
 | `504`  | The request exceeded `REQUEST_TIMEOUT` |
+
+## Rate limiting
+
+When `RATE_LIMIT_MAX` is set, every `/api` response reports the caller's allowance, in headers and
+in `metadata.rate_limit`:
+
+```json
+"rate_limit": { "limit": 100, "remaining": 97, "reset": 1792077446 }
+```
+
+`reset` is a Unix timestamp. Probes (`/health`, `/`) and `/.well-known` are never limited.
+
+## Security headers
+
+Every response carries `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
+`Referrer-Policy: no-referrer` and a `Content-Security-Policy` that forbids loading anything.
 
 ## Request ID
 

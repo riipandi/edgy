@@ -1,7 +1,7 @@
 import { Effect } from 'effect'
 import { Command, Flag } from 'effect/cli'
+import { DatabaseLayer } from '../database/layer.ts'
 import { runSeeders, seederNames } from '../database/seeder.ts'
-import { DatabaseService } from '../database/service.ts'
 import { print } from './helper.ts'
 
 /** `migrate:seed` — seed the database with initial data. */
@@ -27,6 +27,6 @@ export const migrateSeedCmd = Command.make(
       yield* print('Seeders completed')
     })
 ).pipe(
-  Command.provide(DatabaseService.layer),
+  Command.provide(DatabaseLayer),
   Command.withDescription('Seed the database with initial data')
 )

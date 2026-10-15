@@ -1,4 +1,4 @@
-import { Effect } from 'effect'
+import { Duration, Effect } from 'effect'
 import { serve } from 'h3'
 import { createApp } from './app.ts'
 import { ConfigService } from './kernel/config/service.ts'
@@ -18,15 +18,23 @@ import { makeHttpRuntime } from './kernel/http/runtime.ts'
  * for the whole timeout whenever a connection never completed a request.
  */
 export const serveHttp = Effect.gen(function* () {
-  const { server: http, cors } = yield* ConfigService
-  const { host, port, bodyLimit, shutdownTimeout } = http
+  const config = yield* ConfigService
+  const { host, port, shutdownTimeout, shutdownDrainDelay } = config.server
   const runtime = yield* makeHttpRuntime
-  const app = createApp({ runtime, cors, bodyLimit })
+  const app = createApp({ runtime, config })
 
   const server = yield* Effect.acquireRelease(
     Effect.sync(() => serve(app, { port, hostname: host, silent: true, gracefulShutdown: false })),
     (instance) =>
       Effect.gen(function* () {
+        // Readiness flips first, so a load balancer stops routing here before the
+        // listener closes; the optional pause gives it time to notice.
+        runtime.beginDrain()
+        if (Duration.toMillis(shutdownDrainDelay) > 0) {
+          yield* Effect.logInfo(`Draining for ${Duration.format(shutdownDrainDelay)}`)
+          yield* Effect.sleep(shutdownDrainDelay)
+        }
+
         const pending = yield* runtime.inFlight.count
         yield* Effect.logInfo(
           pending === 0

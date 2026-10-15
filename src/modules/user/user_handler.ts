@@ -1,5 +1,5 @@
-import { defineHandler, definePagedHandler } from '../kernel/http/handler.ts'
-import { toPageRequest } from '../kernel/http/pagination.ts'
+import { defineHandler, definePagedHandler } from '../../kernel/http/handler.ts'
+import { toPageRequest } from '../../kernel/http/pagination.ts'
 import {
   UserCreateRequestSchema,
   UserCreateResponseSchema,
@@ -7,8 +7,8 @@ import {
   UserIdParamsSchema,
   UserListItemSchema,
   UserListQuerySchema
-} from '../schemas/user_schema.ts'
-import { UserService } from '../service/user_service.ts'
+} from './user_schema.ts'
+import { UserService } from './user_service.ts'
 
 /** `GET /users` — one page of users, `id` ascending unless `sort_by`/`sort_order` say otherwise. */
 export const listUsersHandler = definePagedHandler({

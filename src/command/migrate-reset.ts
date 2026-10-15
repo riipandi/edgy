@@ -1,9 +1,9 @@
 import { Effect } from 'effect'
 import { Command, Flag } from 'effect/cli'
 import { NO_MIGRATIONS } from 'kysely/migration'
+import { DatabaseLayer } from '../database/layer.ts'
 import { getMigrationInfos, migrateTo, migrateToLatest } from '../database/migrator.ts'
 import { runSeeders, seederNames } from '../database/seeder.ts'
-import { DatabaseService } from '../database/service.ts'
 import { confirmDestructive, ensure, print } from './helper.ts'
 
 /** `migrate:reset` — roll back every migration, optionally re-apply and seed. */
@@ -73,4 +73,4 @@ export const migrateResetCmd = Command.make(
         yield* print('Seeders completed')
       }
     })
-).pipe(Command.provide(DatabaseService.layer), Command.withDescription('Rollback all migrations'))
+).pipe(Command.provide(DatabaseLayer), Command.withDescription('Rollback all migrations'))

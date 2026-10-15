@@ -1,39 +1,37 @@
-import { HTTPError, type H3Plugin } from 'h3'
-import { healthHandler } from '../handler/health_handler.ts'
-import { createUserHandler, getUserHandler, listUsersHandler } from '../handler/user_handler.ts'
+import { type H3Plugin, HTTPError } from 'h3'
+import type { AppConfig } from '../kernel/config/service.ts'
 import { defineRouteGroup } from '../kernel/http/router.ts'
+import { unlessDraining } from '../kernel/http/runtime.ts'
 import { cacheControl } from '../middleware/cache_control.ts'
-
-/**
- * `/users` resource group.
- *
- * Patterns are relative to the prefix, so this file reads as a single
- * resource rather than a slice of one flat route table. It is mounted under
- * {@link apiRoutes}, so its public path is `/api/users`.
- */
-const usersRoutes: H3Plugin = defineRouteGroup({
-  prefix: '/users',
-  routes: (r) => {
-    r.get('/', listUsersHandler)
-    r.get('/:id', getUserHandler)
-    r.post('/', createUserHandler)
-  }
-})
+import { rateLimit } from '../middleware/rate_limit.ts'
+import { healthHandler } from '../modules/health/health_handler.ts'
+import { userRoutes } from '../modules/user/user_routes.ts'
+import { metricsHandler } from '../observer/metrics_handler.ts'
 
 /**
  * `/api` group: every resource endpoint that answers in the API envelope.
  *
  * Resource groups register here, not on the app, so the prefix is written once
- * and middleware shared by the whole API (auth, rate limiting) has one place to
- * go. Probes and reserved paths stay outside it on purpose: load balancers and
- * RFC 8615 clients expect them at the origin root.
+ * and middleware shared by the whole API (rate limiting today, auth later) has
+ * one place to go. Probes and reserved paths stay outside it on purpose: load
+ * balancers and RFC 8615 clients expect them at the origin root.
+ *
+ * A new module's routes are registered in this callback.
  */
-const apiRoutes: H3Plugin = defineRouteGroup({
-  prefix: '/api',
-  routes: (api) => {
-    api.register(usersRoutes)
-  }
-})
+const apiRoutes = (config: AppConfig): H3Plugin =>
+  defineRouteGroup({
+    prefix: '/api',
+    middleware: [
+      rateLimit({
+        max: config.security.rateLimitMax,
+        window: config.security.rateLimitWindow,
+        trustProxy: config.server.trustProxy
+      })
+    ],
+    routes: (api) => {
+      api.register(userRoutes)
+    }
+  })
 
 /**
  * `/.well-known` group.
@@ -41,15 +39,18 @@ const apiRoutes: H3Plugin = defineRouteGroup({
  * Reserved-path endpoints (RFC 8615) that must sit at the origin root. The
  * group carries its own middleware — `Cache-Control` here — without leaking it
  * to any other route.
+ *
+ * `security.txt` is plain text by definition (RFC 9116). The contact and expiry
+ * are placeholders: replace them before deploying.
  */
 const wellKnownRoutes: H3Plugin = defineRouteGroup({
   prefix: '/.well-known',
   middleware: [cacheControl({ value: 'public, max-age=86400' })],
   routes: (r) => {
-    r.get('/security.txt', () => ({
-      contact: 'mailto:security@example.com',
-      expires: '2027-12-31T23:59:59Z'
-    }))
+    r.get('/security.txt', (event) => {
+      event.res.headers.set('content-type', 'text/plain; charset=utf-8')
+      return 'Contact: mailto:security@example.com\nExpires: 2027-12-31T23:59:59Z\n'
+    })
   }
 })
 
@@ -57,14 +58,19 @@ const wellKnownRoutes: H3Plugin = defineRouteGroup({
  * Root routes that do not belong to the API.
  *
  * `/` is a liveness check for humans and proxies, so it answers plain text, not
- * the envelope. `/health` is the readiness probe and keeps its root path.
+ * the envelope. `/health` is the readiness probe: it keeps its root path and
+ * turns `503` while the server is shutting down. `/metrics` exists only when
+ * enabled.
  */
-const rootRoutes: H3Plugin = (app) => {
-  app.get('/', (event) => {
-    event.res.headers.set('content-type', 'text/plain; charset=utf-8')
-    return 'All is well'
-  })
-  app.get('/health', healthHandler)
+const rootRoutes = (config: AppConfig): H3Plugin => {
+  return (app) => {
+    app.get('/', (event) => {
+      event.res.headers.set('content-type', 'text/plain; charset=utf-8')
+      return 'All is well'
+    })
+    app.get('/health', unlessDraining(healthHandler))
+    if (config.observability.metricsEnabled) app.get('/metrics', metricsHandler)
+  }
 }
 
 /**
@@ -82,10 +88,10 @@ const notFoundRoutes: H3Plugin = (app) => {
   })
 }
 
-/** Every route plugin, in registration order. */
-export const routePlugins: readonly H3Plugin[] = [
-  rootRoutes,
-  apiRoutes,
+/** Every route plugin, in registration order. The catch-all must stay last. */
+export const createRoutePlugins = (config: AppConfig): readonly H3Plugin[] => [
+  rootRoutes(config),
+  apiRoutes(config),
   wellKnownRoutes,
   notFoundRoutes
 ]

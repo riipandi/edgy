@@ -108,3 +108,22 @@ export const LoggerLayer: Layer.Layer<never, never, ConfigService> = Layer.unwra
     )
   })
 )
+
+/**
+ * Logger for Workers: no buffer, no stdout. A Worker has no shutdown hook to
+ * flush on, and `console.log` is already asynchronous in the runtime, so each line
+ * goes straight out. Same formatter and level, minus ANSI colours.
+ */
+export const ConsoleLoggerLayer: Layer.Layer<never, never, ConfigService> = Layer.unwrap(
+  Effect.gen(function* () {
+    const { logging } = yield* ConfigService
+    const sink = Logger.map(makeFormatter(logging.format, false), (line) => {
+      console.log(line)
+    })
+
+    return Layer.merge(
+      Logger.layer([sink]),
+      Layer.succeed(References.MinimumLogLevel, logging.level)
+    )
+  })
+)

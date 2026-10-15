@@ -1,6 +1,6 @@
 import { Schema } from 'effect'
 import type { Generated } from 'kysely'
-import { paginationQuery } from '../kernel/http/pagination.ts'
+import { paginationQuery } from '../../kernel/http/pagination.ts'
 
 const EmailSchema = Schema.String.pipe(
   Schema.check(
@@ -62,7 +62,7 @@ export interface UsersTable extends Omit<User, 'id'> {
   id: Generated<number>
 }
 
-declare module './database.ts' {
+declare module '../../database/schema.ts' {
   interface Database {
     users: UsersTable
   }

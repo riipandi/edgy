@@ -3,13 +3,9 @@
     "compilerOptions": {
         "allowImportingTsExtensions": true,
         "allowSyntheticDefaultImports": true,
-        "composite": false,
-        "declaration": true,
-        "declarationMap": true,
         "erasableSyntaxOnly": false,
         "exactOptionalPropertyTypes": true,
         "isolatedModules": true,
-        "jsx": "react-jsx",
         "lib": ["ESNext", "DOM"],
         "module": "ESNext",
         "moduleDetection": "force",
@@ -27,7 +23,6 @@
         "strict": true,
         "strictPropertyInitialization": true,
         "target": "esnext",
-        "sourceMap": true,
         "tsBuildInfoFile": ".output/tsconfig.tsbuildinfo",
         "types": ["node"],
         "useDefineForClassFields": true,
@@ -44,5 +39,5 @@
         }
     },
     "include": ["**/*.ts"],
-    "exclude": [".output", ".wrangler", "build", "dist", "public", "temp", "vendor"]
+    "exclude": [".output", ".wrangler", "dist", "public", "storage", "temp", "vendor"]
 }

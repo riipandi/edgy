@@ -16,7 +16,7 @@ const elapsedMs = (event: H3Event): number => {
  * The message stays human-readable (`GET /users 200 3.2ms`) while the fields
  * travel as annotations, so the pretty sink renders them alongside the line and
  * the JSON sink can index them. Level follows the status class: `info` for
- * success, `warning` for 4xx, `error` for 5xx. Running through the shared
+ * success, `warning` for 4xx, `error` for 5xx (except 503, which this server answers on purpose while draining, so it is a warning). Running through the shared
  * runtime keeps the line on the same non-blocking logger as everything else.
  */
 const observe = (event: H3Event, status: number): void => {
@@ -25,7 +25,12 @@ const observe = (event: H3Event, status: number): void => {
   const path = event.url.pathname
   const durationMs = elapsedMs(event)
 
-  const level = status >= 500 ? Effect.logError : status >= 400 ? Effect.logWarning : Effect.logInfo
+  const level =
+    status >= 500 && status !== 503
+      ? Effect.logError
+      : status >= 400
+        ? Effect.logWarning
+        : Effect.logInfo
 
   runtimeOf(event).runSync(
     Effect.all(

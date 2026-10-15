@@ -1,7 +1,7 @@
 import { Effect } from 'effect'
 import { Command, Flag } from 'effect/cli'
+import { DatabaseLayer } from '../database/layer.ts'
 import { getMigrationInfos, migrateDown } from '../database/migrator.ts'
-import { DatabaseService } from '../database/service.ts'
 import { confirmDestructive, ensure, print } from './helper.ts'
 
 /** `migrate:down` — roll back executed database migrations. */
@@ -57,7 +57,4 @@ export const migrateDownCmd = Command.make(
         yield* print(`${result.status}: ${result.migrationName}`)
       }
     })
-).pipe(
-  Command.provide(DatabaseService.layer),
-  Command.withDescription('Rollback database migrations')
-)
+).pipe(Command.provide(DatabaseLayer), Command.withDescription('Rollback database migrations'))

@@ -1,9 +1,15 @@
 import { Cache, Context, Duration, Effect, Layer, Request, RequestResolver } from 'effect'
-import type { Conflict, DatabaseError } from '../kernel/errors.ts'
-import { NotFound } from '../kernel/errors.ts'
-import type { Page, PageRequest } from '../kernel/pagination.ts'
-import { UserRepository } from '../repository/user_repo.ts'
-import type { User, UserCreateRequest, UserSortKey } from '../schemas/user_schema.ts'
+import type { Conflict, DatabaseError } from '../../kernel/errors.ts'
+import { NotFound } from '../../kernel/errors.ts'
+import type { Page, PageRequest } from '../../kernel/pagination.ts'
+import { UserRepository } from './user_repo.ts'
+import type { User, UserCreateRequest, UserSortKey } from './user_schema.ts'
+
+declare module '../../kernel/http/runtime.ts' {
+  interface HttpServices {
+    user: UserService
+  }
+}
 
 /**
  * Cache key and resolver request for one user. Deliberately not named
@@ -30,8 +36,9 @@ export class UserService extends Context.Service<
 >()('UserService') {
   /**
    * The read-through cache is private to this layer: it is keyed by request
-   * equality (the id), holds 256 entries and expires after 30 seconds, so reads
-   * can be up to 30s stale. Writes and `list` bypass it.
+   * equality (the id), holds 256 entries and expires after 30 seconds. Every
+   * write invalidates the keys it touches, so the staleness bound only covers
+   * writes made by another process. `list` bypasses the cache.
    */
   static readonly layer: Layer.Layer<UserService, never, UserRepository> = Layer.effect(
     UserService,
@@ -53,9 +60,14 @@ export class UserService extends Context.Service<
           return user
         }),
         list: repository.findPage,
-        create: Effect.fn('UserService.create')((input: UserCreateRequest) =>
-          repository.insert(input)
-        )
+        // Write policy: a write invalidates the cache keys it touches. A lookup of
+        // an id that did not exist is cached as `undefined`, so without this the
+        // user just created would stay "not found" until the entry expired.
+        create: Effect.fn('UserService.create')(function* (input: UserCreateRequest) {
+          const user = yield* repository.insert(input)
+          yield* Cache.invalidate(cache, UserLookup({ id: user.id }))
+          return user
+        })
       })
     })
   )

@@ -1,12 +1,25 @@
 import { type Duration, Effect, type Exit } from 'effect'
-import { definePlugin, type H3Event } from 'h3'
-import type { DatabaseService } from '../../database/service.ts'
-import type { UserService } from '../../service/user_service.ts'
+import { definePlugin, type H3Event, HTTPError } from 'h3'
 import { ConfigService } from '../config/service.ts'
 import { type InFlight, makeInFlight } from './inflight.ts'
 
-/** Services an HTTP handler program may require. */
-export type HttpEnv = UserService | DatabaseService
+/**
+ * Registry of the services an HTTP handler program may require. It starts empty
+ * and each service declares itself next to its own definition by declaration
+ * merging, so the kernel never names a domain service:
+ *
+ * ```ts
+ * declare module '../kernel/http/runtime.ts' {
+ *   interface HttpServices {
+ *     user: UserService
+ *   }
+ * }
+ * ```
+ */
+export interface HttpServices {}
+
+/** Union of every registered service: the environment of a handler program. */
+export type HttpEnv = HttpServices[keyof HttpServices]
 
 /**
  * Bridge from h3 (promise/callback world) back into the Effect runtime.
@@ -30,6 +43,10 @@ export interface HttpRuntime {
   readonly requestTimeout: Duration.Duration
   /** Requests being handled right now; shutdown drains it. */
   readonly inFlight: InFlight
+  /** Whether shutdown has begun; readiness reports unavailable from then on. */
+  readonly isDraining: () => boolean
+  /** Marks shutdown as begun. Irreversible for the life of the runtime. */
+  readonly beginDrain: () => void
 }
 
 /** Captures the current context into an {@link HttpRuntime}. */
@@ -37,11 +54,16 @@ export const makeHttpRuntime: Effect.Effect<HttpRuntime, never, HttpEnv | Config
   Effect.gen(function* () {
     const { requestTimeout } = (yield* ConfigService).server
     const services = yield* Effect.context<HttpEnv>()
+    let draining = false
     return {
       runPromiseExit: Effect.runPromiseExitWith(services),
       runSync: Effect.runSyncWith(services),
       requestTimeout,
-      inFlight: makeInFlight()
+      inFlight: makeInFlight(),
+      isDraining: () => draining,
+      beginDrain: () => {
+        draining = true
+      }
     }
   })
 
@@ -80,3 +102,17 @@ export const runtimeOf = (event: H3Event): HttpRuntime => {
     throw new Error('HttpRuntime is not provided; register provideRuntime first')
   return runtime
 }
+
+/**
+ * Wraps a readiness handler so it answers `503` once shutdown has begun. A load
+ * balancer that polls it stops routing here before the server closes, instead of
+ * discovering the shutdown through refused connections.
+ */
+export const unlessDraining =
+  <R>(handler: (event: H3Event) => R) =>
+  (event: H3Event): R => {
+    if (runtimeOf(event).isDraining()) {
+      throw new HTTPError({ status: 503, message: 'Shutting down' })
+    }
+    return handler(event)
+  }

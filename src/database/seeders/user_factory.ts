@@ -1,6 +1,6 @@
 import { Effect } from 'effect'
 import type { DatabaseError } from '../../kernel/errors.ts'
-import type { UsersTable } from '../../schemas/user_schema.ts'
+import type { UsersTable } from '../../modules/user/user_schema.ts'
 import { DatabaseService } from '../service.ts'
 
 const SAMPLE_USERS: ReadonlyArray<Pick<UsersTable, 'email' | 'name'>> = [

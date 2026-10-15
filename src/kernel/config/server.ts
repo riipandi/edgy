@@ -1,21 +1,33 @@
-import { Config, Duration } from 'effect'
+import { duration, flag, group, int, port, text, type ValueOf } from './field.ts'
 
-/**
- * HTTP server settings: where it listens and the limits it enforces per
- * request. Variables: `HOST`, `PORT`, `BODY_LIMIT`, `REQUEST_TIMEOUT`,
- * `SHUTDOWN_TIMEOUT`.
- */
-export const serverConfig = Config.all({
-  host: Config.String('HOST').pipe(Config.withDefault('0.0.0.0')),
-  port: Config.Port('PORT').pipe(Config.withDefault(3000)),
-  /** Largest accepted request body, in bytes; larger bodies are answered with 413. */
-  bodyLimit: Config.Int('BODY_LIMIT').pipe(Config.withDefault(1_048_576)),
-  /** A request program that runs longer than this is interrupted and answered with 504. */
-  requestTimeout: Config.Duration('REQUEST_TIMEOUT').pipe(Config.withDefault(Duration.seconds(30))),
-  /** How long a graceful shutdown waits for in-flight requests before closing them. */
-  shutdownTimeout: Config.Duration('SHUTDOWN_TIMEOUT').pipe(
-    Config.withDefault(Duration.seconds(10))
-  )
-})
+/** HTTP server: where it listens, what it enforces per request, how it stops. */
+export const serverConfig = group(
+  {
+    host: text('HOST', '0.0.0.0', 'Interface the HTTP server binds to'),
+    port: port('PORT', 3000, 'Port the HTTP server listens on'),
+    bodyLimit: int('BODY_LIMIT', 1_048_576, 'Largest accepted request body, in bytes (413 above)'),
+    requestTimeout: duration(
+      'REQUEST_TIMEOUT',
+      '30 seconds',
+      'A request running longer than this is interrupted and answered with 504'
+    ),
+    shutdownTimeout: duration(
+      'SHUTDOWN_TIMEOUT',
+      '10 seconds',
+      'How long a graceful shutdown waits for in-flight requests before closing them'
+    ),
+    shutdownDrainDelay: duration(
+      'SHUTDOWN_DRAIN_DELAY',
+      '0 millis',
+      'Pause between /health turning 503 and the server closing, so a load balancer can drain first'
+    ),
+    trustProxy: flag(
+      'TRUST_PROXY',
+      false,
+      'Trust X-Forwarded-For / CF-Connecting-IP for the client address (enable only behind a proxy you control)'
+    )
+  },
+  { title: 'Server' }
+)
 
-export type ServerConfig = Config.Success<typeof serverConfig>
+export type ServerConfig = ValueOf<typeof serverConfig>

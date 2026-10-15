@@ -1,23 +1,16 @@
 /**
- * For more details on how to configure Wrangler, refer to:
- * - https://developers.cloudflare.com/workers/wrangler/configuration
- * - https://developers.cloudflare.com/workers/runtime-apis/bindings
- * - https://developers.cloudflare.com/workers/static-assets/binding
+ * Cloudflare Workers target. `pnpm preview` runs this file locally in workerd
+ * (miniflare) with a local D1 database; `pnpm deploy` publishes it. Application
+ * settings are the same variables the Node server reads.
  *
- * Build configurations:
- * - Build command: `pnpm run typegen && pnpm run build`
- * - Deploy command: `pnpm exec wrangler deploy --env production`
- * - Non-production branch deploy command: `pnpm exec wrangler versions upload`
- *
- * Envar for build only (Settings -> Build -> Variables and secrets):
- * - PUBLIC_ or VITE_ prefixed variables need to added here!
+ * Docs: https://developers.cloudflare.com/workers/wrangler/configuration
  */
 {
     "$schema": "node_modules/wrangler/config-schema.json",
     "name": "edgy",
+    "main": "./src/worker.ts",
     "compatibility_date": "2026-04-07",
     "compatibility_flags": ["nodejs_compat"],
-    "main": "./dist/server/index.mjs",
     "send_metrics": false,
     "preview_urls": true,
     "dev": {
@@ -34,15 +27,25 @@
         "mode": "smart"
     },
     "observability": {
-        "enabled": true,
-        "head_sampling_rate": 0.01,
-        "logs": {
-            "enabled": true,
-            "head_sampling_rate": 0.7
-        }
+        "enabled": true
     },
+    "d1_databases": [
+        {
+            "binding": "DB",
+            "database_name": "edgy",
+            // Local development ignores the ID. Replace it with the ID printed
+            // by `wrangler d1 create edgy` before the first deploy.
+            "database_id": "00000000-0000-0000-0000-000000000000"
+        }
+    ],
     "vars": {
-        /* Settings -> Variables and secrets */
+        // Cloudflare always sets CF-Connecting-IP, so it is safe to trust here.
+        "LOG_FORMAT": "json",
+        "TRUST_PROXY": "true",
+        // Applies pending migrations when an isolate starts.
+        // Convenient for preview; for production prefer an explicit migration step.
+        "DATABASE_AUTO_MIGRATE": "true",
+        // Settings -> Variables and secrets
         "NODE_VERSION": "24.22.0",
         "PNPM_VERSION": "12.11.2"
     }
