@@ -2,11 +2,14 @@ import { Schema } from 'effect'
 import type { Generated } from 'kysely'
 
 /**
- * `User` is the single source of truth for the resource: the request, response
- * and Kysely table types below are all derived from it, so a new column is
- * declared once.
+ * `UserSchema` is the single source of truth for the resource: the request,
+ * response and Kysely table types below are all derived from it, so a new
+ * column is declared once.
+ *
+ * Naming: a schema value is `<Name>Schema`; the type inferred from it is plain
+ * `<Name>` and is exported only when code consumes it.
  */
-export const User = Schema.Struct({
+export const UserSchema = Schema.Struct({
   id: Schema.Int,
   email: Schema.String.pipe(
     Schema.check(
@@ -16,35 +19,29 @@ export const User = Schema.Struct({
   name: Schema.NullOr(Schema.String)
 })
 
-export type User = typeof User.Type
-
-// --- Requests ---
+export type User = typeof UserSchema.Type
 
 /** JSON body accepted by `POST /users`; `name` may be omitted. */
-export const UserCreateRequest = Schema.Struct({
-  email: User.fields.email,
+export const UserCreateRequestSchema = Schema.Struct({
+  email: UserSchema.fields.email,
   name: Schema.optional(Schema.String)
 })
 
-export type UserCreateRequest = typeof UserCreateRequest.Type
+export type UserCreateRequest = typeof UserCreateRequestSchema.Type
 
 /** Router params arrive as strings: decode `:id` into a positive integer. */
-export const UserIdParams = Schema.Struct({
+export const UserIdParamsSchema = Schema.Struct({
   id: Schema.NumberFromString.pipe(Schema.check(Schema.isInt(), Schema.isGreaterThan(0)))
 })
-
-// --- Responses ---
 
 /**
  * Response bodies are encoded through these schemas, so only the declared
  * fields ever reach the client — a column added to the table later does not
  * leak through `selectAll()`.
  */
-export const UserGetResponse = User
-export const UserListResponse = Schema.Array(User)
-export const UserCreateResponse = User
-
-// --- Kysely ---
+export const UserGetResponseSchema = UserSchema
+export const UserListResponseSchema = Schema.Array(UserSchema)
+export const UserCreateResponseSchema = UserSchema
 
 /** Row shape of the `users` table: `User` with a database-generated `id`. */
 export interface UsersTable extends Omit<User, 'id'> {

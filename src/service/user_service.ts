@@ -4,15 +4,15 @@ import { UserRepository } from '../repository/user_repo.ts'
 import type { User, UserCreateRequest } from '../schemas/user_schema.ts'
 
 /**
- * Typed request for a single user. Requests are plain data descriptions; the
- * resolver below decides how to execute them.
+ * Cache key and resolver request for one user. Deliberately not named
+ * `*Request`: that suffix is reserved for HTTP request schemas.
  */
-interface GetUserRequest extends Request.Request<User | undefined, DatabaseError> {
-  readonly _tag: 'GetUserRequest'
+interface UserLookup extends Request.Request<User | undefined, DatabaseError> {
+  readonly _tag: 'UserLookup'
   readonly id: number
 }
 
-const GetUserRequest = Request.tagged<GetUserRequest>('GetUserRequest')
+const UserLookup = Request.tagged<UserLookup>('UserLookup')
 
 /** Business operations on users. Handlers depend on this key only. */
 export class UserService extends Context.Service<
@@ -36,7 +36,7 @@ export class UserService extends Context.Service<
     Effect.gen(function* () {
       const repository = yield* UserRepository
 
-      const resolver = RequestResolver.fromEffect((entry: Request.Entry<GetUserRequest>) =>
+      const resolver = RequestResolver.fromEffect((entry: Request.Entry<UserLookup>) =>
         repository.findById(entry.request.id)
       )
       const cache = yield* RequestResolver.asCache(resolver, {
@@ -46,7 +46,7 @@ export class UserService extends Context.Service<
 
       return UserService.of({
         get: Effect.fn('UserService.get')(function* (id: number) {
-          const user = yield* Cache.get(cache, GetUserRequest({ id }))
+          const user = yield* Cache.get(cache, UserLookup({ id }))
           if (user === undefined) return yield* new NotFound({ id })
           return user
         }),
