@@ -7,7 +7,7 @@ All configuration is read from environment variables through Effect's `Config`, 
 | `DATABASE_PATH`      | `./storage/data/edgy.db`   | SQLite file path; parent directories are created automatically          |
 | `HOST`               | `0.0.0.0`                  | Bind address                                                           |
 | `PORT`               | `3000`                     | Bind port                                                              |
-| `LOG_LEVEL`          | `Info`                     | `All` \| `Fatal` \| `Error` \| `Warn` \| `Info` \| `Debug` \| `Trace` \| `None` (**case-sensitive**) |
+| `LOG_LEVEL`          | `Info`                     | `All` \| `Fatal` \| `Error` \| `Warn` \| `Info` \| `Debug` \| `Trace` \| `None` (**case-sensitive**). `Trace` also prints every SQL statement with its duration (never the values) |
 | `LOG_FORMAT`         | `pretty`                   | `pretty` for readable lines, `json` for one JSON object per line       |
 | `LOG_FLUSH_INTERVAL` | `250 millis`               | How long log lines are buffered before they are written together        |
 | `BODY_LIMIT`         | `1048576`                  | Largest accepted request body in bytes; bigger bodies get `413`        |
