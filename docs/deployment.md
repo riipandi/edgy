@@ -5,9 +5,9 @@ How to build, bundle, and ship the server.
 ## Building
 
 [Vite](https://vite.dev) builds both targets: the server (or Worker) and the browser assets, in one
-run. `builder/` wraps it for what Vite does not do: obfuscation, the executable bit on the Node
-entry, a minimal `package.json` so the result runs without the project's own `node_modules`, and the
-single executable.
+run (`vite build --app`). After it, a build step does what Vite does not: obfuscation, the executable
+bit on the Node entry, and a minimal `package.json` so the result runs without the project's own
+`node_modules`. Only the single executable is a separate command.
 
 ```bash
 pnpm build:node      # -> dist/server  (index.mjs + public/ for the browser)
@@ -18,9 +18,9 @@ pnpm compile         # -> dist/server + dist/edgy  (single executable, experimen
 Flags apply to all three commands:
 
 ```bash
-pnpm build:node --minify                # also minify the server bundle (browser assets always are)
-pnpm build:node --obfuscate             # obfuscate the server code (javascript-obfuscator)
-pnpm build:node --minify --obfuscate    # both
+pnpm build:node --minify                      # also minify the server bundle (browser assets always are)
+OBFUSCATE=medium pnpm build:node              # obfuscate the server code (low, medium or high)
+OBFUSCATE=medium pnpm build:node --minify     # both
 ```
 
 Run the build anywhere, with no `node_modules` present:
@@ -57,7 +57,7 @@ pnpm run deploy      # build a minified Worker, then publish it with wrangler
 (`node` or `workers`, default `node`). Vite's Cloudflare plugin reads `wrangler.jsonc` and writes
 the configuration that `wrangler deploy` uses, including the browser assets, which Cloudflare serves
 itself without starting the Worker. Node's built-ins (`node:async_hooks`) stay imports, which
-Cloudflare provides through the `nodejs_compat` flag. `--minify` and `--obfuscate` work for both
+Cloudflare provides through the `nodejs_compat` flag. `--minify` and `OBFUSCATE` work for both
 targets; `pnpm compile` (single executable) is Node.js only.
 
 `pnpm watch:worker` is the fast loop. `pnpm preview` runs the artifact you will actually ship,
@@ -114,15 +114,12 @@ not multiplied. `MAX_IN_FLIGHT` caps the requests one process handles at once; p
 ## Build configuration
 
 Bundling is configured in `vite.config.ts` (Node.js) and `vite.worker.config.ts` (Workers); both are
-ordinary Vite configurations. `builder/builder.config.ts` is optional and covers the steps around
-the bundle:
+ordinary Vite configurations, so Vite's own flags apply (`--minify`). Beyond them:
 
-| Option            | Default             | Description                                                  |
-| ----------------- | ------------------- | ------------------------------------------------------------ |
-| `minify`          | `false`             | Minify the server bundle                                     |
-| `obfuscate`       | `false`             | Obfuscate the server bundle                                  |
-| `obfuscatePreset` | `medium`            | `low`, `medium` or `high`                                    |
-| `seaConfig`       | `{ enable: false }` | Single executable options (see below)                        |
+| Setting                    | Default | Description                                            |
+| -------------------------- | ------- | ------------------------------------------------------ |
+| `OBFUSCATE` (environment)  | off     | `low`, `medium` or `high` obfuscates the server code; `true` means `medium` |
+| `seaConfig` (`builder/builder.config.ts`) | see below | Single executable options |
 
 The Node.js server is one bundle with its dependencies inlined. A dependency that ships a native
 addon cannot be bundled that way; none of the current dependencies do (the database is

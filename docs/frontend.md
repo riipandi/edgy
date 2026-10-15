@@ -40,7 +40,7 @@ pnpm dev          # the server and the pages, on one port
 ```
 
 Editing a template or a style updates the open browser tab without a reload. Editing server code
-restarts the process, as it always did. `pnpm typecheck` also checks the templates, so a misspelled
+starts the application over (a second or less) and reloads the page. `pnpm typecheck` also checks the templates, so a misspelled
 field fails there and not in the browser.
 
 ## How pages are served

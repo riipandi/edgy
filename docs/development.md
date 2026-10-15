@@ -5,8 +5,7 @@ Day-to-day commands for working on the server.
 ## Commands
 
 ```bash
-pnpm dev               # the Node.js server and the pages, with hot updates (same as pnpm watch:node)
-pnpm watch:node        # the same: pages update in the browser, a change under src/ restarts the server
+pnpm dev               # the Node.js server and the pages in one Vite dev server, with hot updates
 pnpm watch:worker      # the Cloudflare Worker from source, in workerd with a local D1 database
 pnpm preview           # build the Worker (minified), then run that build in workerd
 pnpm build:node        # build the Node.js server and the browser assets into dist/server
@@ -33,7 +32,11 @@ pnpm app <command> [flags]
 ```
 
 Starting the server (`serve`) is the exception: pages are templates that only Vite can load, so use
-`pnpm dev` while developing and a build (`pnpm build:node`) to run it otherwise. See the
+`pnpm dev` while developing and a build (`pnpm build:node`) to run it otherwise. `pnpm dev` is the
+Vite dev server with the application running inside it: one process, one port (`HOST` and `PORT`,
+by default `127.0.0.1:3000`; a busy port is an error), reading `.env.local` for you. Editing a page
+or a style updates the browser; editing server code starts the application over in the same process
+and reloads the page. There is no `--auto-migrate` flag here: set `DATABASE_AUTO_MIGRATE=true`. See the
 [CLI documentation](./commandline.md) for the command list and flags, and [Pages](./frontend.md) for
 the pages themselves.
 

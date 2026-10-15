@@ -63,6 +63,8 @@ export const makeTestApp = async (
     readonly rateCheck?: RateCheck
     /** Where `/assets/**` is read from; the route is absent when omitted, as on Workers. */
     readonly assets?: AssetSource
+    /** As under `pnpm dev`: the HTML policy allows what Vite needs. */
+    readonly development?: boolean
     /** Stands in for the shared cache store (`CACHE_STORE=redis`); in-process when absent. */
     readonly cacheBacking?: Layer.Layer<Persistence.BackingPersistence>
   } = {}
@@ -103,7 +105,8 @@ export const makeTestApp = async (
           runtime: httpRuntime,
           config,
           ...(options.rateCheck === undefined ? {} : { rateCheck: options.rateCheck }),
-          ...(options.assets === undefined ? {} : { assets: options.assets })
+          ...(options.assets === undefined ? {} : { assets: options.assets }),
+          ...(options.development === true ? { development: true } : {})
         }),
         http: httpRuntime
       }

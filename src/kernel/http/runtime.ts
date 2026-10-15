@@ -98,6 +98,8 @@ declare module 'h3' {
     traceTypeId?: string
     /** How the request's cached reads were answered, for the request log; set by `runEffect`. */
     cache?: 'hit' | 'miss' | 'bypass'
+    /** Set by `developmentMode` under `pnpm dev`; read when building an HTML response's policy. */
+    development?: boolean
     /** Country and city of the client, from the platform's headers; see `middleware/client_location.ts`. */
     location?: { readonly country?: string; readonly city?: string }
     /** `error.code` of the response, set when the error envelope is built; the request log reads it. */

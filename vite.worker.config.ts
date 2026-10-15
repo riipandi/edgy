@@ -1,5 +1,6 @@
 import { cloudflare } from '@cloudflare/vite-plugin'
 import { defineConfig } from 'vite'
+import { buildSteps } from './builder/plugin_build.ts'
 import { appPlugins, releaseSsrExternal, WORKER_ADDRESS, WORKER_OUT_DIR } from './builder/vite.ts'
 
 // `.env.local` feeds the Node server. Left on, the plugin would also copy it over the Worker's
@@ -14,12 +15,14 @@ process.env['CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV'] ??= 'false'
  * without starting the Worker).
  *
  * The local database is migrated automatically in development and in a local preview
- * (`EDGY_LOCAL=1`, set by `build:worker --local`); a deployed Worker never is (`wrangler.jsonc`).
+ * (`EDGY_LOCAL=1`, which `pnpm preview` sets); a deployed Worker never is (`wrangler.jsonc`).
  */
 export default defineConfig(({ command }) => ({
   plugins: [
     ...appPlugins(),
     releaseSsrExternal(),
+    // Only a build has steps (obfuscation with `OBFUSCATE`); the Worker entry gets nothing else.
+    ...(command === 'build' ? [buildSteps()] : []),
     cloudflare({
       viteEnvironment: { name: 'ssr' },
       config: (config) =>

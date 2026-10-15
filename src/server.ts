@@ -1,14 +1,10 @@
 import { Duration, Effect } from 'effect'
-import { RateLimiter } from 'effect/persistence'
 import { serve } from 'h3'
 import { fileURLToPath } from 'node:url'
-import { createApp } from './app.ts'
+import { makeNodeApp } from './application.ts'
 import { ConfigService } from './kernel/config/service.ts'
-import { devServer } from './kernel/http/dev_server.ts'
 import { directoryAssets, embeddedAssets } from './kernel/http/node_assets.ts'
 import { acceptProxyProtocol } from './kernel/http/proxy_protocol.ts'
-import { makeHttpRuntime } from './kernel/http/runtime.ts'
-import { makeSharedRateCheck } from './middleware/rate_limit_shared.ts'
 
 /**
  * Starts the HTTP server and keeps the effect running until it is interrupted
@@ -26,32 +22,10 @@ import { makeSharedRateCheck } from './middleware/rate_limit_shared.ts'
 export const serveHttp = Effect.gen(function* () {
   const config = yield* ConfigService
   const { host, port, shutdownTimeout, shutdownDrainDelay, proxyProtocol } = config.server
-  const runtime = yield* makeHttpRuntime
-  const limiter = yield* RateLimiter.RateLimiter
-  const { rateLimitEnabled, rateLimitMax, rateLimitWindow, rateLimitStore } = config.security
-  const dev = devServer()
-  const app = createApp({
-    runtime,
-    config,
-    // Under `pnpm dev` Vite serves the assets from source; otherwise they come from the single
-    // executable, or from the `public/` directory the build leaves next to the entry.
-    ...(dev === undefined
-      ? {
-          assets:
-            embeddedAssets() ?? directoryAssets(fileURLToPath(new URL('./public', import.meta.url)))
-        }
-      : { dev }),
-    // Shared counting only when asked for; otherwise the in-process counter serves.
-    ...(rateLimitEnabled && rateLimitStore === 'redis'
-      ? {
-          rateCheck: makeSharedRateCheck({
-            limiter,
-            max: rateLimitMax,
-            window: rateLimitWindow,
-            warn: (message, cause) => runtime.runSync(Effect.logWarning(message, cause))
-          })
-        }
-      : {})
+  // The browser assets come from the single executable, or from the `public/` directory the build
+  // leaves next to the entry.
+  const { app, runtime } = yield* makeNodeApp({
+    assets: embeddedAssets() ?? directoryAssets(fileURLToPath(new URL('./public', import.meta.url)))
   })
 
   const server = yield* Effect.acquireRelease(

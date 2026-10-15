@@ -1,26 +1,19 @@
 import path from 'node:path'
 import { createBuilder, type InlineConfig } from 'vite'
-import type { BuilderRuntime } from './config.ts'
-
-/** The Vite configuration file of each target. */
-const CONFIG_FILES: Readonly<Record<BuilderRuntime, string>> = {
-  node: 'vite.config.ts',
-  workers: 'vite.worker.config.ts'
-}
 
 /**
- * Runs the whole Vite application build (`vite build --app`): the server and Marko's browser
- * entries, in the order the plugin needs. `overrides` is merged over the configuration file, which
- * is how the executable pass asks for a single CommonJS file without a second configuration.
+ * Runs the whole Node application build (`vite build --app`) from code: the server first and Marko's
+ * browser entries second, in the order the plugin needs. `overrides` is merged over `vite.config.ts`,
+ * which is how the executable pass asks for a single CommonJS file without a second configuration.
+ * The build's own steps (`plugin_build.ts`) run as they do from the command line.
  */
 export const buildWithVite = async (options: {
   readonly rootDir: string
-  readonly runtime: BuilderRuntime
   readonly overrides?: InlineConfig
 }): Promise<void> => {
   const builder = await createBuilder({
     root: options.rootDir,
-    configFile: path.resolve(options.rootDir, CONFIG_FILES[options.runtime]),
+    configFile: path.resolve(options.rootDir, 'vite.config.ts'),
     mode: 'production',
     ...options.overrides
   })

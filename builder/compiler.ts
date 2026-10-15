@@ -71,7 +71,6 @@ const bundleSea = async (
 
   await buildWithVite({
     rootDir: config.rootDir,
-    runtime: 'node',
     overrides: {
       build: { emptyOutDir: true },
       environments: {

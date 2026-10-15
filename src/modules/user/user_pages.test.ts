@@ -89,3 +89,23 @@ describe('GET /users (page)', () => {
     expect(html).not.toContain('ada@example.com')
   })
 })
+
+describe('the policy under pnpm dev', () => {
+  it('lets Vite inject styles and open its socket, and only then', async () => {
+    const dev = await makeTestApp({}, { development: true })
+    try {
+      const developing = await dev.request('/users')
+      await developing.text()
+      const production = await t.request('/users')
+      await production.text()
+
+      const widened = developing.headers.get('content-security-policy') ?? ''
+      expect(widened).toContain("style-src 'self' 'unsafe-inline'")
+      expect(widened).toContain("connect-src 'self' ws: wss:")
+      expect(production.headers.get('content-security-policy')).not.toContain('unsafe-inline')
+      expect(production.headers.get('content-security-policy')).not.toContain('ws:')
+    } finally {
+      await dev.dispose()
+    }
+  })
+})

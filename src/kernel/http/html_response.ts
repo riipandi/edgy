@@ -1,5 +1,4 @@
 import type { H3Event } from 'h3'
-import { devServer } from './dev_server.ts'
 
 /** The part of a compiled `.marko` template an HTML response uses. */
 export interface HtmlTemplate<Input> {
@@ -52,6 +51,9 @@ export const htmlResponse = <Input extends object>(
   const { headers } = options
   headers.set('content-type', 'text/html; charset=utf-8')
   headers.set('cache-control', 'private, no-cache')
-  headers.set('content-security-policy', contentSecurityPolicy(nonce, devServer() !== undefined))
+  headers.set(
+    'content-security-policy',
+    contentSecurityPolicy(nonce, event.context.development === true)
+  )
   return new Response(body, { status: options.status ?? 200, headers })
 }

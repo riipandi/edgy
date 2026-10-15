@@ -75,61 +75,30 @@ export interface SeaConfig {
   readonly target?: string
 }
 
-/** What the bundle runs on: a Node.js server, or a Cloudflare Worker. */
-export type BuilderRuntime = 'node' | 'workers'
-
-/** Fully resolved builder configuration. */
+/** Fully resolved configuration of the executable build. */
 export interface BuilderConfig {
   /** Project root. All relative paths are resolved against it. */
   readonly rootDir: string
-  /** Runtime the bundle is for (`--target=node|workers`). Default `node`. */
-  readonly runtime: BuilderRuntime
-  /** Minify the server bundle. The browser assets are always minified. Off by default. */
-  readonly minify: boolean
-  /** Obfuscate the emitted server bundle. Off by default. */
-  readonly obfuscate: boolean
-  /** Obfuscator preset name; only used when `obfuscate` is on. */
-  readonly obfuscatePreset: 'low' | 'medium' | 'high'
-  /**
-   * A Worker build meant for `pnpm preview`: the local database is migrated automatically
-   * (`EDGY_LOCAL`, read by `vite.worker.config.ts`). Never set for a deploy.
-   */
-  readonly local: boolean
-  /**
-   * Node single-executable application (SEA) options. Disabled by default.
-   *
-   * @see {@link SeaConfig}
-   */
+  /** Node single-executable application (SEA) options. @see {@link SeaConfig} */
   readonly seaConfig: SeaConfig
 }
 
 /** User-supplied configuration; everything is optional. */
-export type BuilderConfigInput = Omit<Partial<BuilderConfig>, 'seaConfig'> & {
+export interface BuilderConfigInput {
   readonly rootDir?: string
   /** Partial so a caller only states the SEA options they care about. */
   readonly seaConfig?: Partial<SeaConfig>
 }
 
-/**
- * Built-in defaults. `minify` and `obfuscate` are **off by default**: turn them on per project or
- * with the `--minify` / `--obfuscate` CLI flags.
- */
-export const BUILDER_DEFAULTS: Omit<BuilderConfig, 'rootDir'> = {
-  runtime: 'node',
-  minify: false,
-  obfuscate: false,
-  obfuscatePreset: 'medium',
-  local: false,
-  seaConfig: {
-    enable: false,
-    fileName: 'edgy',
-    disableExperimentalSEAWarning: true,
-    useCodeCache: false,
-    useSnapshot: false,
-    execArgv: [],
-    execArgvExtension: 'env',
-    assets: {}
-  }
+const SEA_DEFAULTS: SeaConfig = {
+  enable: true,
+  fileName: 'edgy',
+  disableExperimentalSEAWarning: true,
+  useCodeCache: false,
+  useSnapshot: false,
+  execArgv: [],
+  execArgvExtension: 'env',
+  assets: {}
 }
 
 /**
@@ -138,10 +107,8 @@ export const BUILDER_DEFAULTS: Omit<BuilderConfig, 'rootDir'> = {
  */
 export const defineBuilderConfig = (input: BuilderConfigInput): BuilderConfigInput => input
 
-/** Merges user input over {@link BUILDER_DEFAULTS}. */
+/** Merges user input over the defaults. */
 export const resolveBuilderConfig = (input: BuilderConfigInput = {}): BuilderConfig => ({
-  ...BUILDER_DEFAULTS,
-  ...input,
   rootDir: path.resolve(input.rootDir ?? process.cwd()),
-  seaConfig: { ...BUILDER_DEFAULTS.seaConfig, ...input.seaConfig }
+  seaConfig: { ...SEA_DEFAULTS, ...input.seaConfig }
 })

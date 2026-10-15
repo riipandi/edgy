@@ -32,6 +32,11 @@
  * - CACHE_STORE: Read cache through the Workers Cache API: per location, and not served
  *   on workers.dev (there every read reaches D1), so use a custom domain.
  *
+ * Rate limiting for /api (RATE_LIMIT_STORE=cloudflare). The allowance and the
+ * period (10 or 60 seconds) are fixed here. RATE_LIMIT_MAX is only reported to
+ * clients as the limit, so keep it equal to `limit`; RATE_LIMIT_WINDOW only
+ * feeds Retry-After, so keep it equal to `period` in ms.
+ *
  */
 {
     "$schema": "node_modules/wrangler/config-schema.json",
@@ -61,15 +66,9 @@
         {
             "binding": "DB",
             "database_name": "edgy",
-            // Local development ignores the ID. Replace it with the ID printed
-            // by `wrangler d1 create edgy` before the first deploy.
             "database_id": "22fd37a3-771d-4ff4-8d9a-7ed0aed1d122"
         }
     ],
-    // Rate limiting for /api (RATE_LIMIT_STORE=cloudflare). The allowance
-    // and the period (10 or 60 seconds) are fixed here. RATE_LIMIT_MAX is
-    // only reported to clients as the limit, so keep it equal to `limit`;
-    // RATE_LIMIT_WINDOW only feeds Retry-After, so keep it equal to `period` in ms.
     "ratelimits": [
         {
             "name": "RATE_LIMITER",

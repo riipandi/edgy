@@ -1,13 +1,12 @@
 import { H3 } from 'h3'
 import type { AppConfig } from './kernel/config/service.ts'
 import type { AssetSource } from './kernel/http/assets.ts'
-import type { DevServer } from './kernel/http/dev_server.ts'
 import { makeErrorHandler } from './kernel/http/error_page.ts'
 import { type HttpRuntime, provideRuntime } from './kernel/http/runtime.ts'
 import { bodyLimit } from './middleware/body_limit.ts'
 import { locationHeaders } from './middleware/client_location.ts'
 import { cors } from './middleware/cors.ts'
-import { devAssets } from './middleware/dev_assets.ts'
+import { developmentMode } from './middleware/development.ts'
 import { loadShedding } from './middleware/load_shedding.ts'
 import type { RateCheck } from './middleware/rate_limit.ts'
 import { requestId } from './middleware/request_id.ts'
@@ -23,17 +22,19 @@ export interface AppOptions {
   readonly rateCheck?: RateCheck
   /** Where the built browser assets are read from (`/assets/**`); absent on Workers and in development. */
   readonly assets?: AssetSource
-  /** The Vite dev server, only under `pnpm dev`; it serves the assets from the source tree instead. */
-  readonly dev?: DevServer
+  /**
+   * Under `pnpm dev`: the HTML policy allows what Vite needs (runtime styles, the hot-reload
+   * socket). Never set in production.
+   */
+  readonly development?: boolean
 }
 
 /**
  * Builds the fully wired application router.
  *
  * Composition is plugin-only, in a fixed order: h3 registers plugins
- * immediately and runs middleware in registration order, so the Vite dev server (development
- * only) answers its own requests before anything counts or logs them, the runtime is
- * attached next, CORS answers a preflight before anything else, the request id
+ * immediately and runs middleware in registration order, so the runtime is
+ * attached first, CORS answers a preflight before anything else, the request id
  * is assigned next, security headers follow so every later response (errors
  * included) carries them, the observer reads the id, the overload guard refuses excess
  * requests before anything else costs work, and the body limit applies
@@ -47,8 +48,8 @@ export const createApp = (options: AppOptions): H3 =>
   new H3({
     onError: makeErrorHandler(() => import('../app/pages/error.marko')),
     plugins: [
-      ...(options.dev === undefined ? [] : [devAssets(options.dev)]),
       provideRuntime(options.runtime),
+      ...(options.development === true ? [developmentMode()] : []),
       cors(options.config.cors),
       requestId(),
       ...(options.config.server.cloudflareLocationHeaders

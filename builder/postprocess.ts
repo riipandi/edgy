@@ -1,8 +1,9 @@
 import JavaScriptObfuscator from 'javascript-obfuscator'
 import type { ObfuscatorOptions } from 'javascript-obfuscator'
 import { readFileSync, writeFileSync } from 'node:fs'
-import path from 'node:path'
-import type { BuilderConfig } from './config.ts'
+
+/** How hard to obfuscate: `low` keeps runtime behaviour closest to the source, `high` the least. */
+export type ObfuscatePreset = 'low' | 'medium' | 'high'
 
 /**
  * Obfuscator presets, ordered from safest to most aggressive.
@@ -11,7 +12,7 @@ import type { BuilderConfig } from './config.ts'
  * flattening, dead-code injection and self-defending code, at the cost of a
  * much larger bundle and slower startup.
  */
-const OBFUSCATOR_PRESETS: Record<BuilderConfig['obfuscatePreset'], ObfuscatorOptions> = {
+const OBFUSCATOR_PRESETS: Record<ObfuscatePreset, ObfuscatorOptions> = {
   low: {
     compact: true,
     stringArray: true,
@@ -38,46 +39,29 @@ const OBFUSCATOR_PRESETS: Record<BuilderConfig['obfuscatePreset'], ObfuscatorOpt
   }
 }
 
-/** Result of the optional post-processing pass. */
-export interface PostProcessResult {
-  readonly obfuscated: readonly string[]
+/**
+ * Reads `OBFUSCATE`: `low`, `medium` or `high` pick a preset, `true` and `1` mean `medium`, and
+ * anything else (unset, `false`, `0`) means off. A typo fails loudly: shipping readable code
+ * because a preset was misspelled is the wrong way to find out.
+ */
+export const parseObfuscate = (value: string | undefined): ObfuscatePreset | false => {
+  if (value === undefined || value === '' || value === 'false' || value === '0') return false
+  if (value === 'true' || value === '1') return 'medium'
+  if (value === 'low' || value === 'medium' || value === 'high') return value
+  throw new Error(`OBFUSCATE="${value}" is not one of: low, medium, high, true, false`)
 }
 
 /**
- * Post-processes emitted bundles.
- *
- * Minification is handled by Vite itself and is applied during
- * {@link runBuild}. This step only covers **obfuscation**, which runs
- * `javascript-obfuscator` over each emitted server file.
- *
- * Obfuscation happens *after* bundling on purpose: scrambling the whole chunk
- * renames far more than obfuscating module by module would.
- *
- * Both steps are opt-in — `config.minify` and `config.obfuscate` default to
- * `false`, so a plain `pnpm build:node` emits readable code.
+ * Obfuscates files in place with `javascript-obfuscator`. It runs *after* bundling on purpose:
+ * scrambling the whole bundle renames far more than obfuscating module by module would. The
+ * shebang of the Node entry survives (the obfuscator keeps a leading `#!` line).
  */
-export const postProcess = (options: {
-  readonly config: BuilderConfig
-  /** Absolute paths of the server files. */
-  readonly files: readonly string[]
-}): PostProcessResult => {
-  const { config, files } = options
-  if (!config.obfuscate) return { obfuscated: [] }
-
-  const preset = OBFUSCATOR_PRESETS[config.obfuscatePreset]
-  const obfuscated: string[] = []
-
+export const obfuscateFiles = (files: readonly string[], preset: ObfuscatePreset): void => {
   for (const file of files) {
-    const absolute = path.resolve(config.rootDir, file)
-
-    const result = JavaScriptObfuscator.obfuscate(readFileSync(absolute, 'utf8'), {
-      ...preset,
+    const result = JavaScriptObfuscator.obfuscate(readFileSync(file, 'utf8'), {
+      ...OBFUSCATOR_PRESETS[preset],
       sourceMap: false
     })
-
-    writeFileSync(absolute, result.getObfuscatedCode())
-    obfuscated.push(path.relative(config.rootDir, absolute))
+    writeFileSync(file, result.getObfuscatedCode())
   }
-
-  return { obfuscated }
 }

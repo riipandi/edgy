@@ -39,7 +39,7 @@ compile a single executable using Node's [Single Executable Applications](https:
 pnpm install
 pnpm app migrate:up     # create the users table
 pnpm app migrate:seed   # insert sample rows (idempotent)
-pnpm dev                # http://localhost:3000, pages update live, server code restarts
+pnpm dev                # http://localhost:3000, pages update live, server code reloads
 pnpm test               # run the test suite
 pnpm watch:worker       # the same app as a Cloudflare Worker, locally
 pnpm compose:up         # ClickStack (HyperDX) and Valkey in Docker, for telemetry
