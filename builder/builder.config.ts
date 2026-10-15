@@ -8,14 +8,19 @@ import { defineBuilderConfig } from './config.ts'
  * cannot be bundled.
  *
  * Flags (override any of the below per run):
- *   pnpm build --no-splitting        # single self-contained index.mjs
- *   pnpm build --minify              # oxc minifier
- *   pnpm build --obfuscate           # javascript-obfuscator
- *   pnpm build --minify --obfuscate  # both
+ *   pnpm build:node --no-splitting        # single self-contained index.mjs
+ *   pnpm build:node --minify              # oxc minifier
+ *   pnpm build:node --obfuscate           # javascript-obfuscator
+ *   pnpm build:node --minify --obfuscate  # both minification and obfuscation
  *
  * Commands:
- *   pnpm build                       # bundle the server into dist/server
- *   pnpm compile                     # compile a single executable (SEA)
+ *   pnpm build:node     # bundle the server into dist/server
+ *   pnpm build:worker   # bundle the Cloudflare Worker (src/worker.ts)
+ *   pnpm compile        # compile a single executable (SEA)
+ *
+ * `--target=node|workers` selects the runtime (default `node`). Workers applies
+ * `WORKERS_PRESET` (see `config.ts`) over the fields below, so `entry`, `splitting`
+ * and `conditions` here describe the Node server only.
  */
 export default defineBuilderConfig({
   entry: 'src/main.ts',

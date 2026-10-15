@@ -61,7 +61,7 @@ export interface PostProcessResult {
  * renames far more than obfuscating module by module would.
  *
  * Both steps are opt-in — `config.minify` and `config.obfuscate` default to
- * `false`, so a plain `pnpm build` emits readable code.
+ * `false`, so a plain `pnpm build:node` emits readable code.
  */
 export const postProcess = (options: {
   readonly config: BuilderConfig

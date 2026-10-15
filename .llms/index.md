@@ -19,7 +19,7 @@ The documentation map. Read AGENTS.md first, then this file, then the document a
 - HTTP server (h3 v2): `/` and `/health` at the root, `/metrics` (flagged), `/api/users` (paginated list, get, create answering 201) in the response envelope, `/.well-known/security.txt`; security headers, JSON-only bodies, rate limiting (off by default) — see `rules.md` ("HTTP contracts")
 - CLI (`effect/cli`): `serve [--auto-migrate]`, `config:generate [--check]`, `migrate:up`, `migrate:down`, `migrate:status`, `migrate:reset`, `migrate:seed` — see `rules.md` ("CLI contracts")
 - Database: `node:sqlite` or Cloudflare D1 (`DATABASE_DRIVER`) behind one `DatabaseService`, custom Kysely dialects, transactions (sqlite), static-registry migrator, idempotent seeders
-- Targets: a Node.js server and a Cloudflare Worker (`pnpm preview`) over the same application — see `architecture.md` ("two targets") — see `rules.md` ("Database contracts")
+- Targets: a Node.js server and a Cloudflare Worker (`pnpm watch:worker`, `pnpm preview`) over the same application — see `architecture.md` ("two targets") — see `rules.md` ("Database contracts")
 - Observability: non-blocking batched logger (`pretty`/`json`), request log + HTTP metrics — see `rules.md` ("Observability contracts")
 
 Human-facing documentation lives in `docs/`: `commandline.md`, `configuration.md`, `api-endpoint.md`.

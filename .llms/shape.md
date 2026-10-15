@@ -59,11 +59,15 @@ docs/                # human-facing docs
 - `pnpm typecheck` — `tsc -b --noEmit`
 - `pnpm check` — `oxfmt --check && oxlint`
 - `pnpm format` — `oxfmt --write .`
-- `pnpm build` / `pnpm compile` — Rolldown bundle / single executable (SEA), Node target
-- `pnpm preview` / `pnpm deploy` — Workers target: `wrangler dev` (workerd + a local D1 under `.wrangler/`) / `wrangler deploy`
+- `pnpm dev` (= `pnpm watch:node`) — the Node server with `node --watch ./src/main.ts serve`
+- `pnpm build:node` / `pnpm build:worker` — Rolldown bundle for the Node server (`dist/server`) / for the Worker (`dist/worker/index.mjs`); both are `node ./builder/cli.ts build --target=…`, so builder flags append (`pnpm build:node --minify`). There is no plain `pnpm build`
+- `pnpm compile` — single executable (SEA), Node target only
+- `pnpm watch:worker` — `wrangler dev` of the source (workerd + a local D1 under `.wrangler/`), wrangler bundles on every change
+- `pnpm preview` — builds the Worker with `--minify`, then `wrangler dev dist/worker/index.mjs --no-bundle`: the built artifact, in workerd
+- `pnpm deploy` — builds the Worker with `--minify`, then `wrangler deploy dist/worker/index.mjs --no-bundle`
 - `pnpm app config:generate [--check]` — regenerate or verify `.env.example`
 - `pnpm check` is read-only; `pnpm lint` runs `oxlint --fix` and rewrites files
-- `pnpm test` / `pnpm test:watch` — Vitest (`vitest run`); tests live beside the code as `*.test.ts` and call the real app in-process. Beyond it, validate the bundle with `pnpm build` + `node dist/server/index.mjs serve --auto-migrate`, and the Worker with `pnpm preview`
+- `pnpm test` / `pnpm test:watch` — Vitest (`vitest run`); tests live beside the code as `*.test.ts` and call the real app in-process. Beyond it, validate the Node bundle with `pnpm build:node` + `node dist/server/index.mjs serve --auto-migrate`, and the Worker with `pnpm preview`
 
 ## Conventions
 

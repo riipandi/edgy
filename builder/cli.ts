@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { runBuild } from './build.ts'
-import { resolveBuilderConfig, type BuilderConfigInput } from './config.ts'
+import { resolveBuilderConfig, type BuilderConfigInput, type BuilderRuntime } from './config.ts'
 
 const CONFIG_CANDIDATES = ['builder.config.ts', 'builder.config.mjs', 'builder.config.js']
 
@@ -11,6 +11,28 @@ const CONFIG_CANDIDATES = ['builder.config.ts', 'builder.config.mjs', 'builder.c
 const COMMANDS = ['build', 'compile'] as const
 
 type Command = (typeof COMMANDS)[number]
+
+const RUNTIMES = ['node', 'workers'] as const
+
+const isRuntime = (value: string): value is BuilderRuntime =>
+  (RUNTIMES as readonly string[]).includes(value)
+
+/**
+ * Reads `--target=workers` or `--target workers`; `node` when absent. An unknown
+ * value fails loudly: silently building for the wrong runtime would ship a
+ * bundle that only breaks once it is deployed.
+ */
+const parseRuntime = (argv: readonly string[]): BuilderRuntime => {
+  const index = argv.findIndex((arg) => arg === '--target' || arg.startsWith('--target='))
+  if (index === -1) return 'node'
+
+  const arg = argv[index] ?? ''
+  const value = arg.includes('=') ? arg.slice(arg.indexOf('=') + 1) : (argv[index + 1] ?? '')
+  if (!isRuntime(value)) {
+    throw new Error(`Unknown --target "${value}"; expected one of: ${RUNTIMES.join(', ')}`)
+  }
+  return value
+}
 
 /** CLI flags that override the config file. */
 interface CliFlags {
@@ -32,11 +54,13 @@ const isCommand = (value: string): value is Command =>
  * Splits `argv` into a subcommand and its flags.
  *
  * The first non-flag argument is the command; it defaults to `build` so a bare
- * `pnpm build` keeps working. Flags are parsed separately so their position
+ * a bare `node builder/cli.ts` keeps working. Flags are parsed separately so their position
  * relative to the command does not matter.
  */
 const parseArgv = (argv: readonly string[]): ParsedArgv => {
-  const command = argv.find((arg) => !arg.startsWith('--')) ?? 'build'
+  // `--target workers` carries its value as the next argument; it is not a command.
+  const command =
+    argv.find((arg, index) => !arg.startsWith('--') && argv[index - 1] !== '--target') ?? 'build'
   return {
     command: isCommand(command) ? command : 'build',
     flags: argv.filter((arg) => arg.startsWith('--'))
@@ -109,10 +133,16 @@ const main = async (): Promise<void> => {
   const flags = parseFlags(rawFlags)
   const userConfig = await loadUserConfig(rootDir)
 
+  const runtime = parseRuntime(process.argv.slice(2))
   const compileExe = command === 'compile'
+  if (compileExe && runtime === 'workers') {
+    throw new Error('`compile` builds a Node executable; it cannot target workers')
+  }
+
   const config = resolveBuilderConfig({
     ...userConfig,
     ...definedOnly(flags),
+    runtime,
     rootDir,
     seaConfig: { ...userConfig.seaConfig, enable: compileExe }
   })
@@ -128,7 +158,11 @@ const main = async (): Promise<void> => {
     config.obfuscate ? `obfuscate:${config.obfuscatePreset}` : undefined
   ].filter(Boolean)
 
-  const action = compileExe ? 'Compiling server + executable' : 'Building server'
+  const action = compileExe
+    ? 'Compiling server + executable'
+    : config.runtime === 'workers'
+      ? 'Building Worker'
+      : 'Building server'
   process.stdout.write(
     `${action} (target: ${config.target}, ${extras.join(' + ') || 'no extras'})\n`
   )
@@ -139,13 +173,21 @@ const main = async (): Promise<void> => {
   const entry = path.relative(rootDir, path.join(result.serverDir, config.entryFileName))
   const externals = result.externals.length === 0 ? 'none' : result.externals.join(', ')
 
-  const lines = [
-    `Server built in ${Date.now() - started}ms`,
-    `  entry:     ${entry} (${size} kB)`,
-    `  chunks:    ${result.files.length}`,
-    `  externals: ${externals}`,
-    `Preview:   node ${entry} serve`
-  ]
+  const lines =
+    config.runtime === 'workers'
+      ? [
+          `Worker built in ${Date.now() - started}ms`,
+          `  entry:     ${entry} (${size} kB)`,
+          `Preview:   pnpm preview`,
+          `Deploy:    pnpm deploy`
+        ]
+      : [
+          `Server built in ${Date.now() - started}ms`,
+          `  entry:     ${entry} (${size} kB)`,
+          `  chunks:    ${result.files.length}`,
+          `  externals: ${externals}`,
+          `Preview:   node ${entry} serve`
+        ]
 
   if (result.executable) {
     const exe = path.relative(rootDir, result.executable.outputPath)

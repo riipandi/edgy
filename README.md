@@ -19,7 +19,7 @@ executable using Node's [Single Executable Applications](https://nodejs.org/api/
 - **One response format** — every API response is a documented envelope, with built-in pagination.
 - **Plugin-based routing** — route groups and middleware are H3 plugins, composed in one place.
 - **Built-in middleware** — request ID (TypeID), structured request logger, security headers, rate limiting and configurable CORS.
-- **Two targets** — a Node.js server and a Cloudflare Worker (`pnpm preview` runs it locally).
+- **Two targets** — a Node.js server and a Cloudflare Worker (`pnpm watch:worker` runs it locally).
 - **Zero native dependencies** — SQLite via `node:sqlite`, so the bundle needs no compiled addon.
 - **Configurable build** — code splitting per dependency, optional minify/obfuscate, all off or on by flags.
 - **Optional single executable** — `pnpm compile` produces one self-contained binary.
@@ -35,9 +35,9 @@ executable using Node's [Single Executable Applications](https://nodejs.org/api/
 pnpm install
 pnpm app migrate:up     # create the users table
 pnpm app migrate:seed   # insert sample rows (idempotent)
-pnpm app serve          # http://localhost:3000
+pnpm dev                # http://localhost:3000, restarts on change
 pnpm test               # run the test suite
-pnpm preview            # the same app as a Cloudflare Worker, locally
+pnpm watch:worker       # the same app as a Cloudflare Worker, locally
 ```
 
 Every setting is an optional environment variable; `pnpm app config:generate` writes `.env.example`

@@ -103,10 +103,18 @@ export interface SeaConfig {
   readonly target?: string
 }
 
+/** What the bundle runs on: a Node.js server, or a Cloudflare Worker. */
+export type BuilderRuntime = 'node' | 'workers'
+
 /** Fully resolved builder configuration. */
 export interface BuilderConfig {
   /** Project root. All relative paths are resolved against it. */
   readonly rootDir: string
+  /**
+   * Runtime the bundle is for (`--target=node|workers`). `workers` applies
+   * {@link WORKERS_PRESET} over the Node-oriented fields below. Default `node`.
+   */
+  readonly runtime: BuilderRuntime
   /** Server entry point, relative to `rootDir`. */
   readonly entry: string
   /** Build output root, relative to `rootDir`. */
@@ -202,6 +210,7 @@ export const NATIVE_PACKAGES: readonly string[] = [
  * with the `--minify` / `--obfuscate` CLI flags.
  */
 export const BUILDER_DEFAULTS: Omit<BuilderConfig, 'rootDir'> = {
+  runtime: 'node',
   entry: 'src/main.ts',
   outDir: 'dist',
   serverDir: 'server',
@@ -233,6 +242,29 @@ export const BUILDER_DEFAULTS: Omit<BuilderConfig, 'rootDir'> = {
 }
 
 /**
+ * Fields a Workers build fixes, applied over the user's config (which describes
+ * the Node server: `entry: 'src/main.ts'`, a CLI shebang, native-addon tracing).
+ *
+ * - One self-contained `index.mjs`: a Worker is uploaded as a single module, so
+ *   code splitting would leave imports `wrangler deploy --no-bundle` cannot find.
+ * - `workerd`/`worker`/`browser` conditions pick the same package builds
+ *   wrangler's own bundler would; `neutral` keeps rolldown from assuming Node.
+ * - Node built-ins stay bare `node:` imports, which `nodejs_compat` provides.
+ *
+ * `minify`, `obfuscate` and `sourcemap` still come from the config and flags.
+ */
+export const WORKERS_PRESET: Partial<BuilderConfig> = {
+  entry: 'src/worker.ts',
+  serverDir: 'worker',
+  platform: 'neutral',
+  conditions: ['workerd', 'worker', 'browser', 'import', 'production'],
+  splitting: false,
+  splitPackages: false,
+  chunkGroups: [],
+  assets: []
+}
+
+/**
  * Identity helper that gives editors autocomplete and type checking for a
  * builder config file, mirroring `defineNitroConfig` ergonomics.
  */
@@ -242,7 +274,7 @@ export const defineBuilderConfig = (input: BuilderConfigInput): BuilderConfigInp
 export const resolveBuilderConfig = (input: BuilderConfigInput = {}): BuilderConfig => {
   const rootDir = path.resolve(input.rootDir ?? process.cwd())
 
-  const merged: BuilderConfig = {
+  const requested: BuilderConfig = {
     ...BUILDER_DEFAULTS,
     ...input,
     rootDir,
@@ -252,6 +284,8 @@ export const resolveBuilderConfig = (input: BuilderConfigInput = {}): BuilderCon
     conditions: input.conditions ?? BUILDER_DEFAULTS.conditions,
     seaConfig: { ...BUILDER_DEFAULTS.seaConfig, ...input.seaConfig }
   }
+  const merged: BuilderConfig =
+    requested.runtime === 'workers' ? { ...requested, ...WORKERS_PRESET } : requested
 
   return {
     ...merged,

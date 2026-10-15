@@ -9,17 +9,18 @@ source. It bundles the server, keeps native packages external, traces them into 
 emits a minimal `package.json` so the result runs without the project's own `node_modules`.
 
 ```bash
-pnpm build       # -> dist/server  (ESM bundle + chunks)
-pnpm compile     # -> dist/server + dist/edgy  (single executable, experimental)
+pnpm build:node      # -> dist/server  (ESM bundle + chunks)
+pnpm build:worker    # -> dist/worker/index.mjs  (Cloudflare Worker, one file)
+pnpm compile         # -> dist/server + dist/edgy  (single executable, experimental)
 ```
 
-Flags apply to both commands:
+Flags apply to all three commands:
 
 ```bash
-pnpm build --no-splitting          # one self-contained index.mjs
-pnpm build --minify                # minify with Rolldown's oxc minifier
-pnpm build --obfuscate             # obfuscate chunks (javascript-obfuscator)
-pnpm build --minify --obfuscate    # both
+pnpm build:node --no-splitting          # one self-contained index.mjs
+pnpm build:node --minify                # minify with Rolldown's oxc minifier
+pnpm build:node --obfuscate             # obfuscate chunks (javascript-obfuscator)
+pnpm build:node --minify --obfuscate    # both
 ```
 
 Run the bundle anywhere, with no `node_modules` present:
@@ -35,15 +36,26 @@ runtime and the database differ.
 
 | Target             | Runtime          | Database             | Built with        |
 | ------------------ | ---------------- | -------------------- | ----------------- |
-| Node.js server     | Node.js >= 24.22 | SQLite (`node:sqlite`) | `pnpm build`     |
-| Cloudflare Workers | workerd          | Cloudflare D1        | `wrangler`        |
+| Node.js server     | Node.js >= 24.22 | SQLite (`node:sqlite`) | `pnpm build:node`   |
+| Cloudflare Workers | workerd          | Cloudflare D1        | `pnpm build:worker` |
 
 ## Cloudflare Workers
 
 ```bash
-pnpm preview     # run locally in workerd with a local D1 database
-pnpm deploy      # publish with wrangler
+pnpm watch:worker    # run the source in workerd, rebuilt on every change
+pnpm build:worker    # bundle into dist/worker/index.mjs (one file)
+pnpm preview         # build a minified bundle, then run that exact file in workerd
+pnpm deploy          # build a minified bundle, then publish that exact file with wrangler
 ```
+
+`pnpm build:worker` is `pnpm build:node`'s counterpart: the same builder with `--target=workers`
+(`node` or `workers`, default `node`). The Worker build is a single file with Node's built-ins
+(`node:async_hooks`) left as imports, which Cloudflare provides through the `nodejs_compat` flag.
+`--minify` and `--obfuscate` work for both targets; `pnpm compile` (single executable) is Node.js only.
+
+`pnpm watch:worker` is the fast loop: wrangler bundles the source itself on every change.
+`pnpm preview` runs the artifact you will actually ship, minified exactly as `pnpm deploy` builds it,
+so run it before deploying.
 
 Before the first deploy:
 

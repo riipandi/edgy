@@ -1,6 +1,7 @@
 /**
- * Cloudflare Workers target. `pnpm preview` runs this file locally in workerd
- * (miniflare) with a local D1 database; `pnpm deploy` publishes it. Application
+ * Cloudflare Workers target. `pnpm watch:worker` runs the source locally in
+ * workerd (miniflare) with a local D1 database; `pnpm preview` runs the built
+ * bundle the same way; `pnpm deploy` publishes it. Application
  * settings are the same variables the Node server reads.
  *
  * Docs: https://developers.cloudflare.com/workers/wrangler/configuration

@@ -114,7 +114,8 @@ const baseRolldownOptions = (
     chunkFileNames: config.chunkFileNames,
     minify: config.minify,
     sourcemap: config.sourcemap,
-    banner: (chunk) => (chunk.isEntry ? '#!/usr/bin/env node' : ''),
+    // A shebang makes the Node entry runnable as a script; a Worker is not.
+    banner: (chunk) => (chunk.isEntry && config.runtime === 'node' ? '#!/usr/bin/env node' : ''),
     codeSplitting: config.splitting ? { groups: [...chunkGroups(config)] } : false,
     ...overrides
   }

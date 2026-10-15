@@ -81,7 +81,7 @@ const appFor = (env: WorkerEnv): Promise<H3> => {
 
 /**
  * Cloudflare Workers entry (`wrangler.jsonc` → `main`). Run it locally with
- * `pnpm preview`; deploy with `pnpm deploy`.
+ * `pnpm watch:worker` (source) or `pnpm preview` (built bundle); deploy with `pnpm deploy`.
  */
 export default {
   async fetch(request: Request, env: WorkerEnv): Promise<Response> {

@@ -44,7 +44,7 @@ migrate:seed    Seed the database with initial data
 ```
 
 The migration commands use the database selected by `DATABASE_DRIVER`. With `d1` they run against
-the local D1 database that `pnpm preview` serves, so the schema is ready before the Worker starts:
+the local D1 database that `pnpm watch:worker` and `pnpm preview` serve, so the schema is ready before the Worker starts:
 
 ```bash
 DATABASE_DRIVER=d1 pnpm app migrate:up

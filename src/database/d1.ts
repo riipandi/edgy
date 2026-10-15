@@ -46,7 +46,7 @@ export const isD1Database = (value: unknown): value is D1Database =>
  * The D1 binding for CLI commands on Node, taken from wrangler's local platform
  * proxy (miniflare). It reads the same `wrangler.jsonc` and the same persisted
  * state `wrangler dev` uses, so `DATABASE_DRIVER=d1 pnpm app migrate:up` prepares
- * the database `pnpm preview` then serves.
+ * the database `pnpm watch:worker` and `pnpm preview` then serve.
  *
  * `wrangler` is a development dependency and is imported lazily, so neither the
  * Node server nor the Worker ever loads it; the Worker simply never uses this layer. It is local only: it does not

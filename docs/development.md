@@ -5,8 +5,12 @@ Day-to-day commands for working on the server.
 ## Commands
 
 ```bash
-pnpm watch        # server with --watch (auto-restart on change)
-pnpm preview      # run the Cloudflare Worker locally (workerd + a local D1 database)
+pnpm dev            # the Node.js server with --watch (same as pnpm watch:node)
+pnpm watch:node     # the Node.js server with --watch (auto-restart on change)
+pnpm watch:worker   # the Cloudflare Worker from source, in workerd with a local D1 database
+pnpm preview        # build the Worker (minified), then run that file in workerd
+pnpm build:node     # bundle the Node.js server into dist/server
+pnpm build:worker   # bundle the Worker into dist/worker/index.mjs
 pnpm test         # vitest run
 pnpm test:watch   # vitest, re-runs on change
 pnpm typecheck    # tsc --noEmit
@@ -43,12 +47,14 @@ command-level flags and the confirmation behaviour of destructive commands.
 
 ## Cloudflare Workers locally
 
-`pnpm preview` starts the Worker in `workerd`, the runtime Cloudflare uses, with a local D1 database
-stored under `.wrangler/`. Pending migrations are applied when the Worker starts
-(`DATABASE_AUTO_MIGRATE` in `wrangler.jsonc`), so a fresh checkout works with no extra step:
+`pnpm watch:worker` starts the Worker in `workerd`, the runtime Cloudflare uses, with a local D1
+database stored under `.wrangler/`. Pending migrations are applied when the Worker starts
+(`DATABASE_AUTO_MIGRATE` in `wrangler.jsonc`), so a fresh checkout works with no extra step.
+`pnpm preview` does the same with the built, minified bundle, which is what `pnpm deploy` ships:
 
 ```bash
-pnpm preview            # http://127.0.0.1:3000
+pnpm watch:worker       # http://127.0.0.1:3000, from source
+pnpm preview            # http://127.0.0.1:3000, from dist/worker/index.mjs
 ```
 
 To prepare or inspect that same database from the CLI, select the `d1` driver:
@@ -70,16 +76,17 @@ real application over a private in-memory database and call it in-process, so no
 pnpm typecheck && pnpm check && pnpm test
 ```
 
-Plus a run against a real server — a green test suite does not exercise the built bundle:
+Plus a run against the real artifacts — a green test suite does not exercise the built bundles:
 
 ```bash
-pnpm build
+pnpm build:node
 DATABASE_PATH=$(mktemp -d)/probe.db node dist/server/index.mjs serve --auto-migrate
+pnpm preview   # the Worker bundle, in workerd
 ```
 
 ## Related docs
 
-- [Deployment](./deployment.md) — building, bundling, single executable
+- [Deployment](./deployment.md) — Node.js and Worker builds, single executable
 - [Configuration](./configuration.md) — environment variables and defaults
 - [CLI](./commandline.md) — commands and flags
 - [API endpoints](./api-endpoint.md) — endpoint list and request ID tracing

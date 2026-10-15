@@ -51,20 +51,27 @@ export const runBuild = async (config: BuilderConfig): Promise<BuildResult> => {
   const entryPath = path.resolve(config.serverDir, config.entryFileName)
   const bytes = statSync(entryPath).size
 
-  const traced = traceExternals({
-    externals,
-    serverDir: config.serverDir,
-    conditions: config.conditions
-  })
+  // Native packages are a Node concern; a Worker bundle is one file with no
+  // `node_modules` to trace.
+  const traced =
+    config.runtime === 'node'
+      ? traceExternals({
+          externals,
+          serverDir: config.serverDir,
+          conditions: config.conditions
+        })
+      : { packages: [] }
 
   for (const asset of config.assets) {
     copyPath(path.resolve(config.rootDir, asset.from), path.resolve(config.serverDir, asset.to))
   }
 
-  writePackageJson(
-    config,
-    [...externals.values()].map((pkg) => pkg.name)
-  )
+  if (config.runtime === 'node') {
+    writePackageJson(
+      config,
+      [...externals.values()].map((pkg) => pkg.name)
+    )
+  }
 
   const executable = config.seaConfig.enable
     ? await compileExecutable({ config, externals })
