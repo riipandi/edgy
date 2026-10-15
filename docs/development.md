@@ -19,7 +19,8 @@ pnpm compose:down      # stop them; their data stays in .storage
 pnpm compose:restart   # down, then up
 pnpm compose:cleanup   # stop them and delete their data
 pnpm test              # vitest run
-pnpm test:watch        # vitest, re-runs on change
+pnpm test:coverage     # the same, with a coverage report in .output/tests-results/coverage
+pnpm test:report       # serve .output/tests-results (open /coverage/ for the coverage report)
 pnpm typecheck         # tsc --noEmit, then the page templates
 pnpm check             # oxfmt --check + oxlint (read-only; what a hook or CI should run)
 pnpm format            # oxfmt --write .
@@ -130,6 +131,11 @@ the code they cover (`*.test.ts`). Vitest loads the pages through the same Vite 
 and call it in-process, so no port is opened; the OpenTelemetry collector is replaced by a fake that
 records what is sent. Effect tests run on a controlled clock, so retries and timeouts are stepped
 through, not waited for. `pnpm test` also checks that `.env.example` matches the configuration.
+
+Coverage (`pnpm test:coverage`) is measured over `src/` with V8's native coverage: no code is instrumented, so
+the Marko and vanilla-extract transforms run as they do in a build, and the numbers cost about a second on
+top of the test run. Code the tests cannot reach by design (the CLI commands, the server and Worker entries,
+the dev server) shows as uncovered; read the report per file rather than as one total.
 
 ## Validation before claiming a change works
 

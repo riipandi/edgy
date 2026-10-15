@@ -79,7 +79,7 @@ docs/                # human-facing docs
 - `pnpm app config:generate [--check]` — regenerate or verify `.env.example`
 - `pnpm check` is read-only; `pnpm lint` runs `oxlint --fix` and rewrites files
 - `pnpm compose:up` / `compose:down` / `compose:restart` / `compose:cleanup` — the development services in `compose.yaml` (cleanup also deletes `./.storage`)
-- `pnpm test` / `pnpm test:watch` — Vitest (`vitest run`, with `@effect/vitest`); tests live beside the code as `*.test.ts` and call the real app in-process. Beyond it, validate the Node bundle with `pnpm build` + `node dist/server/index.mjs serve --auto-migrate`, and the Worker with `pnpm preview --mode worker`
+- `pnpm test` / `pnpm test:coverage` — Vitest (`vitest --run --project unit`, with `@effect/vitest`; coverage is `@vitest/coverage-v8` over `src/`, report in `.output/tests-results/coverage`, served by `pnpm test:report`); tests live beside the code as `*.test.ts` and call the real app in-process. Beyond it, validate the Node bundle with `pnpm build` + `node dist/server/index.mjs serve --auto-migrate`, and the Worker with `pnpm preview --mode worker`
 
 ## Conventions
 
