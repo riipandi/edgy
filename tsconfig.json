@@ -1,5 +1,5 @@
 {
-    "$schema": "https://json.schemastore.org/tsconfig",
+    "$schema": "./node_modules/@effect/tsgo/schema.json",
     "compilerOptions": {
         "allowImportingTsExtensions": true,
         "allowSyntheticDefaultImports": true,
@@ -32,10 +32,16 @@
         "types": ["node"],
         "useDefineForClassFields": true,
         "verbatimModuleSyntax": true,
+        "plugins": [
+            {
+                "name": "@effect/language-service",
+                "diagnostics": false
+            }
+        ],
         "paths": {
             "#/*": ["./app/*"]
         }
     },
     "include": ["**/*.ts"],
-    "exclude": [".output", ".wrangler", "build", "dist", "public", "temp"]
+    "exclude": [".output", ".wrangler", "build", "dist", "public", "temp", "vendor"]
 }

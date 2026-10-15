@@ -1,6 +1,7 @@
 {
-    "$schema": "./node_modules/oxlint/configuration_schema.json",
-    "plugins": ["typescript", "unicorn", "import", "jsx-a11y", "vitest", "eslint", "oxc"],
+    "$schema": "./node_modules/@effect/tsgo/oxlint-schema.json",
+    "extends": ["./node_modules/@effect/tsgo/oxlint-presets/recommended.json"],
+    "plugins": ["typescript", "import", "vitest", "eslint", "oxc"],
     "options": {
         "typeAware": true,
         "typeCheck": true
@@ -15,6 +16,7 @@
         "suspicious": "error"
     },
     "rules": {
+        "effecttsgo/unstable-api-usage": "off",
         "import/default": "warn",
         "import/no-absolute-path": "allow",
         "import/no-cycle": "warn",
