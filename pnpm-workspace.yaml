@@ -6,5 +6,9 @@ minimumReleaseAge: 0
 
 verifyDepsBeforeRun: false
 
+allowBuilds:
+  esbuild: true
+  workerd: true
+
 catalog:
   typescript: ^7.0.2

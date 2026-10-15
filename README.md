@@ -1,6 +1,6 @@
 # Edgy
 
-[![Node.js](https://img.shields.io/badge/Node.js-%3E%3D24.21-3c873a?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
+[![Node.js](https://img.shields.io/badge/Node.js-%3E%3D24.22-3c873a?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?style=flat-square&logo=typescript&logoColor=white)](tsconfig.json)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
 
@@ -23,7 +23,7 @@ executable using Node's [Single Executable Applications](https://nodejs.org/api/
 
 ## Requirements
 
-- **Node.js >= 24.21** — required for the stable `node:sqlite` and native TypeScript stripping.
+- **Node.js >= 24.22** — required for the stable `node:sqlite` and native TypeScript stripping.
 - **pnpm 12** — declared via `devEngines`; `npx` is intentionally rejected.
 
 ## Getting started

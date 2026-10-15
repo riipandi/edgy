@@ -4,7 +4,7 @@ The layout, the toolchain, and the commands. Read once; return when a path or a 
 
 ## Stack
 
-- Node.js >= 24.21 (native TypeScript stripping — source runs directly, no build step in development), pnpm 12 (`devEngines`; `npx` rejected)
+- Node.js >= 24.22 (native TypeScript stripping — source runs directly, no build step in development), pnpm 12 (`devEngines`; `npx` rejected)
 - Effect v4 (typed errors, DI layers, CLI, Config, Logger, Schema, Cache)
 - h3 v2 (plugin-based routing, rou3 trie)
 - Kysely 0.29 on `node:sqlite` (zero native addons)

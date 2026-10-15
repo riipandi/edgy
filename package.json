@@ -16,6 +16,8 @@
         "build": "node ./builder/cli.ts build",
         "compile": "node ./builder/cli.ts compile",
         "watch": "node --watch ./src/main.ts serve",
+        "preview": "wrangler dev",
+        "deploy": "wrangler deploy",
         "cleanup": "pnpm --silent cleanup:dist && pnpm --silent cleanup:deps",
         "cleanup:dist": "pnpm dlx del-cli dist storybook-static e2e-result",
         "cleanup:deps": "pnpm dlx del-cli .{output,wrangler} pnpm-lock.yaml node_modules",
@@ -43,7 +45,8 @@
         "oxlint-tsgolint": "^7.0.2004",
         "postject": "1.0.0-alpha.6",
         "rolldown": "^1.2.13",
-        "typescript": "catalog:"
+        "typescript": "catalog:",
+        "wrangler": "^4.151.0"
     },
     "devEngines": {
         "packageManager": {
@@ -53,6 +56,6 @@
         }
     },
     "engines": {
-        "node": ">=24.21.0"
+        "node": ">=24.22.0"
     }
 }
