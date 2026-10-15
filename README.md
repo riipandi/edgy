@@ -53,13 +53,7 @@ The entry point is `src/main.ts`, run directly by Node (no build step in develop
 pnpm app <command> [flags]
 ```
 
-| Command   | Description                              |
-| --------- | ---------------------------------------- |
-| `serve`   | Start the HTTP server                    |
-| `migrate` | Apply pending database migrations        |
-| `seed`    | Populate the database with sample data   |
-
-Global flags: `--version`, `--log-level <level>`, `--completions <shell>`, `--help`.
+See the [CLI Documentation](./docs/commandline.md) for the details.
 
 ## Configuration
 

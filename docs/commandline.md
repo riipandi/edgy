@@ -1,4 +1,6 @@
-# Application CLI
+# CLI Documentation
+
+Global flags: `--version`, `--log-level <level>`, `--completions <shell>`, `--help`.
 
 ## Database Migration
 ```
@@ -14,8 +16,6 @@ migrate:down     Rollback database migrations
 
 migrate:status    Check database migration status
 
-migrate:validate  Check the migration files
-
 migrate:create <MIGRATION_NAME>   Create a new migration file
 
 migrate:reset   Rollback all migrations
@@ -28,3 +28,6 @@ migrate:seed    Seed the database with initial data
    --dry-run    Report what would be seeded without changing anything
    --force      Skip the confirmation prompt
 ```
+
+Destructive commands (`migrate:down`, `migrate:reset`) ask for confirmation; `--force` skips the
+prompt, and non-interactive sessions must pass `--force` explicitly.
