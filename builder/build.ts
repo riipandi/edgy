@@ -1,4 +1,4 @@
-import { rmSync, statSync } from 'node:fs'
+import { chmodSync, rmSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { bundle } from './bundler.ts'
 import { compileExecutable, type CompileResult } from './compiler.ts'
@@ -50,6 +50,11 @@ export const runBuild = async (config: BuilderConfig): Promise<BuildResult> => {
   const { obfuscated } = postProcess({ config, files: output.files })
   const entryPath = path.resolve(config.serverDir, config.entryFileName)
   const bytes = statSync(entryPath).size
+
+  // The Node entry starts with a shebang (see the bundler), so it is a runnable script:
+  // `./dist/server/index.mjs serve`. A Worker entry has none and is loaded by the platform, so
+  // it stays a plain file. Done after post-processing, which rewrites the files it touches.
+  if (config.runtime === 'node') chmodSync(entryPath, 0o755)
 
   // Native packages are a Node concern; a Worker bundle is one file with no
   // `node_modules` to trace.

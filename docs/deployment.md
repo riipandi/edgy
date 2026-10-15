@@ -27,7 +27,10 @@ Run the bundle anywhere, with no `node_modules` present:
 
 ```bash
 node dist/server/index.mjs serve
+./dist/server/index.mjs serve   # the Node entry is executable and starts with a shebang
 ```
+
+The Worker bundle (`dist/worker/index.mjs`) is not executable: the platform loads it, nothing runs it.
 
 ## Two targets
 
