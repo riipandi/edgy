@@ -13,8 +13,8 @@ Contracts, how-to-change recipes, traps. Read the section a change touches befor
 
 ## CLI contracts
 
-- **Commands are flat, colon-named**: `serve`, `migrate:up`, `migrate:down`, `migrate:status`, `migrate:reset`, `migrate:seed` (`src/command/`, wired in `cli.ts`). One file per command; `confirm.ts` holds the shared destructive-op confirmation.
-- **Destructive commands** (`migrate:down`, `migrate:reset`) prompt via `Prompt.Confirm`; `--force` skips the prompt, and a non-TTY session without `--force` refuses to run (`src/command/confirm.ts`). Keep this pairing on any new destructive command.
+- **Commands are flat, colon-named**: `serve`, `migrate:up`, `migrate:down`, `migrate:status`, `migrate:reset`, `migrate:seed` (`src/command/`, wired in `cli.ts`). One file per command; `helper.ts` holds the shared CLI output helpers (`print`, `printWarning` — plain console output, no timestamp/level prefix) and the destructive-op confirmation (`confirmDestructive`).
+- **Destructive commands** (`migrate:down`, `migrate:reset`) prompt via `Prompt.Confirm`; `--force` skips the prompt, and a non-TTY session without `--force` refuses to run (`src/command/helper.ts`). Keep this pairing on any new destructive command.
 - **`--dry-run`** must not touch the database beyond reads (`getMigrationInfos`).
 - **`serve --auto-migrate`** runs `migrateToLatest` before the server starts and never seeds (`src/command/serve.ts`).
 - `migrate:reset --seed` requires `--up`; `migrate:down --count` must be >= 1 — both enforced with `CliError.UserError` in the handler.
@@ -32,7 +32,7 @@ Contracts, how-to-change recipes, traps. Read the section a change touches befor
 ## How to change it
 
 - **New endpoint**: schema (if a new table: migration + registry + `database.ts` type) → store (`stores/`) → service (`service/`, may reuse `DatabaseService`/`UserCache`) → handler (`handler/`) → route group entry (`routes/route.ts`) → error mapping branch if a new `AppError` member → `docs/api-endpoint.md` row in the same commit.
-- **New CLI command**: `src/command/<name>.ts` (`Command.make` + flags + handler) → register in `command/cli.ts` `withSubcommands` → `docs/commandline.md` entry in the same commit. Destructive? Add `--force` + `confirmDestructive`.
+- **New CLI command**: `src/command/<name>.ts` (`Command.make` + flags + handler) → register in `command/cli.ts` `withSubcommands` → `docs/commandline.md` entry in the same commit. Destructive? Add `--force` + `confirmDestructive` (`src/command/helper.ts`).
 - **New config key**: parse in `src/config.ts` schema (with default and validation) → expose on `AppConfig` → `docs/configuration.md` row in the same commit. CORS credentials invariants: credentials=true with wildcard origins fails at startup (`src/config.ts`).
 - **New migration**: `src/database/migrations/NNNNN_name.ts` exporting `up`/`down` → register in `migrations/index.ts` → run `pnpm app migrate:up`.
 

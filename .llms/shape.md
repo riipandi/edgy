@@ -19,7 +19,7 @@ src/
   server.ts          # h3 serve + Effect lifecycle
   config.ts          # ConfigService (validated env config, ConfigLayer)
   runtime.ts         # ObservabilityLayer, DatabaseLayer, CacheLayer, MainLayer, AppRuntime
-  command/           # effect/cli commands (cli.ts + one file per command + confirm.ts)
+  command/           # effect/cli commands (cli.ts + one file per command + helper.ts)
   routes/            # group.ts (defineGroup plugin), route.ts (groups + registration order)
   middleware/        # cors, request_id, request_logger, cache_control
   handler/           # H3 event handlers, thin

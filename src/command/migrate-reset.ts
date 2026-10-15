@@ -4,7 +4,7 @@ import { NO_MIGRATIONS } from 'kysely/migration'
 import { getMigrationInfos, migrateTo, migrateToLatest } from '../database/migrator.ts'
 import { runSeeders, seederNames } from '../database/seeder.ts'
 import { DatabaseLayer } from '../runtime.ts'
-import { confirmDestructive } from './confirm.ts'
+import { confirmDestructive, print } from './helper.ts'
 
 /** `migrate:reset` — roll back every migration, optionally re-apply and seed. */
 export const migrateResetCmd = Command.make(
@@ -42,18 +42,18 @@ export const migrateResetCmd = Command.make(
         const infos = yield* getMigrationInfos
         const executed = infos.filter((info) => info.executedAt !== undefined)
         if (executed.length === 0) {
-          yield* Effect.logInfo('Nothing to roll back')
+          yield* print('Nothing to roll back')
           return
         }
-        yield* Effect.logInfo(`${executed.length} migration(s) would be rolled back (dry run):`)
+        yield* print(`${executed.length} migration(s) would be rolled back (dry run):`)
         for (const info of executed.toReversed()) {
-          yield* Effect.logInfo(`  ${info.name}`)
+          yield* print(`  ${info.name}`)
         }
         if (config.up) {
-          yield* Effect.logInfo(`Then ${infos.length} migration(s) would be re-applied`)
+          yield* print(`Then ${infos.length} migration(s) would be re-applied`)
         }
         if (config.seed) {
-          yield* Effect.logInfo(`Then these seeders would run: ${seederNames.join(', ')}`)
+          yield* print(`Then these seeders would run: ${seederNames.join(', ')}`)
         }
         return
       }
@@ -67,17 +67,17 @@ export const migrateResetCmd = Command.make(
       if (!proceed) return
 
       const downResults = yield* migrateTo(NO_MIGRATIONS)
-      yield* Effect.logInfo(`Rolled back ${downResults.length} migration(s)`)
+      yield* print(`Rolled back ${downResults.length} migration(s)`)
 
       if (config.up) {
         const upResults = yield* migrateToLatest
-        yield* Effect.logInfo(`Re-applied ${upResults.length} migration(s)`)
+        yield* print(`Re-applied ${upResults.length} migration(s)`)
       }
 
       if (config.seed) {
-        yield* Effect.logInfo('Running seeders...')
+        yield* print('Running seeders...')
         yield* runSeeders
-        yield* Effect.logInfo('Seeders completed')
+        yield* print('Seeders completed')
       }
     }).pipe(Effect.provide(DatabaseLayer))
 ).pipe(Command.withDescription('Rollback all migrations'))

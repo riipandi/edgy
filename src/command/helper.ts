@@ -2,6 +2,27 @@ import { Effect } from 'effect'
 import { Prompt } from 'effect/cli'
 
 /**
+ * Plain console output for CLI commands.
+ *
+ * Migration commands print user-facing output, not diagnostic logs, so they
+ * bypass the configured Effect logger (`ObservabilityLayer`). This keeps the
+ * output clean — no timestamp, no log-level prefix:
+ *
+ * ```
+ * Rolled back 1 migration(s)
+ * Re-applied 1 migration(s)
+ * Running seeders...
+ * Seeders completed
+ * ```
+ */
+export const print = (...args: readonly unknown[]): Effect.Effect<void> =>
+  Effect.sync(() => console.log(...args))
+
+/** Same as {@link print}, but writes to stderr (warnings and refusals). */
+export const printWarning = (...args: readonly unknown[]): Effect.Effect<void> =>
+  Effect.sync(() => console.error(...args))
+
+/**
  * Asks the user for confirmation before a destructive operation
  * (`migrate:down`, `migrate:reset`).
  *
@@ -18,13 +39,13 @@ export const confirmDestructive = (force: boolean, message: string) => {
   if (force) return Effect.succeed(true)
   if (!process.stdin.isTTY) {
     return Effect.as(
-      Effect.logWarning(`Refusing to run non-interactively without --force (message: ${message})`),
+      printWarning(`Refusing to run non-interactively without --force (${message})`),
       false
     )
   }
   return Effect.gen(function* () {
     const confirmed = yield* Effect.orDie(Prompt.run(Prompt.Confirm({ message, initial: false })))
-    if (!confirmed) yield* Effect.logInfo('Aborted')
+    if (!confirmed) yield* print('Aborted')
     return confirmed
   })
 }

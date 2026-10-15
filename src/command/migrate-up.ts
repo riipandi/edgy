@@ -2,6 +2,7 @@ import { Effect, Option } from 'effect'
 import { Command, Flag } from 'effect/cli'
 import { getMigrationInfos, migrateTo, migrateToLatest } from '../database/migrator.ts'
 import { DatabaseLayer } from '../runtime.ts'
+import { print } from './helper.ts'
 
 /** `migrate:up` — run pending database migrations. */
 export const migrateUpCmd = Command.make(
@@ -26,11 +27,11 @@ export const migrateUpCmd = Command.make(
             (!Option.isSome(config.to) || info.name <= config.to.value)
         )
         if (pending.length === 0) {
-          yield* Effect.logInfo('No pending migrations')
+          yield* print('No pending migrations')
           return
         }
-        yield* Effect.logInfo(`${pending.length} pending migration(s) (dry run, nothing applied):`)
-        for (const info of pending) yield* Effect.logInfo(`  ${info.name}`)
+        yield* print(`${pending.length} pending migration(s) (dry run, nothing applied):`)
+        for (const info of pending) yield* print(`  ${info.name}`)
         return
       }
 
@@ -38,11 +39,11 @@ export const migrateUpCmd = Command.make(
         ? yield* migrateTo(config.to.value)
         : yield* migrateToLatest
       if (results.length === 0) {
-        yield* Effect.logInfo('No pending migrations')
+        yield* print('No pending migrations')
         return
       }
       for (const result of results) {
-        yield* Effect.logInfo(`${result.status}: ${result.migrationName}`)
+        yield* print(`${result.status}: ${result.migrationName}`)
       }
     }).pipe(Effect.provide(DatabaseLayer))
 ).pipe(Command.withDescription('Run database migrations'))

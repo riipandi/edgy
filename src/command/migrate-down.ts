@@ -2,7 +2,7 @@ import { Effect } from 'effect'
 import { CliError, Command, Flag } from 'effect/cli'
 import { getMigrationInfos, migrateDown } from '../database/migrator.ts'
 import { DatabaseLayer } from '../runtime.ts'
-import { confirmDestructive } from './confirm.ts'
+import { confirmDestructive, print } from './helper.ts'
 
 /** `migrate:down` — roll back executed database migrations. */
 export const migrateDownCmd = Command.make(
@@ -39,12 +39,12 @@ export const migrateDownCmd = Command.make(
         const executed = infos.filter((info) => info.executedAt !== undefined)
         const affected = executed.slice(Math.max(0, executed.length - config.count))
         if (affected.length === 0) {
-          yield* Effect.logInfo('Nothing to roll back')
+          yield* print('Nothing to roll back')
           return
         }
-        yield* Effect.logInfo(`${affected.length} migration(s) would be rolled back (dry run):`)
+        yield* print(`${affected.length} migration(s) would be rolled back (dry run):`)
         for (const info of affected.toReversed()) {
-          yield* Effect.logInfo(`  ${info.name}`)
+          yield* print(`  ${info.name}`)
         }
         return
       }
@@ -57,11 +57,11 @@ export const migrateDownCmd = Command.make(
 
       const results = yield* migrateDown(config.count)
       if (results.length === 0) {
-        yield* Effect.logInfo('Nothing to roll back')
+        yield* print('Nothing to roll back')
         return
       }
       for (const result of results) {
-        yield* Effect.logInfo(`${result.status}: ${result.migrationName}`)
+        yield* print(`${result.status}: ${result.migrationName}`)
       }
     }).pipe(Effect.provide(DatabaseLayer))
 ).pipe(Command.withDescription('Rollback database migrations'))
