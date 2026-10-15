@@ -1,14 +1,22 @@
 import { Effect } from 'effect'
 import { getRouterParams, type H3Event, readBody } from 'h3'
-import { runEffect } from '../httputils/responder.ts'
-import { CreateUserInput, decode, UserIdParams } from '../httputils/validator.ts'
+import { decode } from '../kernel/http/decode.ts'
+import { runEffect } from '../kernel/http/responder.ts'
+import {
+  UserCreateRequest,
+  UserCreateResponse,
+  UserGetResponse,
+  UserIdParams,
+  UserListResponse
+} from '../schemas/user_schema.ts'
 import { UserService } from '../service/user_service.ts'
 
 /** `GET /users` — list every user. */
 export function listUsersHandler(event: H3Event) {
   return runEffect(
     event,
-    UserService.use((users) => users.list)
+    UserService.use((users) => users.list),
+    { response: UserListResponse }
   )
 }
 
@@ -20,7 +28,8 @@ export function getUserHandler(event: H3Event) {
       const { id } = yield* decode(UserIdParams)(getRouterParams(event))
       const users = yield* UserService
       return yield* users.get(id)
-    })
+    }),
+    { response: UserGetResponse }
   )
 }
 
@@ -35,10 +44,10 @@ export async function createUserHandler(event: H3Event) {
   return runEffect(
     event,
     Effect.gen(function* () {
-      const input = yield* decode(CreateUserInput)(body)
+      const input = yield* decode(UserCreateRequest)(body)
       const users = yield* UserService
       return yield* users.create(input)
     }),
-    { successStatus: 201 }
+    { response: UserCreateResponse, successStatus: 201 }
   )
 }

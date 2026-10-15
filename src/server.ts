@@ -1,8 +1,8 @@
 import { Effect } from 'effect'
 import { serve } from 'h3'
 import { createApp } from './app.ts'
-import { makeHttpRuntime } from './httputils/runtime.ts'
 import { ConfigService } from './kernel/config.ts'
+import { makeHttpRuntime } from './kernel/http/runtime.ts'
 
 /**
  * Starts the HTTP server and keeps the effect running until it is interrupted

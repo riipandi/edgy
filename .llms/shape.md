@@ -18,15 +18,15 @@ src/
   app.ts             # createApp(options): global plugins + route groups
   server.ts          # serveHttp: captures the HttpRuntime, starts h3 inside a scope
   kernel/            # config.ts (ConfigService), errors.ts (AppError union), layers.ts (CoreLayer, AppLayer)
+    http/            # runtime.ts (HttpRuntime bridge), responder.ts (runEffect), decode.ts (decode)
   observer/          # logger.ts (non-blocking batched sink), metrics.ts, http_observer.ts (request log + metrics)
   command/           # effect/cli commands (cli.ts + one file per command + helper.ts)
   routes/            # group.ts (defineGroup plugin), route.ts (groups + registration order)
   middleware/        # cors, request_id, cache_control
   handler/           # H3 event handlers, thin
   service/           # UserService (Context.Service + layer; owns the private user cache)
-  stores/            # UserRepository (Context.Service + layer; Kysely queries)
-  schemas/           # Effect Schema: database.ts (table types), user_schema.ts
-  httputils/         # runtime.ts (HttpRuntime bridge), responder.ts (runEffect), validator.ts (decode)
+  repository/        # one *_repo.ts per resource: UserRepository (Context.Service + layer; Kysely queries)
+  schemas/           # Effect Schema per resource (entity, request/response, Kysely table type); database.ts aggregates tables
   database/
     dialect/         # NodeSQLiteDialect over node:sqlite (+ connection, driver, mutex)
     service.ts       # DatabaseService (db + query helper) and its layer
@@ -51,7 +51,7 @@ docs/                # human-facing docs: commandline.md, configuration.md, api-
 ## Conventions
 
 - **TypeScript strict**, `.ts` extension on relative imports (Node type stripping)
-- Handler programs are `Effect<A, AppError, HttpEnv>`; handlers stay thin and delegate to `runEffect` (`src/httputils/responder.ts`)
+- Handler programs are `Effect<A, AppError, HttpEnv>`; handlers stay thin and delegate to `runEffect` (`src/kernel/http/responder.ts`)
 - DI by `Context.Service` with a `static layer` on the class; layers are composed in `src/kernel/layers.ts` (`CoreLayer` once in `main.ts`, `AppLayer` per command). There is no global runtime
 - Service methods use `Effect.fn('Service.method')` so every call gets a span
 - `Effect.provide(layer)` appears only at the entry point (`src/main.ts`, lint rule `effecttsgo/strict-effect-provide`); per-command layers go through `Command.provide`. Argument checks use `ensure` (`src/command/helper.ts`), not a bare `return` next to `return yield*`

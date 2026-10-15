@@ -2,8 +2,8 @@ import { NodeServices } from '@effect/platform-node'
 import { Layer } from 'effect'
 import { DatabaseService } from '../database/service.ts'
 import { LoggerLayer } from '../observer/logger.ts'
+import { UserRepository } from '../repository/user_repo.ts'
 import { UserService } from '../service/user_service.ts'
-import { UserRepository } from '../stores/user_repository.ts'
 import { ConfigLayer } from './config.ts'
 
 /**

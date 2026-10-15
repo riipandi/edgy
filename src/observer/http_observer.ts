@@ -1,6 +1,6 @@
 import { Effect } from 'effect'
 import { definePlugin, type H3Event, onError, onResponse } from 'h3'
-import { runtimeOf } from '../httputils/runtime.ts'
+import { runtimeOf } from '../kernel/http/runtime.ts'
 import { recordHttpRequest } from './metrics.ts'
 
 /** Milliseconds elapsed since the request began, rounded to 0.01 ms. */

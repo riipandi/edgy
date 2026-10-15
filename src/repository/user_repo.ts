@@ -1,8 +1,7 @@
 import { Context, Effect, Layer } from 'effect'
 import { DatabaseService } from '../database/service.ts'
-import type { CreateUserInput } from '../httputils/validator.ts'
 import type { DatabaseError } from '../kernel/errors.ts'
-import type { UserRow } from '../schemas/user_schema.ts'
+import type { User, UserCreateRequest } from '../schemas/user_schema.ts'
 
 /**
  * Persistence port for users. The service layer depends on this key, never on
@@ -12,11 +11,11 @@ export class UserRepository extends Context.Service<
   UserRepository,
   {
     /** Finds one user by primary key, or `undefined` when absent. */
-    readonly findById: (id: number) => Effect.Effect<UserRow | undefined, DatabaseError>
+    readonly findById: (id: number) => Effect.Effect<User | undefined, DatabaseError>
     /** Lists every user ordered by id. */
-    readonly findAll: Effect.Effect<Array<UserRow>, DatabaseError>
+    readonly findAll: Effect.Effect<Array<User>, DatabaseError>
     /** Inserts a user and returns the stored row. */
-    readonly insert: (input: CreateUserInput) => Effect.Effect<UserRow, DatabaseError>
+    readonly insert: (input: UserCreateRequest) => Effect.Effect<User, DatabaseError>
   }
 >()('UserRepository') {
   static readonly layer: Layer.Layer<UserRepository, never, DatabaseService> = Layer.effect(
@@ -29,7 +28,7 @@ export class UserRepository extends Context.Service<
           query((db) => db.selectFrom('users').selectAll().where('id', '=', id).executeTakeFirst())
         ),
         findAll: query((db) => db.selectFrom('users').selectAll().orderBy('id').execute()),
-        insert: Effect.fn('UserRepository.insert')((input: CreateUserInput) =>
+        insert: Effect.fn('UserRepository.insert')((input: UserCreateRequest) =>
           query((db) =>
             db
               .insertInto('users')

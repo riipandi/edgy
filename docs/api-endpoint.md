@@ -10,7 +10,7 @@
 
 ## Errors
 
-Errors are JSON. A body that fails validation answers `400`:
+Responses contain only the documented fields. Errors are JSON. A body that fails validation answers `400`:
 
 ```json
 { "error": "Validation failed", "issues": [{ "path": ["email"], "message": "must be a valid email address" }] }

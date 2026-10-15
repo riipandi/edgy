@@ -1,7 +1,7 @@
-import { Cause, Effect, Exit, Option } from 'effect'
+import { Cause, Effect, Exit, Option, Schema } from 'effect'
 import type { H3Event } from 'h3'
-import type { AppError, ValidationIssue } from '../kernel/errors.ts'
-import { requestIdOf } from '../middleware/request_id.ts'
+import { requestIdOf } from '../../middleware/request_id.ts'
+import type { AppError, ValidationIssue } from '../errors.ts'
 import { type HttpEnv, runtimeOf } from './runtime.ts'
 
 /**
@@ -18,7 +18,12 @@ export interface ValidationErrorResponse {
   readonly issues: ReadonlyArray<ValidationIssue>
 }
 
-export interface RunOptions {
+export interface RunOptions<A, I> {
+  /**
+   * Schema the success value is encoded through. Only its declared fields reach
+   * the client, and the encoded shape is what the response type reports.
+   */
+  readonly response: Schema.Codec<A, I>
   /** Status for a successful response. Defaults to h3's `200`. */
   readonly successStatus?: number
 }
@@ -42,19 +47,25 @@ const toErrorResponse = (error: AppError): [number, ErrorResponse | ValidationEr
  * errors to response status codes. Failures are narrowed through `_tag`, so
  * adding a member to `AppError` fails to compile here until it has a branch.
  *
+ * The success value is encoded through `options.response`. An encode failure
+ * means the handler produced something its own contract forbids, so it is a
+ * defect (500), not a client error.
+ *
  * The program runs inside a span named after the request, and its logs carry
  * the request id. Database failures and defects are logged with their cause —
  * the client only ever sees a generic 500 — while expected failures
  * (validation, not found) are not logged as errors.
  */
-export const runEffect = <A, E extends AppError>(
+export const runEffect = <A, I, E extends AppError>(
   event: H3Event,
   effect: Effect.Effect<A, E, HttpEnv>,
-  options: RunOptions = {}
-): Promise<A | ValidationErrorResponse | ErrorResponse> => {
+  options: RunOptions<A, I>
+): Promise<I | ValidationErrorResponse | ErrorResponse> => {
   const requestId = requestIdOf(event)
+  const encode = Schema.encodeEffect(options.response)
 
   const program = effect.pipe(
+    Effect.flatMap((value) => Effect.orDie(encode(value))),
     Effect.tapCause((cause) => {
       const failure = Cause.findErrorOption(cause)
       const expected = Option.isSome(failure) && failure.value._tag !== 'DatabaseError'

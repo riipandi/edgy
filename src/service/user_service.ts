@@ -1,14 +1,13 @@
 import { Cache, Context, Duration, Effect, Layer, Request, RequestResolver } from 'effect'
-import type { CreateUserInput } from '../httputils/validator.ts'
 import { type DatabaseError, NotFound } from '../kernel/errors.ts'
-import type { UserRow } from '../schemas/user_schema.ts'
-import { UserRepository } from '../stores/user_repository.ts'
+import { UserRepository } from '../repository/user_repo.ts'
+import type { User, UserCreateRequest } from '../schemas/user_schema.ts'
 
 /**
  * Typed request for a single user. Requests are plain data descriptions; the
  * resolver below decides how to execute them.
  */
-interface GetUserRequest extends Request.Request<UserRow | undefined, DatabaseError> {
+interface GetUserRequest extends Request.Request<User | undefined, DatabaseError> {
   readonly _tag: 'GetUserRequest'
   readonly id: number
 }
@@ -20,11 +19,11 @@ export class UserService extends Context.Service<
   UserService,
   {
     /** Returns a user or fails with `NotFound`. Reads are served through a cache. */
-    readonly get: (id: number) => Effect.Effect<UserRow, NotFound | DatabaseError>
+    readonly get: (id: number) => Effect.Effect<User, NotFound | DatabaseError>
     /** Returns every user. */
-    readonly list: Effect.Effect<Array<UserRow>, DatabaseError>
+    readonly list: Effect.Effect<Array<User>, DatabaseError>
     /** Creates a user from validated input. */
-    readonly create: (input: CreateUserInput) => Effect.Effect<UserRow, DatabaseError>
+    readonly create: (input: UserCreateRequest) => Effect.Effect<User, DatabaseError>
   }
 >()('UserService') {
   /**
@@ -52,7 +51,7 @@ export class UserService extends Context.Service<
           return user
         }),
         list: repository.findAll,
-        create: Effect.fn('UserService.create')((input: CreateUserInput) =>
+        create: Effect.fn('UserService.create')((input: UserCreateRequest) =>
           repository.insert(input)
         )
       })

@@ -1,6 +1,6 @@
 import { H3 } from 'h3'
-import { type HttpRuntime, provideRuntime } from './httputils/runtime.ts'
 import type { CorsConfig } from './kernel/config.ts'
+import { type HttpRuntime, provideRuntime } from './kernel/http/runtime.ts'
 import { cors } from './middleware/cors.ts'
 import { requestId } from './middleware/request_id.ts'
 import { httpObserver } from './observer/http_observer.ts'

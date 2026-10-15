@@ -1,6 +1,6 @@
 import { Effect, type Exit } from 'effect'
 import { definePlugin, type H3Event, onRequest } from 'h3'
-import type { UserService } from '../service/user_service.ts'
+import type { UserService } from '../../service/user_service.ts'
 
 /** Services an HTTP handler program may require. */
 export type HttpEnv = UserService
