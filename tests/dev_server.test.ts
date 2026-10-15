@@ -56,6 +56,7 @@ beforeAll(async () => {
     DATABASE_PATH: ':memory:',
     LOG_LEVEL: 'None',
     OTEL_SDK_DISABLED: 'true',
+    // Explicit, so a developer's own `.env.local` (which the plugin reads) cannot change the test.
     DATABASE_AUTO_MIGRATE: 'true'
   })
   vite = await createServer({

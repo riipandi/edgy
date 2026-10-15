@@ -177,7 +177,7 @@ let lastFlush = 0
 
 /**
  * Cloudflare Workers entry (`wrangler.jsonc` → `main`). Run it locally with
- * `pnpm watch:worker` (source) or `pnpm preview` (built bundle); deploy with `pnpm deploy`.
+ * `pnpm dev --mode worker` (source) or `pnpm preview --mode worker` (built bundle); deploy with `pnpm deploy`.
  *
  * A Worker has no shutdown hook, so buffered telemetry would be lost whenever the isolate
  * is evicted. After the response, `waitUntil` keeps the isolate alive long enough to flush

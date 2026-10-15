@@ -22,10 +22,10 @@ compile a single executable using Node's [Single Executable Applications](https:
 - **Built-in middleware** — request ID (TypeID), structured request logger, security headers, rate limiting and configurable CORS.
 - **Observable** — OpenTelemetry traces, metrics and logs over HTTP (ClickStack/HyperDX in development), with the trace id returned to the caller.
 - **Resilient** — overload guard, retried reads on D1, a rate limit that can be shared across instances and fails open, graceful shutdown.
-- **Two targets** — a Node.js server and a Cloudflare Worker (`pnpm watch:worker` runs it locally).
+- **Two targets** — a Node.js server and a Cloudflare Worker (`pnpm dev --mode worker` runs it locally).
 - **Zero native dependencies** — SQLite via `node:sqlite`, so the bundle needs no compiled addon.
 - **Server-rendered pages** — streamed Marko pages that hydrate only the interactive parts, with typed, build-time styles.
-- **One build for both targets** — Vite builds the server and the browser assets for Node.js and Workers; optional minify/obfuscate by flags.
+- **One build for both targets** — Vite builds the server and the browser assets for Node.js and Workers; `--minify` for a smaller server.
 - **Optional single executable** — `pnpm compile` produces one self-contained binary.
 
 ## Requirements
@@ -41,7 +41,7 @@ pnpm app migrate:up     # create the users table
 pnpm app migrate:seed   # insert sample rows (idempotent)
 pnpm dev                # http://localhost:3000, pages update live, server code reloads
 pnpm test               # run the test suite
-pnpm watch:worker       # the same app as a Cloudflare Worker, locally
+pnpm dev --mode worker       # the same app as a Cloudflare Worker, locally
 pnpm compose:up         # ClickStack (HyperDX) and Valkey in Docker, for telemetry
 ```
 

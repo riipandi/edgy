@@ -6,10 +6,14 @@ Day-to-day commands for working on the server.
 
 ```bash
 pnpm dev               # the Node.js server and the pages in one Vite dev server, with hot updates
-pnpm watch:worker      # the Cloudflare Worker from source, in workerd with a local D1 database
-pnpm preview           # build the Worker (minified), then run that build in workerd
-pnpm build:node        # build the Node.js server and the browser assets into dist/server
-pnpm build:worker      # build the Worker and the browser assets into dist/worker
+pnpm build             # build the Node.js server and the browser assets into dist/server
+pnpm preview           # run what `pnpm build` wrote (build first; the Node server on this address)
+pnpm start             # run the server already built in dist/server, reading .env.local if there is one
+pnpm compile           # a single executable, dist/edgy (experimental)
+# The same three for the Cloudflare Worker (workerd, a local D1 database), by adding the mode:
+pnpm dev --mode worker
+pnpm build --mode worker
+pnpm preview --mode worker
 pnpm compose:up        # start ClickStack (traces, metrics, logs) and Valkey in Docker
 pnpm compose:down      # stop them; their data stays in .storage
 pnpm compose:restart   # down, then up
@@ -32,11 +36,12 @@ pnpm app <command> [flags]
 ```
 
 Starting the server (`serve`) is the exception: pages are templates that only Vite can load, so use
-`pnpm dev` while developing and a build (`pnpm build:node`) to run it otherwise. `pnpm dev` is the
+`pnpm dev` while developing and a build (`pnpm build`) to run it otherwise. `pnpm dev` is the
 Vite dev server with the application running inside it: one process, one port (`HOST` and `PORT`,
 by default `127.0.0.1:3000`; a busy port is an error), reading `.env.local` for you. Editing a page
 or a style updates the browser; editing server code starts the application over in the same process
-and reloads the page. There is no `--auto-migrate` flag here: set `DATABASE_AUTO_MIGRATE=true`. See the
+and reloads the page. The database is migrated for you on each start (set
+`DATABASE_AUTO_MIGRATE=false` to stop that); there is no `--auto-migrate` flag here. See the
 [CLI documentation](./commandline.md) for the command list and flags, and [Pages](./frontend.md) for
 the pages themselves.
 
@@ -57,15 +62,14 @@ command-level flags and the confirmation behaviour of destructive commands.
 
 ## Cloudflare Workers locally
 
-`pnpm watch:worker` starts the Worker in `workerd`, the runtime Cloudflare uses, with a local D1
-database stored under `.wrangler/`. Pending migrations are applied when the Worker starts (the
-local scripts switch `DATABASE_AUTO_MIGRATE` on for the local database), so a fresh checkout works
-with no extra step. `pnpm preview` does the same with the built, minified Worker, which is what
+`pnpm dev --mode worker` starts the Worker in `workerd`, the runtime Cloudflare uses, with a local D1
+database stored under `.wrangler/`. Pending migrations are applied when the Worker starts
+(`DATABASE_AUTO_MIGRATE` in `wrangler.jsonc`), so a fresh checkout works with no extra step. `pnpm preview --mode worker` does the same with the built, minified Worker, which is what
 `pnpm run deploy` ships:
 
 ```bash
-pnpm watch:worker     # from source, with hot updates, at http://127.0.0.1:3000
-pnpm preview          # the build in dist/worker, at the same address
+pnpm dev --mode worker       # from source, with hot updates, at http://127.0.0.1:3000
+pnpm preview --mode worker   # the build in dist/worker, at the same address
 ```
 
 The Worker reads local overrides from `.dev.vars`, not from `.env.local`.
@@ -135,9 +139,9 @@ pnpm typecheck && pnpm check && pnpm test
 Plus a run against the real artifacts — a green test suite does not exercise the built bundles:
 
 ```bash
-pnpm build:node
+pnpm build
 DATABASE_PATH=$(mktemp -d)/probe.db node dist/server/index.mjs serve --auto-migrate
-pnpm preview   # the Worker build, in workerd
+pnpm preview --mode worker   # the Worker build, in workerd
 ```
 
 ## Related docs

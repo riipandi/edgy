@@ -1,7 +1,7 @@
 /**
- * Cloudflare Workers target. The Cloudflare Vite plugin (`vite.worker.config.ts`) reads this file:
- * `pnpm watch:worker` runs the source in workerd (Vite's dev server, with a local D1 database);
- * `pnpm preview` builds and runs the artifact the same way; `pnpm run deploy` publishes it.
+ * Cloudflare Workers target. The Cloudflare Vite plugin (`vite.config.ts`, with `--mode worker`) reads this file:
+ * `pnpm dev --mode worker` runs the source in workerd (Vite's dev server, with a local D1 database);
+ * `pnpm preview --mode worker` builds and runs the artifact the same way; `pnpm run deploy` publishes it.
  * Application settings are the same variables the Node server reads.
  *
  * The plugin writes the deployable configuration to `dist/worker/wrangler.json` and points
@@ -12,7 +12,7 @@
  * Docs: https://developers.cloudflare.com/workers/wrangler/configuration
  *
  * Build configurations:
- * - Build command: `pnpm build:worker`
+ * - Build command: `pnpm build --mode worker`
  * - Deploy command: `pnpm exec wrangler deploy`
  * - Non-production branch deploy command: `pnpm exec wrangler versions upload`
  *
@@ -24,10 +24,10 @@
  * - TRUSTED_PLATFORM: Cloudflare always sets CF-Connecting-IP, and a Worker is reachable
  *   only through Cloudflare, so this header is the client address.
  *
- * - DATABASE_AUTO_MIGRATE: Off: a preview upload shares these vars, and migrating the production
- *   database from one is not what a preview is for. `pnpm watch:worker`
- *   and `pnpm preview` switch it on for the local database (in
- *   `vite.worker.config.ts`); for the first remote deploy see docs/deployment.md.
+ * - DATABASE_AUTO_MIGRATE: On: each isolate migrates the database as it starts, so a new D1 (local
+ *   or remote) needs no separate step. This value applies to `pnpm dev --mode worker`, `pnpm preview --mode worker`
+ *   and `pnpm run deploy` alike. Isolates starting at once can race on the first migration; once the
+ *   schema exists, `pnpm run deploy --var DATABASE_AUTO_MIGRATE:false` stops migrating.
  *
  * - CACHE_STORE: Read cache through the Workers Cache API: per location, and not served
  *   on workers.dev (there every read reaches D1), so use a custom domain.

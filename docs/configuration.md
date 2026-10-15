@@ -90,7 +90,7 @@ header with a valid address. Without it the setting does nothing.
 | `DATABASE_DRIVER`       | `sqlite`                 | `sqlite` (Node.js) or `d1` (Cloudflare D1)                               |
 | `DATABASE_PATH`         | `./storage/data/edgy.db` | SQLite file, or `:memory:`; parent directories are created (`sqlite` only) |
 | `D1_BINDING`            | `DB`                     | Name of the D1 binding in `wrangler.jsonc` (`d1` only)                   |
-| `DATABASE_AUTO_MIGRATE` | `false`                  | Apply pending migrations when the Worker starts (`d1`, Workers)          |
+| `DATABASE_AUTO_MIGRATE` | `false` (`pnpm dev`: on) | Apply pending migrations at start: on Workers, and in `pnpm dev`, where unset means on |
 
 ## Logging
 

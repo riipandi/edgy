@@ -1,6 +1,7 @@
 import path from 'node:path'
 import { createServerModuleRunner, loadEnv, type Plugin } from 'vite'
 import type { ModuleRunner } from 'vite/module-runner'
+import { withDefaults } from './platform.ts'
 
 /** The module `startDevApp` lives in, as Vite's module runner names it. */
 const DEV_MODULE = '/src/dev.ts'
@@ -26,7 +27,7 @@ const isDevModule = (value: unknown): value is DevModule =>
 const startsOver = (root: string, file: string): boolean => {
   const relative = path.relative(root, file)
   if (relative.startsWith('..')) return false
-  if (relative === '.env' || relative === '.env.local') return true
+  if (/^\.env(\..+)?$/.test(relative)) return true
   return relative.startsWith(`src${path.sep}`) && !relative.endsWith('.test.ts')
 }
 
@@ -39,7 +40,7 @@ const startsOver = (root: string, file: string): boolean => {
  * The application is loaded through Vite's SSR module runner, which is what lets it import `.marko`
  * pages and `.css.ts` styles.
  *
- * - **Environment.** `.env` and `.env.local` are read here and put in `process.env` where it is not
+ * - **Environment.** `.env`, `.env.local` and the files of the mode (Vite's rules) are read here and put in `process.env` where it is not
  *   already set (what `node --env-file` did); `HOST` and `PORT` also decide where Vite listens, so
  *   they mean the same in `pnpm dev` as for the Node server. Loopback is the default host: a
  *   development server should not be reachable from the network unless asked.
@@ -93,16 +94,14 @@ export const devServerPlugin = (): Plugin => {
     config(config, env) {
       root = path.resolve(config.root ?? process.cwd())
       const loaded = applyEnv(env.mode)
-      return {
-        // Pages and 404s are the application's, not Vite's.
-        appType: 'custom',
-        server: {
-          host: process.env['HOST'] ?? loaded['HOST'] ?? '127.0.0.1',
-          port: Number(process.env['PORT'] ?? loaded['PORT'] ?? 3000),
-          // A busy port is an error, not a silent move to another one (the docs name one address).
-          strictPort: true
-        }
+      // The preview (`pnpm preview`) listens where the dev server does.
+      const address = {
+        host: process.env['HOST'] ?? loaded['HOST'] ?? '127.0.0.1',
+        port: Number(process.env['PORT'] ?? loaded['PORT'] ?? 3000),
+        // A busy port is an error, not a silent move to another one (the docs name one address).
+        strictPort: true
       }
+      withDefaults(config, { server: address, preview: address })
     },
 
     configureServer(devServer) {

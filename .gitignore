@@ -59,8 +59,6 @@ release/
 # Vite & Vitest config
 vite.config.*
 !vite.config.ts
-vite.worker.config.*
-!vite.worker.config.ts
 vitest.config.*
 !vitest.config.ts
 vitest.workspace.*

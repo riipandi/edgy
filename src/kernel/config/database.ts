@@ -22,7 +22,7 @@ export const databaseConfig = group(
     autoMigrate: flag(
       'DATABASE_AUTO_MIGRATE',
       false,
-      'Apply pending migrations when the Worker starts (driver d1; several isolates may race, prefer migrate:up)'
+      'Apply pending migrations when the app starts: on Workers (several isolates may race, prefer migrate:up once the schema exists) and in `pnpm dev`, where leaving it unset means on'
     )
   },
   { title: 'Database' }

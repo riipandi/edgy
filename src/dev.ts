@@ -6,6 +6,16 @@ import { ConfigService } from './kernel/config/service.ts'
 import { CoreLayer } from './kernel/layers.ts'
 import { AppLayer } from './layers.ts'
 
+/**
+ * Whether `pnpm dev` applies pending migrations: unless the operator said otherwise. A variable that
+ * is not set at all means yes (the zero-step first run); `DATABASE_AUTO_MIGRATE=false`, in the
+ * environment or in `.env.local`, opts out, and `true` is yes either way.
+ */
+export const migratesInDev = (
+  autoMigrate: boolean,
+  env: Readonly<Record<string, string | undefined>>
+): boolean => autoMigrate || env['DATABASE_AUTO_MIGRATE'] === undefined
+
 /** A running development application: the request handler Vite mounts, and how to stop it. */
 export interface DevApp {
   readonly handler: ReturnType<typeof toNodeHandler>
@@ -20,11 +30,12 @@ export interface DevApp {
  * `AppLayer`) and the same `makeNodeApp`, so a request is handled exactly as in production. What
  * differs is who listens (Vite, which also serves the browser assets and the hot-reload channel,
  * so there is neither an assets route nor a PROXY protocol reader here) and when it starts over:
- * the plugin in `builder/plugin_dev.ts` calls this again, after `stop`, whenever server code
+ * the plugin in `builder/dev.ts` calls this again, after `stop`, whenever server code
  * changes.
  *
- * Pending migrations are applied only when `DATABASE_AUTO_MIGRATE` is on, as on Workers; the
- * `serve --auto-migrate` flag does not exist here because there is no command line to give it.
+ * Pending migrations are applied at every start, so a fresh checkout needs nothing but `pnpm dev`;
+ * `DATABASE_AUTO_MIGRATE=false` turns that off. (There is no `serve --auto-migrate` flag here:
+ * there is no command line to give it.)
  *
  * This module is loaded through Vite's module runner (that is how it can import `.marko` pages),
  * never by the production entry.
@@ -35,7 +46,7 @@ export const startDevApp = async (): Promise<DevApp> => {
     const { app, runtime: http } = await runtime.runPromise(
       Effect.gen(function* () {
         const { database } = yield* ConfigService
-        if (database.autoMigrate) yield* migrateToLatest
+        if (migratesInDev(database.autoMigrate, process.env)) yield* migrateToLatest
         return yield* makeNodeApp({ development: true })
       })
     )

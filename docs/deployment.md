@@ -5,23 +5,23 @@ How to build, bundle, and ship the server.
 ## Building
 
 [Vite](https://vite.dev) builds both targets: the server (or Worker) and the browser assets, in one
-run (`vite build --app`). After it, a build step does what Vite does not: obfuscation, the executable
-bit on the Node entry, and a minimal `package.json` so the result runs without the project's own
-`node_modules`. Only the single executable is a separate command.
+run (`vite build --app`). After it, one small step makes the Node entry executable and writes a
+minimal `package.json`, so the result runs without the project's own `node_modules`. Only the single
+executable is a separate command.
 
 ```bash
-pnpm build:node      # -> dist/server  (index.mjs + public/ for the browser)
-pnpm build:worker    # -> dist/worker  (index.js + public/ for the browser)
-pnpm compile         # -> dist/server + dist/edgy  (single executable, experimental)
+pnpm build                    # -> dist/server  (index.mjs + public/ for the browser)
+pnpm build --mode worker    # -> dist/worker  (index.js + public/ for the browser)
+pnpm compile                  # -> dist/edgy  (single executable, experimental)
 ```
 
-Flags apply to all three commands:
+`dev`, `build` and `preview` are Vite's own commands, and `--mode worker` makes any of them the
+Worker's (Vite's `--mode` is the one switch its command line passes to the configuration). Left out,
+it is the Node server. Every other Vite option works as on Vite: `pnpm build --minify`,
+`pnpm dev --port 3001`.
 
-```bash
-pnpm build:node --minify                      # also minify the server bundle (browser assets always are)
-OBFUSCATE=medium pnpm build:node              # obfuscate the server code (low, medium or high)
-OBFUSCATE=medium pnpm build:node --minify     # both
-```
+`--minify` is Vite's own flag, so it works on any of them (`pnpm build --minify`); the browser assets
+are always minified.
 
 Run the build anywhere, with no `node_modules` present:
 
@@ -41,27 +41,26 @@ runtime and the database differ.
 
 | Target             | Runtime          | Database             | Built with        |
 | ------------------ | ---------------- | -------------------- | ----------------- |
-| Node.js server     | Node.js >= 24.22 | SQLite (`node:sqlite`) | `pnpm build:node`   |
-| Cloudflare Workers | workerd          | Cloudflare D1        | `pnpm build:worker` |
+| Node.js server     | Node.js >= 24.22 | SQLite (`node:sqlite`) | `pnpm build`   |
+| Cloudflare Workers | workerd          | Cloudflare D1        | `pnpm build --mode worker` |
 
 ## Cloudflare Workers
 
 ```bash
-pnpm watch:worker    # run the source in workerd, with hot updates
-pnpm build:worker    # build into dist/worker (the Worker and, in public/, the browser assets)
-pnpm preview         # build a minified Worker, then run that exact build in workerd (migrates the local database)
-pnpm run deploy      # build a minified Worker, then publish it with wrangler
+pnpm dev --mode worker       # run the source in workerd, with hot updates
+pnpm build --mode worker     # build into dist/worker (the Worker and, in public/, the browser assets)
+pnpm preview --mode worker   # run the Worker built in dist/worker, in workerd (build it first)
+pnpm run deploy                # build a minified Worker, then publish it with wrangler
 ```
 
-`pnpm build:worker` is `pnpm build:node`'s counterpart: the same builder with `--target=workers`
-(`node` or `workers`, default `node`). Vite's Cloudflare plugin reads `wrangler.jsonc` and writes
-the configuration that `wrangler deploy` uses, including the browser assets, which Cloudflare serves
-itself without starting the Worker. Node's built-ins (`node:async_hooks`) stay imports, which
-Cloudflare provides through the `nodejs_compat` flag. `--minify` and `OBFUSCATE` work for both
-targets; `pnpm compile` (single executable) is Node.js only.
+The Worker is the same Vite configuration with `--mode worker`. Vite's Cloudflare plugin
+reads `wrangler.jsonc` and writes the configuration that `wrangler deploy` uses, including the
+browser assets, which Cloudflare serves itself without starting the Worker. Node's built-ins
+(`node:async_hooks`) stay imports, which Cloudflare provides through the `nodejs_compat` flag.
+`--minify` works for both targets; `pnpm compile` (single executable) is Node.js only.
 
-`pnpm watch:worker` is the fast loop. `pnpm preview` runs the artifact you will actually ship,
-minified exactly as `pnpm run deploy` builds it, so run it before deploying.
+`pnpm dev --mode worker` is the fast loop. `pnpm preview --mode worker` runs the artifact you will
+actually ship: build it the way `pnpm run deploy` does (`pnpm build --mode worker --minify`), then preview it.
 
 Local secrets and overrides for the Worker go in `.dev.vars` (Wrangler's own file, ignored by git).
 `.env.local` is for the Node.js server and is deliberately not read for the Worker: it would
@@ -73,10 +72,10 @@ Before the first deploy:
    (`d1_databases[0].database_id`).
 2. Put application settings under `vars` in `wrangler.jsonc` and secrets in `wrangler secret put`.
    See [Configuration](./configuration.md).
-3. Create the schema. `wrangler.jsonc` sets `DATABASE_AUTO_MIGRATE` to `false`, so a preview upload
-   cannot migrate the production database. For the first deploy apply the migrations once:
-   `pnpm run deploy --var DATABASE_AUTO_MIGRATE:true`, then deploy again without the flag. Several
-   isolates starting at once would race to migrate, which is why it is not left on.
+3. Create the schema. `wrangler.jsonc` sets `DATABASE_AUTO_MIGRATE` to `true`, so the first request
+   to a new database applies the migrations, locally and when deployed. Several isolates starting at
+   once can race on that first migration, and a preview upload shares these settings, so once the
+   schema exists switch it off for deployments: `pnpm run deploy --var DATABASE_AUTO_MIGRATE:false`.
 
 Differences from the Node.js server:
 
@@ -113,13 +112,8 @@ not multiplied. `MAX_IN_FLIGHT` caps the requests one process handles at once; p
 
 ## Build configuration
 
-Bundling is configured in `vite.config.ts` (Node.js) and `vite.worker.config.ts` (Workers); both are
-ordinary Vite configurations, so Vite's own flags apply (`--minify`). Beyond them:
-
-| Setting                    | Default | Description                                            |
-| -------------------------- | ------- | ------------------------------------------------------ |
-| `OBFUSCATE` (environment)  | off     | `low`, `medium` or `high` obfuscates the server code; `true` means `medium` |
-| `seaConfig` (`builder/builder.config.ts`) | see below | Single executable options |
+Bundling is configured in one file, `vite.config.ts`, which holds both targets; it is an ordinary
+Vite configuration, so Vite's own flags apply (`--minify`). There is nothing else to set.
 
 The Node.js server is one bundle with its dependencies inlined. A dependency that ships a native
 addon cannot be bundled that way; none of the current dependencies do (the database is
@@ -137,22 +131,6 @@ pnpm compile
 ./dist/edgy serve
 ```
 
-The compiler is driven by `seaConfig` in `builder.config.ts`:
-
-```ts
-seaConfig: {
-  enable: false,                      // set by the `compile` command
-  fileName: 'edgy',                   // -> dist/edgy (.exe on Windows)
-  disableExperimentalSEAWarning: true,
-  useCodeCache: false,
-  useSnapshot: false,
-  execArgv: [],
-  execArgvExtension: 'env',           // 'none' | 'env' | 'cli'
-  assets: {},                         // extra files, key -> path, readable via node:sea
-  target: undefined                   // e.g. 'linux-x64'; defaults to the host
-}
-```
-
 > [!IMPORTANT]
 > Node marks Single Executable Applications as **experimental** (stability 1.1). The generated
 > binary:
@@ -161,6 +139,5 @@ seaConfig: {
 > - **cannot be cross-compiled** — it only runs on the platform that built it;
 > - is supported on Windows, macOS (arm64) and Linux (except Alpine and s390x).
 >
-> On macOS the compiler strips and re-signs the binary ad-hoc around the injection step; if there
-> are external native addons, embed them through `seaConfig.assets` and load them with
-> `process.dlopen`. This project uses `node:sqlite`, so the output has no external dependencies.
+> On macOS the compiler strips and re-signs the binary ad-hoc around the injection step. This
+> project uses `node:sqlite`, so the output has no external dependencies.
