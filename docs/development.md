@@ -146,7 +146,7 @@ the dev server) shows as uncovered; read the report per file rather than as one 
 End-to-end tests (`pnpm e2e`) run in real browsers with [Playwright Test](https://playwright.dev), apart from
 Vitest. They build the production server, start it with a fresh seeded database, and open its pages: the filter on
 `/users` working shows the page hydrated, and a page that raises a Content-Security-Policy violation fails. Files
-ending `.spec.ts` in `e2e/` are end-to-end (set `E2E_BASE_URL` to test a server that is already running instead of starting one); `.test.ts` files are the unit and integration tests.
+ending `.spec.ts` in `e2e/` are end-to-end (set `E2E_BASE_URL` to test a production server that is already running instead of starting one; a `Dev` project also starts `pnpm dev` and checks that a style edit reaches an open page); `.test.ts` files are the unit and integration tests.
 
 ## Validation before claiming a change works
 

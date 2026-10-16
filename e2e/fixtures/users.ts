@@ -6,6 +6,7 @@ export class UsersScreen {
 
   readonly open = (query = '') => this.page.goto(`/users${query}`)
   readonly heading = () => this.page.getByRole('heading', { name: 'Users' })
+  readonly summaryText = () => this.page.getByText(/^Showing \d+ of \d+$/)
   readonly rows = () => this.page.getByRole('listitem')
   readonly filter = () => this.page.getByRole('searchbox', { name: 'Filter users' })
   readonly summary = (shown: number, total: number) =>

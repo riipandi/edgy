@@ -1,6 +1,7 @@
 import { chmodSync, existsSync } from 'node:fs'
 import path from 'node:path'
 import type { Plugin } from 'vite'
+import { findNativeAddons, nativeAddonMessage } from './native.ts'
 
 /** The minimal `package.json` that makes a built server a valid Node project. */
 export const packageManifest = (): string =>
@@ -20,6 +21,8 @@ export const makeExecutable = (serverDir: string): boolean => {
 /**
  * What a Node build adds beyond the bundle.
  *
+ * - A dependency with a native addon stops the build: the bundle inlines every package, which
+ *   cannot load one.
  * - `package.json` is emitted with the server's files, so it is a regular build asset.
  * - The executable bit is set in `closeBundle` of the client environment. Marko patches the server
  *   bundle while the browser side builds, so the server file is final only then. Vite cannot set
@@ -27,6 +30,7 @@ export const makeExecutable = (serverDir: string): boolean => {
  */
 export const nodeOutput = (): Plugin => {
   let serverDir = ''
+  let checked = false
   return {
     name: 'edgy:node-output',
     apply: 'build',
@@ -35,6 +39,12 @@ export const nodeOutput = (): Plugin => {
         config.root,
         config.environments['ssr']?.build.outDir ?? config.build.outDir
       )
+    },
+    buildStart() {
+      if (checked) return
+      checked = true
+      const native = findNativeAddons(process.cwd())
+      if (native.length > 0) this.error(nativeAddonMessage(native))
     },
     generateBundle() {
       if (this.environment.name !== 'ssr') return
