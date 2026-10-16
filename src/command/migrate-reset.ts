@@ -6,7 +6,7 @@ import { getMigrationInfos, migrateTo, migrateToLatest } from '../database/migra
 import { runSeeders, seederNames } from '../database/seeder.ts'
 import { confirmDestructive, ensure, print } from './helper.ts'
 
-/** `migrate:reset` — roll back every migration, optionally re-apply and seed. */
+/** Rolls back every migration. `--up` re-applies them, and `--seed` then seeds. */
 export const migrateResetCmd = Command.make(
   'migrate:reset',
   {

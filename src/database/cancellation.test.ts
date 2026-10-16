@@ -27,21 +27,21 @@ const countOf = (email: string) =>
 
 describe('a query whose request was cancelled while it waited for the connection', () => {
   it('never runs, and the connection stays usable', async () => {
-    // Something holds the single connection: a transaction that is waiting on `release`.
+    // A query that does not finish holds the single connection until released.
     let release!: () => void
     const gate = new Promise<void>((resolve) => {
       release = resolve
     })
     const holder = t.run(
-      DatabaseService.use(({ transaction }) =>
-        transaction(async () => {
+      DatabaseService.use(({ query }) =>
+        query(async () => {
           await gate
         })
       )
     )
     await sleep(20)
 
-    // A write queues behind it, and its request gives up (the timeout interrupts the fiber).
+    // The write queues behind it and times out.
     const write = await t.run(
       DatabaseService.use(({ query }) =>
         query((db) => db.insertInto('users').values(userRow('abandoned@example.com')).execute())
@@ -52,7 +52,7 @@ describe('a query whose request was cancelled while it waited for the connection
     release()
     await holder
 
-    // Before the fix the abandoned write ran now, so a retried request created the user twice.
+    // The abandoned write must not run late, or a retried request would create the user twice.
     expect((await countOf('abandoned@example.com')).n).toBe(0)
 
     await t.run(
@@ -69,8 +69,8 @@ describe('a query whose request was cancelled while it waited for the connection
       release = resolve
     })
     const holder = t.run(
-      DatabaseService.use(({ transaction }) =>
-        transaction(async () => {
+      DatabaseService.use(({ query }) =>
+        query(async () => {
           await gate
         })
       )

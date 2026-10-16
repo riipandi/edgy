@@ -1,7 +1,7 @@
 import { Config, ConfigProvider, Effect } from 'effect'
 import { flag, group, text } from './field.ts'
 
-/** Parsed CORS policy, consumed by the CORS middleware. */
+/** Parsed CORS policy. */
 export interface CorsConfig {
   /** Allowed origins: `*` for any, otherwise an explicit allowlist. */
   readonly origins: '*' | readonly string[]
@@ -15,12 +15,7 @@ export interface CorsConfig {
   readonly maxAge: string | false
 }
 
-/**
- * Parses a comma-separated env value into an allowlist.
- *
- * `*` (or an empty value) means "any", which is what h3's `CorsOptions.origin`
- * expects for a wildcard.
- */
+/** Parses a comma-separated list. `*` or an empty value means any. */
 const parseList = (value: string): '*' | readonly string[] => {
   const trimmed = value.trim()
   if (trimmed === '' || trimmed === '*') return '*'
@@ -37,10 +32,7 @@ const parseMaxAge = (value: string): string | false => {
   return trimmed
 }
 
-/**
- * Cross-origin policy applied to every route. Parsed from raw strings, then
- * validated as a whole: the transform runs after every field parsed.
- */
+/** Cross-origin policy for every route. Validated as a whole after all fields parse. */
 export const corsConfig = group(
   {
     origins: text('CORS_ORIGINS', '*', 'Comma-separated allowed origins, or * for any'),
@@ -62,9 +54,8 @@ export const corsConfig = group(
     transform: (raw) => {
       const origins = parseList(raw.origins)
 
-      // h3 rejects `credentials: true` with a wildcard origin because
-      // `Access-Control-Allow-Origin: *` is invalid for credentialed requests.
-      // Fail while the layer is built so the mistake surfaces at startup.
+      // A wildcard origin is invalid for credentialed requests, so fail while the layer
+      // builds, at startup.
       if (raw.credentials && origins === '*') {
         return Effect.fail(
           new Config.ConfigError(

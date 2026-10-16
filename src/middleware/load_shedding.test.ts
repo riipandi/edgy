@@ -7,7 +7,7 @@ afterEach(async () => {
   t = undefined
 })
 
-/** Occupies `count` slots as if that many slow requests were being handled. */
+/** Holds `count` in-flight slots, as if that many slow requests were running. */
 const occupy = (app: TestApp, count: number): (() => void) => {
   for (let i = 0; i < count; i += 1) app.http.inFlight.enter()
   return () => {

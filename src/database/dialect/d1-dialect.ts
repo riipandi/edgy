@@ -1,12 +1,9 @@
 /**
- * Portion of this file forked from https://github.com/aidenwallis/kysely-d1
- * (MIT License).
+ * Adapted from https://github.com/aidenwallis/kysely-d1 (MIT).
  *
- * Adaptations for this project: the binding type is declared locally, and the
- * stock SQLite adapter and compiler are reused (D1 is SQLite). The introspector
- * is replaced because Kysely's reads columns through `pragma_table_info`, which
- * D1 rejects with `SQLITE_AUTH`; that breaks the migrator, which introspects to
- * learn whether its bookkeeping tables exist.
+ * Differs from upstream: the binding type is declared locally, and the stock SQLite adapter and
+ * compiler are reused. The introspector is replaced because Kysely reads columns through
+ * `pragma_table_info`, which D1 rejects with `SQLITE_AUTH`.
  */
 import type {
   DatabaseIntrospector,
@@ -21,9 +18,8 @@ import type { D1Database } from './d1-connection.ts'
 import { D1Driver } from './d1-driver.ts'
 
 /**
- * Introspector limited to what D1 allows: table names from `sqlite_master`. The
- * columns are not read, so `columns` is empty. The migrator only needs the
- * names; anything that needs column metadata must not run against D1.
+ * Lists table names from `sqlite_master`; `columns` is always empty. Anything that needs column
+ * metadata cannot run on D1.
  */
 class D1Introspector implements DatabaseIntrospector {
   readonly #db: Kysely<unknown>
@@ -56,7 +52,7 @@ class D1Introspector implements DatabaseIntrospector {
   }
 }
 
-/** Kysely dialect for Cloudflare D1. Runs on Workers and, through wrangler, locally. */
+/** Kysely dialect for Cloudflare D1, on Workers and locally through wrangler. */
 export class D1Dialect implements Dialect {
   readonly #database: D1Database
 

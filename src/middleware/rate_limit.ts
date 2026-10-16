@@ -1,28 +1,28 @@
 import { Duration } from 'effect'
-import { definePlugin, type H3Event, HTTPError } from 'h3'
+import { definePlugin, type H3Event, HTTPError, type Middleware } from 'h3'
 import type { ApiRateLimit } from '../kernel/http/envelope.ts'
 
 /** Outcome of counting one request against a client's allowance. */
 export interface RateDecision {
   readonly allowed: boolean
   readonly limit: number
-  /** What is left; a store that only answers yes or no (the Workers binding) leaves it out. */
+  /** What is left. A store that only answers yes or no leaves it out. */
   readonly remaining?: number
   /** When the window ends, in epoch milliseconds. */
   readonly resetAt: number
 }
 
 /**
- * Counts one request for `key` and says whether it may proceed. Synchronous for the
- * in-memory counter, a promise for one shared across instances; the plugin accepts both,
- * so the memory path does not pay for an `await` it does not need.
+ * Counts one request for `key` and says whether it may proceed. May return synchronously
+ * (in-memory counter) or a promise (shared store). The plugin accepts both, so the memory
+ * path does not await needlessly.
  */
 export type RateCheck = (key: string) => RateDecision | Promise<RateDecision>
 
 export interface RateLimitOptions {
   /** How a request is counted: {@link makeMemoryRateCheck} or a shared store's. */
   readonly check: RateCheck
-  /** The client's address for a request (`makeClientResolver`): the key a client is counted under. */
+  /** The client's address for a request, which is the key it is counted under. */
   readonly clientOf: (event: H3Event) => string
 }
 
@@ -42,12 +42,13 @@ interface Bucket {
 const MAX_TRACKED_CLIENTS = 50_000
 
 /**
- * Fixed-window counter in the memory of this process (or Worker isolate): the default,
- * with no network hop and no dependency. With several instances each keeps its own
- * counts, so the effective limit is `max` times the number of instances; that blunts
- * abuse from one client, and `RATE_LIMIT_STORE=redis` (Node.js) or `cloudflare` (Workers)
- * is the answer when the limit must be shared. Memory is bounded: expired buckets are swept once per window, and
- * past {@link MAX_TRACKED_CLIENTS} the oldest is dropped for each new client.
+ * Fixed-window counter in this process's memory (or Worker isolate). It is the default: no
+ * network hop, no dependency. With several instances each keeps its own counts, so the
+ * effective limit is `max` times the instance count. That blunts abuse from one client. Set
+ * `RATE_LIMIT_STORE=redis` (Node.js) or `cloudflare` (Workers) when the limit must be shared.
+ *
+ * Memory is bounded: expired buckets are swept once per window, and past
+ * {@link MAX_TRACKED_CLIENTS} the oldest client is dropped for each new one.
  */
 export const makeMemoryRateCheck = (options: {
   readonly max: number
@@ -60,8 +61,7 @@ export const makeMemoryRateCheck = (options: {
   const buckets = new Map<string, Bucket>()
   let nextSweep = Date.now() + windowMs
 
-  // Expired buckets leave once per window: a full pass over the map costs time proportional to
-  // its size, so it must not run per request.
+  // A sweep walks the whole map, so it runs at most once per window, not per request.
   const sweep = (now: number): void => {
     if (now < nextSweep) return
     for (const [key, bucket] of buckets) {
@@ -76,9 +76,9 @@ export const makeMemoryRateCheck = (options: {
 
     let bucket = buckets.get(key)
     if (bucket === undefined || bucket.resetAt <= now) {
-      // Full of live buckets: drop the oldest one (a Map iterates in insertion order), in constant
-      // time. Under a flood of distinct keys this forgets the oldest clients' counts, which is
-      // the price of bounded memory.
+      // Full of live buckets: drop the oldest (a Map iterates in insertion order) in constant
+      // time. Under a flood of distinct keys this forgets the oldest clients' counts, the
+      // price of bounded memory.
       if (bucket === undefined && buckets.size >= maxTracked) {
         const oldest = buckets.keys().next()
         if (oldest.done !== true) buckets.delete(oldest.value)
@@ -97,17 +97,10 @@ export const makeMemoryRateCheck = (options: {
   }
 }
 
-/**
- * Rate limiter plugin, one allowance per client address, counted by `options.check`.
- *
- * Every response under the limiter carries `x-ratelimit-limit`,
- * `x-ratelimit-remaining` and `x-ratelimit-reset`, and the same values reach the
- * success envelope. An exhausted allowance answers `429` with `retry-after`.
- * Register it on the API group, not globally: probes and `/.well-known` must stay
- * reachable. Whether it is registered at all is `RATE_LIMIT_ENABLED`, decided by the caller.
- */
-export const rateLimit = definePlugin<RateLimitOptions>((app, options) => {
-  app.use(async (event, next) => {
+/** The limiter as one middleware, for a route that sits outside a group (`{ middleware: [...] }`). */
+export const rateLimitMiddleware =
+  (options: RateLimitOptions): Middleware =>
+  async (event, next) => {
     const decision = await options.check(options.clientOf(event))
 
     const info: ApiRateLimit = {
@@ -134,5 +127,18 @@ export const rateLimit = definePlugin<RateLimitOptions>((app, options) => {
     }
 
     return next()
-  })
+  }
+
+/**
+ * Rate limiter plugin: one allowance per client address, counted by `options.check`.
+ *
+ * Every response under the limiter carries `x-ratelimit-limit`, `x-ratelimit-remaining` and
+ * `x-ratelimit-reset`, and the same values reach the success envelope. An exhausted allowance
+ * answers `429` with `retry-after`.
+ *
+ * Register it on the API group, not globally, so probes and `/.well-known` stay reachable.
+ * Whether it is registered at all is `RATE_LIMIT_ENABLED`, decided by the caller.
+ */
+export const rateLimit = definePlugin<RateLimitOptions>((app, options) => {
+  app.use(rateLimitMiddleware(options))
 })

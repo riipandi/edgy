@@ -7,6 +7,11 @@ describe('redactText', () => {
     expect(redactText('connect ECONNREFUSED redis://:securedb@localhost:6379')).toBe(
       `connect ECONNREFUSED redis://:${REDACTED}@localhost:6379`
     )
+    for (const password of ['pa/ss', 'p@ss', 'p@s/s@x']) {
+      expect(redactText(`postgres://app:${password}@db.internal/app failed`)).toBe(
+        `postgres://app:${REDACTED}@db.internal/app failed`
+      )
+    }
     expect(redactText('postgres://app:hunter2@db.internal/app failed')).toBe(
       `postgres://app:${REDACTED}@db.internal/app failed`
     )
@@ -47,7 +52,7 @@ describe('redactText', () => {
     ]
     const started = performance.now()
     for (const attack of attacks) redactText(attack)
-    // quadratic matching took tens of seconds on the first of these
+    // A quadratic scan would take tens of seconds on the first of these.
     expect(performance.now() - started).toBeLessThan(1_000)
   })
 
@@ -117,5 +122,12 @@ describe('describeFailure', () => {
     expect(describeFailure({ message: 'plain' })).toBe('plain')
     expect(describeFailure(undefined)).toBe('')
     expect(describeFailure(42)).toBe('')
+  })
+})
+
+describe('an unquoted value with a space', () => {
+  it('ends at the space, so the rest of the value stays: quote it to hide it whole', () => {
+    expect(redactText('password=a b')).toBe(`password=${REDACTED} b`)
+    expect(redactText('password="a b"')).toBe(`password="${REDACTED}"`)
   })
 })

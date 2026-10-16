@@ -1,6 +1,5 @@
 /.delta
 /.husky
-/.atlas
 /.idea
 /.task
 /.pnp
@@ -9,11 +8,11 @@
 .DS_Store?
 .claude/
 .pnpm-store/
-.sentryclirc
 coverage.out
 /coverage
 /[Tt]emp/
 /[Tt]mp/
+# Tracked subtree (vendor:init); listed so linters and formatters that read .gitignore skip it
 /vendor/
 Thumbs.db
 ehthumbs.db
@@ -39,22 +38,20 @@ npm-debug.log*
 
 # Envars
 .env.*
+!.env.example
 compose.env*
 !compose.env.example
 .*.vars
+wrangler.remote-*.tmp.json
 
 # Output directory
 build/
 dist/
 release/
-.react-email/
-.tanstack/
 .vitest/
 .cache
 .output
 .wrangler
-.netlify
-.wireit
 
 # Vite & Vitest config
 vite.config.*
@@ -68,6 +65,7 @@ vitest.workspace.*
 /playwright/.cache/
 /playwright-report/
 /test-results/
+/e2e-result/
 /e2e-tests/.auth/
 /e2e-tests/.output/
 /tests-results/

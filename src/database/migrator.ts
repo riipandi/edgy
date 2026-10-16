@@ -13,11 +13,8 @@ import { migrations } from './migrations/index.ts'
 import { DatabaseService } from './service.ts'
 
 /**
- * Migration provider backed by the static registry in `./migrations/index.ts`.
- *
- * Using an in-memory provider instead of `FileMigrationProvider` keeps the
- * migrations inside the bundle: there is no runtime `readdir` and no
- * `migrations/` directory to deploy alongside the server.
+ * In-memory provider over the static registry. Migrations ship inside the bundle: no runtime
+ * `readdir` and no migrations directory to deploy.
  */
 const staticMigrationProvider: MigrationProvider = {
   getMigrations: (): Promise<Record<string, Migration>> => Promise.resolve(migrations)
@@ -28,12 +25,8 @@ const makeMigrator = (db: DatabaseService['Service']['db']): Migrator =>
   new Migrator({ db, provider: staticMigrationProvider })
 
 /**
- * Runs a migrator operation and normalises the result.
- *
- * Kysely migration methods never throw — they resolve to a
- * {@link MigrationResultSet} with the error under `.error`. This wrapper
- * converts that shape into Effect's typed error channel
- * ({@link DatabaseError}) and unwraps `.results`.
+ * Kysely migration methods never throw; they resolve with the error under `.error`. This moves the
+ * error into the {@link DatabaseError} channel and unwraps `.results`.
  */
 const runMigration = (
   execute: (migrator: Migrator) => Promise<MigrationResultSet>
@@ -46,10 +39,7 @@ const runMigration = (
     })
   )
 
-/**
- * Lists every registered migration together with its execution state
- * (`.executedAt` is `undefined` for pending migrations). Sorted by name.
- */
+/** Every registered migration with its state; `executedAt` is `undefined` while pending. */
 export const getMigrationInfos: Effect.Effect<
   ReadonlyArray<MigrationInfo>,
   DatabaseError,
@@ -63,21 +53,15 @@ export const migrateToLatest: Effect.Effect<
   DatabaseService
 > = runMigration((migrator) => migrator.migrateToLatest())
 
-/**
- * Migrates up or down to a specific migration by name, or all the way down
- * with `NO_MIGRATIONS`.
- */
+/** Migrates up or down to the named migration, or all the way down with `NO_MIGRATIONS`. */
 export const migrateTo = (
   target: string | NoMigrations
 ): Effect.Effect<ReadonlyArray<MigrationResult>, DatabaseError, DatabaseService> =>
   runMigration((migrator) => migrator.migrateTo(target))
 
 /**
- * Rolls back the given number of executed migrations.
- *
- * Kysely's `migrateDown` only moves one step, so the target name is resolved
- * from the executed-migration list and delegated to `migrateTo`, which rolls
- * back every migration after (but not including) the target.
+ * Rolls back the given number of executed migrations. Kysely's `migrateDown` moves one step only,
+ * so the target is resolved from the executed list and passed to `migrateTo`.
  */
 export const migrateDown = (
   steps: number
@@ -92,9 +76,8 @@ export const migrateDown = (
   })
 
 /**
- * The migration to stop at when rolling back `steps` of the `executed` ones (in order): the one
- * just before the last `steps`, or everything when `steps` covers them all; `undefined` when there
- * is nothing to roll back.
+ * Target to stop at when rolling back `steps` of the `executed` migrations: the one before the last
+ * `steps`, or `NO_MIGRATIONS` when they cover all. `undefined` when nothing is rolled back.
  */
 export const rollbackTarget = (
   executed: ReadonlyArray<string>,

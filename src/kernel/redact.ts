@@ -15,8 +15,12 @@ const SENSITIVE_NAME =
 export const isSensitiveName = (name: string): boolean =>
   SENSITIVE_NAME.test(name.replace(/([a-z])([A-Z])/g, '$1_$2'))
 
-/** `scheme://user:password@host`, the form connection strings take (Redis, Postgres, HTTP). */
-const URL_CREDENTIALS = /(\b[a-z][a-z0-9+.-]*:\/\/[^\s/:@]*:)[^\s/@]+(@)/gi
+/**
+ * `scheme://user:password@host`, the form connection strings take (Redis, Postgres, HTTP). The
+ * password runs to the last `@` of the token, since an unescaped `/` or `@` inside it is common
+ * and a partial redaction would leak the rest.
+ */
+const URL_CREDENTIALS = /(\b[a-z][a-z0-9+.-]*:\/\/[^\s/:@]*:)\S+(@)/gi
 
 /** `Authorization`-style values: a scheme word followed by an opaque credential. */
 const AUTH_SCHEME = /\b(Bearer|Basic|Digest|Token)\s+[A-Za-z0-9._~+/=-]{8,}/g
@@ -44,9 +48,8 @@ const CLI_FLAG =
 
 /**
  * Replaces the value of every `name=value`, `name: value`, `"name":"value"` and `name='value'`
- * whose name holds a keyword. It looks for the keyword (one linear pass) and only then checks,
- * at that position, for a separator and a value, so no pattern is searched from every offset: a
- * megabyte of adversarial text costs a linear scan, not a quadratic one.
+ * whose name holds a keyword. Keywords are found in one pass and checked only at their position:
+ * no pattern scans from every offset, so adversarial input stays linear.
  */
 const redactNamedValues = (text: string): string => {
   let out = ''
@@ -66,15 +69,14 @@ const redactNamedValues = (text: string): string => {
   return out + text.slice(copied)
 }
 
-/** Longer text is cut before any pattern runs: an error message has no use for more. */
+/** Cut before any pattern runs; no error message needs more. */
 const MAX_TEXT = 16_384
 
 /**
- * Removes secrets from free text: credentials in URLs, bearer and basic tokens, JWTs, command-line
- * flags and the value of any sensitive-looking `name=value` pair. It works on text that was never
- * meant to be shown (an error message, a driver's complaint, a log line), so it errs toward
- * removing too much; a value it cannot recognise by shape or name is not touched. Text over
- * {@link MAX_TEXT} characters is truncated.
+ * Removes secrets from free text: URL credentials, bearer and basic tokens, JWTs, command-line
+ * flags and sensitive `name=value` pairs. The text was never meant to be shown, so this errs toward
+ * removing too much; a value recognised by neither shape nor name is kept. Text over `MAX_TEXT`
+ * characters is truncated.
  */
 export const redactText = (text: string): string => {
   const bounded = text.length > MAX_TEXT ? `${text.slice(0, MAX_TEXT)}…[truncated]` : text
@@ -87,9 +89,9 @@ export const redactText = (text: string): string => {
 const MAX_DEPTH = 6
 
 /**
- * A copy of `value` that is safe to log or show: strings pass through {@link redactText}, a value
- * under a sensitive key (and any Effect `Redacted`) becomes {@link REDACTED}, and an `Error`
- * becomes its name and message. Depth is bounded, so a cyclic or enormous object cannot hang it.
+ * A copy of `value` safe to log or show: strings go through `redactText`, a value under a
+ * sensitive key or an Effect `Redacted` becomes `REDACTED`, and an `Error` becomes its name and
+ * message. Depth is bounded, so cyclic or huge objects cannot hang it.
  */
 export const redactValue = (value: unknown, depth = 0): unknown => {
   if (Redacted.isRedacted(value)) return REDACTED

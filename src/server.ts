@@ -1,48 +1,48 @@
 import { Duration, Effect } from 'effect'
-import { RateLimiter } from 'effect/persistence'
 import { serve } from 'h3'
-import { createApp } from './app.ts'
+import { fileURLToPath } from 'node:url'
+import { makeNodeApp } from './application.ts'
 import { ConfigService } from './kernel/config/service.ts'
-import { makeHttpRuntime } from './kernel/http/runtime.ts'
-import { makeSharedRateCheck } from './middleware/rate_limit_shared.ts'
+import { directoryAssets, embeddedAssets } from './kernel/http/node_assets.ts'
+import { acceptProxyProtocol } from './kernel/http/proxy_protocol.ts'
 
 /**
- * Starts the HTTP server and keeps the effect running until it is interrupted
- * (`SIGINT`/`SIGTERM` reach `NodeRuntime.runMain`, which interrupts the fiber).
+ * Starts the HTTP server and runs until interrupted. SIGINT/SIGTERM reach `NodeRuntime.runMain`,
+ * which interrupts the fiber.
  *
- * Shutdown order is owned by the scope, not by the server library: srvx's own
- * signal handler is disabled (`gracefulShutdown: false`), so the finalizers run
- * in reverse acquisition order — stop accepting and drain, release the
- * database, and only then flush the log buffer.
+ * The scope owns shutdown order. srvx's own signal handler is off (`gracefulShutdown: false`), so
+ * finalizers run in reverse acquisition order: stop accepting and drain, release the database, then
+ * flush the log buffer.
  *
- * Draining waits for in-flight *requests* (bounded by `SHUTDOWN_TIMEOUT`), then
- * closes whatever sockets remain. Waiting on `server.close()` itself would stall
- * for the whole timeout whenever a connection never completed a request.
+ * Draining waits for in-flight requests, bounded by the shutdown timeout, then closes what remains.
+ * Waiting on `server.close()` would stall for the whole timeout whenever a connection never completed
+ * a request.
  */
 export const serveHttp = Effect.gen(function* () {
   const config = yield* ConfigService
-  const { host, port, shutdownTimeout, shutdownDrainDelay } = config.server
-  const runtime = yield* makeHttpRuntime
-  const limiter = yield* RateLimiter.RateLimiter
-  const { rateLimitEnabled, rateLimitMax, rateLimitWindow, rateLimitStore } = config.security
-  const app = createApp({
-    runtime,
-    config,
-    // Shared counting only when asked for; otherwise the in-process counter serves.
-    ...(rateLimitEnabled && rateLimitStore === 'redis'
-      ? {
-          rateCheck: makeSharedRateCheck({
-            limiter,
-            max: rateLimitMax,
-            window: rateLimitWindow,
-            warn: (message, cause) => runtime.runSync(Effect.logWarning(message, cause))
-          })
-        }
-      : {})
+  const { host, port, shutdownTimeout, shutdownDrainDelay, proxyProtocol } = config.server
+  // Assets come from the embedded executable, or from `assets/` beside the entry.
+  const { app, runtime } = yield* makeNodeApp({
+    assets:
+      embeddedAssets() ?? directoryAssets(fileURLToPath(new URL('.', import.meta.url)), '/assets/')
   })
 
   const server = yield* Effect.acquireRelease(
-    Effect.sync(() => serve(app, { port, hostname: host, silent: true, gracefulShutdown: false })),
+    Effect.sync(() => {
+      // `manual`: the PROXY protocol reader must be in place before the first connection.
+      const instance = serve(app, {
+        port,
+        hostname: host,
+        silent: true,
+        gracefulShutdown: false,
+        manual: true
+      })
+      const listener = instance.node?.server
+      if (listener !== undefined) acceptProxyProtocol(listener, proxyProtocol)
+      // A failed bind surfaces through `ready()` below.
+      void Promise.resolve(instance.serve()).catch(() => undefined)
+      return instance
+    }),
     (instance) =>
       Effect.gen(function* () {
         // Readiness flips first, so a load balancer stops routing here before the
@@ -60,8 +60,7 @@ export const serveHttp = Effect.gen(function* () {
             : `Shutting down, waiting for ${pending} request(s) in flight`
         )
 
-        // Stops listening and closes idle connections; resolves only when
-        // every connection has ended, so it is awaited last.
+        // Stops listening and closes idle connections. Resolves only when every connection ends.
         const closed = instance.close()
         yield* runtime.inFlight.drained.pipe(
           Effect.timeoutOrElse({
@@ -76,20 +75,18 @@ export const serveHttp = Effect.gen(function* () {
           })
         )
         yield* Effect.promise(() => instance.close(true))
-        // Closing the sockets aborts what was cut off, but the fibers behind those requests stop on
-        // their own schedule. Give them a moment to settle, so none queries the closed database or
-        // logs after the final flush.
+        // Closing sockets aborts the requests, but their fibers stop on their own schedule. Give them
+        // a moment, so none queries the closed database or logs after the final flush.
         yield* runtime.inFlight.drained.pipe(Effect.timeoutOption('1 second'), Effect.asVoid)
         yield* Effect.promise(() => closed)
         yield* Effect.logInfo('Server stopped')
       })
   )
 
-  // `silent` also hides srvx's own listen failure (for example EADDRINUSE), so
-  // surface it here: a failed bind must stop the command, not leave it idle.
+  // `silent` also hides srvx's listen failures (EADDRINUSE, for example). `ready()` surfaces them.
   yield* Effect.promise(() => server.ready())
   yield* Effect.logInfo(`Listening on http://${host}:${port}`)
 
-  // Keep the fiber alive so the scope (and the server) stays open.
+  // Keeps the scope, and so the server, open until interrupted.
   return yield* Effect.never
 }).pipe(Effect.scoped)

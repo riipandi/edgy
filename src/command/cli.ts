@@ -6,6 +6,7 @@ import { migrateResetCmd } from './migrate-reset.ts'
 import { migrateSeedCmd } from './migrate-seed.ts'
 import { migrateStatusCmd } from './migrate-status.ts'
 import { migrateUpCmd } from './migrate-up.ts'
+import { openapiGenerateCmd } from './openapi-generate.ts'
 import { serveCmd } from './serve.ts'
 
 const rootCmd = Command.make('edgy').pipe(
@@ -13,6 +14,7 @@ const rootCmd = Command.make('edgy').pipe(
   Command.withSubcommands([
     serveCmd,
     configGenerateCmd,
+    openapiGenerateCmd,
     migrateUpCmd,
     migrateDownCmd,
     migrateStatusCmd,
@@ -21,10 +23,8 @@ const rootCmd = Command.make('edgy').pipe(
   ])
 )
 
-/**
- * Root CLI program. Running it without a subcommand prints the help document.
- *
- * The version is read from `package.json` so `--version` can never drift from
- * the published manifest.
- */
+/** Root CLI program. Without a subcommand it prints help. The version comes from `package.json`. */
 export const run = Command.run(rootCmd, { version: pkg.version })
+
+/** The same program over explicit arguments, instead of the process's. */
+export const runWith = Command.runWith(rootCmd, { version: pkg.version })

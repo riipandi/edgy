@@ -8,6 +8,7 @@ import type { DatabaseService } from '../src/database/service.ts'
 import { SqliteDatabaseLayer } from '../src/database/sqlite.ts'
 import { LocalCachePersistence } from '../src/kernel/cache/local.ts'
 import { ConfigLayer, ConfigService } from '../src/kernel/config/service.ts'
+import type { AssetSource } from '../src/kernel/http/assets.ts'
 import { type HttpRuntime, makeHttpRuntime } from '../src/kernel/http/runtime.ts'
 import type { RateCheck } from '../src/middleware/rate_limit.ts'
 import type { UserRepository } from '../src/modules/user/user_repo.ts'
@@ -21,8 +22,22 @@ import { ServicesLayer } from '../src/services.ts'
 const BASE_ENV: Readonly<Record<string, string>> = {
   DATABASE_PATH: ':memory:',
   LOG_LEVEL: 'None',
-  // The defaults point at the Docker Compose collector; a test must not export to it.
+  // The defaults point at a local collector; tests must not export to it.
   OTEL_SDK_DISABLED: 'true'
+}
+
+/**
+ * The app logs through `console.log`. A test that raises `LOG_LEVEL` (or fails a request on purpose)
+ * would print those lines into the test run, so they are kept with the app that wrote them (the most
+ * recent one alive) and left for the test to read as `TestApp.logs`. A test that spies on
+ * `console.log` itself still takes precedence.
+ */
+const sinks: ((line: string) => void)[] = []
+const consoleLog = console.log
+console.log = (...args: unknown[]): void => {
+  const sink = sinks.at(-1)
+  if (sink === undefined) consoleLog(...args)
+  else sink(args.map(String).join(' '))
 }
 
 /** Services available to {@link TestApp.run}. */
@@ -42,24 +57,28 @@ export interface TestApp {
       readonly ip?: string
     }
   ) => Promise<Response>
+  /** The log lines the app wrote, oldest first. Nothing is printed to the test run. */
+  readonly logs: readonly string[]
   /** Runs an Effect against the app's services (repositories, database, ...). */
   readonly run: <A, E>(effect: Effect.Effect<A, E, TestServices>) => Promise<A>
   readonly dispose: () => Promise<void>
 }
 
 /**
- * Builds the real application — same `createApp`, same services, same migrations
- * — over a private in-memory SQLite database, and talks to it through
- * `app.fetch`, so tests exercise the whole stack without opening a port.
+ * Builds the real application (same `createApp`, services and migrations) over a private in-memory
+ * SQLite database. Requests go through `app.fetch`, so no port opens.
  *
- * `env` overrides configuration the way real environment variables would, so a
- * test can turn on rate limiting or metrics exactly as an operator does.
+ * `env` overrides configuration as real environment variables would.
  */
 export const makeTestApp = async (
   env: Readonly<Record<string, string>> = {},
   options: {
     readonly fetch?: typeof globalThis.fetch
     readonly rateCheck?: RateCheck
+    /** Where `/assets/**` is read from; the route is absent when omitted, as on Workers. */
+    readonly assets?: AssetSource
+    /** Development mode: the HTML policy allows what Vite needs. */
+    readonly development?: boolean
     /** Stands in for the shared cache store (`CACHE_STORE=redis`); in-process when absent. */
     readonly cacheBacking?: Layer.Layer<Persistence.BackingPersistence>
   } = {}
@@ -90,26 +109,39 @@ export const makeTestApp = async (
   )
   const runtime = ManagedRuntime.make(layer)
 
-  const built = await runtime.runPromise(
-    Effect.gen(function* () {
-      const config = yield* ConfigService
-      yield* migrateToLatest
-      const httpRuntime = yield* makeHttpRuntime
-      return {
-        app: createApp({
-          runtime: httpRuntime,
-          config,
-          ...(options.rateCheck === undefined ? {} : { rateCheck: options.rateCheck })
-        }),
-        http: httpRuntime
-      }
+  // Before the build: migrations log too, at `Trace`.
+  const logs: string[] = []
+  const sink = (line: string) => logs.push(line)
+  sinks.push(sink)
+
+  const built = await runtime
+    .runPromise(
+      Effect.gen(function* () {
+        const config = yield* ConfigService
+        yield* migrateToLatest
+        const httpRuntime = yield* makeHttpRuntime
+        return {
+          app: createApp({
+            runtime: httpRuntime,
+            config,
+            ...(options.rateCheck === undefined ? {} : { rateCheck: options.rateCheck }),
+            ...(options.assets === undefined ? {} : { assets: options.assets }),
+            ...(options.development === true ? { development: true } : {})
+          }),
+          http: httpRuntime
+        }
+      })
+    )
+    .catch((cause: unknown) => {
+      sinks.splice(sinks.indexOf(sink), 1)
+      throw cause
     })
-  )
 
   const { app, http } = built
   return {
     app,
     http,
+    logs,
     request: async (path, init = {}) => {
       const request = new Request(`http://test${path}`, {
         method: init.method ?? 'GET',
@@ -123,6 +155,13 @@ export const makeTestApp = async (
       return app.fetch(init.ip === undefined ? request : Object.assign(request, { ip: init.ip }))
     },
     run: (effect) => runtime.runPromise(effect),
-    dispose: () => runtime.dispose()
+    dispose: async () => {
+      try {
+        await runtime.dispose()
+      } finally {
+        const at = sinks.indexOf(sink)
+        if (at !== -1) sinks.splice(at, 1)
+      }
+    }
   }
 }

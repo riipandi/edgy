@@ -46,16 +46,24 @@ describe('error reporting', () => {
 
   it('does not report an expected failure: not found, validation, conflict', async () => {
     t = await makeTestApp({ LOG_LEVEL: 'Error' })
-    await t.request('/api/users', { method: 'POST', body: { email: 'dup@example.com' } })
+    await t.request('/api/users', {
+      method: 'POST',
+      body: { email: 'dup@example.com', name: 'Dup' }
+    })
 
     const lines = await printed(async () => {
       expect((await t!.request(`/api/users/${MISSING_USER_ID}`)).status).toBe(404)
       expect(
-        (await t!.request('/api/users', { method: 'POST', body: { email: 'nope' } })).status
+        (await t!.request('/api/users', { method: 'POST', body: { email: 'nope', name: 'Nope' } }))
+          .status
       ).toBe(400)
       expect(
-        (await t!.request('/api/users', { method: 'POST', body: { email: 'dup@example.com' } }))
-          .status
+        (
+          await t!.request('/api/users', {
+            method: 'POST',
+            body: { email: 'dup@example.com', name: 'Dup' }
+          })
+        ).status
       ).toBe(409)
     })
 

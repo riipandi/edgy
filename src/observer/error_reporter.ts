@@ -16,23 +16,21 @@ const codeOf = (cause: Cause.Cause<unknown>): string | undefined => {
 }
 
 /**
- * The one place a failed request is reported. `runEffect` wraps every program in
- * `Effect.withErrorReporting`; Effect then hands each *reportable* failure to the
- * reporters registered here, once per error (it deduplicates, and skips
- * interruptions such as a client hanging up).
+ * The one place a failed request is reported. Programs run through `runProgram` (API and pages)
+ * are wrapped in `Effect.withErrorReporting`, which hands each reportable failure to the
+ * reporters here, once per error. Duplicates and interruptions, such as a client hanging up, are
+ * skipped.
  *
- * What is reportable is decided by the error, not by this file: an `AppError` below
- * 500 carries `ErrorReporter.ignore` (a missing user is not an incident), while a
- * database failure, a timeout and any unexpected defect do not, so they arrive here.
- * The default reporter writes them to the Effect logger at `Error`, annotated with the
- * `errorCode` the client was given and with the cause **redacted**: a driver's message can
- * quote a connection string or a credential, and the log is shipped to places the process
- * does not control. The logger runs on the failing fiber's own context, so it reaches
- * whatever sinks are configured: console, file, OTLP.
+ * The error decides what is reportable. An `AppError` below 500 carries `ErrorReporter.ignore`
+ * (a missing user is not an incident); a database failure, a timeout or a defect arrives here.
+ * The default reporter logs them at `Error`, annotated with the `errorCode` the client received
+ * and with the cause **redacted**: a driver's message can quote a connection string or a
+ * credential, and logs leave the process. The logger runs on the failing fiber's context, so it
+ * reaches every configured sink.
  *
- * To send failures somewhere else (Sentry, a pager), add a reporter to the list in
- * `ErrorReporter.layer`; it receives the same deduplicated, pre-filtered stream, and
- * should redact (`kernel/redact.ts`) before it sends.
+ * To send failures elsewhere (Sentry, a pager), add a reporter to the list in
+ * `ErrorReporter.layer`. It receives the same deduplicated stream and must redact with
+ * `redactText` before sending.
  */
 export const ErrorReporterLayer = ErrorReporter.layer([
   ErrorReporter.make(({ cause, fiber }) => {

@@ -1,12 +1,8 @@
 /**
- * Portion of this file forked from https://github.com/wolfie/kysely-node-native-sqlite
- * (ISC License, Copyright 2026 Henrik Paul).
+ * Adapted from https://github.com/wolfie/kysely-node-native-sqlite (ISC, Copyright 2026 Henrik Paul).
  *
- * Adaptations for this project:
- * - The `node:sqlite` `DatabaseSync` handle is injected rather than constructed
- *   from constructor args, so ownership stays with the Effect runtime.
- * - `destroy()` no longer closes the database (the Effect layer does), it only
- *   detaches the cached connection.
+ * Differs from upstream: the `DatabaseSync` handle is injected because the Effect runtime owns it.
+ * `destroy()` detaches the cached connection and leaves closing the database to the owner.
  */
 import type { DatabaseConnection, Driver, QueryCompiler } from 'kysely'
 import { CompiledQuery, createQueryId, IdentifierNode, RawNode } from 'kysely'
@@ -26,15 +22,9 @@ const savepointCommand = (
   RawNode.createWithChildren([RawNode.createWithSql(command), IdentifierNode.create(savepointName)])
 
 /**
- * Kysely {@link Driver} for `node:sqlite`.
- *
- * `node:sqlite` exposes a single synchronous connection. The driver does not queue callers
- * itself: Kysely's `RuntimeDriver` holds a connection mutex for any adapter that reports
- * `supportsMultipleConnections === false` (the SQLite adapter does), so only one Kysely
- * operation touches the handle at a time and a transaction keeps the connection across awaits.
- * That queue is also the one a caller's abort signal can leave (`db.connection().execute(run,
- * { signal })`, see `DatabaseService.query`). The fork's own mutex sat behind it and never
- * had a waiter, so it was removed.
+ * Kysely {@link Driver} for `node:sqlite`, which has one synchronous connection. Kysely's runtime
+ * serialises operations on it because the SQLite adapter reports no multiple connections, so a
+ * transaction keeps the connection across awaits and a caller's abort signal can leave the queue.
  */
 export class NodeSQLiteDriver implements Driver, AsyncDisposable {
   readonly #db: DatabaseSync
@@ -69,8 +59,13 @@ export class NodeSQLiteDriver implements Driver, AsyncDisposable {
     await this.destroy()
   }
 
+  /**
+   * `IMMEDIATE` takes the write lock at the start, waiting out the busy timeout. A plain `BEGIN`
+   * reads first and upgrades later, and under WAL that upgrade fails at once (`database is
+   * locked`, the busy timeout is not consulted) when another process committed in between.
+   */
   async beginTransaction(connection: DatabaseConnection): Promise<void> {
-    await connection.executeQuery(CompiledQuery.raw('BEGIN'))
+    await connection.executeQuery(CompiledQuery.raw('BEGIN IMMEDIATE'))
   }
 
   async commitTransaction(connection: DatabaseConnection): Promise<void> {

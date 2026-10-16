@@ -3,16 +3,15 @@ import { type Persistable, PersistedCache, Persistence } from 'effect/persistenc
 import { ConfigService } from '../config/service.ts'
 
 /**
- * Whether the current request asked to skip the cache (`?nocache=true`). `runEffect` sets it from
- * the URL, so every read-through honours it with no handler passing a flag around. A bypassed
- * read goes to the source and neither reads nor writes the cache, so it shows what is really
- * stored without changing what other callers are served.
+ * Set when the request asked to skip the cache (`?nocache=true`). A bypassed read goes to the
+ * source and neither reads nor writes the cache, so it shows what is stored without changing
+ * what other callers are served.
  */
 export class CacheBypass extends Context.Reference<boolean>('CacheBypass', {
   defaultValue: () => false
 }) {}
 
-/** A failure of the cache itself (the store, or an entry that no longer decodes), not of the lookup. */
+/** A cache failure (the store, or an entry that no longer decodes), not a lookup failure. */
 const isCacheFailure = (
   error: unknown
 ): error is Persistence.PersistenceError | Schema.SchemaError =>
@@ -21,26 +20,22 @@ const isCacheFailure = (
   '_tag' in error &&
   (error._tag === 'PersistenceError' || error._tag === 'SchemaError')
 
-/** How the cached reads of one request were answered; filled by {@link makeReadThrough}. */
+/** Per-request count of cached reads: hits, misses (went to the lookup) and bypasses. */
 export interface CacheTally {
   hit: number
   miss: number
   bypass: number
 }
 
-/**
- * Where a request's cached reads are counted, so the request log can say whether the response
- * came from the cache. `runEffect` provides a fresh tally per request; with none (a command, a
- * test calling a service directly) nothing is counted.
- */
+/** Counts a request's cached reads for the request log. Provided fresh per request. */
 export class CacheTrace extends Context.Reference<CacheTally | undefined>('CacheTrace', {
   defaultValue: () => undefined
 }) {}
 
 /**
- * One word for a request's reads: `bypass` if it asked to skip the cache, else `miss` if any read
- * had to go to the source, else `hit`. `undefined` when it read nothing through a cache. A request
- * that mixes hits and misses is a `miss`: some of its answer was fetched.
+ * One word for a request's reads: `bypass` if any read was bypassed, else `miss` if any went to
+ * the lookup, else `hit`. `undefined` when no cached read happened. A mix of hits and misses is
+ * a `miss`.
  */
 export const summarizeTally = (tally: CacheTally): 'hit' | 'miss' | 'bypass' | undefined =>
   tally.bypass > 0 ? 'bypass' : tally.miss > 0 ? 'miss' : tally.hit > 0 ? 'hit' : undefined
@@ -57,14 +52,13 @@ export interface ReadThrough<K extends Persistable.Any, E, R> {
  *
  * - **off** (`CACHE_ENABLED=false`): every read is the lookup.
  * - **`memory`**: this process's own copy, `CACHE_TTL` long, at most `CACHE_MAX_ENTRIES`.
- * - **shared** (`redis`, `cloudflare`): the shared store holds the entry for `CACHE_TTL`, and a
- *   process keeps a copy for `CACHE_LOCAL_TTL` on top, so a busy entry does not cost a round trip
- *   to the store each time.
+ * - **shared** (`redis`, `cloudflare`): the store holds the entry for `CACHE_TTL`; each process
+ *   also keeps a copy for `CACHE_LOCAL_TTL`, so a hot entry does not cost a store round trip.
  *
- * Only a success is kept (a failed lookup is retried by the next call, never replayed). A store
- * that fails is not the request's problem: a read that cannot be served from or written to it
- * falls back to the lookup, and `invalidate` shrugs a store error off, because the entry
- * expires anyway. The `guardBacking` decorator keeps an outage from also making each call wait.
+ * Only a success is cached; a failed lookup is retried by the next call. A store failure never
+ * fails the request: an unreadable or unwritable entry falls back to the lookup, and `invalidate`
+ * ignores store errors because the entry expires anyway. Keep the store behind a timeout and
+ * cooldown guard, or an outage makes every call wait.
  */
 export const makeReadThrough = Effect.fnUntraced(function* <
   K extends Persistable.Any,
@@ -89,8 +83,7 @@ export const makeReadThrough = Effect.fnUntraced(function* <
   const keep = (exit: Exit.Exit<unknown, unknown>, ttl: Duration.Duration): Duration.Duration =>
     Exit.isSuccess(exit) ? ttl : Duration.zero
 
-  // The lookup runs only when neither the process nor the store had the entry, which is exactly a
-  // miss; a read that finishes without having run it was a hit.
+  // The lookup runs only on a miss in both process and store; a read that never ran it was a hit.
   const counted = (key: K) =>
     Effect.flatMap(Effect.service(CacheTrace), (tally) => {
       if (tally !== undefined) tally.miss += 1
@@ -99,15 +92,14 @@ export const makeReadThrough = Effect.fnUntraced(function* <
 
   const persisted = yield* PersistedCache.make<K, R, 'lookup'>(counted, {
     storeId: `edgy:cache:${options.name}`,
-    // The persisted copy exists only for a shared store; for `memory` a zero TTL skips the write.
+    // Only a shared store gets a persisted copy; a zero TTL skips the write.
     timeToLive: (exit) => keep(exit, shared ? cache.ttl : Duration.zero),
     inMemoryCapacity: cache.maxEntries,
     inMemoryTTL: (exit) => keep(exit, shared ? cache.localTtl : cache.ttl),
     requireServicesAt: 'lookup'
   }).pipe(Effect.provideService(Persistence.Persistence, persistence))
 
-  // Bumped by every `invalidate`. A read that began before one may be holding (and may have
-  // stored) a value that predates the write the invalidation announced; see `get`.
+  // Bumped by every `invalidate`. A read that started before one may hold a value older than it.
   let epoch = 0
 
   return {
@@ -125,9 +117,8 @@ export const makeReadThrough = Effect.fnUntraced(function* <
           Effect.catchIf(isCacheFailure, (error) =>
             Effect.logWarning(`Cache "${options.name}" unusable; reading the source`, error).pipe(
               Effect.tap(() => Effect.sync(() => tally && (tally.miss += 1))),
-              // An entry that no longer decodes (the schema changed in a deploy) would be read,
-              // fail and fall back on every request until its TTL ends: drop it so the next read
-              // replaces it.
+              // An entry that no longer decodes (schema changed in a deploy) would fail on every
+              // read until its TTL ends, so drop it.
               Effect.tap(() =>
                 error._tag === 'SchemaError'
                   ? Effect.ignore(persisted.invalidate(key))
@@ -139,10 +130,9 @@ export const makeReadThrough = Effect.fnUntraced(function* <
         )
         if (tally !== undefined && tally.miss === missesBefore) tally.hit += 1
 
-        // A write invalidated while this read was in flight. The lookup may have read the row
-        // before the write and stored it after the invalidation, which would keep the old value
-        // for the whole TTL (in a shared store, for every instance). Drop it: the caller still gets
-        // the value it read, which is as fresh as its read, and the next read looks again.
+        // Invalidated while in flight: the lookup may have read before the write and stored after
+        // the invalidation, keeping a stale value for the whole TTL. Drop it; the caller still gets
+        // its value and the next read looks again.
         if (epoch !== epochAtStart) yield* Effect.ignore(persisted.invalidate(key))
         return value
       }),

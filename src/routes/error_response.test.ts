@@ -36,6 +36,8 @@ describe('error responses', () => {
       const body: any = await (await t.request('/api/users')).json()
       expect(body.error.debug.type).toBe('DatabaseError')
       expect(body.error.debug.message).toContain('no such table')
+      // The failure is logged, to the app's captured log and not to the test run.
+      expect(t.logs.join('\n')).toContain('Query failed')
       await t.dispose()
       t = undefined
     }
@@ -67,5 +69,41 @@ describe('error responses', () => {
 
     const line = lines.find((entry) => entry.includes('GET /api/nope 404'))
     expect(line).toContain('"errorCode":"NOT_FOUND"')
+  })
+})
+
+describe('client location in the request log', () => {
+  const logged = async (env: Record<string, string>, headers: Record<string, string>) => {
+    t = await makeTestApp({ LOG_LEVEL: 'Info', LOG_FORMAT: 'json', ...env })
+    const lines: string[] = []
+    vi.spyOn(console, 'log').mockImplementation((...args: unknown[]) => {
+      lines.push(args.map(String).join(' '))
+    })
+    await t.request('/api/users', { headers })
+    await t.dispose()
+    t = undefined
+    return lines.find((entry) => entry.includes('GET /api/users 200')) ?? ''
+  }
+
+  const cloudflare = {
+    'cf-connecting-ip': '203.0.113.7',
+    'cf-ipcountry': 'ID',
+    'cf-ipcity': 'Jakarta'
+  }
+
+  it('names country and city when asked to and the platform is trusted', async () => {
+    const line = await logged(
+      { CLOUDFLARE_LOCATION_HEADERS: 'true', TRUSTED_PLATFORM: 'CF-Connecting-IP' },
+      cloudflare
+    )
+    expect(line).toContain('"country":"ID"')
+    expect(line).toContain('"city":"Jakarta"')
+  })
+
+  it('says nothing by default, or when no platform is trusted', async () => {
+    expect(await logged({}, cloudflare)).not.toContain('"country"')
+    expect(await logged({ CLOUDFLARE_LOCATION_HEADERS: 'true' }, cloudflare)).not.toContain(
+      '"country"'
+    )
   })
 })

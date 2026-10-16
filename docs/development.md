@@ -5,19 +5,29 @@ Day-to-day commands for working on the server.
 ## Commands
 
 ```bash
-pnpm dev               # the Node.js server with --watch (same as pnpm watch:node)
-pnpm watch:node        # the Node.js server with --watch (auto-restart on change)
-pnpm watch:worker      # the Cloudflare Worker from source, in workerd with a local D1 database
-pnpm preview           # build the Worker (minified), then run that file in workerd
-pnpm build:node        # bundle the Node.js server into dist/server
-pnpm build:worker      # bundle the Worker into dist/worker/index.mjs
+pnpm dev               # the Node.js server and the pages in one Vite dev server, with hot updates
+pnpm build             # build the Node.js server and the browser assets into dist/server
+pnpm preview           # run what `pnpm build` wrote (build first; the Node server on this address)
+pnpm start             # run the server already built in dist/server, reading .env.local if there is one
+pnpm compile           # a single executable, dist/edgy (experimental)
+# The same three for the Cloudflare Worker (workerd, a local D1 database), by adding the mode:
+pnpm dev --mode worker
+pnpm build --mode worker
+pnpm preview --mode worker
 pnpm compose:up        # start ClickStack (traces, metrics, logs) and Valkey in Docker
 pnpm compose:down      # stop them; their data stays in .storage
 pnpm compose:restart   # down, then up
 pnpm compose:cleanup   # stop them and delete their data
 pnpm test              # vitest run
-pnpm test:watch        # vitest, re-runs on change
-pnpm typecheck         # tsc --noEmit
+pnpm test:coverage     # the same, with a coverage report in .output/tests-results/coverage
+pnpm e2e:install       # download the browser the end-to-end tests drive (once)
+pnpm e2e               # end-to-end tests in Chromium, Firefox, Safari (WebKit) and a mobile Chrome, against the production build
+pnpm e2e --project Chromium   # one browser (the names are in playwright.config.ts)
+pnpm e2e:chrome        # ... one browser with its window shown (also e2e:firefox, e2e:safari, e2e:mobile)
+pnpm e2e:ui            # Playwright's UI mode: pick tests, watch each step, time-travel
+pnpm e2e:report        # open the HTML report of the last run (.output/e2e-result)
+pnpm test:report       # serve .output/tests-results (open /coverage/ for the coverage report)
+pnpm typecheck         # tsc --noEmit, then the page templates
 pnpm check             # oxfmt --check + oxlint (read-only; what a hook or CI should run)
 pnpm format            # oxfmt --write .
 pnpm lint              # oxlint --fix . (rewrites files)
@@ -25,19 +35,28 @@ pnpm lint              # oxlint --fix . (rewrites files)
 
 ## Running from source
 
-The entry point is `src/main.ts`, run directly by Node — no build step in development
-(Node strips the TypeScript types natively):
+The entry point is `src/main.ts`, run directly by Node — no build step for the commands that do not
+serve pages (Node strips the TypeScript types natively):
 
 ```bash
 pnpm app <command> [flags]
 ```
 
-See the [CLI documentation](./commandline.md) for the command list and flags.
+Starting the server (`serve`) is the exception: pages are templates that only Vite can load, so use
+`pnpm dev` while developing and a build (`pnpm build`) to run it otherwise. `pnpm dev` is the
+Vite dev server with the application running inside it: one process, one port (`HOST` and `PORT`,
+by default `127.0.0.1:3000`; a busy port is an error; both are set in `vite.config.ts`, where any other
+server option goes too), reading `.env.local` for you. Editing a page
+or a style updates the browser; editing server code starts the application over in the same process
+and reloads the page. The database is migrated for you on each start (set
+`DATABASE_AUTO_MIGRATE=false` to stop that); there is no `--auto-migrate` flag here. See the
+[CLI documentation](./commandline.md) for the command list and flags, and [Pages](./frontend.md) for
+the pages themselves.
 
 ## Database workflow
 
-Migrations are applied explicitly — nothing runs automatically unless the server starts with
-`serve --auto-migrate` (migrations only, never seeds):
+Migrations are applied explicitly — nothing runs automatically except under `pnpm dev`, or when the
+server starts with `serve --auto-migrate` (migrations only, never seeds):
 
 ```bash
 pnpm app migrate:status     # check what is applied / pending
@@ -51,15 +70,17 @@ command-level flags and the confirmation behaviour of destructive commands.
 
 ## Cloudflare Workers locally
 
-`pnpm watch:worker` starts the Worker in `workerd`, the runtime Cloudflare uses, with a local D1
-database stored under `.wrangler/`. Pending migrations are applied when the Worker starts (the script
-switches `DATABASE_AUTO_MIGRATE` on for the local database), so a fresh checkout works with no extra step.
-`pnpm preview` does the same with the built, minified bundle, which is what `pnpm run deploy` ships:
+`pnpm dev --mode worker` starts the Worker in `workerd`, the runtime Cloudflare uses, with a local D1
+database stored under `.wrangler/`. Pending migrations are applied when the Worker starts
+(`DATABASE_AUTO_MIGRATE` in `wrangler.jsonc`), so a fresh checkout works with no extra step. `pnpm preview --mode worker` does the same with the built, minified Worker, which is what
+`pnpm run deploy` ships:
 
 ```bash
-pnpm watch:worker     # http://127.0.0.1:3000, from source
-pnpm preview          # http://127.0.0.1:3000, from dist/worker/index.mjs
+pnpm dev --mode worker       # from source, with hot updates, at http://127.0.0.1:3000
+pnpm preview --mode worker   # the build in dist/worker, at the same address
 ```
+
+The Worker reads local overrides from `.dev.vars`, not from `.env.local`.
 
 To prepare or inspect that same database from the CLI, select the `d1` driver:
 
@@ -112,27 +133,39 @@ passwords here are for development only.
 ## Tests
 
 Tests use [Vitest](https://vitest.dev) with [`@effect/vitest`](https://effect.website) and sit next to
-the code they cover (`*.test.ts`). They build the real application over a private in-memory database
+the code they cover (`*.test.ts`). Vitest loads the pages through the same Vite plugins as a build. They build the real application over a private in-memory database
 and call it in-process, so no port is opened; the OpenTelemetry collector is replaced by a fake that
 records what is sent. Effect tests run on a controlled clock, so retries and timeouts are stepped
-through, not waited for. `pnpm test` also checks that `.env.example` matches the configuration.
+through, not waited for. Interactive page components are tested on their own in a simulated browser, next to
+the component, by acting on them as a user would: typing in the filter and checking the list. `pnpm test` also checks that `.env.example` matches the configuration.
+
+Coverage (`pnpm test:coverage`) is measured over `src/` with V8's native coverage: no code is instrumented, so
+the Marko and vanilla-extract transforms run as they do in a build, and the numbers cost about a second on
+top of the test run. Code the tests cannot reach by design (the CLI commands, the server and Worker entries,
+the dev server) shows as uncovered; read the report per file rather than as one total.
+
+End-to-end tests (`pnpm e2e`) run in real browsers with [Playwright Test](https://playwright.dev), apart from
+Vitest. They build the production server, start it with a fresh seeded database, and open its pages: the filter on
+`/users` working shows the page hydrated, and a page that raises a Content-Security-Policy violation fails. Files
+ending `.spec.ts` in `e2e/` are end-to-end (set `E2E_BASE_URL` to test a production server that is already running instead of starting one; a `Dev` project also starts `pnpm dev` and checks that a style edit reaches an open page); `.test.ts` files are the unit and integration tests.
 
 ## Validation before claiming a change works
 
 ```bash
-pnpm typecheck && pnpm check && pnpm test
+pnpm typecheck && pnpm check && pnpm test && pnpm e2e
 ```
 
 Plus a run against the real artifacts — a green test suite does not exercise the built bundles:
 
 ```bash
-pnpm build:node
+pnpm build
 DATABASE_PATH=$(mktemp -d)/probe.db node dist/server/index.mjs serve --auto-migrate
-pnpm preview   # the Worker bundle, in workerd
+pnpm preview --mode worker   # the Worker build, in workerd
 ```
 
 ## Related docs
 
+- [Pages](./frontend.md) — writing a page, styling, how it is served
 - [Deployment](./deployment.md) — Node.js and Worker builds, single executable
 - [Configuration](./configuration.md) — environment variables and defaults
 - [CLI](./commandline.md) — commands and flags

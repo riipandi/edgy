@@ -10,6 +10,8 @@ import { guardBacking } from './kernel/cache/guard.ts'
 import { LocalCachePersistence } from './kernel/cache/local.ts'
 import { ConfigLayer, ConfigService } from './kernel/config/service.ts'
 import { makeHttpRuntime } from './kernel/http/runtime.ts'
+import { startupFailureResponse } from './kernel/http/startup_failure.ts'
+import { redactText } from './kernel/redact.ts'
 import type { RateCheck } from './middleware/rate_limit.ts'
 import { isRateLimitBinding, makeBindingRateCheck } from './middleware/rate_limit_binding.ts'
 import { ErrorReporterLayer } from './observer/error_reporter.ts'
@@ -20,23 +22,23 @@ import { ServicesLayer } from './services.ts'
 /** What Cloudflare passes to `fetch`: vars and secrets as strings, bindings as objects. */
 type WorkerEnv = Readonly<Record<string, unknown>>
 
-/**
- * Builds the application for one Worker environment: configuration from the
- * Worker's own vars (not `process.env`), the D1 binding it names, the services on
- * top, and the same `createApp` the Node server uses.
- *
- * There is no `CoreLayer` here: it carries Node platform services and a stdout
- * logger. The pieces a Worker needs are listed explicitly instead, which is also
- * what keeps `node:sqlite`, `wrangler` and the CLI out of the Worker bundle.
- */
+/** A built Worker application: the handler, the telemetry flush, and how often a flush is worthwhile. */
 interface WorkerApp {
   readonly app: H3
   /** Sends what the exporters have buffered. Bounded, and it cannot fail. */
   readonly flush: () => Promise<void>
   /** How often `flush` is worth calling (`OTEL_EXPORT_INTERVAL`), in milliseconds. */
   readonly flushEvery: number
+  /** Stops the runtime. Called only for an app that a newer environment replaced. */
+  readonly dispose: () => Promise<void>
 }
 
+/**
+ * Builds the application for one Worker environment: config from the Worker's vars (not
+ * `process.env`), the D1 binding it names, the services on top, and the same `createApp` the Node
+ * server uses. There is no `CoreLayer`, which carries Node platform services and a stdout logger.
+ * Listing the pieces explicitly keeps `node:sqlite`, `wrangler` and the CLI out of the bundle.
+ */
 const buildApp = async (env: WorkerEnv): Promise<WorkerApp> => {
   const strings = Object.fromEntries(
     Object.entries(env).filter((entry): entry is [string, string] => typeof entry[1] === 'string')
@@ -133,36 +135,65 @@ const buildApp = async (env: WorkerEnv): Promise<WorkerApp> => {
           app: createApp({
             runtime: http,
             config,
+            // Under `pnpm dev --mode worker`, Vite injects styles and opens a hot-reload socket, which
+            // the HTML policy must allow. A build replaces this with `false`.
+            development: import.meta.env.DEV,
             ...(rateCheck === undefined ? {} : { rateCheck })
           }),
           flush: () =>
             runtime.runPromise(flush.pipe(Effect.timeoutOption('2 seconds'), Effect.asVoid)),
-          flushEvery: Duration.toMillis(config.observability.exportInterval)
+          flushEvery: Duration.toMillis(config.observability.exportInterval),
+          dispose: () => runtime.dispose()
         }
       })
     )
     .catch(async (cause: unknown) => {
-      // A failed build is retried by the next request. Without this each attempt would leave its
-      // runtime (and the exporter's interval fiber) alive, one more per request.
+      // A failed build is retried on the next request, so dispose its runtime here. Otherwise each
+      // attempt leaks a runtime and its exporter fiber.
       await runtime.dispose().catch(() => undefined)
       throw cause
     })
 }
 
-const apps = new WeakMap<object, Promise<WorkerApp>>()
+/** How long a replaced app keeps running, so requests that already hold it can finish. */
+const RETIRE_AFTER_MS = 30_000
 
-/** The app for this environment, built on first use and shared by later requests. */
+interface Slot {
+  readonly env: object
+  readonly app: Promise<WorkerApp>
+}
+
+let current: Slot | undefined
+
+/**
+ * The app for this environment, built on first use and shared by later requests. Cloudflare gives
+ * a Worker one `env` object for the life of the isolate, so there is one build. A different object
+ * means a runtime that hands out a fresh one: that rebuilds, so it is logged, and the app it
+ * replaces is stopped after a delay rather than left running for the rest of the isolate.
+ */
 const appFor = (env: WorkerEnv): Promise<WorkerApp> => {
-  let app = apps.get(env)
-  if (app === undefined) {
-    // A `ConfigError` is not an `Error`: left as it is, the runtime prints it as
-    // "[object Object]" and the reason (an invalid variable) never reaches the log.
-    app = buildApp(env).catch((cause: unknown) => {
-      throw cause instanceof Error ? cause : new Error(String(cause))
-    })
-    apps.set(env, app)
-    // A failed build must not poison the isolate: retry on the next request.
-    app.catch(() => apps.delete(env))
+  if (current?.env === env) return current.app
+
+  // A ConfigError is not an Error. Unwrapped, the runtime logs "[object Object]" and the reason is lost.
+  const app = buildApp(env).catch((cause: unknown) => {
+    throw cause instanceof Error ? cause : new Error(String(cause))
+  })
+  const previous = current
+  const slot: Slot = { env, app }
+  current = slot
+  // A failed build is dropped, so the next request retries it.
+  app.catch(() => {
+    if (current === slot) current = undefined
+  })
+
+  if (previous !== undefined) {
+    // oxlint-disable-next-line no-console
+    console.warn(
+      'Worker env object changed: rebuilding the app (a new env per request rebuilds each time)'
+    )
+    setTimeout(() => {
+      previous.app.then((old) => old.dispose()).catch(() => undefined)
+    }, RETIRE_AFTER_MS)
   }
   return app
 }
@@ -176,17 +207,28 @@ interface WorkerContext {
 let lastFlush = 0
 
 /**
- * Cloudflare Workers entry (`wrangler.jsonc` → `main`). Run it locally with
- * `pnpm watch:worker` (source) or `pnpm preview` (built bundle); deploy with `pnpm deploy`.
+ * Cloudflare Workers entry. Run locally with `pnpm dev --mode worker` (source) or
+ * `pnpm preview --mode worker` (built bundle).
  *
- * A Worker has no shutdown hook, so buffered telemetry would be lost whenever the isolate
- * is evicted. After the response, `waitUntil` keeps the isolate alive long enough to flush
- * it, at most once per `OTEL_EXPORT_INTERVAL`: a flush per request would turn every request
- * into three extra subrequests. With no endpoint configured the flush is a no-op.
+ * A Worker has no shutdown hook, so buffered telemetry is lost when the isolate is evicted.
+ * `waitUntil` keeps the isolate alive after the response to flush, at most once per
+ * `OTEL_EXPORT_INTERVAL`, since a flush per request would add subrequests to every request.
+ * With no endpoint configured the flush is a no-op.
  */
 export default {
   async fetch(request: Request, env: WorkerEnv, ctx: WorkerContext): Promise<Response> {
-    const { app, flush, flushEvery } = await appFor(env)
+    let built: WorkerApp
+    try {
+      built = await appFor(env)
+    } catch (cause) {
+      // No app means no logger or error hook of ours: answer here, and leave the cause in the
+      // Worker's own log under the id the client was given.
+      const { response, requestId } = startupFailureResponse(request)
+      // oxlint-disable-next-line no-console
+      console.error(`Worker failed to start (${requestId}): ${redactText(String(cause))}`)
+      return response
+    }
+    const { app, flush, flushEvery } = built
     const response = await app.fetch(request)
 
     const now = Date.now()

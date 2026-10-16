@@ -6,8 +6,8 @@ describe('rollbackTarget', () => {
   const applied = ['001_a', '002_b', '003_c']
 
   it('stops at the migration just before the ones being rolled back', () => {
-    expect(rollbackTarget(applied, 1)).toBe('002_b') // rolls back 003_c only
-    expect(rollbackTarget(applied, 2)).toBe('001_a') // rolls back 003_c and 002_b
+    expect(rollbackTarget(applied, 1)).toBe('002_b') // Rolls back 003_c only.
+    expect(rollbackTarget(applied, 2)).toBe('001_a') // Rolls back 003_c and 002_b.
   })
 
   it('rolls everything back when the steps cover every applied migration', () => {

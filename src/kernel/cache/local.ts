@@ -2,9 +2,8 @@ import { Array as Arr, Effect, Layer } from 'effect'
 import { Persistence } from 'effect/persistence'
 
 /**
- * A backing store that keeps nothing. With it `PersistedCache` is only its in-process half:
- * the `memory` store, with no second copy of every entry and no serialisation (a read-through
- * for it sets the persisted TTL to zero, which skips the write).
+ * A backing store that keeps nothing, so `PersistedCache` is only its in-process half: no second
+ * copy and no serialisation. Read-throughs give it a zero TTL, which skips the write.
  */
 const nothing: Persistence.BackingPersistenceStore = {
   get: () => Effect.undefined,

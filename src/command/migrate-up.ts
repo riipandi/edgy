@@ -1,10 +1,10 @@
 import { Effect, Option } from 'effect'
 import { Command, Flag } from 'effect/cli'
-import { DatabaseLayer } from '../database/layer.ts'
+import { databaseLayer } from '../database/layer.ts'
 import { getMigrationInfos, migrateTo, migrateToLatest } from '../database/migrator.ts'
-import { print } from './helper.ts'
+import { announceRemote, ensure, print, remoteFlag } from './helper.ts'
 
-/** `migrate:up` — run pending database migrations. */
+/** Applies pending migrations, stopping at `--to` when given. */
 export const migrateUpCmd = Command.make(
   'migrate:up',
   {
@@ -12,6 +12,7 @@ export const migrateUpCmd = Command.make(
       Flag.optional,
       Flag.withDescription('Apply migrations only up to this migration name')
     ),
+    remote: remoteFlag,
     'dry-run': Flag.Boolean('dry-run').pipe(
       Flag.withDefault(false),
       Flag.withDescription('List the pending migrations without applying them')
@@ -19,8 +20,20 @@ export const migrateUpCmd = Command.make(
   },
   (config) =>
     Effect.gen(function* () {
+      yield* announceRemote(config.remote)
+      const infos = yield* getMigrationInfos
+      if (Option.isSome(config.to)) {
+        const target = config.to.value
+        const at = infos.findIndex((info) => info.name === target)
+        yield* ensure(at !== -1, `Unknown migration: ${target}`)
+        // Kysely would roll back the later ones to reach an earlier target; that is migrate:down.
+        yield* ensure(
+          infos.slice(at + 1).every((info) => info.executedAt === undefined),
+          `${target} is already applied and later migrations ran after it; use migrate:down to roll back`
+        )
+      }
+
       if (config['dry-run']) {
-        const infos = yield* getMigrationInfos
         const pending = infos.filter(
           (info) =>
             info.executedAt === undefined &&
@@ -46,4 +59,7 @@ export const migrateUpCmd = Command.make(
         yield* print(`${result.status}: ${result.migrationName}`)
       }
     })
-).pipe(Command.provide(DatabaseLayer), Command.withDescription('Run database migrations'))
+).pipe(
+  Command.provide((config) => databaseLayer({ remote: config.remote })),
+  Command.withDescription('Run database migrations')
+)

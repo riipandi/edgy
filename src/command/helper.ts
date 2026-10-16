@@ -1,26 +1,9 @@
 import { Effect } from 'effect'
-import { CliError, Prompt } from 'effect/cli'
+import { CliError, Flag, Prompt } from 'effect/cli'
 
-/**
- * Plain console output for CLI commands.
- *
- * Migration commands print user-facing output, not diagnostic logs, so they
- * bypass the configured Effect logger (`ObservabilityLayer`). This keeps the
- * output clean — no timestamp, no log-level prefix:
- *
- * ```
- * Rolled back 1 migration(s)
- * Re-applied 1 migration(s)
- * Running seeders...
- * Seeders completed
- * ```
- */
+/** Plain console output for CLI commands. Bypasses the Effect logger, so no timestamp or level prefix. */
 export const print = (...args: readonly unknown[]): Effect.Effect<void> =>
   Effect.sync(() => console.log(...args))
-
-/** Same as {@link print}, but writes to stderr (warnings and refusals). */
-export const printWarning = (...args: readonly unknown[]): Effect.Effect<void> =>
-  Effect.sync(() => console.error(...args))
 
 /**
  * Fails with a `UserError` (a usage message, not a stack trace) unless
@@ -35,24 +18,18 @@ export const ensure = (
     : Effect.fail(new CliError.UserError({ cause: message, userMessage: message }))
 
 /**
- * Asks the user for confirmation before a destructive operation
- * (`migrate:down`, `migrate:reset`).
+ * Asks before a destructive operation. `--force` skips the prompt. Without a TTY the operation is
+ * refused with a `UserError` (a non-zero exit, so a script notices) rather than run unasked.
+ * Resolves `false` when the prompt is declined.
  *
- * - `--force` skips the prompt entirely.
- * - Without a TTY the prompt cannot run, so the command refuses and asks for
- *   `--force` instead of hanging or guessing.
- *
- * Returns `false` when the user denies, so callers can log and bail out.
- *
- * Requires the platform services (`FileSystem`, `Path`, `Terminal`), supplied
- * by `NodeServices.layer` at the CLI root.
+ * Needs the platform services (`FileSystem`, `Path`, `Terminal`), supplied by `NodeServices.layer`
+ * at the CLI root.
  */
 export const confirmDestructive = (force: boolean, message: string) => {
   if (force) return Effect.succeed(true)
   if (!process.stdin.isTTY) {
-    return Effect.as(
-      printWarning(`Refusing to run non-interactively without --force (${message})`),
-      false
+    return ensure(false, `Refusing to run non-interactively without --force (${message})`).pipe(
+      Effect.as(false)
     )
   }
   return Effect.gen(function* () {
@@ -61,3 +38,19 @@ export const confirmDestructive = (force: boolean, message: string) => {
     return confirmed
   })
 }
+
+/**
+ * `--remote`: run against the real D1 database the Worker uses, through the account `wrangler
+ * login` signed in to, instead of the local copy. It always means D1, whatever `DATABASE_DRIVER`
+ * says. Only the commands that are safe to point at production take it.
+ */
+export const remoteFlag = Flag.Boolean('remote').pipe(
+  Flag.withDefault(false),
+  Flag.withDescription(
+    'Use the remote D1 database (needs `wrangler login`) instead of the local one'
+  )
+)
+
+/** Says which database is about to be touched when it is not the local one. */
+export const announceRemote = (remote: boolean): Effect.Effect<void> =>
+  remote ? print('Remote D1 database') : Effect.void

@@ -1,12 +1,13 @@
 import { Effect } from 'effect'
 import { Command } from 'effect/cli'
-import { DatabaseLayer } from '../database/layer.ts'
+import { databaseLayer } from '../database/layer.ts'
 import { getMigrationInfos } from '../database/migrator.ts'
-import { print } from './helper.ts'
+import { announceRemote, print, remoteFlag } from './helper.ts'
 
-/** `migrate:status` — show the migration status, grouped by state. */
-export const migrateStatusCmd = Command.make('migrate:status', {}, () =>
+/** Lists executed and pending migrations. */
+export const migrateStatusCmd = Command.make('migrate:status', { remote: remoteFlag }, (config) =>
   Effect.gen(function* () {
+    yield* announceRemote(config.remote)
     const infos = yield* getMigrationInfos
     if (infos.length === 0) {
       yield* print('No migrations registered')
@@ -28,4 +29,7 @@ export const migrateStatusCmd = Command.make('migrate:status', {}, () =>
     }
     if (pending.length === 0) yield* print('  (none)')
   })
-).pipe(Command.provide(DatabaseLayer), Command.withDescription('Check database migration status'))
+).pipe(
+  Command.provide((config) => databaseLayer({ remote: config.remote })),
+  Command.withDescription('Check database migration status')
+)

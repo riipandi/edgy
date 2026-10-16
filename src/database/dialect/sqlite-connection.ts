@@ -1,44 +1,29 @@
 /**
- * Portion of this file forked from https://github.com/wolfie/kysely-node-native-sqlite
- * (ISC License, Copyright 2026 Henrik Paul).
+ * Adapted from https://github.com/wolfie/kysely-node-native-sqlite (ISC, Copyright 2026 Henrik Paul).
  *
- * Adaptations for this project:
- * - The `node:sqlite` `DatabaseSync` handle is injected instead of being
- *   constructed here, because its lifecycle is owned by the Effect runtime
- *   (`Effect.acquireRelease` in `database/service.ts`).
- * - `insertId` / `numAffectedRows` are normalised to `bigint`.
+ * Differs from upstream: the `DatabaseSync` handle is injected because the Effect runtime owns its
+ * lifecycle, and `insertId` / `numAffectedRows` are normalised to `bigint`.
  */
 import type { CompiledQuery, DatabaseConnection, QueryResult } from 'kysely'
 import type { DatabaseSync, SQLInputValue, SQLOutputValue, StatementSync } from 'node:sqlite'
 
 /**
- * Kysely exposes bound parameters as `readonly unknown[]`, while `node:sqlite`
- * only accepts its own `SQLInputValue` union. Narrowing is impossible without
- * runtime reflection, so the driver asserts at this single boundary — Kysely
- * always compiles literals that `node:sqlite` is able to bind.
+ * Kysely types bound parameters as `readonly unknown[]`; `node:sqlite` accepts only `SQLInputValue`.
+ * The assertion lives here because Kysely only compiles literals `node:sqlite` can bind.
  */
 const bindable = (parameters: CompiledQuery['parameters']): SQLInputValue[] => {
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   return parameters as SQLInputValue[]
 }
 
-/**
- * Rows leave `node:sqlite` as `Record<string, SQLOutputValue>[]`; Kysely's
- * `QueryResult<R>` is generic over the row shape the caller expects. The cast
- * is the documented responsibility of a driver implementation.
- */
+/** Rows are untyped `node:sqlite` records; the caller names the row shape `R`. */
 // oxlint-disable-next-line typescript/no-unsafe-type-assertion
 const asRows = <R>(rows: Record<string, SQLOutputValue>[]): R[] => rows as R[]
 
 /**
- * Reads rows via `StatementSync.all()` when the compiled query produces a
- * result set, otherwise executes it with `run()`.
- *
- * The decision comes from the compiled Kysely AST where that is enough: `SELECT` always
- * returns rows; writes only when they carry a `RETURNING` clause. A raw statement can be
- * anything (`select`, `with`, `pragma`, `explain`, `values`, a write), so SQLite is asked:
- * a statement that has result columns returns rows. Sniffing the leading keyword missed
- * `explain query plan`, which came back empty.
+ * Whether a query returns rows. The Kysely AST decides where it can: `SELECT` always does, writes
+ * only with `RETURNING`. Raw SQL is decided by its result columns, since sniffing the leading keyword
+ * misses `explain query plan`.
  */
 const returnsRows = (
   query: CompiledQuery['query'],
@@ -60,22 +45,13 @@ const returnsRows = (
   return false
 }
 
-/**
- * Prepared statements kept per connection. Kysely compiles a query to the same
- * SQL text every time its shape repeats (only the parameters change), so
- * re-preparing it on every call re-parses and re-plans the statement for
- * nothing. 128 covers the working set of a small service; the least recently
- * used entry is dropped beyond it.
- */
+/** Prepared statements cached per connection. Repeated query shapes reuse the same SQL text. */
 const STATEMENT_CACHE_SIZE = 128
 
-/**
- * A single Kysely {@link DatabaseConnection} backed by a synchronous
- * `node:sqlite` handle.
- */
+/** A Kysely {@link DatabaseConnection} backed by a synchronous `node:sqlite` handle. */
 export class NodeSQLiteConnection implements DatabaseConnection {
   readonly #db: DatabaseSync
-  /** Insertion order is recency order: a hit is re-inserted, the oldest key is evicted. */
+  /** Map order is recency: a hit is re-inserted, and the oldest key is evicted past the limit. */
   readonly #statements = new Map<string, StatementSync>()
 
   constructor(db: DatabaseSync) {
@@ -116,8 +92,7 @@ export class NodeSQLiteConnection implements DatabaseConnection {
   }
 
   async *streamQuery<R>(compiledQuery: CompiledQuery): AsyncIterableIterator<QueryResult<R>> {
-    // `node:sqlite` is synchronous and has no cursor API; emulate streaming by
-    // materialising the full result set and yielding it as one chunk.
+    // `node:sqlite` has no cursor API, so the full result is materialised and yielded as one chunk.
     const result = await this.executeQuery<R>(compiledQuery)
     if (result.rows) yield { rows: result.rows }
   }

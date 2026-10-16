@@ -1,9 +1,8 @@
 import { Config, ConfigProvider, Duration, Effect, LogLevel, Redacted } from 'effect'
 
 /**
- * Everything the generated `.env.example` needs to know about one variable.
- * It is produced by the same helper that builds the parser, so the example file
- * cannot drift from what the application actually reads.
+ * What the generated example file needs to know about one variable. Built alongside the parser,
+ * so the two cannot drift.
  */
 export interface FieldSpec {
   readonly name: string
@@ -14,7 +13,7 @@ export interface FieldSpec {
   readonly default: string
   /** Allowed values when the variable is an enumeration. */
   readonly choices?: readonly string[]
-  /** Title of the section the variable belongs to; set by {@link group}. */
+  /** Section title; set by `group`. */
   readonly section?: string
 }
 
@@ -29,11 +28,7 @@ const field = <A>(spec: FieldSpec, config: Config.Config<A>): Node<A> => ({
   specs: [spec]
 })
 
-/**
- * A variable with its own grammar, parsed from its text. `parse` answers with the value or with
- * what is wrong; a wrong value stops startup naming the variable and the problem, like every
- * other field. `fallback` is the default as it is written in a dotenv file.
- */
+/** A variable with its own grammar. `parse` returns the value or a problem, which fails startup. */
 export const parsed = <A>(
   name: string,
   fallback: string,
@@ -65,13 +60,12 @@ export const text = (name: string, fallback: string, description: string) =>
   )
 
 /**
- * A secret: parsed as `Redacted`, so it prints as `<redacted>` in logs, errors and
- * `inspect`, and read only through `Redacted.value`.
+ * A secret, parsed as `Redacted`: it prints as `<redacted>` and is read only through
+ * `Redacted.value`.
  *
- * `fallback` is a **development** value for a service that runs on the developer's machine
- * (the Docker Compose stack): it makes the default configuration work with no setup, and it
- * is written to `.env.example` as it is. It must therefore never be a real credential.
- * Production sets its own through the environment, or the process cannot reach the service.
+ * `fallback` is a development value for the local Docker Compose stack, so the defaults work
+ * with no setup. It is written to the example file as is, so it must never be a real credential.
+ * Production sets its own, or the process cannot reach the service.
  */
 export const secret = (name: string, description: string, fallback = '') =>
   field(
@@ -79,7 +73,7 @@ export const secret = (name: string, description: string, fallback = '') =>
     Config.Redacted(name).pipe(Config.withDefault(Redacted.make(fallback)))
   )
 
-/** A fraction between 0 and 1, both included (a sampling or load ratio). */
+/** A fraction from 0 to 1, both inclusive. */
 export const ratio = (name: string, fallback: number, description: string) =>
   field(
     { name, description, kind: 'ratio 0-1', default: String(fallback) },
@@ -118,11 +112,9 @@ export const flag = (name: string, fallback: boolean, description: string) =>
   )
 
 /**
- * A duration written as a whole number of **milliseconds** (`REQUEST_TIMEOUT=30000`).
- * One unit everywhere, so a value never needs its suffix read, and a leftover `30 seconds`
- * from an older file fails at startup naming the variable instead of meaning something
- * else. `min` rejects values that make no sense (a zero rate-limit window); the field
- * parses to a `Duration`, which is what the code consumes.
+ * A duration as whole **milliseconds** (`REQUEST_TIMEOUT=30000`). One unit for every duration
+ * variable, so no suffix is parsed: a leftover `30 seconds` fails at startup, naming the variable.
+ * `min` rejects nonsense values such as a zero rate-limit window.
  */
 export const milliseconds = (
   name: string,
@@ -142,8 +134,8 @@ export const milliseconds = (
 
   return field(
     { name, description, kind: 'milliseconds', default: String(fallback) },
-    // Read as text first: Effect's integer parser would answer `30 seconds` with a
-    // generic "expected a finite number", which names no unit and gives no way forward.
+    // Read as text: Effect's integer parser would reject `30 seconds` with a message that
+    // names no unit.
     Config.String(name).pipe(
       Config.withDefault(String(fallback)),
       Config.mapEffect((raw): Effect.Effect<Duration.Duration, Config.ConfigError> => {
@@ -169,11 +161,7 @@ export const choice = <const L extends readonly [string, ...string[]]>(
     Config.Literals(choices, name).pipe(Config.withDefault(fallback))
   )
 
-/**
- * A comma-separated subset of `choices` (`console,file`). Each entry must be a
- * known choice, at least one is required, and repeats collapse, so a typo fails
- * at startup instead of silently dropping an output.
- */
+/** A comma-separated subset of `choices` (`console,file`). Unknown or empty input fails startup. */
 export const choiceList = <const L extends readonly [string, ...string[]]>(
   name: string,
   choices: L,
@@ -223,17 +211,13 @@ type Nodes = Readonly<Record<string, Node<unknown>>>
 type Parsed<N extends Nodes> = { readonly [K in keyof N]: N[K] extends Node<infer A> ? A : never }
 
 interface GroupOptions<A, B> {
-  /** Names the section in the generated example file. */
+  /** Names the section in the example file. */
   readonly title?: string
   /** Cross-field validation or reshaping, applied after every field parsed. */
   readonly transform?: (parsed: A) => Effect.Effect<B, Config.ConfigError>
 }
 
-/**
- * Combines nodes into one parser keyed like the input, and concatenates their
- * documentation. Sections are groups of fields; the application configuration is
- * a group of sections.
- */
+/** Combines nodes into one parser keyed like the input, concatenating their documentation. */
 export function group<N extends Nodes>(
   nodes: N,
   options?: GroupOptions<Parsed<N>, Parsed<N>>

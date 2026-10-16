@@ -3,18 +3,16 @@ import type { D1Database } from '../src/database/d1.ts'
 
 export interface FakeD1Options {
   /**
-   * Make the first `times` read statements fail with `message`, then behave. Reads are
-   * what `DatabaseService.read` retries, so this is how a test produces a transient
-   * network failure without a network.
+   * Makes the first `times` read statements fail with `message`, then behaves. Reads are what
+   * `DatabaseService.read` retries, so this simulates a transient network failure.
    */
   readonly failReads?: { readonly times: number; readonly message: string }
 }
 
 /**
- * A D1 binding backed by an in-memory `node:sqlite` database. It mimics the observable
- * differences that matter to the dialect: results come back as `{ results, meta }`, and a
- * constraint failure carries only a message. `statements()` counts what reached it, which
- * is how a test tells whether a failed call was repeated.
+ * A D1 binding backed by in-memory `node:sqlite`. It matches the D1 differences the dialect
+ * depends on: results come as `{ results, meta }`, and a constraint error carries only a message.
+ * `statements()` counts the statements received, so a test can tell whether a call was repeated.
  */
 export const fakeD1 = (options: FakeD1Options = {}): D1Database & { statements: () => number } => {
   const sqlite = new DatabaseSync(':memory:')
@@ -27,6 +25,14 @@ export const fakeD1 = (options: FakeD1Options = {}): D1Database & { statements: 
       let params: unknown[] = []
       const prepared = {
         bind: (...values: unknown[]) => {
+          // D1 accepts strings, numbers, null and blobs: no booleans, no `undefined`.
+          for (const value of values) {
+            if (typeof value === 'boolean' || value === undefined) {
+              throw new Error(
+                `D1_TYPE_ERROR: Type '${typeof value}' not supported for value '${value}'`
+              )
+            }
+          }
           params = values
           return prepared
         },

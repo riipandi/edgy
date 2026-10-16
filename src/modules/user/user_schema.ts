@@ -7,35 +7,36 @@ const EmailSchema = Schema.String.pipe(
     Schema.isMaxLength(254),
     Schema.isPattern(/^[^@\s]+@[^@\s]+\.[^@\s]+$/, { message: 'must be a valid email address' })
   )
-)
+).annotate({
+  description: 'Stored in lowercase; the same address in another spelling is a conflict.'
+})
 
-/** `user_…`: a row of `users`, minted by the repository on insert. */
+/** TypeID with the `user_` prefix, minted by the repository on insert. */
 export const UserId = defineId('user')
 
 export const UserIdSchema = UserId.schema
 
-const NameSchema = Schema.String.pipe(Schema.check(Schema.isMaxLength(200)))
+/** Non-blank, at most 200 characters. */
+const NameSchema = Schema.String.pipe(
+  Schema.check(Schema.isMaxLength(200), Schema.isPattern(/\S/, { message: 'must not be blank' }))
+).annotate({ description: 'Display name; not blank.' })
 
 /**
- * `UserSchema` is the single source of truth for the resource: the request,
- * response and Kysely table types below are all derived from it, so a new
- * column is declared once.
- *
- * Naming: a schema value is `<Name>Schema`; the type inferred from it is plain
- * `<Name>` and is exported only when code consumes it.
+ * The single source of truth for the resource: the request, response and table types derive from it,
+ * so a new column is declared once. A schema value is `<Name>Schema`; its inferred type is `<Name>`.
  */
 export const UserSchema = Schema.Struct({
   id: UserIdSchema,
   email: EmailSchema,
-  name: Schema.NullOr(NameSchema)
+  name: NameSchema
 })
 
 export type User = typeof UserSchema.Type
 
-/** JSON body accepted by `POST /users`; `name` may be omitted. */
+/** JSON body accepted by `POST /users`; both fields are required. */
 export const UserCreateRequestSchema = Schema.Struct({
   email: EmailSchema,
-  name: Schema.optional(NameSchema)
+  name: NameSchema
 })
 
 export type UserCreateRequest = typeof UserCreateRequestSchema.Type
@@ -48,13 +49,15 @@ const userSortKeys = ['id', 'email', 'name'] as const
 
 export type UserSortKey = (typeof userSortKeys)[number]
 
-/** Query of `GET /users`: `page`, `limit`, `sort_by`, `sort_order`. */
-export const UserListQuerySchema = paginationQuery(userSortKeys)
+/** The order of a list that names none. */
+export const DEFAULT_SORT = { sortBy: 'id' } as const satisfies { sortBy: UserSortKey }
+
+/** Query of `GET /users`: `limit`, `cursor`, `sort_by`, `sort_order`. */
+export const UserListQuerySchema = paginationQuery(userSortKeys, DEFAULT_SORT)
 
 /**
- * Response data is encoded through these schemas, so only the declared fields
- * ever reach the client — a column added to the table later does not leak
- * through `selectAll()`. A collection declares its item; the page wraps it.
+ * Responses encode through these schemas, so only declared fields reach the client, and a column added
+ * later does not leak through `selectAll()`. A collection declares its item; the page wraps it.
  */
 export const UserGetResponseSchema = UserSchema
 export const UserListItemSchema = UserSchema

@@ -21,7 +21,8 @@ describe('configuration', () => {
     expect(config.security.rateLimitEnabled).toBe(true)
     expect(config.security.rateLimitMax).toBe(100)
     expect(config.observability.metricsEnabled).toBe(false)
-    expect(config.logging.transport).toEqual(['console'])
+    expect(config.observability.sampleRatio).toBe(0.7)
+    expect(config.logging.transport).toEqual(['console', 'file'])
     expect(config.logging.rotation).toBe('daily')
     expect(config.logging.fileMaxFiles).toBe(14)
   })
@@ -155,6 +156,20 @@ describe('configuration', () => {
       'cf-connecting-ip'
     )
     await expect(parse({ TRUSTED_PLATFORM: 'bad header' })).rejects.toThrow(/TRUSTED_PLATFORM/)
+  })
+
+  it('does not send the development ingestion key to a collector that is not local', async () => {
+    const remote = { OTEL_EXPORTER_OTLP_ENDPOINT: 'https://otel.example.com' }
+    await expect(parse(remote)).rejects.toThrow(/OTEL_EXPORTER_OTLP_HEADERS/)
+    // Its own key, telemetry off, or a local collector: all fine.
+    await expect(
+      parse({ ...remote, OTEL_EXPORTER_OTLP_HEADERS: 'authorization=real' })
+    ).resolves.toBeDefined()
+    await expect(parse({ ...remote, OTEL_SDK_DISABLED: 'true' })).resolves.toBeDefined()
+    await expect(
+      parse({ OTEL_EXPORTER_OTLP_ENDPOINT: 'http://host.docker.internal:4318' })
+    ).resolves.toBeDefined()
+    await expect(parse({})).resolves.toBeDefined()
   })
 
   it('rejects an unknown or empty LOG_TRANSPORT', async () => {

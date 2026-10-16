@@ -4,9 +4,9 @@ import { TestClock } from 'effect/testing'
 import { sql } from 'kysely'
 import { type FakeD1Options, fakeD1 } from '../../tests/d1.ts'
 import { userRow } from '../../tests/ids.ts'
-import { DatabaseError } from '../kernel/errors.ts'
+import { DatabaseError, isTransientFailure } from '../kernel/errors.ts'
 import { D1Binding, D1DatabaseLayer } from './d1.ts'
-import { DatabaseService, isTransientFailure } from './service.ts'
+import { DatabaseService } from './service.ts'
 
 const selectOne = DatabaseService.use(({ read }) =>
   read(
@@ -50,10 +50,7 @@ describe('isTransientFailure', () => {
   })
 })
 
-/**
- * One scenario per fake binding: the layer (and so the fake's statement counter) is
- * shared by the tests inside it, which is why each scenario holds a single test.
- */
+/** One scenario per fake binding, since the layer and its statement counter are shared by its tests. */
 const scenario = (
   title: string,
   options: FakeD1Options,
@@ -98,6 +95,6 @@ scenario(
 scenario(
   'never repeats a write',
   { failReads: { times: 99, message: 'D1_ERROR: Network connection lost' } },
-  insertOne, // fails once because the table does not exist; the point is it is not retried
+  insertOne, // Fails on the missing table, and must not be retried.
   { exit: 'Failure', statements: 1 }
 )

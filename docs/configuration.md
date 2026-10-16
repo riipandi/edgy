@@ -29,7 +29,7 @@ The command never writes a real `.env` file.
 
 | Variable               | Default      | Description                                                                 |
 | ---------------------- | ------------ | --------------------------------------------------------------------------- |
-| `HOST`                 | `0.0.0.0`    | Bind address                                                                |
+| `HOST`                 | `127.0.0.1`  | Bind address; set `0.0.0.0` in a container or behind a proxy on another host |
 | `PORT`                 | `3000`       | Bind port                                                                   |
 | `BODY_LIMIT`           | `1048576`    | Largest accepted request body in bytes; bigger bodies get `413`             |
 | `REQUEST_TIMEOUT`      | `30000`      | Milliseconds a request may run before it is cancelled and answered with `504` |
@@ -38,6 +38,8 @@ The command never writes a real `.env` file.
 | `MAX_IN_FLIGHT`        | `1024`       | Requests handled at once before new ones are refused with `503`; `0` turns the guard off |
 | `TRUST_PROXY`          | `false`      | Proxies that may set the client address: `false`, `true`, or a list of addresses and CIDR ranges (see below) |
 | `TRUSTED_PLATFORM`     | (empty)      | Header a CDN or platform sets to the client address, such as `CF-Connecting-IP` (see below) |
+| `PROXY_PROTOCOL`       | `false`      | Load balancers that send a PROXY protocol header naming the client: `false`, `true`, or a list of addresses and CIDR ranges (Node.js only, see below) |
+| `CLOUDFLARE_LOCATION_HEADERS` | `false` | Add the client's country and city (from Cloudflare's headers) to the request log (see below) |
 
 ### Behind a reverse proxy
 
@@ -56,13 +58,34 @@ needs the client's. There are two ways to pass it on.
 `X-Forwarded-For` is read from the right. Each proxy adds the address it received the request from, so
 the entries on the right belong to your proxies; those are skipped, and the first address that is not
 one of them is the client. A client that sends its own `X-Forwarded-For` only adds entries on the left,
-which are never believed.
+which are never believed. An empty entry (`a,,b`) is skipped; an entry that is not an address makes the
+server use the connection's own address. A range covers one address family: `::/0` does not match IPv4
+peers, so list `0.0.0.0/0` as well.
 
 `TRUSTED_PLATFORM` names a header that a CDN or platform sets to the client address, which is then read
 directly instead of `X-Forwarded-For`: `CF-Connecting-IP` for Cloudflare, `Fly-Client-IP` for Fly.io,
-`X-Appengine-Remote-Addr` for Google App Engine, or any header your own proxy sets. The header is
-trusted without checking where the request came from, so use it only when the server is reachable
-through that platform alone. If the header is missing, the connection's address is used.
+`X-Appengine-Remote-Addr` for Google App Engine, or any header your own proxy sets. On Node the header is
+believed only when the connection comes from an address listed in `TRUST_PROXY`, because any other
+client could write it; list the platform's proxy addresses there. On Cloudflare Workers there is no
+connection to check, so it is believed as sent. If the header is missing or not believed, the
+connection's address is used.
+
+`PROXY_PROTOCOL` is for a TCP load balancer (HAProxy, AWS NLB, DigitalOcean) that cannot add an HTTP
+header because it never reads the HTTP. Instead it opens each connection with a short PROXY protocol
+header (version 1 or 2) that names the real client. List the balancers' addresses or ranges, and the
+server reads that header from them and treats the client as the connection's address from then on, so
+`TRUST_PROXY`, the rate limit and the logs all see the real client. The balancer must be set to send
+the header: a listed address that connects without one is disconnected, since serving it would make
+every client look like the balancer. A connection from any address that is not listed is served
+normally, and a header sent by it is not believed. `true` expects the header from every connection,
+so use it only when nothing but your balancer can connect. Node.js only: a Worker has no TCP
+connection to read it from.
+
+`CLOUDFLARE_LOCATION_HEADERS=true` adds `country` and `city` to each request's log line, taken from
+the `CF-IPCountry` and `CF-IPCity` headers Cloudflare sets (the city needs Cloudflare's "Add visitor
+location headers" managed transform). Anyone can send those headers to a server Cloudflare does not
+sit in front of, so they are believed only when `TRUSTED_PLATFORM` is set and the request carries that
+header with a valid address from a peer that may be believed (see above). Without it the setting does nothing.
 
 ## Database
 
@@ -71,14 +94,14 @@ through that platform alone. If the header is missing, the connection's address 
 | `DATABASE_DRIVER`       | `sqlite`                 | `sqlite` (Node.js) or `d1` (Cloudflare D1)                               |
 | `DATABASE_PATH`         | `./storage/data/edgy.db` | SQLite file, or `:memory:`; parent directories are created (`sqlite` only) |
 | `D1_BINDING`            | `DB`                     | Name of the D1 binding in `wrangler.jsonc` (`d1` only)                   |
-| `DATABASE_AUTO_MIGRATE` | `false`                  | Apply pending migrations when the Worker starts (`d1`, Workers)          |
+| `DATABASE_AUTO_MIGRATE` | `false` (`pnpm dev`: on) | Apply pending migrations at start: on Workers, and in `pnpm dev`, where unset means on |
 
 ## Logging
 
 | Variable             | Default      | Description                                                                |
 | -------------------- | ------------ | -------------------------------------------------------------------------- |
 | `LOG_LEVEL`          | `Info`       | `All` \| `Fatal` \| `Error` \| `Warn` \| `Info` \| `Debug` \| `Trace` \| `None` (**case-sensitive**). `Debug` and `Trace` also add `error.debug` (the redacted cause) to server-error responses; `Trace` also prints every SQL statement with its duration (never the values) |
-| `LOG_TRANSPORT`      | `console`    | Where logs go: any of `console`, `file`, `otlp`, comma-separated (`otlp` needs `OTEL_EXPORTER_OTLP_ENDPOINT`) |
+| `LOG_TRANSPORT`      | `console,file`    | Where logs go: any of `console`, `file`, `otlp`, comma-separated (`otlp` needs `OTEL_EXPORTER_OTLP_ENDPOINT`) |
 | `LOG_FILE`           | `./storage/logs/edgy.jsonl` | Base path of the log file; the file written carries the period (see below) |
 | `LOG_ROTATION`       | `daily`      | How often a new log file starts: `hourly`, `daily`, `weekly` or `monthly` (UTC) |
 | `LOG_FILE_MAX_FILES` | `14`         | Log files kept, the current one included; older ones are deleted. `0` keeps every file |
@@ -187,11 +210,11 @@ every read reaches D1; use a custom domain.
 | `METRICS_ENABLED`                | `false`     | Serve Prometheus metrics at `GET /metrics`                               |
 | `OTEL_SDK_DISABLED`              | `false`     | `true` turns trace, metric and `otlp` log export off, whatever the endpoint |
 | `OTEL_EXPORTER_OTLP_ENDPOINT`    | `http://localhost:4318` | OTLP/HTTP collector base URL; the default is the ClickStack of `pnpm compose:up` |
-| `OTEL_EXPORTER_OTLP_HEADERS`     | `authorization=edgy-dev-ingestion-key` | Headers sent with every export, `key=value` pairs separated by commas. Secret; the default is the development key of `pnpm compose:up` |
+| `OTEL_EXPORTER_OTLP_HEADERS`     | `authorization=edgy-dev-ingestion-key` | Headers sent with every export, `key=value` pairs separated by commas. Secret; the default is the development key of `pnpm compose:up`, and the server refuses to start with it when the endpoint is not local |
 | `OTEL_SERVICE_NAME`              | `edgy`      | Service name attached to every signal                                    |
 | `OTEL_EXPORT_INTERVAL`           | `5000`      | Milliseconds between exports of buffered traces, metrics and logs        |
 | `OTEL_EXPORTER_OTLP_COMPRESSION` | `gzip`      | Compression of export requests: `gzip` or `none`                         |
-| `OTEL_TRACES_SAMPLE_RATIO`       | `1`         | Fraction of requests whose trace is recorded, from 0 to 1                |
+| `OTEL_TRACES_SAMPLE_RATIO`       | `0.7`       | Fraction of requests whose trace is recorded, from 0 to 1                |
 
 Telemetry is OpenTelemetry over HTTP with JSON bodies (no gRPC), so it works with ClickStack/HyperDX,
 Grafana, Honeycomb or any OpenTelemetry collector. It is on by default and aimed at the local
@@ -206,8 +229,8 @@ The development key and password above belong to the local Docker stack. Product
   database calls beneath it. A `traceparent` header from the caller continues its trace, and the id
   comes back as `metadata.trace_id`, so a report from a client can be found. A `404` or a validation
   error is not an error span; a `5xx` is.
-- **Sampling.** `OTEL_TRACES_SAMPLE_RATIO=0.1` records one request in ten. A caller's sampled trace is
-  always kept.
+- **Sampling.** By default 70 % of requests are recorded (`OTEL_TRACES_SAMPLE_RATIO=0.7`); `1` records
+  every request and `0.1` one in ten. A caller's sampled trace is always kept.
 - **Delivery never slows a request.** Everything is buffered and sent in the background. If the
   collector fails, export pauses for a minute and drops what it held rather than building up memory.
 

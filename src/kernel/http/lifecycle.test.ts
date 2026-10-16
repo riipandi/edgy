@@ -19,13 +19,15 @@ describe('readiness during shutdown', () => {
 
     const health = await t.request('/health')
     expect(health.status).toBe(503)
-    expect(await health.json()).toMatchObject({ status: 'error', message: 'Shutting down' })
+    // Outside `/api` an error is an HTML page; a probe reads the status, not the body.
+    expect(health.headers.get('content-type')).toContain('text/html')
+    expect(await health.text()).toContain('Shutting down')
     expect((await t.request('/api/users')).status).toBe(200)
   })
 })
 
 describe('in-flight tracking', () => {
-  // `it.effect` runs on the TestClock, so the poll interval is stepped through, not waited for.
+  // `it.effect` runs on the TestClock: poll intervals are stepped, not waited for.
   it.effect('reports drained only after every request has left', () =>
     Effect.gen(function* () {
       const inFlight = makeInFlight()
@@ -47,4 +49,64 @@ describe('in-flight tracking', () => {
       expect(yield* inFlight.count).toBe(0)
     })
   )
+})
+
+describe('in-flight tracking of streamed bodies', () => {
+  const stream = (chunks: number) => {
+    let sent = 0
+    return new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (sent === chunks) return controller.close()
+        controller.enqueue(new TextEncoder().encode(`chunk${sent++};`))
+      }
+    })
+  }
+
+  it('keeps a request in flight until its body has been read', async () => {
+    t = await makeTestApp()
+    t.app.get('/stream', () => new Response(stream(3), { headers: { 'x-kept': 'yes' } }))
+
+    const response = await t.request('/stream')
+    expect(response.headers.get('x-kept')).toBe('yes')
+    expect(t.http.inFlight.active()).toBe(1)
+    expect(await response.text()).toBe('chunk0;chunk1;chunk2;')
+    expect(t.http.inFlight.active()).toBe(0)
+  })
+
+  it('lets go when the client cancels the body', async () => {
+    t = await makeTestApp()
+    t.app.get('/stream', () => new Response(stream(1000)))
+
+    const response = await t.request('/stream')
+    expect(t.http.inFlight.active()).toBe(1)
+    await response.body?.cancel()
+    expect(t.http.inFlight.active()).toBe(0)
+  })
+
+  it('lets go when the stream fails, and for a body-less or failed answer', async () => {
+    t = await makeTestApp()
+    t.app.get('/broken', () => {
+      const failing = new ReadableStream<Uint8Array>({
+        pull() {
+          throw new Error('source failed')
+        }
+      })
+      return new Response(failing)
+    })
+
+    const broken = await t.request('/broken')
+    await expect(broken.text()).rejects.toThrow('source failed')
+    expect(t.http.inFlight.active()).toBe(0)
+
+    // Every body is a stream, so a request is out of flight once its body has been read.
+    for (const [path, status] of [
+      ['/health', 200],
+      ['/nope', 404]
+    ] as const) {
+      const response = await t.request(path)
+      expect(response.status).toBe(status)
+      await response.text()
+    }
+    expect(t.http.inFlight.active()).toBe(0)
+  })
 })

@@ -8,17 +8,15 @@ import { ConfigLayer } from './config/service.ts'
 const platform = NodeServices.layer
 
 /**
- * Process-wide services, provided once at the entry point (`main.ts`):
- * configuration, the non-blocking logger (console, file and/or OTLP, per
- * `LOG_TRANSPORT`), trace and metric export, the error reporter, and the Node
- * platform services (`FileSystem`, `Path`, `Terminal`, …) the CLI needs.
+ * Process-wide services, provided once at the entry point: configuration, the non-blocking logger
+ * (console, file and/or OTLP, per `LOG_TRANSPORT`), trace and metric export, the error reporter,
+ * and the Node platform services the CLI needs.
  *
- * The logger reads configuration, so `provideMerge` builds `ConfigLayer` once and
- * keeps `ConfigService` in the output for everything downstream. `platform` and
- * `TelemetryRuntimeLayer` are each built once and shared: the logger's file sink
- * needs `FileSystem`, and its OTLP sink needs the same `Flusher` the tracer uses.
- * Telemetry sits outside the logger in the layer graph, so on shutdown it is the last
- * thing to flush: the final spans and log lines are exported after the server stops.
+ * `provideMerge` builds `ConfigLayer` once and keeps `ConfigService` in the output, since the
+ * logger reads configuration. `platform` and `TelemetryRuntimeLayer` are shared: the logger's file
+ * sink needs `FileSystem`, and its OTLP sink needs the tracer's `Flusher`. Telemetry sits outside
+ * the logger, so on shutdown it flushes last: final spans and log lines export after the server
+ * stops.
  */
 export const CoreLayer = Layer.mergeAll(
   platform,

@@ -1,125 +1,138 @@
-import { Schema } from 'effect'
-import { ALL_RECORDS, DEFAULT_LIMIT, MAX_LIMIT } from '../pagination.ts'
-import type { PageRequest, PageSummary, SortOrder } from '../pagination.ts'
+import { Schema, SchemaTransformation } from 'effect'
+import {
+  DEFAULT_LIMIT,
+  decodeCursor,
+  MAX_CURSOR_LENGTH,
+  MAX_LIMIT,
+  type PageRequest,
+  type PageSummary,
+  type SortOrder
+} from '../pagination.ts'
 
-/** Pagination metadata of a success response (snake_case: it is the wire contract). */
+/**
+ * Pagination metadata of a success response (snake_case: it is the wire contract). There is no
+ * total: counting every row on each request does not scale, and a cursor does not need one.
+ */
 export interface ApiPagination {
-  readonly page: number | null
-  readonly limit: number | null
-  readonly total_pages: number | null
-  readonly total_items: number | null
-  readonly first_item_index: number | null
-  readonly last_item_index: number | null
+  readonly limit: number
+  /** Whether a page follows this one. */
+  readonly has_more: boolean
+  /** Opaque; pass it as `cursor` for the next page. `null` on the last page. */
+  readonly next_cursor: string | null
 }
 
-/** Link relations (`self`, `next`, `prev`, `first`, `last`) to URLs; `null` when there is none. */
+/** Link relations (`self`, `first`, `next`) to URLs; `null` when there is none. */
 export type ApiLinks = Readonly<Record<string, string | null>>
 
-/** Decoded `PaginationParams`; see {@link paginationQuery}. */
+/** Decoded `paginationQuery` input. */
 export interface PaginationQuery<S extends string> {
-  readonly page?: number | undefined
   readonly limit?: number | undefined
+  readonly cursor?: string | undefined
   readonly sort_by?: S | undefined
   readonly sort_order?: SortOrder | undefined
 }
 
-const positiveOrAll = (what: string, max: number, allowAll: boolean) =>
-  Schema.FiniteFromString.pipe(
-    Schema.check(
-      Schema.makeFilter((n: number) =>
-        (allowAll && n === ALL_RECORDS) || (Number.isSafeInteger(n) && n >= 1 && n <= max)
-          ? undefined
-          : `${what} must be an integer from 1 to ${max}${allowAll ? `, or ${ALL_RECORDS} for all records` : ''}`
-      )
+const LIMIT_MESSAGE = `limit must be an integer from 1 to ${MAX_LIMIT}`
+
+/** Plain digits only: `Number('1e2')` is 100, but the text is not an integer the caller wrote. */
+const limitSchema = Schema.String.pipe(
+  Schema.check(
+    Schema.makeFilter((text: string) => (/^\d{1,3}$/.test(text) ? undefined : LIMIT_MESSAGE))
+  ),
+  Schema.decodeTo(Schema.Finite, SchemaTransformation.numberFromString),
+  Schema.check(
+    Schema.makeFilter((n: number) => (n >= 1 && n <= MAX_LIMIT ? undefined : LIMIT_MESSAGE))
+  )
+).annotate({
+  description: `Items per page: an integer from 1 to ${MAX_LIMIT}. Default ${DEFAULT_LIMIT}.`
+})
+
+const cursorSchema = Schema.String.pipe(
+  Schema.check(
+    Schema.makeFilter((text: string) =>
+      text.length <= MAX_CURSOR_LENGTH && decodeCursor(text) !== undefined
+        ? undefined
+        : 'cursor is not valid'
     )
   )
+)
 
 /**
- * Query schema for a collection endpoint: `page`, `limit`, `sort_by`,
- * `sort_order`. `sortable` is the allow-list of columns, so `sort_by` is
- * validated here and typed as a union of them downstream — it can never be an
- * arbitrary column name.
- *
- * A `limit` is capped at `MAX_LIMIT`. `-1` for `page` or `limit` (every record in one
- * page, no cap) is refused unless the resource opts in with `allowAll`: it
- * lets any caller read a whole table in one request, which only a bounded,
- * trusted table should offer. Defaults are applied by {@link toPageRequest}, not
- * here, so the schema decodes exactly what the caller sent.
+ * Query schema for a collection endpoint: `limit`, `cursor`, `sort_by`, `sort_order`. `sortable`
+ * is the column allow-list, so `sort_by` is typed as a union of those columns, and `defaults` is
+ * the sort used when none is sent. A cursor belongs to the sort it was issued for: sending it
+ * with another is refused, since it would point into a different order. Defaults for `limit`
+ * are applied by `toPageRequest`, so this schema decodes exactly what was sent.
  */
 export const paginationQuery = <const S extends readonly [string, ...string[]]>(
   sortable: S,
-  options: { readonly allowAll?: boolean } = {}
+  defaults: { readonly sortBy: S[number]; readonly sortOrder?: SortOrder }
 ) =>
   Schema.Struct({
-    page: Schema.optional(
-      positiveOrAll('page', Number.MAX_SAFE_INTEGER, options.allowAll === true)
-    ),
-    limit: Schema.optional(positiveOrAll('limit', MAX_LIMIT, options.allowAll === true)),
-    sort_by: Schema.optional(Schema.Literals(sortable)),
-    sort_order: Schema.optional(Schema.Literals(['asc', 'desc']))
-  })
+    limit: Schema.optional(limitSchema).annotateKey({
+      description: `Items per page: an integer from 1 to ${MAX_LIMIT}. Default ${DEFAULT_LIMIT}.`
+    }),
+    cursor: Schema.optional(cursorSchema).annotateKey({
+      description:
+        'Where the next page starts. Copy `next_cursor` from the previous page; it belongs to the sort it was issued for.'
+    }),
+    sort_by: Schema.optional(Schema.Literals(sortable)).annotateKey({
+      description: `Column to sort by. Default \`${defaults.sortBy}\`.`
+    }),
+    sort_order: Schema.optional(Schema.Literals(['asc', 'desc'])).annotateKey({
+      description: `Sort direction. Default \`${defaults.sortOrder ?? 'asc'}\`.`
+    })
+  }).pipe(
+    Schema.check(
+      Schema.makeFilter((query) => {
+        const cursor = query.cursor === undefined ? undefined : decodeCursor(query.cursor)
+        if (cursor === undefined) return undefined
+        const sortBy = query.sort_by ?? defaults.sortBy
+        const sortOrder = query.sort_order ?? defaults.sortOrder ?? 'asc'
+        return cursor.sortBy === sortBy && cursor.sortOrder === sortOrder
+          ? undefined
+          : 'cursor was issued for another sort order: follow links.next, or drop the cursor'
+      })
+    )
+  )
 
-/** Applies defaults and normalises "all records" into the request a repository consumes. */
+/** Applies defaults and turns the cursor into the request a repository consumes. */
 export const toPageRequest = <S extends string>(
   query: PaginationQuery<S>,
   defaults: { readonly sortBy: S; readonly sortOrder?: SortOrder }
 ): PageRequest<S> => {
-  const all = query.page === ALL_RECORDS || query.limit === ALL_RECORDS
-  const limit = all ? null : (query.limit ?? DEFAULT_LIMIT)
-  const page = all ? 1 : (query.page ?? 1)
-
+  const cursor = query.cursor === undefined ? undefined : decodeCursor(query.cursor)
   return {
-    page,
-    limit,
-    offset: limit === null ? 0 : (page - 1) * limit,
+    limit: query.limit ?? DEFAULT_LIMIT,
+    after: cursor === undefined ? undefined : { value: cursor.value, id: cursor.id },
     sortBy: query.sort_by ?? defaults.sortBy,
     sortOrder: query.sort_order ?? defaults.sortOrder ?? 'asc'
   }
 }
 
-/**
- * Describes a page for the response metadata. Item indexes are 1-based and
- * inclusive; they are `null` for a page past the end. A request for all records
- * reports one page and a `null` limit.
- */
-export const paginationMeta = ({ page, limit, total }: PageSummary): ApiPagination => {
-  const totalPages = limit === null ? 1 : Math.max(1, Math.ceil(total / limit))
-  const first = limit === null ? 1 : (page - 1) * limit + 1
-  const last = limit === null ? total : Math.min(page * limit, total)
-  const empty = first > total
-
-  return {
-    page,
-    limit,
-    total_pages: totalPages,
-    total_items: total,
-    first_item_index: empty ? null : first,
-    last_item_index: empty ? null : last
-  }
-}
+/** Page metadata for the response. */
+export const paginationMeta = ({ limit, next }: PageSummary): ApiPagination => ({
+  limit,
+  has_more: next !== null,
+  next_cursor: next
+})
 
 /**
- * Builds `self`/`first`/`prev`/`next`/`last` as relative URLs that keep every
- * other query parameter (sort, filters). Relative on purpose: behind a proxy
- * the origin is not ours to know. An all-records response has no other pages,
- * so it only links to itself.
+ * Builds `self`, `first` and `next` as relative URLs that keep the other query parameters, so
+ * following `next` repeats the same sort and limit. Relative on purpose: behind a proxy the
+ * origin is not ours to know.
  */
 export const paginationLinks = (url: URL, meta: ApiPagination): ApiLinks => {
-  const self = `${url.pathname}${url.search}`
-  if (meta.limit === null || meta.page === null || meta.total_pages === null) return { self }
-
-  const { page, total_pages: lastPage } = meta
-  const to = (target: number) => {
+  const to = (cursor: string | null) => {
     const params = new URLSearchParams(url.searchParams)
-    params.set('page', String(target))
-    return `${url.pathname}?${params.toString()}`
+    if (cursor === null) params.delete('cursor')
+    else params.set('cursor', cursor)
+    const query = params.toString()
+    return query === '' ? url.pathname : `${url.pathname}?${query}`
   }
-
   return {
-    self,
-    first: to(1),
-    prev: page > 1 ? to(Math.min(page - 1, lastPage)) : null,
-    next: page < lastPage ? to(page + 1) : null,
-    last: to(lastPage)
+    self: `${url.pathname}${url.search}`,
+    first: to(null),
+    next: meta.next_cursor === null ? null : to(meta.next_cursor)
   }
 }

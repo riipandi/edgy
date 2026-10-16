@@ -26,10 +26,9 @@ export interface LogEntry {
 const pad = (value: number, width = 2): string => String(value).padStart(width, '0')
 
 /**
- * The period a timestamp falls in, as the part of a file name that follows the
- * underscore: `YYYYMMDD_hh` (hourly), `YYYYMMDD` (daily), `YYYYMMDD` of the
- * week's Monday (weekly), `YYYYMM` (monthly). UTC, so the same instant maps to the
- * same file on every host, and equal to the `timestamp` inside each JSON line.
+ * The period a timestamp falls in, as the part of a file name after the underscore:
+ * `YYYYMMDD_hh` (hourly), `YYYYMMDD` (daily), the Monday's `YYYYMMDD` (weekly), `YYYYMM`
+ * (monthly). UTC, so every host names the same instant the same way.
  */
 export const rotationStamp = (at: number, rotation: LogRotation): string => {
   const date = new Date(at)
@@ -59,17 +58,16 @@ export const rotationStamp = (at: number, rotation: LogRotation): string => {
 const escapeRegExp = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 /**
- * Writes entries to the file of their period, switching files when the period
- * changes and pruning old ones.
+ * Writes entries to the file of their period, switching files when the period changes and
+ * pruning old ones.
  *
- * - The file is chosen by each entry's own timestamp, so a batch that straddles
- *   midnight is split across the two files instead of landing in one.
- * - One handle is kept open; a new period closes it and opens the next file in
- *   append mode, so a restart inside the same period continues the same file.
- * - Pruning runs when a new file is opened and only touches files that match
- *   `<stem>_<stamp><ext>` in the same directory (`edgy_20261015.jsonl`), never
- *   anything else that happens to live there.
- * - Closing the handle is registered as a finalizer of the surrounding scope.
+ * - The file is chosen by each entry's own timestamp, so a batch straddling a boundary is
+ *   split across two files.
+ * - One handle is kept open. A new period closes it and opens the next file in append mode,
+ *   so a restart within the same period continues the same file.
+ * - Pruning runs when a file is opened and touches only files named `<stem>_<stamp><ext>` in
+ *   the same directory. Anything else there is left alone.
+ * - The handle is closed by a finalizer of the surrounding scope.
  */
 export const makeRotatingFile = (options: LogFileOptions) =>
   Effect.gen(function* () {
@@ -150,12 +148,11 @@ export const makeRotatingFile = (options: LogFileOptions) =>
 
 /**
  * The file sink: JSON lines, batched like the console sink, written through
- * {@link makeRotatingFile}. The batcher's own finalizer flushes what is buffered
- * and runs *before* the file is closed, because the file's finalizer is
- * registered first and finalizers run in reverse order.
+ * {@link makeRotatingFile}. The batcher's finalizer flushes what is buffered before the file
+ * closes, because finalizers run in reverse order and the file's was registered first.
  *
- * A failed write is reported on stderr and the lines of that batch are dropped:
- * logging must not take the server down, and the failure is not silent.
+ * A failed write is reported on stderr and that batch is dropped. Logging must not take the
+ * server down, and the failure must not be silent.
  */
 export const makeFileSink = (options: LogFileOptions & { readonly window: Duration.Input }) =>
   Effect.gen(function* () {

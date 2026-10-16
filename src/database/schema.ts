@@ -1,8 +1,5 @@
 /**
- * Aggregated database schema.
- *
- * Each `*_schema.ts` file augments this interface via declaration merging
- * (`declare module "./schema.ts"`), so the Kysely instance stays fully typed
- * without a central registry to maintain.
+ * Aggregated database schema. Each `*_schema.ts` file augments this interface by declaration
+ * merging, so the Kysely instance is typed without a central registry.
  */
 export interface Database {}

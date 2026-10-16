@@ -1,33 +1,50 @@
 import { Duration, Effect, Schema } from 'effect'
-import { getQuery, getRouterParams, type H3Event, HTTPError, readBody } from 'h3'
+import { getQuery, getRouterParams, type H3Event, HTTPError } from 'h3'
 import type { AppError, ValidationError } from '../errors.ts'
 import type { Page } from '../pagination.ts'
 import { decode } from './decode.ts'
 import type { Reply } from './envelope.ts'
+import { documentHandler, type HandlerDoc } from './handler_doc.ts'
 import { runEffect } from './responder.ts'
 import { type HttpEnv, runtimeOf } from './runtime.ts'
 
-/**
- * What a handler may read from the request. Each input is optional; one that
- * is not declared reaches `run` as `undefined`, and the generics default to
- * that, so `run` is typed by exactly what the spec declared.
- */
+/** What a handler reads from the request. An undeclared input reaches `run` as `undefined`. */
 interface Inputs<P, PI, B, BI, Q, QI> {
   readonly params?: Schema.Codec<P, PI>
   readonly body?: Schema.Codec<B, BI>
   readonly query?: Schema.Codec<Q, QI>
   /** Status of a successful response. Defaults to `200`. */
   readonly status?: number
+  /** One line for the API description. */
+  readonly summary?: string
 }
+
+/** The declared inputs, as the API description reads them. */
+const docOfSpec = (
+  kind: HandlerDoc['kind'],
+  spec: {
+    readonly params?: Schema.Top
+    readonly query?: Schema.Top
+    readonly body?: Schema.Top
+    readonly status?: number
+    readonly summary?: string
+  },
+  response?: Schema.Top
+): HandlerDoc => ({
+  kind,
+  status: spec.status ?? 200,
+  ...(spec.summary === undefined ? {} : { summary: spec.summary }),
+  ...(spec.params === undefined ? {} : { params: spec.params }),
+  ...(spec.query === undefined ? {} : { query: spec.query }),
+  ...(spec.body === undefined ? {} : { body: spec.body }),
+  ...(response === undefined ? {} : { response })
+})
 
 type Program<A, E extends AppError> = Effect.Effect<A, E, HttpEnv>
 
 type Handler = (event: H3Event) => Promise<unknown>
 
-/**
- * A schema that was not declared decodes to `undefined`, which is what its
- * generic defaults to. TypeScript cannot see that link, hence the assertion.
- */
+/** An undeclared schema decodes to `undefined`; TypeScript cannot see that, hence the assertion. */
 const decodeInput = <T, I>(
   schema: Schema.Codec<T, I> | undefined,
   read: () => unknown
@@ -39,9 +56,8 @@ const decodeInput = <T, I>(
 const JSON_CONTENT_TYPE = /^application\/([\w.-]+\+)?json\s*(;|$)/i
 
 /**
- * Rejects a body that is not declared as JSON with `415`. `readBody` would
- * otherwise try to parse a form or text body as JSON and answer a misleading
- * validation error, or accept a `text/plain` body that skips CORS preflight.
+ * Rejects a non-JSON body with `415`. Otherwise `readBody` parses it as JSON anyway, or accepts
+ * a `text/plain` body that skips CORS preflight.
  */
 const requireJson = (event: H3Event): void => {
   const contentType = event.req.headers.get('content-type') ?? ''
@@ -51,38 +67,57 @@ const requireJson = (event: H3Event): void => {
 }
 
 /**
- * The plumbing every endpoint shares: read the body, decode params, body and
- * query, run the program, turn its value into a {@link Reply}, and let
- * `runEffect` render the envelope.
+ * Reads the JSON body, giving up after `REQUEST_TIMEOUT` with `408` and cancelling the read, which
+ * releases the connection. The program has its own timeout, but the body is read before it starts.
+ * Without this, a client that sends headers and stalls holds an in-flight slot, and enough of them
+ * make the overload guard refuse everyone.
  *
- * Malformed JSON never reaches the program: `readBody` rejects it with h3's own
- * 400, which the app-level error hook renders in the common error shape.
- */
-/**
- * Reads the JSON body, giving up after `REQUEST_TIMEOUT` with `408`. `runEffect` bounds the program,
- * but the body is read before it starts: without this a client that sends headers and then stalls
- * keeps its in-flight slot for as long as it likes, and enough of them make the overload guard
- * refuse everyone else.
+ * Reads the stream itself instead of `readBody`, which cannot be cancelled. A failure that is not
+ * ours (the `413` of the body limit) is rethrown as it is.
  */
 const readBodyWithin = async (event: H3Event): Promise<unknown> => {
-  const limit = Duration.toMillis(runtimeOf(event).requestTimeout)
-  let timer: ReturnType<typeof setTimeout> | undefined
-  const expired = new Promise<never>((_resolve, reject) => {
-    timer = setTimeout(
-      () => reject(new HTTPError({ status: 408, message: 'Request body timed out' })),
-      limit
-    )
-  })
-  const reading = readBody(event)
-  // The read outlives the race when the timer wins; its late failure must not be unhandled.
-  reading.catch(() => undefined)
+  const body = event.req.body
+  if (body === null) return undefined
+  const reader = body.getReader()
+  const decoder = new TextDecoder()
+  let text = ''
+  let timedOut = false
+  const timer = setTimeout(
+    () => {
+      timedOut = true
+      reader.cancel().catch(() => undefined)
+    },
+    Duration.toMillis(runtimeOf(event).requestTimeout)
+  )
   try {
-    return await Promise.race([reading, expired])
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      text += decoder.decode(value, { stream: true })
+    }
   } finally {
     clearTimeout(timer)
+    reader.releaseLock()
+  }
+  if (timedOut) {
+    // The rest of the body may still arrive on this connection, so it cannot be reused.
+    event.res.errHeaders.set('connection', 'close')
+    throw new HTTPError({ status: 408, message: 'Request body timed out' })
+  }
+
+  text += decoder.decode()
+  if (text === '') return undefined
+  try {
+    return JSON.parse(text)
+  } catch {
+    throw new HTTPError({ status: 400, statusText: 'Bad Request', message: 'Invalid JSON body' })
   }
 }
 
+/**
+ * The plumbing every endpoint shares. Malformed JSON never reaches the program: h3 rejects it
+ * with its own 400, which the error hook renders in the common shape.
+ */
 const makeHandler =
   <V, E extends AppError, P, PI, B, BI, Q, QI>(
     spec: Inputs<P, PI, B, BI, Q, QI> & {
@@ -107,13 +142,9 @@ const makeHandler =
   }
 
 /**
- * Declares an endpoint: what it reads, what it returns, and the Effect that
- * connects them. A handler states only its contract and its logic; `run`
- * receives exactly the inputs it declared.
- *
- * The value `run` returns is encoded through `response` — a failure to encode
- * is a defect (500), because the handler broke its own contract — and becomes
- * the `data` member of the success envelope.
+ * Declares an endpoint. `run` receives exactly the inputs it declared. Its value is encoded
+ * through `response` and becomes the `data` member of the success envelope. An encoding failure
+ * is a defect (500): the handler broke its own contract.
  *
  * @example
  * ```ts
@@ -142,21 +173,22 @@ export const defineHandler = <
   }
 ): Handler => {
   const encode = Schema.encodeEffect(spec.response)
-  return makeHandler(spec, (value) =>
-    encode(value).pipe(
-      Effect.orDie,
-      Effect.map((data) => ({ data }))
-    )
+  return documentHandler(
+    makeHandler(spec, (value) =>
+      encode(value).pipe(
+        Effect.orDie,
+        Effect.map((data) => ({ data }))
+      )
+    ),
+    docOfSpec('one', spec, spec.response)
   )
 }
 
 /**
- * Declares a collection endpoint. `run` returns a {@link Page}; its items are
- * encoded through the `items` schema (one element, not the array) and the page
- * position becomes the pagination metadata and links of the envelope.
+ * Declares a collection endpoint. `run` returns a `Page`; each item is encoded through `items`,
+ * and the page position becomes the envelope's pagination metadata and links.
  *
- * Pair it with `paginationQuery` for the `query` input and `toPageRequest` to
- * turn the decoded query into the request a repository takes.
+ * Pair it with `paginationQuery` (the query input) and `toPageRequest` (the repository request).
  */
 export const definePagedHandler = <
   A,
@@ -176,19 +208,18 @@ export const definePagedHandler = <
   }
 ): Handler => {
   const encode = Schema.encodeEffect(Schema.Array(spec.items))
-  return makeHandler(spec, ({ items, page, limit, total }) =>
-    encode(items).pipe(
-      Effect.orDie,
-      Effect.map((data) => ({ data, pagination: { page, limit, total } }))
-    )
+  return documentHandler(
+    makeHandler(spec, ({ items, limit, next }) =>
+      encode(items).pipe(
+        Effect.orDie,
+        Effect.map((data) => ({ data, pagination: { limit, next } }))
+      )
+    ),
+    docOfSpec('page', spec, spec.items)
   )
 }
 
-/**
- * Declares an endpoint whose answer is a message and nothing else: the
- * envelope carries `message` and no `data`. For probes and acknowledgements;
- * `run` only has to succeed.
- */
+/** An endpoint that answers only with `message` (no `data`), for probes and acknowledgements. */
 export const defineMessageHandler = <
   E extends AppError,
   P = undefined,
@@ -202,4 +233,8 @@ export const defineMessageHandler = <
     readonly message: string
     readonly run: (input: { params: P; body: B; query: Q }) => Program<unknown, E>
   }
-): Handler => makeHandler(spec, () => Effect.succeed({ message: spec.message }))
+): Handler =>
+  documentHandler(
+    makeHandler(spec, () => Effect.succeed({ message: spec.message })),
+    docOfSpec('message', spec)
+  )

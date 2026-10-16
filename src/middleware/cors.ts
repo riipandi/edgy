@@ -2,9 +2,9 @@ import { definePlugin, handleCors, type CorsOptions } from 'h3'
 import type { CorsConfig } from '../kernel/config/cors.ts'
 
 /**
- * Response headers a browser script may read across origins. Without this list only the
- * CORS-safelisted ones are visible, so a web client could not see its request id, its rate
- * limit or the next page.
+ * Response headers a browser script may read across origins. Without them only the
+ * CORS-safelisted headers are visible, so a web client could not read its request id,
+ * rate limit or next page.
  */
 const EXPOSED_HEADERS = [
   'x-request-id',
@@ -17,7 +17,6 @@ const EXPOSED_HEADERS = [
   'link'
 ] as const
 
-/** Translates the app's CORS configuration into h3's `CorsOptions`. */
 const toCorsOptions = (cors: CorsConfig): CorsOptions => ({
   origin: cors.origins === '*' ? '*' : [...cors.origins],
   methods: cors.methods === '*' ? '*' : [...cors.methods],
@@ -29,20 +28,15 @@ const toCorsOptions = (cors: CorsConfig): CorsOptions => ({
 })
 
 /**
- * CORS plugin.
+ * CORS plugin. Applies the configured policy to every route. A preflight (`OPTIONS`) is
+ * answered at once with `204`; any other request gets the `Access-Control-*` headers and
+ * continues.
  *
- * Applies the policy from configuration (`CORS_ORIGINS`, `CORS_METHODS`,
- * `CORS_ALLOW_HEADERS`, `CORS_CREDENTIALS`, `CORS_MAX_AGE`) to every route:
+ * h3 writes these headers to both `event.res.headers` and `event.res.errHeaders`, so they
+ * survive error responses too.
  *
- * - a preflight (`OPTIONS`) request is answered immediately with `204`;
- * - any other request gets the `Access-Control-*` headers and continues.
- *
- * h3 writes these headers to both `event.res.headers` and `event.res.errHeaders`,
- * so CORS survives on error responses too.
- *
- * The policy is passed in by the composition root (`createApp`), which reads it
- * from `ConfigService`; the `credentials` + wildcard-origin combination is
- * already rejected at startup by the config layer.
+ * The caller supplies the policy. The config layer already rejects `credentials` combined
+ * with a wildcard origin.
  */
 export const cors = definePlugin<CorsConfig>((app, config) => {
   const options = toCorsOptions(config)

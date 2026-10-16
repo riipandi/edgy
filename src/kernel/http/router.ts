@@ -1,31 +1,62 @@
-import { definePlugin, H3, type H3Plugin } from 'h3'
+import { definePlugin, H3, type EventHandler, type H3Plugin } from 'h3'
 
-/** Declaration accepted by {@link defineRouteGroup}. */
+/** Prefix of the JSON API. Everything under it answers in the envelope, errors included. */
+export const API_PREFIX = '/api'
+
+/** Whether a request path belongs to the API. */
+export const isApiPath = (pathname: string): boolean =>
+  pathname === API_PREFIX || pathname.startsWith(`${API_PREFIX}/`)
+
+export type RouteMethod = 'get' | 'post' | 'put' | 'patch' | 'delete'
+
+/**
+ * What a group's `routes` callback may do: declare routes and nest groups. Narrower than `H3` on
+ * purpose, so the same callback can also be read without an app (see {@link routesOf}).
+ */
+export interface RouteTable {
+  readonly get: (pattern: string, handler: EventHandler) => void
+  readonly post: (pattern: string, handler: EventHandler) => void
+  readonly put: (pattern: string, handler: EventHandler) => void
+  readonly patch: (pattern: string, handler: EventHandler) => void
+  readonly delete: (pattern: string, handler: EventHandler) => void
+  readonly register: (plugin: H3Plugin) => void
+}
+
+/** Options for `defineRouteGroup`. */
 export interface GroupOptions {
   /** URL prefix the group is mounted under, e.g. `/users` or `/.well-known`. */
   readonly prefix: string
-  /**
-   * Middleware applied to every route in the group — and only those routes.
-   * Given as plugins so a group composes the same primitives as the app.
-   */
+  /** Applied to every route in the group, and only those. */
   readonly middleware?: readonly H3Plugin[]
-  /** Registers the group's routes on its isolated router. */
-  readonly routes: (group: H3) => void
+  /** Declares the group's routes; patterns are relative to `prefix`. */
+  readonly routes: (group: RouteTable) => void
 }
 
+const mount = definePlugin<GroupOptions>((app, options) => {
+  const group = new H3()
+
+  for (const middleware of options.middleware ?? []) group.register(middleware)
+
+  options.routes({
+    get: (pattern, handler) => group.get(pattern, handler),
+    post: (pattern, handler) => group.post(pattern, handler),
+    put: (pattern, handler) => group.put(pattern, handler),
+    patch: (pattern, handler) => group.patch(pattern, handler),
+    delete: (pattern, handler) => group.delete(pattern, handler),
+    register: (plugin) => group.register(plugin)
+  })
+  app.mount(options.prefix, group)
+})
+
+const groups = new WeakMap<H3Plugin, GroupOptions>()
+
 /**
- * Declares a route group as an h3 plugin.
+ * Declares a route group as an h3 plugin. Each group owns a fresh `H3` instance, so its
+ * middleware runs only for its routes, and its patterns are relative to `prefix`.
  *
- * Each group owns a fresh `H3` instance, so:
- *
- * - its middleware runs **only** for its routes;
- * - its route patterns are written relative to `prefix`, with no repeated
- *   `/users/...` boilerplate as the API grows.
- *
- * `mount` merges the group's routes into the parent matcher, so they remain
- * real routes of a single rou3 trie (one fast lookup) rather than a nested
- * fetch hop. Per h3's docs, app-level config and hooks are not inherited by a
- * mounted app — shared behaviour belongs in global middleware instead.
+ * `mount` merges the group's routes into the parent matcher, so they stay routes of one trie
+ * rather than a nested fetch hop. h3 does not inherit app-level config or hooks into a mounted
+ * app, so shared behaviour belongs in global middleware.
  *
  * @example
  * ```ts
@@ -39,11 +70,41 @@ export interface GroupOptions {
  * })
  * ```
  */
-export const defineRouteGroup = definePlugin<GroupOptions>((app, options) => {
-  const group = new H3()
+export const defineRouteGroup = (options: GroupOptions): H3Plugin => {
+  const plugin = mount(options)
+  groups.set(plugin, options)
+  return plugin
+}
 
-  for (const middleware of options.middleware ?? []) group.register(middleware)
+/** One route of a group, with its full path (`/api/users/:id`). */
+export interface DeclaredRoute {
+  readonly method: RouteMethod
+  readonly path: string
+  readonly handler: EventHandler
+}
 
-  options.routes(group)
-  app.mount(options.prefix, group)
-})
+/**
+ * The routes `plugin` declares, nested groups included, under `base`. It runs the group's `routes`
+ * callback against a recorder, so no app is built and no request is needed. A plugin that is not a
+ * route group declares nothing here.
+ */
+export const routesOf = (plugin: H3Plugin, base = ''): DeclaredRoute[] => {
+  const options = groups.get(plugin)
+  if (options === undefined) return []
+
+  const prefix = `${base}${options.prefix}`.replace(/\/+$/, '')
+  const found: DeclaredRoute[] = []
+  const record = (method: RouteMethod) => (pattern: string, handler: EventHandler) => {
+    const path = `${prefix}${pattern === '/' ? '' : pattern}`
+    found.push({ method, path: path === '' ? '/' : path, handler })
+  }
+  options.routes({
+    get: record('get'),
+    post: record('post'),
+    put: record('put'),
+    patch: record('patch'),
+    delete: record('delete'),
+    register: (child) => found.push(...routesOf(child, prefix))
+  })
+  return found
+}

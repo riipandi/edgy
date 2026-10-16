@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@effect/vitest'
 import { parseRange, type TrustedProxies } from '../kernel/ip.ts'
-import { clientAddress, type ClientIpTrust } from './client_ip.ts'
+import { clientAddress, clientLocation, type ClientIpTrust } from './client_ip.ts'
 
 const list = (...ranges: string[]): TrustedProxies => ({
   kind: 'list',
@@ -102,25 +102,135 @@ describe('with every address trusted', () => {
 })
 
 describe('with a trusted platform header', () => {
-  const trust: ClientIpTrust = { proxies: { kind: 'none' }, platformHeader: 'cf-connecting-ip' }
+  const trust: ClientIpTrust = { proxies: list('10.0.0.0/8'), platformHeader: 'cf-connecting-ip' }
 
-  it('reads it directly, whatever the socket is', () => {
-    expect(resolve(trust, undefined, { 'cf-connecting-ip': '203.0.113.5' })).toBe('203.0.113.5')
-    expect(resolve(trust, '198.51.100.9', { 'cf-connecting-ip': '2001:db8::1' })).toBe(
+  it('reads it as sent where there is no socket (a Worker)', () => {
+    const open: ClientIpTrust = { proxies: { kind: 'none' }, platformHeader: 'cf-connecting-ip' }
+    expect(resolve(open, undefined, { 'cf-connecting-ip': '203.0.113.5' })).toBe('203.0.113.5')
+    expect(resolve(open, undefined, { 'cf-connecting-ip': '2001:db8::1' })).toBe(
       '2001:db8:0:0:0:0:0:1'
     )
   })
 
+  it('reads it from a trusted proxy, and ignores it from anyone else', () => {
+    const headers = { 'cf-connecting-ip': '203.0.113.5' }
+    expect(resolve(trust, '10.0.0.7', headers)).toBe('203.0.113.5')
+    expect(resolve(trust, '198.51.100.9', headers)).toBe('198.51.100.9')
+    const none: ClientIpTrust = { proxies: { kind: 'none' }, platformHeader: 'cf-connecting-ip' }
+    expect(resolve(none, '198.51.100.9', headers)).toBe('198.51.100.9')
+  })
+
   it('prefers it to X-Forwarded-For, which it replaces', () => {
-    const both: ClientIpTrust = { proxies: { kind: 'all' }, platformHeader: 'cf-connecting-ip' }
     expect(
-      resolve(both, '10.0.0.1', { 'cf-connecting-ip': '203.0.113.5', 'x-forwarded-for': '1.1.1.1' })
+      resolve(trust, '10.0.0.1', {
+        'cf-connecting-ip': '203.0.113.5',
+        'x-forwarded-for': '1.1.1.1'
+      })
     ).toBe('203.0.113.5')
   })
 
   it('falls back to the socket, not X-Forwarded-For, when the header is missing or malformed', () => {
     const headers = { 'x-forwarded-for': '1.1.1.1' }
-    expect(resolve(trust, '198.51.100.9', headers)).toBe('198.51.100.9')
-    expect(resolve(trust, '198.51.100.9', { 'cf-connecting-ip': 'nope' })).toBe('198.51.100.9')
+    expect(resolve(trust, '10.0.0.1', headers)).toBe('10.0.0.1')
+    expect(resolve(trust, '10.0.0.1', { 'cf-connecting-ip': 'nope' })).toBe('10.0.0.1')
+  })
+})
+
+describe('clientLocation', () => {
+  const on = {
+    enabled: true,
+    platformHeader: 'cf-connecting-ip',
+    proxies: list('10.0.0.0/8')
+  }
+  const request = (init: Record<string, string>, socket: string | undefined = '10.0.0.1') => ({
+    socket,
+    headers: new Headers(init)
+  })
+
+  it('reads country and city from a request that came through the platform', () => {
+    expect(
+      clientLocation(
+        request({
+          'cf-connecting-ip': '203.0.113.7',
+          'cf-ipcountry': 'id',
+          'cf-ipcity': 'Jakarta'
+        }),
+        on
+      )
+    ).toEqual({ country: 'ID', city: 'Jakarta' })
+  })
+
+  it('believes a Worker request (no socket) as well', () => {
+    expect(
+      clientLocation(
+        request({ 'cf-connecting-ip': '203.0.113.7', 'cf-ipcountry': 'ID' }, undefined),
+        on
+      )
+    ).toEqual({ country: 'ID' })
+  })
+
+  it('believes nothing without the platform header, so a forged one is not enough', () => {
+    expect(
+      clientLocation(request({ 'cf-ipcountry': 'ID', 'cf-ipcity': 'Jakarta' }), on)
+    ).toBeUndefined()
+    expect(
+      clientLocation(request({ 'cf-connecting-ip': 'garbage', 'cf-ipcountry': 'ID' }), on)
+    ).toBeUndefined()
+  })
+
+  it('believes nothing from a peer that is not a trusted proxy', () => {
+    const forged = request(
+      { 'cf-connecting-ip': '203.0.113.7', 'cf-ipcountry': 'ID' },
+      '198.51.100.9'
+    )
+    expect(clientLocation(forged, on)).toBeUndefined()
+  })
+
+  it('is off unless switched on and a platform is named', () => {
+    const sent = request({ 'cf-connecting-ip': '203.0.113.7', 'cf-ipcountry': 'ID' })
+    expect(clientLocation(sent, { ...on, enabled: false })).toBeUndefined()
+    expect(clientLocation(sent, { ...on, platformHeader: undefined })).toBeUndefined()
+  })
+
+  it('drops an unknown country and sanitises what it keeps', () => {
+    const sent = request({
+      'cf-connecting-ip': '203.0.113.7',
+      'cf-ipcountry': 'XX',
+      'cf-ipcity': `Bad\u0007City${'x'.repeat(100)}`
+    })
+    const location = clientLocation(sent, on)
+    expect(location?.country).toBeUndefined()
+    expect(location?.city).toHaveLength(64)
+    expect(location?.city).not.toContain('\u0007')
+    expect(
+      clientLocation(request({ 'cf-connecting-ip': '203.0.113.7', 'cf-ipcountry': 'ZZZ' }), on)
+    ).toBeUndefined()
+  })
+})
+
+describe('an empty entry in X-Forwarded-For', () => {
+  const trust: ClientIpTrust = { proxies: list('10.0.0.0/8'), platformHeader: undefined }
+
+  it.each(['1.2.3.4,,10.0.0.2', '1.2.3.4, ,10.0.0.2', '1.2.3.4,10.0.0.2,', ',1.2.3.4,10.0.0.2'])(
+    'is skipped: %j still finds the client',
+    (header) => {
+      expect(resolve(trust, '10.0.0.1', { 'x-forwarded-for': header })).toBe('1.2.3.4')
+    }
+  )
+
+  it('leaves a header of nothing else to the socket address', () => {
+    expect(resolve(trust, '10.0.0.1', { 'x-forwarded-for': ',,' })).toBe('10.0.0.1')
+  })
+
+  it('still stops at an entry that is not an address', () => {
+    expect(resolve(trust, '10.0.0.1', { 'x-forwarded-for': 'garbage,10.0.0.2' })).toBe('10.0.0.1')
+  })
+})
+
+describe('a range of one family', () => {
+  it('does not match the other: ::/0 trusts no IPv4 peer', () => {
+    const trust: ClientIpTrust = { proxies: list('::/0'), platformHeader: undefined }
+    expect(resolve(trust, '10.0.0.1', { 'x-forwarded-for': '1.2.3.4' })).toBe('10.0.0.1')
+    expect(resolve(trust, '2001:db8::1', { 'x-forwarded-for': '1.2.3.4' })).toBe('1.2.3.4')
   })
 })

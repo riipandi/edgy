@@ -2,15 +2,13 @@ import { Data, Duration, ErrorReporter, Schema, SchemaIssue, type StandardSchema
 import { describeFailure, isSensitiveName } from './redact.ts'
 
 /**
- * What every application error tells the HTTP layer about itself. The error
- * owns its status, its client-safe message and its detail, so the responder
- * only renders: adding an error never means editing the kernel.
+ * What every application error tells the HTTP layer: its status, client-safe message and detail.
+ * The responder only renders these, so a new error never needs kernel changes.
  *
- * `code`, `clientMessage`, `detail` and `retryable` reach the client, so they must never carry
- * internals (SQL, stack traces, causes); what an operator may additionally see while debugging
- * is the error's `cause`, shown only at `LOG_LEVEL=Debug` or below and always redacted. Failures
- * with `status >= 500` are reported with their cause; expected ones (below 500) carry
- * `ErrorReporter.ignore` and are not.
+ * `code`, `clientMessage`, `detail` and `retryable` reach the client and must carry no internals
+ * (SQL, stack traces, causes). `cause` is for diagnostics: it is logged redacted, and shown only
+ * at `LOG_LEVEL=Debug` or below. Failures with `status >= 500` are reported with their cause;
+ * expected ones (below 500) set `ErrorReporter.ignore`.
  */
 export interface AppError {
   readonly _tag: string
@@ -50,10 +48,7 @@ export interface ValidationIssue {
 
 const formatIssues = SchemaIssue.makeFormatterStandardSchemaV1()
 
-/**
- * Validation failure wrapping the Effect v4 `SchemaError`.
- * The structured issue tree is flattened with the default formatter.
- */
+/** Validation failure wrapping a `SchemaError`. */
 export class ValidationError extends Data.TaggedError('ValidationError')<{
   readonly schemaError: Schema.SchemaError
 }> {
@@ -71,9 +66,8 @@ export class ValidationError extends Data.TaggedError('ValidationError')<{
   }
 
   /**
-   * Flattened list of issues for the response body. A schema's message can quote the value it
-   * rejected, so for a field that holds a secret (`password`, `token`…) the message is replaced:
-   * the client learns which field is wrong, never an echo of what it sent.
+   * Issues for the response body. Messages for secret fields are replaced, because a schema
+   * message can echo the rejected value.
    */
   get issues(): ReadonlyArray<ValidationIssue> {
     return formatIssues(this.schemaError.issue).issues.map((i) => {
@@ -88,12 +82,9 @@ export class ValidationError extends Data.TaggedError('ValidationError')<{
 }
 
 /**
- * Whether a failure is the kind that goes away on its own, so repeating a read is
- * safe and useful: a dropped connection, a storage timeout, an overloaded or briefly
- * unavailable database, a lock that was not released in time. Matched on the message
- * because D1 and `node:sqlite` report these as plain errors with no code. A constraint
- * violation, a syntax error or a missing table is deliberately *not* transient: repeating
- * it can only fail the same way, later.
+ * Whether a failure is transient, so repeating it can succeed: a dropped connection, a storage
+ * timeout, an overloaded or locked database. Matched on the message, since D1 and `node:sqlite`
+ * report these without a code. A constraint, syntax or missing-table error is never transient.
  */
 export const isTransientFailure = (error: { readonly cause: unknown }): boolean => {
   const { cause } = error
@@ -104,8 +95,8 @@ export const isTransientFailure = (error: { readonly cause: unknown }): boolean 
 }
 
 /**
- * Database failure wrapping a Kysely/SQLite error. `retryable` is the transient check the
- * read retry uses, so a client is told to try again exactly when the server itself would.
+ * Database failure wrapping a driver error. `retryable` is the check the read retry uses, so
+ * clients retry exactly when the server does.
  */
 export class DatabaseError extends Data.TaggedError('DatabaseError')<{
   readonly cause: unknown
@@ -113,11 +104,7 @@ export class DatabaseError extends Data.TaggedError('DatabaseError')<{
   readonly status = 500
   readonly code = 'DATABASE_ERROR'
   readonly clientMessage = 'Database error'
-  /**
-   * The driver's message, redacted. Without it the log shows a bare `DatabaseError:` and the
-   * reader has to find the cause elsewhere; with it the error says what failed wherever it is
-   * printed. It is not the client's message (`clientMessage`), which stays generic.
-   */
+  /** The redacted driver message, so logs say what failed. Clients still get `clientMessage`. */
   override get message(): string {
     return describeFailure(this.cause)
   }
@@ -126,10 +113,7 @@ export class DatabaseError extends Data.TaggedError('DatabaseError')<{
   }
 }
 
-/**
- * A write violated a uniqueness rule (for example a duplicate email). A client
- * error, unlike {@link DatabaseError}, so it answers 409 instead of 500.
- */
+/** A write broke a uniqueness rule, such as a duplicate email. A client error: 409, not 500. */
 export class Conflict extends Data.TaggedError('Conflict')<{
   readonly resource: string
 }> {

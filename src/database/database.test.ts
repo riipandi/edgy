@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from '@effect/vitest'
-import { Effect, Exit, Layer, ManagedRuntime } from 'effect'
+import { Effect, Exit, Layer, Logger, ManagedRuntime } from 'effect'
 import { makeTestApp, type TestApp } from '../../tests/app.ts'
 import { fakeD1 } from '../../tests/d1.ts'
 import { userRow } from '../../tests/ids.ts'
@@ -9,7 +9,7 @@ import { D1Binding, D1DatabaseLayer } from './d1.ts'
 import { migrateDown, migrateToLatest } from './migrator.ts'
 import { DatabaseService, isUniqueViolation } from './service.ts'
 
-describe('transactions (sqlite)', () => {
+describe('the sqlite driver’s transactions', () => {
   let t: TestApp
   beforeAll(async () => {
     t = await makeTestApp()
@@ -31,25 +31,29 @@ describe('transactions (sqlite)', () => {
   it('commits when the callback resolves', async () => {
     const before = (await count()).n
     await t.run(
-      DatabaseService.use(({ transaction }) =>
-        transaction(async (trx) => {
-          await trx.insertInto('users').values(userRow('tx1@example.com')).execute()
-          await trx.insertInto('users').values(userRow('tx2@example.com')).execute()
-        })
+      DatabaseService.use(({ db }) =>
+        Effect.promise(() =>
+          db.transaction().execute(async (trx) => {
+            await trx.insertInto('users').values(userRow('tx1@example.com')).execute()
+            await trx.insertInto('users').values(userRow('tx2@example.com')).execute()
+          })
+        )
       )
     )
     expect((await count()).n).toBe(before + 2)
   })
 
-  it('rolls back when the callback rejects, and reports a DatabaseError', async () => {
+  it('rolls back when the callback rejects', async () => {
     const before = (await count()).n
     const exit = await t.run(
       Effect.exit(
-        DatabaseService.use(({ transaction }) =>
-          transaction(async (trx) => {
-            await trx.insertInto('users').values(userRow('tx3@example.com')).execute()
-            throw new Error('boom')
-          })
+        DatabaseService.use(({ db }) =>
+          Effect.tryPromise(() =>
+            db.transaction().execute(async (trx) => {
+              await trx.insertInto('users').values(userRow('tx3@example.com')).execute()
+              throw new Error('boom')
+            })
+          )
         )
       )
     )
@@ -78,7 +82,9 @@ describe('isUniqueViolation', () => {
 describe('D1 dialect', () => {
   const layer = UserRepository.layer.pipe(
     Layer.provideMerge(D1DatabaseLayer),
-    Layer.provide(Layer.succeed(D1Binding, fakeD1()))
+    Layer.provide(Layer.succeed(D1Binding, fakeD1())),
+    // No logger: the default one would print the migrator's warnings into the test run.
+    Layer.provideMerge(Logger.layer([]))
   )
   const runtime = ManagedRuntime.make(layer)
   afterAll(() => runtime.dispose())
@@ -98,21 +104,29 @@ describe('D1 dialect', () => {
     expect(created).toMatchObject({ email: 'd1@example.com', name: 'D1' })
 
     const page = await runtime.runPromise(
-      UserRepository.use((users) =>
-        users.findPage({ page: 1, limit: 10, offset: 0, sortBy: 'id', sortOrder: 'asc' })
-      )
+      UserRepository.use((users) => users.findPage({ limit: 10, sortBy: 'id', sortOrder: 'asc' }))
     )
-    expect(page.total).toBe(1)
+    expect(page.items).toHaveLength(1)
+    expect(page.next).toBeNull()
 
     const duplicate = await runtime.runPromise(
-      Effect.flip(UserRepository.use((users) => users.insert({ email: 'd1@example.com' })))
+      Effect.flip(
+        UserRepository.use((users) => users.insert({ email: 'd1@example.com', name: 'D One' }))
+      )
     )
     expect(duplicate).toBeInstanceOf(Conflict)
   })
 
-  it('refuses transactions, since D1 has none', async () => {
+  it('refuses an interactive transaction, since D1 has none', async () => {
     const error = await runtime.runPromise(
-      Effect.flip(DatabaseService.use(({ transaction }) => transaction(async () => 'never')))
+      Effect.flip(
+        DatabaseService.use(({ db }) =>
+          Effect.tryPromise({
+            try: () => db.transaction().execute(async () => 'never'),
+            catch: (cause) => new DatabaseError({ cause })
+          })
+        )
+      )
     )
     expect(error).toBeInstanceOf(DatabaseError)
   })

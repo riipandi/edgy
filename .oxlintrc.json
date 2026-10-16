@@ -54,6 +54,7 @@
         }
     ],
     "ignorePatterns": [
+        "vendor",
         ".output",
         ".storage",
         ".wrangler",

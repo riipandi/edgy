@@ -10,9 +10,8 @@ const describe = (spec: FieldSpec): string =>
   spec.choices === undefined ? spec.kind : `${spec.kind}: ${spec.choices.join(' | ')}`
 
 /**
- * Renders the example dotenv file from the declared variables, grouped by
- * section in declaration order. Pure, so a test (and `config:generate --check`)
- * can compare it with the file on disk byte for byte.
+ * Renders the example dotenv file, grouped by section. Pure, so a check can compare it byte for
+ * byte.
  */
 export const renderExample = (specs: readonly FieldSpec[]): string => {
   const sections = new Map<string, FieldSpec[]>()

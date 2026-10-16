@@ -1,14 +1,13 @@
 import { Formatter, Logger } from 'effect'
 
 /**
- * JSON-lines formatter with a fixed key order: `timestamp`, `level`, `message`,
- * `annotations`, `cause` (only when present), `spans`, `fiberId`.
+ * JSON-lines formatter with a fixed key order: `timestamp`, `level`, `message`, `annotations`,
+ * `cause` (only when present), `spans`, `fiberId`.
  *
- * Effect's own `Logger.formatJson` serialises the same fields but starts with
- * `message`, so a line begins with whatever text was logged. Putting the timestamp
- * and level first makes files sort, scan and `cut` predictably, and lets a person
- * reading `tail -f` find the time at a fixed column. Used by the file sink and by
- * `LOG_FORMAT=json`, so both emit the same shape.
+ * Effect's `Logger.formatJson` starts with `message`, so a line begins with arbitrary text.
+ * Putting the timestamp and level first keeps files sortable and `cut`-able, and the time sits
+ * at a fixed column under `tail -f`. Used by the file sink and by `LOG_FORMAT=json`, so both
+ * emit one shape.
  */
 export const jsonLogger: Logger.Logger<unknown, string> = Logger.map(
   Logger.formatStructured,

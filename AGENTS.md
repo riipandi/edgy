@@ -13,7 +13,7 @@ This file holds the workflow rules, always in force; the detail — the reposito
 - Do not document, test, or treat a stub as working — implemented surfaces are listed in `.llms/index.md` and `.llms/architecture.md`; the rest is a scaffold.
 - Do not add, remove, or rename a top-level directory unless asked; extend an existing package.
 - Porting a plan into code means implementing it. A doc may describe a larger surface than the code has.
-- No self-evident comments: a comment must carry what the code cannot (a why, a contract, a trap), never restate what the next line already says.
+- Comments are short and rare. Write one only for what the code cannot say (a why, a contract, a trap), in plain words, with no filler. Never restate the code, and never mention a decision, plan, issue, audit, session, or another file in a code comment. The full rule is in `.llms/rules.md` ("Code comments").
 - When writing Effect code, inspect @vendor/effect/ for examples of idiomatic usage, tests, module structure, and API design. Treat it as the source of truth for Effect patterns.
 
 ## Skills

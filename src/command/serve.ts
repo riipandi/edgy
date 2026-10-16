@@ -4,7 +4,7 @@ import { migrateToLatest } from '../database/migrator.ts'
 import { AppLayer } from '../layers.ts'
 import { serveHttp } from '../server.ts'
 
-/** `serve` — start the HTTP server, optionally migrating first. */
+/** Starts the HTTP server, optionally migrating first. */
 export const serveCmd = Command.make(
   'serve',
   {

@@ -4,14 +4,10 @@ import { describeFailure, redactValue } from '../redact.ts'
 import type { ApiErrorBody, ApiErrorDebug } from './envelope.ts'
 
 /**
- * What a client is told about a failure, in the `error` member of the error envelope.
- *
- * `code`, `retryable` and `details` are always there and always safe: the error chose them for
- * the client. `debug` is the exception. It carries what lies behind a server-side failure (the
- * driver's own message, an unexpected exception's) and appears only when `diagnostics` is on,
- * which is when the logger is at `Debug` or below, so the response is exactly as chatty as the
- * log. Whatever it carries is redacted first: a connection string in a driver's complaint must not
- * reach a browser, not even in development.
+ * The `error` member of a failure response. `code`, `retryable` and `details` are always safe to
+ * send. `debug` carries what lies behind a server-side failure, and only when `diagnostics` is on
+ * (the logger is at `Debug` or below). It is always redacted: a connection string in a driver's
+ * message must not reach a browser, even in development.
  */
 const debugOf = (type: string, failure: unknown): ApiErrorDebug => {
   const message = describeFailure(failure)
@@ -33,7 +29,7 @@ export const defectBody = (cause: Cause.Cause<unknown>, diagnostics: boolean): A
   ...(diagnostics ? { debug: debugOf('Defect', Cause.squash(cause)) } : {})
 })
 
-/** The code for a status no `AppError` produced; also what the request log shows for it. */
+/** The code for a status with no `AppError`. The request log shows the same code. */
 export const codeForStatus = (status: number): string => STATUS_CODES[status] ?? `HTTP_${status}`
 
 const STATUS_CODES: Readonly<Record<number, string>> = {
@@ -59,10 +55,8 @@ const STATUS_CODES: Readonly<Record<number, string>> = {
 const RETRYABLE = new Set([408, 429, 502, 503, 504])
 
 /**
- * The `error` member for an error h3 raised itself (an unknown path, malformed JSON, a body over
- * the limit) or a middleware threw (`429`, `503`): there is no `AppError`, so the code comes
- * from the status. `retryAfter` is the `Retry-After` the response already carries, repeated here
- * so a client that reads only the body can honour it.
+ * The `error` member for an h3 or middleware error, which has no `AppError`, so the code comes
+ * from the status. `retryAfter` is repeated in the body for clients that read only the body.
  */
 export const statusBody = (
   status: number,

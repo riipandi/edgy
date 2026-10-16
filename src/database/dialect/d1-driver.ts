@@ -1,7 +1,4 @@
-/**
- * Portion of this file forked from https://github.com/aidenwallis/kysely-d1
- * (MIT License).
- */
+/** Adapted from https://github.com/aidenwallis/kysely-d1 (MIT). */
 import type { DatabaseConnection, Driver } from 'kysely'
 import { D1Connection, type D1Database } from './d1-connection.ts'
 

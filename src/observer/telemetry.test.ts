@@ -5,6 +5,7 @@ import { TestClock } from 'effect/testing'
 import { makeTestApp, type TestApp } from '../../tests/app.ts'
 import { attributeOf, type FakeCollector, spansOf, startCollector } from '../../tests/collector.ts'
 import { MISSING_USER_ID } from '../../tests/ids.ts'
+import { runEffect } from '../kernel/http/responder.ts'
 import { ExportHttpClient, parseOtlpHeaders } from './telemetry.ts'
 import { traceHexOf } from './trace_id.ts'
 
@@ -56,6 +57,38 @@ describe('export HTTP client', () => {
   )
 })
 
+describe('export HTTP client with a stalled body', () => {
+  /** Answers at once with headers, then never finishes the body. */
+  const stalled: typeof globalThis.fetch = async () =>
+    new Response(new ReadableStream({ pull: () => new Promise(() => {}) }), { status: 200 })
+
+  it.effect('fails the export instead of holding the fiber', () =>
+    Effect.gen(function* () {
+      const client = yield* HttpClient.HttpClient
+      const fiber = yield* Effect.forkChild(
+        Effect.exit(
+          client
+            .get('http://collector.invalid/v1/traces')
+            .pipe(Effect.flatMap((response) => response.arrayBuffer))
+        )
+      )
+      yield* TestClock.adjust('6 seconds')
+      const exit = yield* Fiber.join(fiber)
+
+      expect(Exit.isFailure(exit)).toBe(true)
+      expect(JSON.stringify(exit)).toContain('export timed out')
+    }).pipe(
+      // oxlint-disable-next-line effecttsgo/strict-effect-provide
+      Effect.provide(
+        ExportHttpClient.pipe(
+          Layer.provide(Layer.succeed(FetchHttpClient.Fetch)(stalled)),
+          Layer.provideMerge(Layer.empty)
+        )
+      )
+    )
+  )
+})
+
 describe('exported telemetry', () => {
   let collector: FakeCollector
   let t: TestApp | undefined
@@ -76,6 +109,7 @@ describe('exported telemetry', () => {
         OTEL_EXPORTER_OTLP_COMPRESSION: 'none',
         OTEL_SDK_DISABLED: 'false',
         OTEL_EXPORT_INTERVAL: '100',
+        OTEL_TRACES_SAMPLE_RATIO: '1',
         ...env
       },
       { fetch: collector.fetch }
@@ -119,6 +153,23 @@ describe('exported telemetry', () => {
     const resource = trace?.body.resourceSpans[0].resource.attributes as any[]
     expect(resource.find((a) => a.key === 'service.name').value.stringValue).toBe('edgy-test')
     expect(resource.some((a) => a.key === 'service.instance.id')).toBe(true)
+  })
+
+  it('keeps secrets out of the exception a failed span exports', async () => {
+    t = await start()
+    t.app.get('/boom', (event) =>
+      runEffect(
+        event,
+        Effect.die(new Error('connect failed postgres://app:hunter2pw@db/x token=tok_abcdef123456'))
+      )
+    )
+    expect((await t.request('/boom')).status).toBe(500)
+    await flushed()
+
+    const exported = JSON.stringify(spansOf(collector))
+    expect(exported).toContain('connect failed')
+    expect(exported).not.toContain('hunter2pw')
+    expect(exported).not.toContain('tok_abcdef123456')
   })
 
   it('exports metrics too', async () => {
@@ -199,9 +250,11 @@ describe('probe traces', () => {
     const t = await makeTestApp(
       {
         OTEL_EXPORTER_OTLP_ENDPOINT: collector.url,
+        OTEL_EXPORTER_OTLP_HEADERS: 'authorization=dev-key',
         OTEL_SDK_DISABLED: 'false',
         OTEL_EXPORTER_OTLP_COMPRESSION: 'none',
-        OTEL_EXPORT_INTERVAL: '100'
+        OTEL_EXPORT_INTERVAL: '100',
+        OTEL_TRACES_SAMPLE_RATIO: '1'
       },
       { fetch: collector.fetch }
     )
@@ -219,9 +272,11 @@ describe('probe traces', () => {
     const t = await makeTestApp(
       {
         OTEL_EXPORTER_OTLP_ENDPOINT: collector.url,
+        OTEL_EXPORTER_OTLP_HEADERS: 'authorization=dev-key',
         OTEL_SDK_DISABLED: 'false',
         OTEL_EXPORTER_OTLP_COMPRESSION: 'none',
-        OTEL_EXPORT_INTERVAL: '100'
+        OTEL_EXPORT_INTERVAL: '100',
+        OTEL_TRACES_SAMPLE_RATIO: '1'
       },
       { fetch: collector.fetch }
     )

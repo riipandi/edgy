@@ -4,10 +4,10 @@ import { Effect, Option } from 'effect'
 export const FLUSH_BUDGET = '5 seconds'
 
 /**
- * Runs one flush of a log sink within {@link FLUSH_BUDGET}. A sink whose write never returns (a
- * full pipe, a stuck disk) would otherwise stop the batcher's loop for good: lines would pile up
- * in memory, and at shutdown the final flush would wait until the process was killed. After the
- * budget the flush is abandoned with a note on stderr and logging carries on.
+ * Runs one flush of a log sink within {@link FLUSH_BUDGET}. A write that never returns (a full
+ * pipe, a stuck disk) would stop the batcher loop for good: lines pile up in memory, and shutdown
+ * waits until the process is killed. Past the budget the flush is abandoned with a note on stderr
+ * and logging carries on.
  */
 export const withinBudget = (sink: string, flush: Effect.Effect<void>): Effect.Effect<void> =>
   flush.pipe(
