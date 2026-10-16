@@ -27,7 +27,7 @@ export default defineConfig({
         resolve: { conditions: ['browser'] },
         test: {
           name: 'marko',
-          include: ['app/**/*.test.ts'],
+          include: ['web/**/*.test.ts'],
           environment: 'jsdom',
           setupFiles: ['./tests/components_setup.ts']
         }

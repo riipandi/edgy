@@ -6,13 +6,13 @@ browser, and brought to life there only where it is interactive.
 ## What you write
 
 Pages are [Marko](https://markojs.com) templates; styles are TypeScript, compiled to plain CSS at build
-time by [vanilla-extract](https://vanilla-extract.style). Both live in the `app/` folder:
+time by [vanilla-extract](https://vanilla-extract.style). Both live in the `web/` folder:
 
 | Folder          | What it holds                                                                     |
 | --------------- | --------------------------------------------------------------------------------- |
-| `app/pages/`    | One template per page                                                             |
-| `app/tags/`     | Components. A file named `user-list.marko` is available as `<user-list>` everywhere |
-| `app/styles/`   | `*.css.ts` files: the design tokens (`theme.css.ts`) and the styles that use them  |
+| `web/pages/`    | One template per page                                                             |
+| `web/tags/`     | Components. A file named `user-list.marko` is available as `<user-list>` everywhere |
+| `web/styles/`   | `*.css.ts` files: the design tokens (`theme.css.ts`) and the styles that use them  |
 
 A component is interactive when it has state. The user list on `/users`, for example, filters the list
 as you type; the rest of the page is static HTML and sends no script.
@@ -24,14 +24,14 @@ as you type; the rest of the page is static HTML and sends no script.
 
 ## Adding a page
 
-1. Write the template in `app/pages/`, and the styles it needs in `app/styles/`.
+1. Write the template in `web/pages/`, and the styles it needs in `web/styles/`.
 2. Declare what it shows: an Effect that loads the data, and the template that renders it. The data comes
    from the same services as the API, so a page and its endpoint cannot disagree.
 3. Give it a route group and register it with the other pages. `GET /users` is the worked example.
 
 Pages answer in HTML, and so do their errors: a bad query, a missing record or a server error shows an
-error page (`app/pages/error.marko`) with the status, a short message and the request ID, while the same
-failure under `/api` is JSON. The front page is `app/pages/home.marko`, served at `/`.
+error page (`web/pages/error.marko`) with the status, a short message and the request ID, while the same
+failure under `/api` is JSON. The front page is `web/pages/home.marko`, served at `/`.
 
 ## Working on pages
 

@@ -38,7 +38,7 @@ export interface AppOptions {
  */
 export const createApp = (options: AppOptions): H3 =>
   new H3({
-    onError: makeErrorHandler(() => import('../app/pages/error.marko')),
+    onError: makeErrorHandler(() => import('../web/pages/error.marko')),
     plugins: [
       provideRuntime(options.runtime),
       ...(options.development === true ? [developmentMode()] : []),

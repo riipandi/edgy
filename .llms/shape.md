@@ -40,7 +40,7 @@ src/
     layer.ts         # DatabaseLayer / databaseLayer({ remote }): picks the driver; Node only
     dialect/         # NodeSQLiteDialect and D1Dialect
     migrator.ts, migrations/ (index.ts registry + one file each), seeder.ts, seeders/
-app/                 # frontend: pages/ (one .marko per page), tags/ (components), styles/ (*.css.ts), marko.d.ts
+web/                 # frontend: pages/ (one .marko per page), tags/ (components), styles/ (*.css.ts), marko.d.ts
 builder/             # the Vite plugin: edgy.ts (the one plugin), platform.ts (platformOf, OUT_DIR, CLIENT_DIR, withDefaults), node.ts, dev.ts, output.ts, native.ts (native-addon guard), preview.ts, worker.ts, compile.ts (single executable)
 e2e/                 # Playwright: screens/ (one *.spec.ts per page), fixtures/ (page objects), utils/ (helpers), test-data/ (JSON), config.ts (ENV)
 tests/               # shared test helpers (app.ts, d1.ts, cache.ts, collector.ts, ids.ts) and cross-cutting tests (dev server, vite config, live sockets, native addons); other tests sit beside the code
@@ -64,7 +64,7 @@ Output: `dist/server` (`index.mjs`, `chunks/`, `assets/`, `package.json`), `dist
 - `pnpm run deploy` (not `pnpm deploy`): builds the Worker with `--minify`, then `wrangler deploy` (which follows the redirect the plugin writes to `dist/worker/wrangler.json`).
 - `pnpm app config:generate [--check]`, `pnpm app openapi:generate [--check]`: regenerate or verify `.env.example` and `docs/openapi.json`.
 - `pnpm check` (`oxfmt --check && oxlint`, read-only), `pnpm format`, `pnpm lint` (`oxlint --fix`, rewrites files), `pnpm typecheck` (`tsc -b --noEmit && mtc`; `tsc` skips `.marko` files and exits 0 on a broken template, `mtc` checks them).
-- `pnpm test` / `pnpm test:coverage`: Vitest, project `unit` (`src/**` and `tests/**`, `*.test.ts`) and project `marko` (`app/**/*.test.ts` in jsdom, `@marko/testing-library`), coverage by V8 over `src/` in `.output/tests-results/coverage` (`pnpm test:report` serves it). Beyond it, validate the Node bundle with `pnpm build` + `node dist/server/index.mjs serve --auto-migrate` and the Worker with `pnpm preview --mode worker`.
+- `pnpm test` / `pnpm test:coverage`: Vitest, project `unit` (`src/**` and `tests/**`, `*.test.ts`) and project `marko` (`web/**/*.test.ts` in jsdom, `@marko/testing-library`), coverage by V8 over `src/` in `.output/tests-results/coverage` (`pnpm test:report` serves it). Beyond it, validate the Node bundle with `pnpm build` + `node dist/server/index.mjs serve --auto-migrate` and the Worker with `pnpm preview --mode worker`.
 - `pnpm e2e` (`e2e:ui`, `e2e:chrome`, `e2e:firefox`, `e2e:safari`, `e2e:mobile`, `e2e:report`, `e2e:install`): Playwright Test (`playwright.config.ts`, `e2e/screens/*.spec.ts`). Four browser projects run against the production Node build, which `webServer` builds, migrates, seeds (a database under `.output/e2e/`) and starts on port 3100 (`E2E_BASE_URL` points at a running server instead; `ENV` in `e2e/config.ts`); a fifth, `Dev`, runs `hot-reload.spec.ts` against `pnpm dev` on 3101 (`E2E_DEV_URL`). Report: `.output/e2e-result/`.
 - `pnpm compose:up|down|restart|cleanup`: the development services (cleanup also deletes `./.storage`).
 
