@@ -1,4 +1,4 @@
-import type { Page } from 'playwright'
+import type { Page } from '@playwright/test'
 
 /** The `/users` page: the list, its filter and its pager. */
 export class UsersScreen {

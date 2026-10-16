@@ -21,10 +21,11 @@ pnpm compose:cleanup   # stop them and delete their data
 pnpm test              # vitest run
 pnpm test:coverage     # the same, with a coverage report in .output/tests-results/coverage
 pnpm e2e:install       # download the browser the end-to-end tests drive (once)
-pnpm e2e               # end-to-end tests in headless Chromium against the production build
-pnpm e2e:all           # ... in Chromium, Firefox, Safari (WebKit) and a mobile Chrome
-pnpm e2e:chrome        # ... one browser, with its window shown (also e2e:firefox, e2e:safari, e2e:mobile)
-pnpm e2e:ui            # the Vitest UI, listing only the end-to-end tests
+pnpm e2e               # end-to-end tests in Chromium, Firefox, Safari (WebKit) and a mobile Chrome, against the production build
+pnpm e2e --project Chromium   # one browser (the names are in playwright.config.ts)
+pnpm e2e:chrome        # ... one browser with its window shown (also e2e:firefox, e2e:safari, e2e:mobile)
+pnpm e2e:ui            # Playwright's UI mode: pick tests, watch each step, time-travel
+pnpm e2e:report        # open the HTML report of the last run (.output/e2e-result)
 pnpm test:report       # serve .output/tests-results (open /coverage/ for the coverage report)
 pnpm typecheck         # tsc --noEmit, then the page templates
 pnpm check             # oxfmt --check + oxlint (read-only; what a hook or CI should run)
@@ -142,12 +143,10 @@ the Marko and vanilla-extract transforms run as they do in a build, and the numb
 top of the test run. Code the tests cannot reach by design (the CLI commands, the server and Worker entries,
 the dev server) shows as uncovered; read the report per file rather than as one total.
 
-End-to-end tests (`pnpm e2e`) run in real browsers through [Playwright](https://playwright.dev), under Vitest as
-a second project. They build the production server, start it on a free port with a fresh seeded database, and
-open its pages: the filter on `/users` working shows the page hydrated, and a page that raises a
-Content-Security-Policy violation fails. `E2E_BROWSER` picks the browser (`chromium` by default, `firefox`,
-`webkit`, `mobile`, a comma-separated list or `all`), `E2E_HEADED=1` shows the window, and `E2E_BASE_URL` tests a
-server that is already running instead.
+End-to-end tests (`pnpm e2e`) run in real browsers with [Playwright Test](https://playwright.dev), apart from
+Vitest. They build the production server, start it with a fresh seeded database, and open its pages: the filter on
+`/users` working shows the page hydrated, and a page that raises a Content-Security-Policy violation fails. Files
+ending `.spec.ts` in `e2e/` are end-to-end (set `E2E_BASE_URL` to test a server that is already running instead of starting one); `.test.ts` files are the unit and integration tests.
 
 ## Validation before claiming a change works
 

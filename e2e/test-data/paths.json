@@ -1,0 +1,6 @@
+{
+    "home": "/",
+    "users": "/users",
+    "missingPage": "/no-such-page",
+    "missingApi": "/api/no-such-path"
+}

@@ -1,4 +1,4 @@
-import type { Page } from 'playwright'
+import type { Page } from '@playwright/test'
 
 /** The HTML error page, and the JSON error an API path answers instead. */
 export class ErrorScreen {

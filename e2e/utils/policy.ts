@@ -1,4 +1,4 @@
-import type { Page } from 'playwright'
+import { expect, type Page } from '@playwright/test'
 
 declare global {
   interface Window {
@@ -27,4 +27,21 @@ export const watchPolicy = async (page: Page) => {
         return { ran: window.__injected === true, violations: window.__violations }
       })
   }
+}
+
+/** Opens `path` and fails on a policy violation, a console error or an uncaught exception. */
+export const expectCleanLoad = async (page: Page, path: string): Promise<void> => {
+  const policy = await watchPolicy(page)
+  const errors: string[] = []
+  page.on('console', (message) => {
+    // The browser reports the 404 of the error page itself as a console error.
+    if (message.type() === 'error' && !message.text().includes('404')) errors.push(message.text())
+  })
+  page.on('pageerror', (error) => errors.push(error.message))
+
+  await page.goto(path)
+  await page.waitForLoadState('networkidle')
+
+  expect(await policy.violations()).toEqual([])
+  expect(errors).toEqual([])
 }

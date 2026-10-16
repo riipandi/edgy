@@ -64,6 +64,7 @@ vitest.workspace.*
 /playwright/.cache/
 /playwright-report/
 /test-results/
+/e2e-result/
 /e2e-tests/.auth/
 /e2e-tests/.output/
 /tests-results/
