@@ -39,6 +39,9 @@ jobs:
       - name: Tests
         run: pnpm test
 
+      - name: Browser tests
+        run: pnpm e2e:install && pnpm e2e
+
       - name: .env.example is current
         run: pnpm app config:generate --check
 

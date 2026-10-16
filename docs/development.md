@@ -20,6 +20,10 @@ pnpm compose:restart   # down, then up
 pnpm compose:cleanup   # stop them and delete their data
 pnpm test              # vitest run
 pnpm test:coverage     # the same, with a coverage report in .output/tests-results/coverage
+pnpm e2e:install       # download the browser the end-to-end tests drive (once)
+pnpm e2e               # end-to-end tests in headless Chromium against the production build
+pnpm e2e:all           # ... in Chromium, Firefox, Safari (WebKit) and a mobile Chrome
+pnpm e2e:chrome        # ... one browser, with its window shown (also e2e:firefox, e2e:safari, e2e:mobile)
 pnpm test:report       # serve .output/tests-results (open /coverage/ for the coverage report)
 pnpm typecheck         # tsc --noEmit, then the page templates
 pnpm check             # oxfmt --check + oxlint (read-only; what a hook or CI should run)
@@ -137,10 +141,17 @@ the Marko and vanilla-extract transforms run as they do in a build, and the numb
 top of the test run. Code the tests cannot reach by design (the CLI commands, the server and Worker entries,
 the dev server) shows as uncovered; read the report per file rather than as one total.
 
+End-to-end tests (`pnpm e2e`) run in real browsers through [Playwright](https://playwright.dev), under Vitest as
+a second project. They build the production server, start it on a free port with a fresh seeded database, and
+open its pages: the filter on `/users` working shows the page hydrated, and a page that raises a
+Content-Security-Policy violation fails. `E2E_BROWSER` picks the browser (`chromium` by default, `firefox`,
+`webkit`, `mobile`, a comma-separated list or `all`), `E2E_HEADED=1` shows the window, and `E2E_BASE_URL` tests a
+server that is already running instead.
+
 ## Validation before claiming a change works
 
 ```bash
-pnpm typecheck && pnpm check && pnpm test
+pnpm typecheck && pnpm check && pnpm test && pnpm e2e
 ```
 
 Plus a run against the real artifacts — a green test suite does not exercise the built bundles:
