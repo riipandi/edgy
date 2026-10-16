@@ -7,7 +7,9 @@
  * from `dist/worker/public`, which Cloudflare serves without starting the Worker, so do not declare
  * `assets` or `no_bundle` here.
  *
- * Build: `pnpm build --mode worker`. Deploy: `pnpm exec wrangler deploy`.
+ * Build: `pnpm build --mode worker --minify`
+ * Deploy: `pnpm exec wrangler deploy`
+ * Preview: `pnpm exec wrangler preview`
  *
  * Variables that matter on Workers:
  * - OTEL_SDK_DISABLED: Off targets the local ClickStack, which a deployed Worker cannot reach. To
