@@ -37,12 +37,12 @@ compile a single executable using Node's [Single Executable Applications](https:
 
 ```bash
 pnpm install
-pnpm app migrate:up     # create the users table
-pnpm app migrate:seed   # insert sample rows (idempotent)
-pnpm dev                # http://localhost:3000, pages update live, server code reloads
-pnpm test               # run the test suite
-pnpm dev --mode worker       # the same app as a Cloudflare Worker, locally
-pnpm compose:up         # ClickStack (HyperDX) and Valkey in Docker, for telemetry
+pnpm app migrate:up       # create the users table
+pnpm app migrate:seed     # insert sample rows (idempotent)
+pnpm dev                  # http://localhost:3000, pages update live, server code reloads
+pnpm test                 # run the test suite
+pnpm dev --mode worker    # the same app as a Cloudflare Worker, locally
+pnpm compose:up           # ClickStack (HyperDX) and Valkey in Docker, for telemetry
 ```
 
 Every setting is an optional environment variable; `pnpm app config:generate` writes `.env.example`
