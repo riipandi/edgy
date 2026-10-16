@@ -136,7 +136,8 @@ Tests use [Vitest](https://vitest.dev) with [`@effect/vitest`](https://effect.we
 the code they cover (`*.test.ts`). Vitest loads the pages through the same Vite plugins as a build. They build the real application over a private in-memory database
 and call it in-process, so no port is opened; the OpenTelemetry collector is replaced by a fake that
 records what is sent. Effect tests run on a controlled clock, so retries and timeouts are stepped
-through, not waited for. `pnpm test` also checks that `.env.example` matches the configuration.
+through, not waited for. Interactive page components are tested on their own in a simulated browser, next to
+the component, by acting on them as a user would: typing in the filter and checking the list. `pnpm test` also checks that `.env.example` matches the configuration.
 
 Coverage (`pnpm test:coverage`) is measured over `src/` with V8's native coverage: no code is instrumented, so
 the Marko and vanilla-extract transforms run as they do in a build, and the numbers cost about a second on
