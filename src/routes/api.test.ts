@@ -238,7 +238,16 @@ describe('pagination', () => {
   })
 
   it('has no way to read the whole table in one request', async () => {
-    for (const query of ['limit=-1', 'limit=101', 'limit=0']) {
+    for (const query of [
+      'limit=-1',
+      'limit=101',
+      'limit=0',
+      'limit=1e2',
+      'limit=0x10',
+      'limit=+5',
+      'limit=5.0',
+      'limit='
+    ]) {
       const response = await t.request(`/api/users?${query}`)
       expect(response.status).toBe(400)
       expect((await json(response)).error.code).toBe('VALIDATION_FAILED')

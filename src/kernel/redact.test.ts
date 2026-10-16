@@ -124,3 +124,10 @@ describe('describeFailure', () => {
     expect(describeFailure(42)).toBe('')
   })
 })
+
+describe('an unquoted value with a space', () => {
+  it('ends at the space, so the rest of the value stays: quote it to hide it whole', () => {
+    expect(redactText('password=a b')).toBe(`password=${REDACTED} b`)
+    expect(redactText('password="a b"')).toBe(`password="${REDACTED}"`)
+  })
+})

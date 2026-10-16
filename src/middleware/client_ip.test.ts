@@ -207,3 +207,30 @@ describe('clientLocation', () => {
     ).toBeUndefined()
   })
 })
+
+describe('an empty entry in X-Forwarded-For', () => {
+  const trust: ClientIpTrust = { proxies: list('10.0.0.0/8'), platformHeader: undefined }
+
+  it.each(['1.2.3.4,,10.0.0.2', '1.2.3.4, ,10.0.0.2', '1.2.3.4,10.0.0.2,', ',1.2.3.4,10.0.0.2'])(
+    'is skipped: %j still finds the client',
+    (header) => {
+      expect(resolve(trust, '10.0.0.1', { 'x-forwarded-for': header })).toBe('1.2.3.4')
+    }
+  )
+
+  it('leaves a header of nothing else to the socket address', () => {
+    expect(resolve(trust, '10.0.0.1', { 'x-forwarded-for': ',,' })).toBe('10.0.0.1')
+  })
+
+  it('still stops at an entry that is not an address', () => {
+    expect(resolve(trust, '10.0.0.1', { 'x-forwarded-for': 'garbage,10.0.0.2' })).toBe('10.0.0.1')
+  })
+})
+
+describe('a range of one family', () => {
+  it('does not match the other: ::/0 trusts no IPv4 peer', () => {
+    const trust: ClientIpTrust = { proxies: list('::/0'), platformHeader: undefined }
+    expect(resolve(trust, '10.0.0.1', { 'x-forwarded-for': '1.2.3.4' })).toBe('10.0.0.1')
+    expect(resolve(trust, '2001:db8::1', { 'x-forwarded-for': '1.2.3.4' })).toBe('1.2.3.4')
+  })
+})

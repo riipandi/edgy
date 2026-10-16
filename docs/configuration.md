@@ -58,7 +58,9 @@ needs the client's. There are two ways to pass it on.
 `X-Forwarded-For` is read from the right. Each proxy adds the address it received the request from, so
 the entries on the right belong to your proxies; those are skipped, and the first address that is not
 one of them is the client. A client that sends its own `X-Forwarded-For` only adds entries on the left,
-which are never believed.
+which are never believed. An empty entry (`a,,b`) is skipped; an entry that is not an address makes the
+server use the connection's own address. A range covers one address family: `::/0` does not match IPv4
+peers, so list `0.0.0.0/0` as well.
 
 `TRUSTED_PLATFORM` names a header that a CDN or platform sets to the client address, which is then read
 directly instead of `X-Forwarded-For`: `CF-Connecting-IP` for Cloudflare, `Fly-Client-IP` for Fly.io,

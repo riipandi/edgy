@@ -1,5 +1,5 @@
 import { Duration, Effect, Schema } from 'effect'
-import { getQuery, getRouterParams, type H3Event, HTTPError, readBody } from 'h3'
+import { getQuery, getRouterParams, type H3Event, HTTPError } from 'h3'
 import type { AppError, ValidationError } from '../errors.ts'
 import type { Page } from '../pagination.ts'
 import { decode } from './decode.ts'
@@ -67,26 +67,50 @@ const requireJson = (event: H3Event): void => {
 }
 
 /**
- * Reads the JSON body, giving up after `REQUEST_TIMEOUT` with `408`. The program has its own
- * timeout, but the body is read before it starts. Without this, a client that sends headers and
- * stalls holds an in-flight slot, and enough of them make the overload guard refuse everyone.
+ * Reads the JSON body, giving up after `REQUEST_TIMEOUT` with `408` and cancelling the read, which
+ * releases the connection. The program has its own timeout, but the body is read before it starts.
+ * Without this, a client that sends headers and stalls holds an in-flight slot, and enough of them
+ * make the overload guard refuse everyone.
+ *
+ * Reads the stream itself instead of `readBody`, which cannot be cancelled. A failure that is not
+ * ours (the `413` of the body limit) is rethrown as it is.
  */
 const readBodyWithin = async (event: H3Event): Promise<unknown> => {
-  const limit = Duration.toMillis(runtimeOf(event).requestTimeout)
-  let timer: ReturnType<typeof setTimeout> | undefined
-  const expired = new Promise<never>((_resolve, reject) => {
-    timer = setTimeout(
-      () => reject(new HTTPError({ status: 408, message: 'Request body timed out' })),
-      limit
-    )
-  })
-  const reading = readBody(event)
-  // The read outlives the race when the timer wins; its late failure must not be unhandled.
-  reading.catch(() => undefined)
+  const body = event.req.body
+  if (body === null) return undefined
+  const reader = body.getReader()
+  const decoder = new TextDecoder()
+  let text = ''
+  let timedOut = false
+  const timer = setTimeout(
+    () => {
+      timedOut = true
+      reader.cancel().catch(() => undefined)
+    },
+    Duration.toMillis(runtimeOf(event).requestTimeout)
+  )
   try {
-    return await Promise.race([reading, expired])
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      text += decoder.decode(value, { stream: true })
+    }
   } finally {
     clearTimeout(timer)
+    reader.releaseLock()
+  }
+  if (timedOut) {
+    // The rest of the body may still arrive on this connection, so it cannot be reused.
+    event.res.errHeaders.set('connection', 'close')
+    throw new HTTPError({ status: 408, message: 'Request body timed out' })
+  }
+
+  text += decoder.decode()
+  if (text === '') return undefined
+  try {
+    return JSON.parse(text)
+  } catch {
+    throw new HTTPError({ status: 400, statusText: 'Bad Request', message: 'Invalid JSON body' })
   }
 }
 

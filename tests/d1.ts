@@ -25,6 +25,14 @@ export const fakeD1 = (options: FakeD1Options = {}): D1Database & { statements: 
       let params: unknown[] = []
       const prepared = {
         bind: (...values: unknown[]) => {
+          // D1 accepts strings, numbers, null and blobs: no booleans, no `undefined`.
+          for (const value of values) {
+            if (typeof value === 'boolean' || value === undefined) {
+              throw new Error(
+                `D1_TYPE_ERROR: Type '${typeof value}' not supported for value '${value}'`
+              )
+            }
+          }
           params = values
           return prepared
         },

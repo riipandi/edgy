@@ -1,4 +1,4 @@
-import { Schema } from 'effect'
+import { Schema, SchemaTransformation } from 'effect'
 import {
   DEFAULT_LIMIT,
   decodeCursor,
@@ -32,13 +32,16 @@ export interface PaginationQuery<S extends string> {
   readonly sort_order?: SortOrder | undefined
 }
 
-const limitSchema = Schema.FiniteFromString.pipe(
+const LIMIT_MESSAGE = `limit must be an integer from 1 to ${MAX_LIMIT}`
+
+/** Plain digits only: `Number('1e2')` is 100, but the text is not an integer the caller wrote. */
+const limitSchema = Schema.String.pipe(
   Schema.check(
-    Schema.makeFilter((n: number) =>
-      Number.isSafeInteger(n) && n >= 1 && n <= MAX_LIMIT
-        ? undefined
-        : `limit must be an integer from 1 to ${MAX_LIMIT}`
-    )
+    Schema.makeFilter((text: string) => (/^\d{1,3}$/.test(text) ? undefined : LIMIT_MESSAGE))
+  ),
+  Schema.decodeTo(Schema.Finite, SchemaTransformation.numberFromString),
+  Schema.check(
+    Schema.makeFilter((n: number) => (n >= 1 && n <= MAX_LIMIT ? undefined : LIMIT_MESSAGE))
   )
 ).annotate({
   description: `Items per page: an integer from 1 to ${MAX_LIMIT}. Default ${DEFAULT_LIMIT}.`

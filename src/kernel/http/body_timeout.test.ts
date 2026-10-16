@@ -23,6 +23,30 @@ const stalledPost = (app: TestApp) =>
   )
 
 describe('a request body that never finishes', () => {
+  it('has its read cancelled, so the connection is released', async () => {
+    t = await makeTestApp({ REQUEST_TIMEOUT: '150' })
+    let cancelled = false
+    const response = await t.app.fetch(
+      new Request('http://test/api/users', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode('{"email":'))
+          },
+          cancel() {
+            cancelled = true
+          }
+        }),
+        duplex: 'half'
+      } as RequestInit)
+    )
+
+    expect(response.status).toBe(408)
+    expect(response.headers.get('connection')).toBe('close')
+    expect(cancelled).toBe(true)
+  })
+
   it('is answered 408 after REQUEST_TIMEOUT and gives its in-flight slot back', async () => {
     t = await makeTestApp({ REQUEST_TIMEOUT: '150' })
 

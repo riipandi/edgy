@@ -51,7 +51,7 @@ const platformAddress = (
  *    With `TRUST_PROXY=true` every entry is trusted, so the leftmost wins.
  * 4. `X-Real-IP`, when there is no usable `X-Forwarded-For`.
  *
- * A malformed entry ends the search and the socket address is used. With no address at all
+ * An empty entry is skipped. A malformed one ends the search and the socket address is used. With no address at all
  * the result is `unknown`, one shared bucket, which fails in the safe direction.
  */
 export const clientAddress = (input: ClientIpInput, trust: ClientIpTrust): string => {
@@ -72,7 +72,10 @@ export const clientAddress = (input: ClientIpInput, trust: ClientIpTrust): strin
     let client: Uint8Array | undefined
     const entries = forwarded.split(',')
     for (let i = entries.length - 1; i >= 0; i -= 1) {
-      const bytes = parseIp(entries[i] ?? '')
+      const entry = (entries[i] ?? '').trim()
+      // A proxy that writes `a,,b` adds nothing the client could use; only an unreadable entry stops.
+      if (entry === '') continue
+      const bytes = parseIp(entry)
       if (bytes === undefined) return fallback
       client = bytes
       if (!isTrustedProxy(bytes, trust.proxies)) break
