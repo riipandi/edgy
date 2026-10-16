@@ -1,10 +1,10 @@
 import { Effect, Layer, ManagedRuntime } from 'effect'
 import { toNodeHandler } from 'h3/node'
-import { makeNodeApp } from './application.ts'
 import { migrateToLatest } from './database/migrator.ts'
 import { ConfigService } from './kernel/config/service.ts'
 import { CoreLayer } from './kernel/layers.ts'
 import { AppLayer } from './layers.ts'
+import { makeNodeApp } from './node.ts'
 
 /**
  * Whether `pnpm dev` applies pending migrations. An unset `DATABASE_AUTO_MIGRATE` means yes, so a

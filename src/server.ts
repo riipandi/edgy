@@ -1,10 +1,10 @@
 import { Duration, Effect } from 'effect'
 import { serve } from 'h3'
 import { fileURLToPath } from 'node:url'
-import { makeNodeApp } from './application.ts'
 import { ConfigService } from './kernel/config/service.ts'
 import { directoryAssets, embeddedAssets } from './kernel/http/node_assets.ts'
 import { acceptProxyProtocol } from './kernel/http/proxy_protocol.ts'
+import { makeNodeApp } from './node.ts'
 
 /**
  * Starts the HTTP server and runs until interrupted. SIGINT/SIGTERM reach `NodeRuntime.runMain`,

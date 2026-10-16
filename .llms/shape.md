@@ -19,7 +19,7 @@ src/
   worker.ts          # Workers entry: one app per env object, exports only its handler
   app.ts             # createApp({ runtime, config }): global plugins + route table
   server.ts          # serveHttp: captures the HttpRuntime, starts h3 inside a scope
-  application.ts     # makeNodeApp: runtime, rate limiter and createApp as Node builds them (serveHttp and dev.ts)
+  node.ts            # makeNodeApp: runtime, rate limiter and createApp as Node builds them (serveHttp and dev.ts)
   dev.ts             # startDevApp: the application for `pnpm dev`, loaded through Vite's module runner
   layers.ts          # AppLayer (Node): configured database + services
   services.ts        # ServicesLayer: every module's repos and services (portable)
