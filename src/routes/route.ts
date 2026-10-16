@@ -1,48 +1,15 @@
-import { type H3Plugin, HTTPError, type Middleware } from 'h3'
+import { type H3Plugin, HTTPError } from 'h3'
 import type { AppConfig } from '../kernel/config/service.ts'
 import { allowedMethods } from '../kernel/http/allowed_methods.ts'
 import { type AssetSource, assetRoutes } from '../kernel/http/assets.ts'
-import { API_PREFIX, defineRouteGroup } from '../kernel/http/router.ts'
+import { defineRouteGroup } from '../kernel/http/router.ts'
 import { unlessDraining } from '../kernel/http/runtime.ts'
 import { cacheControl } from '../middleware/cache_control.ts'
-import { makeClientResolver } from '../middleware/client_ip.ts'
-import { makeMemoryRateCheck, rateLimit, rateLimitMiddleware } from '../middleware/rate_limit.ts'
-import type { RateCheck, RateLimitOptions } from '../middleware/rate_limit.ts'
+import { makeMemoryRateCheck, type RateCheck } from '../middleware/rate_limit.ts'
 import { healthHandler } from '../modules/health/health_handler.ts'
-import { homePageHandler } from '../modules/home/home_pages.ts'
-import { userPages } from '../modules/user/user_pages.ts'
-import { userRoutes } from '../modules/user/user_routes.ts'
 import { metricsHandler } from '../observer/metrics_handler.ts'
-
-/** How the groups that do work per request (the API and the pages) count a client. */
-const limitOptions = (config: AppConfig, check: RateCheck): RateLimitOptions => ({
-  check,
-  clientOf: makeClientResolver({
-    proxies: config.server.trustProxy,
-    platformHeader: config.server.trustedPlatform
-  })
-})
-
-/** Every module whose routes are served under `/api` (and so described by the API document). */
-export const apiModules: readonly H3Plugin[] = [userRoutes]
-
-/**
- * `/api` group: every resource endpoint that answers in the API envelope. Middleware shared by the
- * whole API lives here. Probes and reserved paths stay outside, since load balancers and RFC 8615
- * clients expect them at the origin root.
- */
-const apiRoutes = (config: AppConfig, check: RateCheck): H3Plugin =>
-  defineRouteGroup({
-    prefix: API_PREFIX,
-    middleware: [
-      // API answers are per caller, so no cache may store them.
-      cacheControl({ value: 'no-store', errors: true }),
-      ...(config.security.rateLimitEnabled ? [rateLimit(limitOptions(config, check))] : [])
-    ],
-    routes: (api) => {
-      for (const module of apiModules) api.register(module)
-    }
-  })
+import { apiRoutes } from './api.ts'
+import { pageRoutes } from './web.ts'
 
 /**
  * `/.well-known` group (RFC 8615), at the origin root with its own Cache-Control. The security.txt
@@ -84,21 +51,6 @@ const notFoundRoutes: H3Plugin = (app) => {
       event.res.errHeaders.set('allow', allow.join(', '))
       throw new HTTPError({ status: 405 })
     })
-  }
-}
-
-/**
- * HTML pages at the origin root, outside the API envelope, under the same rate limit as the API.
- * They are not a group (a group at the root would wrap every later route), so each page carries
- * the limiter as route middleware. Probes, assets and `/.well-known` stay outside it.
- */
-const pageRoutes = (config: AppConfig, check: RateCheck): H3Plugin => {
-  const middleware: Middleware[] = config.security.rateLimitEnabled
-    ? [rateLimitMiddleware(limitOptions(config, check))]
-    : []
-  return (app) => {
-    app.get('/', homePageHandler, { middleware })
-    app.register(userPages(middleware))
   }
 }
 

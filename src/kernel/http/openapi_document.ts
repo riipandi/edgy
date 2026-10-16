@@ -1,4 +1,4 @@
-import { apiModules } from '../../routes/route.ts'
+import { apiModules } from '../../routes/api.ts'
 import { buildOpenApi } from './openapi.ts'
 import { API_PREFIX, routesOf } from './router.ts'
 import { defineRouteGroup } from './router.ts'
