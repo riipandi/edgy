@@ -105,6 +105,7 @@ A paginated response adds the cursor to `metadata` and navigation to `links`:
 | ------ | ------- |
 | `400`  | Validation failed (body, path or query), or the body is not valid JSON |
 | `404`  | Unknown path (`NOT_FOUND`), or unknown user (`NOT_FOUND`, `"details": { "id": "user_…" }`); an `:id` that is not a `user_` id is a `400` |
+| `405`  | A path that exists under other methods (`METHOD_NOT_ALLOWED`); `Allow` lists them |
 | `415`  | A request body that is not `application/json` |
 | `429`  | Rate limit exceeded; `Retry-After` says how many seconds to wait |
 | `409`  | The user already exists (duplicate email; `CONFLICT`) |

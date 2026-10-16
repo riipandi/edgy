@@ -1,17 +1,13 @@
 import { type H3Plugin, HTTPError, type Middleware } from 'h3'
 import type { AppConfig } from '../kernel/config/service.ts'
+import { allowedMethods } from '../kernel/http/allowed_methods.ts'
 import { type AssetSource, assetRoutes } from '../kernel/http/assets.ts'
 import { API_PREFIX, defineRouteGroup } from '../kernel/http/router.ts'
 import { unlessDraining } from '../kernel/http/runtime.ts'
 import { cacheControl } from '../middleware/cache_control.ts'
 import { makeClientResolver } from '../middleware/client_ip.ts'
-import {
-  makeMemoryRateCheck,
-  type RateCheck,
-  rateLimit,
-  rateLimitMiddleware,
-  type RateLimitOptions
-} from '../middleware/rate_limit.ts'
+import { makeMemoryRateCheck, rateLimit, rateLimitMiddleware } from '../middleware/rate_limit.ts'
+import type { RateCheck, RateLimitOptions } from '../middleware/rate_limit.ts'
 import { healthHandler } from '../modules/health/health_handler.ts'
 import { homePageHandler } from '../modules/home/home_pages.ts'
 import { userPages } from '../modules/user/user_pages.ts'
@@ -72,7 +68,8 @@ const rootRoutes = (config: AppConfig): H3Plugin => {
 }
 
 /**
- * Catch-all for unmatched paths. It throws an `HTTPError` rather than returning h3's internal
+ * Catch-all for unmatched requests: `405` with `Allow` when the path exists under other methods,
+ * `404` otherwise. It throws an `HTTPError` rather than returning h3's internal
  * not-found marker: h3's `onResponse` middleware converts that marker with the default config before
  * the app's `onError` hook sees it, leaking h3's own error body.
  */
@@ -80,8 +77,12 @@ const notFoundRoutes: H3Plugin = (app) => {
   // Every method but HEAD: h3 answers a HEAD from the matching GET route only when nothing else
   // matches it first, and a catch-all for HEAD would hide every GET route from health probes.
   for (const method of ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'] as const) {
-    app.on(method, '/**', () => {
-      throw new HTTPError({ status: 404 })
+    app.on(method, '/**', (event) => {
+      const allow = allowedMethods(app, event.url.pathname)
+      if (allow.length === 0) throw new HTTPError({ status: 404 })
+      // h3 builds an error response from `errHeaders` only.
+      event.res.errHeaders.set('allow', allow.join(', '))
+      throw new HTTPError({ status: 405 })
     })
   }
 }

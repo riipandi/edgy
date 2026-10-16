@@ -190,6 +190,9 @@ importers:
       redis:
         specifier: ^6.3.0
         version: 6.3.0
+      rou3:
+        specifier: 1.0.0
+        version: 1.0.0
       typeid-js:
         specifier: ^1.2.0
         version: 1.2.0

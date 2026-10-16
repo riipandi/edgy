@@ -48,6 +48,7 @@
         "kysely": "^0.29.6",
         "marko": "^6.4.6",
         "redis": "^6.3.0",
+        "rou3": "1.0.0",
         "typeid-js": "^1.2.0"
     },
     "devDependencies": {
