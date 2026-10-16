@@ -29,6 +29,8 @@ interface WorkerApp {
   readonly flush: () => Promise<void>
   /** How often `flush` is worth calling (`OTEL_EXPORT_INTERVAL`), in milliseconds. */
   readonly flushEvery: number
+  /** Stops the runtime. Called only for an app that a newer environment replaced. */
+  readonly dispose: () => Promise<void>
 }
 
 /**
@@ -140,7 +142,8 @@ const buildApp = async (env: WorkerEnv): Promise<WorkerApp> => {
           }),
           flush: () =>
             runtime.runPromise(flush.pipe(Effect.timeoutOption('2 seconds'), Effect.asVoid)),
-          flushEvery: Duration.toMillis(config.observability.exportInterval)
+          flushEvery: Duration.toMillis(config.observability.exportInterval),
+          dispose: () => runtime.dispose()
         }
       })
     )
@@ -152,19 +155,45 @@ const buildApp = async (env: WorkerEnv): Promise<WorkerApp> => {
     })
 }
 
-const apps = new WeakMap<object, Promise<WorkerApp>>()
+/** How long a replaced app keeps running, so requests that already hold it can finish. */
+const RETIRE_AFTER_MS = 30_000
 
-/** The app for this environment, built on first use and shared by later requests. */
+interface Slot {
+  readonly env: object
+  readonly app: Promise<WorkerApp>
+}
+
+let current: Slot | undefined
+
+/**
+ * The app for this environment, built on first use and shared by later requests. Cloudflare gives
+ * a Worker one `env` object for the life of the isolate, so there is one build. A different object
+ * means a runtime that hands out a fresh one: that rebuilds, so it is logged, and the app it
+ * replaces is stopped after a delay rather than left running for the rest of the isolate.
+ */
 const appFor = (env: WorkerEnv): Promise<WorkerApp> => {
-  let app = apps.get(env)
-  if (app === undefined) {
-    // A ConfigError is not an Error. Unwrapped, the runtime logs "[object Object]" and the reason is lost.
-    app = buildApp(env).catch((cause: unknown) => {
-      throw cause instanceof Error ? cause : new Error(String(cause))
-    })
-    apps.set(env, app)
-    // A failed build is removed, so the next request retries it.
-    app.catch(() => apps.delete(env))
+  if (current?.env === env) return current.app
+
+  // A ConfigError is not an Error. Unwrapped, the runtime logs "[object Object]" and the reason is lost.
+  const app = buildApp(env).catch((cause: unknown) => {
+    throw cause instanceof Error ? cause : new Error(String(cause))
+  })
+  const previous = current
+  const slot: Slot = { env, app }
+  current = slot
+  // A failed build is dropped, so the next request retries it.
+  app.catch(() => {
+    if (current === slot) current = undefined
+  })
+
+  if (previous !== undefined) {
+    // oxlint-disable-next-line no-console
+    console.warn(
+      'Worker env object changed: rebuilding the app (a new env per request rebuilds each time)'
+    )
+    setTimeout(() => {
+      previous.app.then((old) => old.dispose()).catch(() => undefined)
+    }, RETIRE_AFTER_MS)
   }
   return app
 }

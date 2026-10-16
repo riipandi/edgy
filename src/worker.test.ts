@@ -56,3 +56,38 @@ describe('Worker entry', () => {
     expect(String(log.mock.calls[0]?.[0])).toContain('MISSING_DB_SECRET_NAME')
   })
 })
+
+describe('the app of an environment', () => {
+  const request = () => new Request('http://w/health')
+
+  it('is built once for an env object, however many requests use it', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const env = { ...quiet, DATABASE_AUTO_MIGRATE: 'true', DB: fakeD1() }
+
+    for (let i = 0; i < 3; i += 1) {
+      expect((await worker.fetch(request(), env, context)).status).toBe(200)
+    }
+    expect(warn).not.toHaveBeenCalled()
+  })
+
+  it('is replaced, with a warning, when a new env object arrives, and the old one is stopped later', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout'] })
+    try {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const fresh = () => ({ ...quiet, DATABASE_AUTO_MIGRATE: 'true', DB: fakeD1() })
+
+      // The first call may itself replace an earlier test's env; only the second is counted.
+      expect((await worker.fetch(request(), fresh(), context)).status).toBe(200)
+      const before = warn.mock.calls.length
+      expect((await worker.fetch(request(), fresh(), context)).status).toBe(200)
+      expect(warn).toHaveBeenCalledTimes(before + 1)
+      expect(String(warn.mock.calls.at(-1)?.[0])).toContain('env object changed')
+
+      // The replaced runtime is stopped after the grace period, without failing anything.
+      // A Worker module may export nothing but its handlers, so the delay is not importable.
+      await vi.advanceTimersByTimeAsync(30_000)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})

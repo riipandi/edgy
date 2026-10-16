@@ -214,7 +214,7 @@ every read reaches D1; use a custom domain.
 | `OTEL_SERVICE_NAME`              | `edgy`      | Service name attached to every signal                                    |
 | `OTEL_EXPORT_INTERVAL`           | `5000`      | Milliseconds between exports of buffered traces, metrics and logs        |
 | `OTEL_EXPORTER_OTLP_COMPRESSION` | `gzip`      | Compression of export requests: `gzip` or `none`                         |
-| `OTEL_TRACES_SAMPLE_RATIO`       | `1`         | Fraction of requests whose trace is recorded, from 0 to 1                |
+| `OTEL_TRACES_SAMPLE_RATIO`       | `0.7`       | Fraction of requests whose trace is recorded, from 0 to 1                |
 
 Telemetry is OpenTelemetry over HTTP with JSON bodies (no gRPC), so it works with ClickStack/HyperDX,
 Grafana, Honeycomb or any OpenTelemetry collector. It is on by default and aimed at the local
@@ -229,8 +229,8 @@ The development key and password above belong to the local Docker stack. Product
   database calls beneath it. A `traceparent` header from the caller continues its trace, and the id
   comes back as `metadata.trace_id`, so a report from a client can be found. A `404` or a validation
   error is not an error span; a `5xx` is.
-- **Sampling.** `OTEL_TRACES_SAMPLE_RATIO=0.1` records one request in ten. A caller's sampled trace is
-  always kept.
+- **Sampling.** By default 70 % of requests are recorded (`OTEL_TRACES_SAMPLE_RATIO=0.7`); `1` records
+  every request and `0.1` one in ten. A caller's sampled trace is always kept.
 - **Delivery never slows a request.** Everything is buffered and sent in the background. If the
   collector fails, export pauses for a minute and drops what it held rather than building up memory.
 

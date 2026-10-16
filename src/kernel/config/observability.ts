@@ -56,7 +56,7 @@ export const observabilityConfig = group(
     ),
     sampleRatio: ratio(
       'OTEL_TRACES_SAMPLE_RATIO',
-      1,
+      0.7,
       "Fraction of requests whose trace is recorded (1 = all); a caller's sampled traceparent is always honoured"
     )
   },

@@ -109,6 +109,7 @@ describe('exported telemetry', () => {
         OTEL_EXPORTER_OTLP_COMPRESSION: 'none',
         OTEL_SDK_DISABLED: 'false',
         OTEL_EXPORT_INTERVAL: '100',
+        OTEL_TRACES_SAMPLE_RATIO: '1',
         ...env
       },
       { fetch: collector.fetch }
@@ -252,7 +253,8 @@ describe('probe traces', () => {
         OTEL_EXPORTER_OTLP_HEADERS: 'authorization=dev-key',
         OTEL_SDK_DISABLED: 'false',
         OTEL_EXPORTER_OTLP_COMPRESSION: 'none',
-        OTEL_EXPORT_INTERVAL: '100'
+        OTEL_EXPORT_INTERVAL: '100',
+        OTEL_TRACES_SAMPLE_RATIO: '1'
       },
       { fetch: collector.fetch }
     )
@@ -273,7 +275,8 @@ describe('probe traces', () => {
         OTEL_EXPORTER_OTLP_HEADERS: 'authorization=dev-key',
         OTEL_SDK_DISABLED: 'false',
         OTEL_EXPORTER_OTLP_COMPRESSION: 'none',
-        OTEL_EXPORT_INTERVAL: '100'
+        OTEL_EXPORT_INTERVAL: '100',
+        OTEL_TRACES_SAMPLE_RATIO: '1'
       },
       { fetch: collector.fetch }
     )
