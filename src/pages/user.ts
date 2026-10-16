@@ -1,10 +1,10 @@
 import { Effect } from 'effect'
 import { getQuery, type H3Plugin, type Middleware } from 'h3'
-import { decode } from '../../kernel/http/decode.ts'
-import { definePageHandler } from '../../kernel/http/page.ts'
-import { paginationLinks, paginationMeta, toPageRequest } from '../../kernel/http/pagination.ts'
-import { DEFAULT_SORT, UserListQuerySchema } from './user_schema.ts'
-import { UserService } from './user_service.ts'
+import { decode } from '../kernel/http/decode.ts'
+import { definePageHandler } from '../kernel/http/page.ts'
+import { paginationLinks, paginationMeta, toPageRequest } from '../kernel/http/pagination.ts'
+import { DEFAULT_SORT, UserListQuerySchema } from '../modules/user/user_schema.ts'
+import { UserService } from '../modules/user/user_service.ts'
 
 /**
  * `GET /users`: the user directory as an HTML page. It takes the same parameters as `GET /api/users`
@@ -25,7 +25,7 @@ const usersPageHandler = definePageHandler({
         next: links['next'] ?? null
       }
     }),
-  template: () => import('../../../web/pages/users.marko')
+  template: () => import('../../web/pages/users.marko')
 })
 
 /** The `/users` page, with the middleware that guards it. */

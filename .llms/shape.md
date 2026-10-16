@@ -31,8 +31,9 @@ src/
   observer/          # logger.ts, log_file.ts, log_json.ts, flush.ts, telemetry.ts (OTLP, Flusher), trace_id.ts, error_reporter.ts, metrics.ts, metrics_handler.ts, http_observer.ts, quiet_paths.ts
   middleware/        # cors, request_id, security_headers, development, load_shedding, body_limit, cache_control, client_ip, client_location, rate_limit (+ rate_limit_shared: Redis, rate_limit_binding: Workers)
   command/           # effect/cli: cli.ts, one file per command, helper.ts, generated.ts (shared by the generators)
-  routes/            # route.ts: the route table (root, /api, pages, assets, /.well-known, catch-all; order matters)
-  modules/           # one vertical slice per resource: user/ (schema, repo, service, handler, routes, pages), health/, home/
+  routes/            # the route table: route.ts (order matters), api.ts (/api group, apiModules), web.ts (pages), options.ts (rate-limit deps)
+  modules/           # one vertical slice per resource: user/ (schema, repo, service, handler, routes), health/
+  pages/             # origin-root page handlers, mounted by routes/web.ts: home.ts (GET /), user.ts (GET /users)
   database/
     service.ts       # DatabaseService, makeDatabaseService, makeQueryLogger, isUniqueViolation
     schema.ts        # the Kysely Database type

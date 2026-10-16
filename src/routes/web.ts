@@ -1,8 +1,8 @@
 import { type H3Plugin, type Middleware } from 'h3'
 import type { AppConfig } from '../kernel/config/service.ts'
 import { rateLimitMiddleware, type RateCheck } from '../middleware/rate_limit.ts'
-import { userPages } from '../modules/user/user_pages.ts'
 import { homePageHandler } from '../pages/home.ts'
+import { userPages } from '../pages/user.ts'
 import { limitOptions } from './options.ts'
 
 /**

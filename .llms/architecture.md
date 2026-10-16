@@ -15,7 +15,7 @@ One application, two runtimes. Node.js (`node:sqlite`) and Cloudflare Workers (D
 ```
 
 - **Layers, not singletons.** Services are `Context.Service` classes with a `static layer`. `ServicesLayer` (portable) wires every module over a `DatabaseService`; Node adds the configured database and rate-limit store (`layers.ts`), the Worker adds D1. `CoreLayer` (config, logger, telemetry, error reporter, platform services) is provided once, in `main.ts`; commands add their own layers.
-- **Vertical modules.** `src/modules/<resource>/` holds schema, repository, service, handler, routes and tests. `routes/route.ts` and `services.ts` are the only files that list modules. `src/kernel/` knows h3 and Effect but no resource.
+- **Vertical modules.** `src/modules/<resource>/` holds schema, repository, service, handler, routes and tests. `routes/api.ts` (`apiModules`) and `services.ts` are the only files that list modules. `src/kernel/` knows h3 and Effect but no resource.
 - **Limits of the Worker target.** D1 has no interactive transactions and its introspector cannot read columns; rate-limit counters are per isolate (per Cloudflare location with the binding); the import graph must stay free of Node-only modules, which only a run in workerd checks.
 
 ## Frontend
