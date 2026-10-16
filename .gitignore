@@ -38,6 +38,7 @@ npm-debug.log*
 
 # Envars
 .env.*
+!.env.example
 compose.env*
 !compose.env.example
 .*.vars
