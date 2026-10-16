@@ -9,7 +9,7 @@ The documentation map. Read AGENTS.md first, then this file, then the document a
 | [`architecture.md`](./architecture.md) | How the system is built today, per area (no history) |
 | [`plans/`](./plans/) | Executable plans (owner-approved contracts) — empty |
 | [`issues/`](./issues/) | Findings that outlive a turn — `issue-20261015_2230.md` (open) |
-| [`roadmap/`](./roadmap/) | Parked improvements with unlock triggers — empty |
+| [`roadmap/`](./roadmap/) | Parked improvements with unlock triggers — `roadmap-20261016_0809.md` (Marko streaming, lazy loading, patch protocol) |
 | [`handover/`](./handover/) | Session compactions — empty |
 | [`audit/`](./audit/) | Point-in-time review records — empty |
 | [`archive/`](./archive/) | Terminal-status documents, flat, under their original names — `issue-20261016_0151.md` (the full audit) |
