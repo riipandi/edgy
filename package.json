@@ -25,7 +25,7 @@
         "vendor:init": "git subtree add --prefix=vendor/effect https://github.com/Effect-TS/effect.git main --squash",
         "vendor:update": "git subtree pull --prefix=vendor/effect https://github.com/Effect-TS/effect.git main --squash",
         "prepare": "effect-tsgo patch --typescript --oxlint",
-        "e2e:install": "playwright install chromium --with-deps",
+        "e2e:install": "playwright install --with-deps",
         "e2e:chrome": "playwright test --headed --project Chromium",
         "e2e:firefox": "playwright test --headed --project Firefox",
         "e2e:mobile": "playwright test --headed --project 'Mobile Chrome'",
