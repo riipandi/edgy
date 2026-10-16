@@ -24,6 +24,7 @@ pnpm e2e:install       # download the browser the end-to-end tests drive (once)
 pnpm e2e               # end-to-end tests in headless Chromium against the production build
 pnpm e2e:all           # ... in Chromium, Firefox, Safari (WebKit) and a mobile Chrome
 pnpm e2e:chrome        # ... one browser, with its window shown (also e2e:firefox, e2e:safari, e2e:mobile)
+pnpm e2e:ui            # the Vitest UI, listing only the end-to-end tests
 pnpm test:report       # serve .output/tests-results (open /coverage/ for the coverage report)
 pnpm typecheck         # tsc --noEmit, then the page templates
 pnpm check             # oxfmt --check + oxlint (read-only; what a hook or CI should run)
