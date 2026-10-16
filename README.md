@@ -79,3 +79,14 @@ The full documentation index lives in [docs/index.md](./docs/index.md):
 - Cloudflare — [Workers](https://developers.cloudflare.com/workers/) · [D1](https://developers.cloudflare.com/d1/) · [Wrangler](https://developers.cloudflare.com/workers/wrangler/)
 - Frontend — [Marko](https://markojs.com/docs/introduction/getting-started) · [Vite](https://vite.dev/guide/) · [vanilla-extract](https://vanilla-extract.style) · [Cloudflare Vite plugin](https://developers.cloudflare.com/workers/vite-plugin/)
 - Node.js — [`node:sqlite`](https://nodejs.org/api/sqlite.html) · [single executable applications](https://nodejs.org/api/single-executable-applications.html)
+
+## License
+
+This project licensed under the [MIT License](https://choosealicense.com/licenses/mit).
+See the [LICENSE](./LICENSE) file for more information.
+
+---
+
+<sub>If you like my work, you can support me via [GitHub sponsors](https://github.com/sponsors/riipandi).</sub>
+
+[![Creator Badge](https://badgen.net/badge/icon/by%20Aris%20Ripandi?label&color=black&labelColor=black)](https://twitter.com/intent/follow?screen_name=riipandi)
