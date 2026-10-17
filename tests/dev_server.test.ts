@@ -116,7 +116,7 @@ describe('changing server code', () => {
 
     // Test files and pages are not server code, so the application and its data stay.
     vite.watcher.emit('all', 'change', path.join(root, 'src/app.test.ts'))
-    vite.watcher.emit('all', 'change', path.join(root, 'web/pages/users.marko'))
+    vite.watcher.emit('all', 'change', path.join(root, 'web/pages/users/page.marko'))
     await new Promise((resolve) => setTimeout(resolve, 600))
     expect((await send(vite.middlewares, 'GET /api/users HTTP/1.1')).body).toContain(
       'ada@example.com'

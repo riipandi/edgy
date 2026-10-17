@@ -1,5 +1,6 @@
-import { css } from '../../styled-system/css'
+import { css } from '../../../styled-system/css'
 
+/** Page ground: warm paper, ink text, comfortable body leading. */
 export const body = css({
   backgroundColor: 'paper',
   color: 'text',
@@ -31,23 +32,8 @@ export const brand = css({
 
 export const nav = css({ display: 'flex', gap: 'md' })
 
-export const navLink = css({
-  fontSize: '0.9375rem',
-  color: 'muted',
-  textDecoration: 'none',
-  _hover: { color: 'accent' },
-  _focusVisible: { outline: '2px solid', outlineColor: 'accent', outlineOffset: '2px' }
-})
-
 export const main = css({
   maxWidth: '46rem',
   marginInline: 'auto',
   padding: '3.5rem lg 4.5rem'
-})
-
-export const link = css({
-  color: 'accent',
-  textDecoration: 'none',
-  _hover: { textDecoration: 'underline', textUnderlineOffset: '3px' },
-  _focusVisible: { outline: '2px solid', outlineColor: 'accent', outlineOffset: '2px' }
 })

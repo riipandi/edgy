@@ -1,4 +1,4 @@
-import { css } from '../../styled-system/css'
+import { css } from '../../../styled-system/css'
 
 /** Display headline: serif, tight leading and tracking, sized for the page's voice. */
 export const display = css({

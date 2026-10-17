@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { UsersScreen } from '../fixtures/users.ts'
 
-const stylesheet = path.resolve(import.meta.dirname, '../../web/styles/users.ts')
+const stylesheet = path.resolve(import.meta.dirname, '../../web/styles/pages/user.css.ts')
 const original = readFileSync(stylesheet, 'utf8')
 const MUTED = "color: 'muted', fontSize: '0.875rem'"
 

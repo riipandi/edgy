@@ -7,5 +7,5 @@ import { definePageHandler } from '../kernel/http/page.ts'
  */
 export const homePageHandler = definePageHandler({
   load: () => Effect.succeed({}),
-  template: () => import('../../web/pages/home.marko')
+  template: () => import('../../web/pages/home/page.marko')
 })

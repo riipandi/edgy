@@ -1,5 +1,6 @@
-import { css } from '../../styled-system/css'
+import { css } from '../../../styled-system/css'
 
+/** Page intro heading: smaller than the home display, still serif. */
 export const intro = css({
   fontFamily: 'display',
   fontSize: '1.5rem',
@@ -7,26 +8,6 @@ export const intro = css({
   letterSpacing: '-0.01em',
   lineHeight: 1.2,
   margin: '0 0 md'
-})
-
-export const filter = css({
-  width: '100%',
-  padding: 'sm md',
-  font: 'inherit',
-  fontSize: '1rem',
-  color: 'text',
-  backgroundColor: 'transparent',
-  border: '1px solid',
-  borderColor: 'line',
-  borderRadius: '8px',
-  _hover: { borderColor: 'muted' },
-  _focusVisible: {
-    outline: '2px solid',
-    outlineColor: 'accent',
-    outlineOffset: '1px',
-    borderColor: 'transparent'
-  },
-  _placeholder: { color: 'muted' }
 })
 
 export const muted = css({ color: 'muted', fontSize: '0.875rem' })
@@ -55,11 +36,4 @@ export const pager = css({
   paddingTop: 'lg',
   color: 'muted',
   fontSize: '0.875rem'
-})
-
-export const pagerLink = css({
-  color: 'accent',
-  textDecoration: 'none',
-  _hover: { textDecoration: 'underline' },
-  _focusVisible: { outline: '2px solid', outlineColor: 'accent', outlineOffset: '2px' }
 })

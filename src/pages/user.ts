@@ -25,7 +25,7 @@ const usersPageHandler = definePageHandler({
         next: links['next'] ?? null
       }
     }),
-  template: () => import('../../web/pages/users.marko')
+  template: () => import('../../web/pages/users/page.marko')
 })
 
 /** The `/users` page, with the middleware that guards it. */
