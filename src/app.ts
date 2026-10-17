@@ -39,7 +39,11 @@ export interface AppOptions {
 export const createApp = (options: AppOptions): H3 =>
   new H3({
     onError: makeErrorHandler(() =>
-      Promise.reject(new Error('No page renderer yet (plan-20261018_0105 phase 2)'))
+      Promise.resolve({
+        default: () => {
+          throw new Error('No Solid page yet (plan-20261018_0105 phase 3)')
+        }
+      })
     ),
     plugins: [
       provideRuntime(options.runtime),

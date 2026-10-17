@@ -1,7 +1,7 @@
 import { Effect } from 'effect'
 import { getQuery, type H3Plugin, type Middleware } from 'h3'
 import { decode } from '../kernel/http/decode.ts'
-import { definePageHandler, noRendererYet } from '../kernel/http/page.ts'
+import { definePageHandler } from '../kernel/http/page.ts'
 import { paginationLinks, paginationMeta, toPageRequest } from '../kernel/http/pagination.ts'
 import { DEFAULT_SORT, UserListQuerySchema } from '../modules/user/user_schema.ts'
 import { UserService } from '../modules/user/user_service.ts'
@@ -9,8 +9,8 @@ import { UserService } from '../modules/user/user_service.ts'
 /**
  * `GET /users`: the user directory as an HTML page. It takes the same parameters as `GET /api/users`
  * and reads through the same service, so the page and the API cannot agree to disagree. The Solid
- * template lands in phase 3 of plan-20261018_0105; until then the handler answers through
- * `htmlResponse`'s 503.
+ * page itself lands in phase 3 of plan-20261018_0105; until then the handler answers through
+ * `htmlResponse`'s 503 via the same placeholder.
  */
 const usersPageHandler = definePageHandler({
   load: (event) =>
@@ -26,7 +26,12 @@ const usersPageHandler = definePageHandler({
         next: links['next'] ?? null
       }
     }),
-  template: () => noRendererYet()
+  template: () =>
+    Promise.resolve({
+      default: () => {
+        throw new Error('No Solid page yet (plan-20261018_0105 phase 3)')
+      }
+    })
 })
 
 /** The `/users` page, with the middleware that guards it. */

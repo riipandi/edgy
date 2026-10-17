@@ -1,7 +1,7 @@
 import { Cause, type Effect, Exit, Option } from 'effect'
 import { type H3Event, HTTPError } from 'h3'
 import type { AppError } from '../errors.ts'
-import { rendererlessTemplate, type HtmlTemplate, htmlResponse } from './html_response.ts'
+import { htmlResponse, type SolidTemplate } from './html_response.ts'
 import { runProgram } from './responder.ts'
 import type { HttpEnv } from './runtime.ts'
 
@@ -12,24 +12,22 @@ const CLIENT_CLOSED_REQUEST = 499
 const refused = (error: AppError): HTTPError =>
   new HTTPError({ status: error.status, message: error.clientMessage })
 
-/** The placeholder a page handler carries until the Solid renderer lands (plan phase 2). */
-export const noRendererYet = (): Promise<{ readonly default: never }> =>
-  Promise.reject(new Error('No page renderer yet (plan-20261018_0105 phase 2)'))
-
 /**
- * Declares an HTML page: the template that renders it. The renderer is Solid (added by its phase
- * of plan-20261018_0105); until then pages answer 503 from `htmlResponse`. The program shape
- * (timeout, cancellation, tracing, `?nocache=true`, `X-Cache`) stays as it is.
+ * Declares an HTML page: an Effect that loads what the page shows, and the Solid component that
+ * renders it. The program runs like an API endpoint's (timeout, cancellation, tracing,
+ * `?nocache=true`, `X-Cache`); only the answer differs. The component streams, so the head
+ * flushes before slow parts resolve. Phase 4 of plan-20261018_0105 moves page data to `/rpc`,
+ * which dissolves `load` into the page itself.
  *
  * A failure is thrown as an `HTTPError` for the app's error hook to render.
  *
- * The template loads per request: a static import would make every module that mentions a page
- * unloadable outside Vite, and in development a fresh `import()` picks up an edited template.
+ * The component loads per request: a static import would make every module that mentions a page
+ * unloadable outside Vite, and in development a fresh `import()` picks up an edited page.
  */
 export const definePageHandler =
   <A extends object, E extends AppError>(spec: {
     readonly load: (event: H3Event) => Effect.Effect<A, E, HttpEnv>
-    readonly template: () => Promise<{ readonly default: HtmlTemplate<A> }>
+    readonly template: () => Promise<{ readonly default: SolidTemplate<A> }>
   }) =>
   async (event: H3Event): Promise<Response> => {
     const exit = await runProgram(event, spec.load(event), 200)
@@ -37,17 +35,7 @@ export const definePageHandler =
     if (Exit.isSuccess(exit)) {
       const outcome = exit.value
       if (outcome.kind === 'refused') throw refused(outcome.error)
-      let template: HtmlTemplate<A>
-      try {
-        template = (await spec.template()).default
-      } catch {
-        // No renderer wired yet (the plan's window between phases): the page answers 503 with
-        // the page policy instead of failing the request.
-        return htmlResponse(event, rendererlessTemplate, outcome.value, {
-          status: 503,
-          headers: event.res.headers
-        })
-      }
+      const { default: template } = await spec.template()
       return htmlResponse(event, template, outcome.value, { headers: event.res.headers })
     }
 
