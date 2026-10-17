@@ -111,15 +111,9 @@ describe('client location in the request log', () => {
 describe('HEAD', () => {
   it('answers from the GET route, with no body', async () => {
     t = await makeTestApp()
-    // `/` and `/users` are pages without a renderer yet (503, phase 3 of the plan restores 200).
-    for (const [path, status] of [
-      ['/health', 200],
-      ['/', 503],
-      ['/users', 503],
-      ['/api/users', 200]
-    ] as const) {
+    for (const path of ['/health', '/', '/users', '/api/users']) {
       const res = await t.request(path, { method: 'HEAD' })
-      expect([path, res.status]).toEqual([path, status])
+      expect([path, res.status]).toEqual([path, 200])
       expect(await res.text()).toBe('')
     }
   })
@@ -137,9 +131,7 @@ describe('rate limit on pages', () => {
     for (const path of ['/', '/users', '/api/users', '/users']) {
       statuses.push((await t.request(path, { ip: '203.0.113.9' })).status)
     }
-    // Pages answer 503 until the renderer lands (plan-20261018_0105 phase 3); the rate limiter
-    // counts them before that answer, so the fourth request is still refused.
-    expect(statuses).toEqual([503, 503, 200, 429])
+    expect(statuses).toEqual([200, 200, 200, 429])
 
     const limited = await t.request('/users', { ip: '203.0.113.9' })
     expect(limited.headers.get('retry-after')).not.toBeNull()
@@ -152,8 +144,7 @@ describe('rate limit on pages', () => {
 
   it('is off with RATE_LIMIT_ENABLED=false', async () => {
     t = await makeTestApp({ RATE_LIMIT_ENABLED: 'false', RATE_LIMIT_MAX: '1' })
-    // Pages answer 503 without a renderer yet; the point is they are never 429.
-    for (let i = 0; i < 3; i += 1) expect((await t.request('/users')).status).toBe(503)
+    for (let i = 0; i < 3; i += 1) expect((await t.request('/users')).status).toBe(200)
   })
 })
 

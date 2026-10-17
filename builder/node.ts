@@ -13,7 +13,7 @@ import { nodePreview } from './preview.ts'
  * - `builder: {}` builds every environment, the server first.
  * - Server chunks go in `chunks/` so they never collide with the browser's `/assets`.
  */
-const nodeConfig = (): Plugin => ({
+const nodeConfig = (define: Record<string, string>): Plugin => ({
   name: 'edgy:node',
   config(config, { command }) {
     withDefaults(config, {
@@ -32,7 +32,10 @@ const nodeConfig = (): Plugin => ({
                 banner: (chunk) => (chunk.isEntry ? '#!/usr/bin/env node' : '')
               }
             }
-          }
+          },
+          // The renderer module reads the manifest; the define is per-environment because the
+          // client build must not inline it (its bundle never reads it, but the name would leak).
+          define: { ...config.define, ...define }
         }
       }
     })
@@ -40,8 +43,8 @@ const nodeConfig = (): Plugin => ({
 })
 
 /** Everything for the Node platform: build shape, dev server, finished output, preview. */
-export const nodePlatform = (): Plugin[] => [
-  nodeConfig(),
+export const nodePlatform = (define: Record<string, string> = {}): Plugin[] => [
+  nodeConfig(define),
   devServerPlugin(),
   nodeOutput(),
   nodePreview()

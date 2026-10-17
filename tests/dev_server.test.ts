@@ -75,12 +75,11 @@ afterAll(async () => {
 })
 
 describe('the Vite dev server running the application', () => {
-  it('answers the API and errors from the one server (pages return in phase 3)', async () => {
-    // The Marko pages are gone and the Solid ones are not built yet, so a page path answers
-    // the 503 `htmlResponse` holds while no renderer is wired (plan-20261018_0105).
+  it('answers pages, the API and errors from the one server', async () => {
     const page = await send(vite.middlewares, 'GET /users HTTP/1.1')
-    expect(page.status).toBe(503)
+    expect(page.status).toBe(200)
     expect(page.headers.toLowerCase()).toContain('text/html')
+    expect(page.body).toContain('<title>Users</title>')
 
     const api = await send(vite.middlewares, 'GET /api/users HTTP/1.1')
     expect(api.status).toBe(200)
@@ -92,7 +91,7 @@ describe('the Vite dev server running the application', () => {
   }, 60_000)
 
   it('widens the page policy for Vite, as only development does', async () => {
-    const page = await send(vite.middlewares, 'GET /users HTTP/1.1')
+    const page = await send(vite.middlewares, 'GET / HTTP/1.1')
     expect(page.headers).toMatch(/content-security-policy: [^\r]*style-src 'self' 'unsafe-inline'/i)
   }, 60_000)
 

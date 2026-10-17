@@ -6,9 +6,9 @@
         "erasableSyntaxOnly": false,
         "exactOptionalPropertyTypes": true,
         "isolatedModules": true,
+        "jsx": "preserve",
+        "jsxImportSource": "@solidjs/web",
         "lib": ["ESNext", "DOM"],
-        "jsx": "react-jsx",
-        "jsxImportSource": "solid-js",
         "module": "ESNext",
         "moduleDetection": "force",
         "moduleResolution": "bundler",
@@ -36,6 +36,6 @@
             }
         ]
     },
-    "include": ["**/*.ts"],
+    "include": ["**/*.ts", "**/*.tsx"],
     "exclude": [".output", ".wrangler", "dist", "storage", "styled-system", "vendor"]
 }

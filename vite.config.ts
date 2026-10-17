@@ -13,7 +13,7 @@
 import { defineConfig, loadEnv } from 'vite'
 import { edgy } from './builder/edgy.ts'
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ mode, command }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const address = {
     host: env['HOST'] ?? '127.0.0.1',
@@ -21,7 +21,7 @@ export default defineConfig(({ mode }) => {
     strictPort: true
   }
   return {
-    plugins: [edgy({ mode })],
+    plugins: [edgy({ mode, command })],
     resolve: { tsconfigPaths: true },
     build: {
       emptyOutDir: true,

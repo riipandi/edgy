@@ -1,20 +1,28 @@
 import { pandacss } from '@pandacss/vite'
 import solidPlugin from '@solidjs/vite-plugin'
+import { readFile } from 'node:fs/promises'
+import path from 'node:path'
 import type { ConfigEnv, Plugin, PluginOption } from 'vite'
 import { nodePlatform } from './node.ts'
 import { CLIENT_DIR, OUT_DIR, type Platform, platformOf, withDefaults } from './platform.ts'
 import { workerPlatform } from './worker.ts'
 
 /**
- * Shared by both platforms: the server (or Worker) in one directory and the browser assets in
- * `assets/` beside the Node server, or in the Worker's `public/`. No HTML from Vite, since pages belong to the application (`appType: 'custom'`).
- *
  * The browser build's entry list is explicit (plan-20261018_0105, D7): every interactive page
- * declares a `client.tsx` beside it and the list below names it. Until phase 3 lands the first
- * one, a virtual module keeps the build meaningful but empty.
+ * declares a `client.tsx` beside it and the list below names it. A page without one stays static.
  */
 const clientEntries: Record<string, string> = {
-  'no-client-bundles': '\0no-client-bundles.mjs'
+  'users-page': 'web/pages/users/client.tsx'
+}
+
+/**
+ * Reads what the browser build wrote (`manifest.json` in the output directory). Absent in
+ * development — there is no build, and the define stays empty so pages link no built assets.
+ */
+const readManifestDefine = async (outDir: string): Promise<Record<string, string>> => {
+  const file = path.join(outDir, 'manifest.json')
+  const raw = await readFile(file, 'utf8').catch(() => '{}')
+  return { __EDGY_CLIENT_MANIFEST__: raw.trim() === '' ? '{}' : raw }
 }
 
 /**
@@ -55,28 +63,69 @@ const shared = (platform: Platform): Plugin => ({
  *
  * Async because the Cloudflare plugin is loaded only for the Worker.
  */
-export const edgy = async (env: Pick<ConfigEnv, 'mode'>): Promise<PluginOption[]> => {
+/**
+ * Emits `assets/manifest.json` beside the browser bundle: one map from an entry's logical name
+ * (`users-page`) to its built script, plus every stylesheet the entry pulled in. The server
+ * bundle reads it (through `web/manifest.ts`) to resolve the hashed names pages link in their
+ * `<head>` — Vite's own manifest does not reach the server bundle because `ssr.noExternal` cannot
+ * import a build-time file.
+ */
+const clientManifest = (): Plugin => ({
+  name: 'edgy:client-manifest',
+  apply: 'build',
+  applyToEnvironment: (environment) => environment.name === 'client',
+  generateBundle(_options, bundle) {
+    const manifest: Record<string, { script?: string; styles: string[] }> = {}
+    for (const [name, source] of Object.entries(clientEntries)) {
+      const chunk = Object.values(bundle).find(
+        (file): file is Extract<typeof file, { type: 'chunk' }> =>
+          file.type === 'chunk' &&
+          typeof file.facadeModuleId === 'string' &&
+          file.facadeModuleId.includes(source) &&
+          file.isEntry
+      )
+      if (chunk === undefined) continue
+      const styles = Object.values(bundle)
+        .filter(
+          (file): file is Extract<typeof file, { type: 'asset' }> =>
+            file.type === 'asset' &&
+            file.fileName.endsWith('.css') &&
+            // The entry's own CSS carries the chunk's name prefix (`users-page-<hash>.css`).
+            typeof file.name === 'string' &&
+            file.name.startsWith(chunk.name ?? '')
+        )
+        .map((file) => `/${file.fileName}`)
+      manifest[name] = { script: `/${chunk.fileName}`, styles }
+    }
+    this.emitFile({
+      type: 'asset',
+      fileName: 'manifest.json',
+      source: JSON.stringify(manifest, null, 2)
+    })
+  }
+})
+
+export const edgy = async (env: Pick<ConfigEnv, 'mode' | 'command'>): Promise<PluginOption[]> => {
   const platform = platformOf(env)
+  const manifestDefine = await serverManifestDefine(env.command ?? 'serve', env.mode)
   return [
     shared(platform),
-    noClientBundles(),
+    clientManifest(),
     solidPlugin({ ssr: true, include: ['src/**/*.{tsx,ts}', 'web/**/*.{tsx,ts}'] }),
     pandacss(),
-    ...(platform === 'worker' ? await workerPlatform() : nodePlatform())
+    ...(platform === 'worker' ? await workerPlatform(manifestDefine) : nodePlatform(manifestDefine))
   ]
 }
 
 /**
- * The placeholder the browser build compiles while no page has declared a client entry yet
- * (plan-20261018_0105 phase 3 replaces it with real entries).
+ * The define the server build needs for the renderer's manifest constant: the manifest the
+ * browser build wrote, inlined as a constant. Node keeps it in `dist/server` (the client build
+ * shares the directory); the Worker keeps it under `dist/worker/public`. A stale file from a
+ * previous build serves the server build, which runs first — its own build refreshes the file
+ * for the next one, and the hashed names only go stale with a code change that rebuilds both.
  */
-const noClientBundles = (): Plugin => ({
-  name: 'edgy:no-client-bundles',
-  enforce: 'pre',
-  resolveId(id) {
-    return id === '\0no-client-bundles.mjs' ? id : null
-  },
-  load(id) {
-    return id === '\0no-client-bundles.mjs' ? 'export const NO_CLIENT_BUNDLES = true' : null
-  }
-})
+export const serverManifestDefine = async (command: string, mode: string) => {
+  if (command !== 'build') return {}
+  const platform = platformOf({ mode })
+  return readManifestDefine(platform === 'worker' ? CLIENT_DIR[platform] : OUT_DIR[platform])
+}

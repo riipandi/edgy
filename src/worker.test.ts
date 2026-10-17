@@ -26,11 +26,8 @@ describe('Worker entry', () => {
     expect(created.status).toBe(201)
 
     const page = await worker.fetch(new Request('http://w/users'), env, context)
-    // The page renderer is not wired yet (plan-20261018_0105 phase 3): the page answers 503
-    // with its policy, so the assertion is the content type, not the body.
-    expect(page.status).toBe(503)
-    expect(page.headers.get('content-type')).toBe('text/html; charset=utf-8')
-    expect(await page.text()).not.toContain('ada@example.com')
+    expect(page.status).toBe(200)
+    expect(await page.text()).toContain('ada@example.com')
   })
 
   it('answers a failed start with a 503 that names the request and hides the cause', async () => {
