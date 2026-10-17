@@ -39,7 +39,7 @@
         "check": "oxfmt --check && oxlint",
         "format": "oxfmt --write .",
         "lint": "oxlint --fix .",
-        "typecheck": "tsc -b --noEmit && mtc"
+        "typecheck": "tsc -b --noEmit"
     },
     "dependencies": {
         "@effect/platform-node": "4.0.5",
@@ -47,7 +47,6 @@
         "effect": "^4.0.5",
         "h3": "^2.0.2",
         "kysely": "^0.29.6",
-        "marko": "^6.4.6",
         "redis": "^6.3.0",
         "rou3": "1.0.0",
         "solid-js": "2.0.0-rc.15",
@@ -57,9 +56,6 @@
         "@cloudflare/vite-plugin": "^1.64.0",
         "@effect/tsgo": "0.53.1",
         "@effect/vitest": "^4.0.5",
-        "@marko/testing-library": "^6.4.2",
-        "@marko/type-check": "^3.2.1",
-        "@marko/vite": "^6.1.13",
         "@pandacss/dev": "^2.2.0",
         "@pandacss/preset-base": "2.2.0",
         "@pandacss/preset-panda": "2.2.0",

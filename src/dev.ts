@@ -32,7 +32,7 @@ interface DevApp {
  * Pending migrations run at every start unless `DATABASE_AUTO_MIGRATE=false`. There is no
  * `--auto-migrate` flag, since there is no command line.
  *
- * Loaded through Vite's module runner, which is what lets it import `.marko` pages. The production
+ * Loaded through Vite's module runner, which is what lets it import page templates. The production
  * entry never loads it.
  */
 export const startDevApp = async (): Promise<DevApp> => {

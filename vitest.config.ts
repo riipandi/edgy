@@ -1,10 +1,9 @@
-import marko from '@marko/vite'
 import { pandacss } from '@pandacss/vite'
 import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
-  // Tests import `.marko` templates and `.css.ts` styles, which only Vite can load.
-  plugins: [marko(), pandacss()],
+  // Tests import `.css.ts` styles, which only Vite can load.
+  plugins: [pandacss()],
   test: {
     coverage: {
       provider: 'v8',
@@ -20,16 +19,6 @@ export default defineConfig({
           name: 'unit',
           include: ['src/**/*.test.ts', 'tests/**/*.test.ts'],
           environment: 'node'
-        }
-      },
-      {
-        extends: true,
-        resolve: { conditions: ['browser'] },
-        test: {
-          name: 'marko',
-          include: ['web/**/*.test.ts'],
-          environment: 'jsdom',
-          setupFiles: ['./tests/components_setup.ts']
         }
       }
     ]

@@ -24,9 +24,8 @@ export const makeExecutable = (serverDir: string): boolean => {
  * - A dependency with a native addon stops the build: the bundle inlines every package, which
  *   cannot load one.
  * - `package.json` is emitted with the server's files, so it is a regular build asset.
- * - The executable bit is set in `closeBundle` of the client environment. Marko patches the server
- *   bundle while the browser side builds, so the server file is final only then. Vite cannot set
- *   file modes, hence the `chmod`.
+ * - The executable bit is set in `closeBundle` of the client environment, after the server
+ *   bundle is final. Vite cannot set file modes, hence the `chmod`.
  */
 export const nodeOutput = (): Plugin => {
   let serverDir = ''

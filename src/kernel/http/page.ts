@@ -1,7 +1,7 @@
 import { Cause, type Effect, Exit, Option } from 'effect'
 import { type H3Event, HTTPError } from 'h3'
 import type { AppError } from '../errors.ts'
-import { type HtmlTemplate, htmlResponse } from './html_response.ts'
+import { rendererlessTemplate, type HtmlTemplate, htmlResponse } from './html_response.ts'
 import { runProgram } from './responder.ts'
 import type { HttpEnv } from './runtime.ts'
 
@@ -12,11 +12,14 @@ const CLIENT_CLOSED_REQUEST = 499
 const refused = (error: AppError): HTTPError =>
   new HTTPError({ status: error.status, message: error.clientMessage })
 
+/** The placeholder a page handler carries until the Solid renderer lands (plan phase 2). */
+export const noRendererYet = (): Promise<{ readonly default: never }> =>
+  Promise.reject(new Error('No page renderer yet (plan-20261018_0105 phase 2)'))
+
 /**
- * Declares an HTML page: an Effect that loads what the page shows, and the template that renders
- * it. The program runs like an API endpoint's (timeout, cancellation, tracing, `?nocache=true`,
- * `X-Cache`); only the answer differs. The template streams, so the head flushes before slow
- * parts resolve.
+ * Declares an HTML page: the template that renders it. The renderer is Solid (added by its phase
+ * of plan-20261018_0105); until then pages answer 503 from `htmlResponse`. The program shape
+ * (timeout, cancellation, tracing, `?nocache=true`, `X-Cache`) stays as it is.
  *
  * A failure is thrown as an `HTTPError` for the app's error hook to render.
  *
@@ -34,7 +37,17 @@ export const definePageHandler =
     if (Exit.isSuccess(exit)) {
       const outcome = exit.value
       if (outcome.kind === 'refused') throw refused(outcome.error)
-      const { default: template } = await spec.template()
+      let template: HtmlTemplate<A>
+      try {
+        template = (await spec.template()).default
+      } catch {
+        // No renderer wired yet (the plan's window between phases): the page answers 503 with
+        // the page policy instead of failing the request.
+        return htmlResponse(event, rendererlessTemplate, outcome.value, {
+          status: 503,
+          headers: event.res.headers
+        })
+      }
       return htmlResponse(event, template, outcome.value, { headers: event.res.headers })
     }
 

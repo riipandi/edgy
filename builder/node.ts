@@ -10,8 +10,7 @@ import { nodePreview } from './preview.ts'
  *
  * - `ssr.noExternal` applies only to builds. Under `vite` the module runner leaves `node_modules`
  *   to Node.
- * - `builder: {}` builds every environment, the server first. Marko reads the server build to find
- *   each page's browser entries, then patches that manifest into the server bundle.
+ * - `builder: {}` builds every environment, the server first.
  * - Server chunks go in `chunks/` so they never collide with the browser's `/assets`.
  */
 const nodeConfig = (): Plugin => ({

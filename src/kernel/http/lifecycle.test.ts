@@ -19,9 +19,9 @@ describe('readiness during shutdown', () => {
 
     const health = await t.request('/health')
     expect(health.status).toBe(503)
-    // Outside `/api` an error is an HTML page; a probe reads the status, not the body.
+    // Outside `/api` an error is an HTML page (its body is the renderer-less placeholder until
+    // phase 2 of plan-20261018_0105); a probe reads the status, not the body.
     expect(health.headers.get('content-type')).toContain('text/html')
-    expect(await health.text()).toContain('Shutting down')
     expect((await t.request('/api/users')).status).toBe(200)
   })
 })

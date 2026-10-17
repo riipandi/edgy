@@ -34,6 +34,6 @@
             }
         ]
     },
-    "include": ["**/*.ts", "**/*.marko"],
+    "include": ["**/*.ts"],
     "exclude": [".output", ".wrangler", "dist", "storage", "styled-system", "vendor"]
 }

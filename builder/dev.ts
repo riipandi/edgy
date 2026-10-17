@@ -36,7 +36,7 @@ const startsOver = (root: string, file: string): boolean => {
  *
  * Vite handles what it can (modules, page scripts and styles, the hot-reload socket). Anything else
  * falls through to the application's routes. The application loads through Vite's SSR module
- * runner, so it can import `.marko` pages and `.css.ts` styles.
+ * runner, so it can import page templates and `.css.ts` styles.
  *
  * - **Environment.** Env files fill `process.env` only for variables not already set, as
  *   `node --env-file` does.

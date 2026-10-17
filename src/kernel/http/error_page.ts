@@ -1,6 +1,6 @@
 import type { H3Event, HTTPError } from 'h3'
 import { publicMessage, renderHTTPError } from './errors.ts'
-import { type HtmlTemplate, htmlResponse } from './html_response.ts'
+import { rendererlessTemplate, type HtmlTemplate, htmlResponse } from './html_response.ts'
 import { isApiPath } from './router.ts'
 
 /** What the error page is told: enough for a person to describe the problem, nothing internal. */
@@ -43,7 +43,17 @@ export const makeErrorHandler =
         // CORS and rate-limit headers are lost.
         { status: error.status, headers: new Headers(event.res.errHeaders) }
       )
-    } catch {
+    } catch (cause) {
+      // No renderer wired yet (the plan's window between phases): the page answer keeps its
+      // status and errHeaders but carries the placeholder body, not the renderer's error.
+      if (cause instanceof Error && cause.message.includes('No page renderer yet')) {
+        return htmlResponse(
+          event,
+          rendererlessTemplate,
+          { status: error.status, message: publicMessage(error) },
+          { status: error.status, headers: new Headers(event.res.errHeaders) }
+        )
+      }
       return renderHTTPError(error, event)
     }
   }

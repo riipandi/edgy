@@ -6,8 +6,8 @@ import { withDefaults } from './platform.ts'
 /**
  * How the Worker is built, around the Cloudflare plugin.
  *
- * - `builder.buildApp` builds the server, then the browser, in Marko's order. Vite's default would
- *   build the Worker a second time.
+ * - `builder.buildApp` builds the server, then the browser. Vite's default would build the
+ *   Worker a second time.
  * - A missing Worker config is reported here, because the Cloudflare plugin's error is unclear.
  */
 const workerConfig = (): Plugin => ({

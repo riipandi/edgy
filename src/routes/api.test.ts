@@ -17,12 +17,11 @@ const createUser = (email: string, name = 'Test User') =>
   })
 
 describe('root and health', () => {
-  it('answers / with the front page, not the envelope', async () => {
+  it('answers / as an HTML page (renderer lands in phase 2, so 503)', async () => {
     const response = await t.request('/')
-    const html = await response.text()
-    expect(response.status).toBe(200)
+    expect(response.status).toBe(503)
     expect(response.headers.get('content-type')).toContain('text/html')
-    expect(html).toContain('<title>edgy</title>')
+    await response.text()
   })
 
   it('answers /health with a message and no data', async () => {
