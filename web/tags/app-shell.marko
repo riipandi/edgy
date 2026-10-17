@@ -1,4 +1,5 @@
-import { body, brand, header, link, main, nav } from "../styles/shell.ts";
+import { body, brand, header, main, nav, navLink } from "../styles/shell.ts";
+import "../assets/global.css";
 
 export interface Input {
     title: string;
@@ -15,7 +16,7 @@ export interface Input {
     <body class=body>
         <header class=header>
             <a href="/" class=brand>edgy</a>
-            <nav class=nav aria-label="Main"><a href="/users" class=link>Users</a></nav>
+            <nav class=nav aria-label="Main"><a href="/users" class=navLink>Users</a></nav>
         </header>
         <main class=main>
             <${input.content}/>

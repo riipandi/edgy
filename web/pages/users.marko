@@ -1,15 +1,8 @@
-import { pager, pagerLink } from "../styles/users.ts";
+import { intro, pager, pagerLink } from "../styles/users.ts";
 import "../assets/global.css";
 
-export interface Input {
-    users: Array<{ id: string; email: string; name: string }>;
-    /** Relative links; null where there is nothing to link to. */
-    first: string | null;
-    next: string | null;
-}
-
 <app-shell title="Users">
-    <h1>Users</h1>
+    <h1 class=intro>Users</h1>
     <user-list users=input.users/>
     <if=input.first || input.next>
         <nav class=pager aria-label="Pages">
