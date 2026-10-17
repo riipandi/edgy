@@ -1,7 +1,7 @@
 import { css } from '../../../styled-system/css'
 
 /** Single-line text input: hairline border, quiet placeholder, visible focus. */
-export const input = css({
+export const inputStyle = css({
   width: '100%',
   padding: 'sm md',
   font: 'inherit',

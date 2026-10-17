@@ -1,4 +1,4 @@
-import { input } from "../../../styles/components/input.css.ts";
+import { inputStyle } from "../../../styles/components/input.css.ts";
 import { email, list, muted, name, row } from "../../../styles/pages/user.css.ts";
 
 export interface Input {
@@ -9,7 +9,7 @@ export interface Input {
 <const/needle=query.trim().toLowerCase()>
 <const/shown=input.users.filter((user) => `${user.name} ${user.email}`.toLowerCase().includes(needle))>
 
-<input type="search" class=input value:=query placeholder="Filter users" aria-label="Filter users">
+<input type="search" class=inputStyle value:=query placeholder="Filter users" aria-label="Filter users">
 <p class=muted>Showing ${shown.length} of ${input.users.length}</p>
 <ul class=list>
     <for|user| of=shown by="id">
