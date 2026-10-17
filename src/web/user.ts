@@ -1,6 +1,5 @@
 import { Effect } from 'effect'
 import { getQuery, type H3Plugin, type Middleware } from 'h3'
-import { clientManifest } from '../kernel/http/client_manifest.ts'
 import { decode } from '../kernel/http/decode.ts'
 import { definePageHandler } from '../kernel/http/page.ts'
 import { paginationLinks, paginationMeta, toPageRequest } from '../kernel/http/pagination.ts'
@@ -9,9 +8,10 @@ import { UserService } from '../modules/user/user_service.ts'
 
 /**
  * `GET /users`: the user directory as an HTML page. It takes the same parameters as `GET /api/users`
- * and reads through the same service, so the page and the API cannot agree to disagree. The
- * interactive part hydrates from the built `users-page` entry, whose hashed names the manifest
- * carries.
+ * and reads through the same service, so the page and the API cannot agree to disagree. The route
+ * component (`src/pages/users.tsx`) draws its list from `/rpc` — phase 4 of plan-20261018_0105;
+ * until then the page program still runs (parameters, rate limit, tracing) and the route renders
+ * its empty shell.
  */
 const usersPageHandler = definePageHandler({
   load: (event) =>
@@ -20,17 +20,15 @@ const usersPageHandler = definePageHandler({
       const request = toPageRequest(query, DEFAULT_SORT)
       const page = yield* UserService.use((users) => users.list(request))
       const links = paginationLinks(event.url, paginationMeta(page))
-      // In development there is no build; Vite injects its own module scripts into the page.
-      const entry = event.context.development === true ? undefined : clientManifest['users-page']
       return {
+        title: 'Users',
+        // The route component reads from `/rpc`; the loaded page keeps only its title until then.
         users: page.items,
-        // A way back to the start only where there is somewhere else to be.
         first: query.cursor === undefined ? null : (links['first'] ?? null),
-        next: links['next'] ?? null,
-        scripts: entry === undefined ? [] : [entry.script, ...entry.styles]
+        next: links['next'] ?? null
       }
     }),
-  template: () => import('../../web/pages/users/page.tsx')
+  template: () => import('../pages/app.tsx')
 })
 
 /** The `/users` page, with the middleware that guards it. */

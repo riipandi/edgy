@@ -27,7 +27,9 @@ describe('Worker entry', () => {
 
     const page = await worker.fetch(new Request('http://w/users'), env, context)
     expect(page.status).toBe(200)
-    expect(await page.text()).toContain('ada@example.com')
+    // The route component draws its list from `/rpc` (phase 4); the shell is what the server
+    // render shows.
+    expect(await page.text()).toContain('id="users-page-root"')
   })
 
   it('answers a failed start with a 503 that names the request and hides the cause', async () => {

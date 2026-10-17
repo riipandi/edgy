@@ -1,5 +1,6 @@
 import { pandacss } from '@pandacss/vite'
 import solidPlugin from '@solidjs/vite-plugin'
+import { fileRoutes as fsRouting } from 'filesystem-routing/vite'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import type { ConfigEnv, Plugin, PluginOption } from 'vite'
@@ -12,7 +13,7 @@ import { workerPlatform } from './worker.ts'
  * declares a `client.tsx` beside it and the list below names it. A page without one stays static.
  */
 const clientEntries: Record<string, string> = {
-  'users-page': 'web/pages/users/client.tsx'
+  'app-entry': 'src/pages/entry.tsx'
 }
 
 /**
@@ -111,7 +112,25 @@ export const edgy = async (env: Pick<ConfigEnv, 'mode' | 'command'>): Promise<Pl
   return [
     shared(platform),
     clientManifest(),
-    solidPlugin({ ssr: true, include: ['src/**/*.{tsx,ts}', 'web/**/*.{tsx,ts}'] }),
+    // File-based routes over `src/pages/` — the manifest `src/pages/router.ts` imports as
+    // `virtual:file-routes` and `@solidjs/router/fs` converts into route definitions. Routes
+    // ship eagerly (no per-route chunks): the app is three small pages, and eager refs need no
+    // asset manifest on the server render.
+    fsRouting({ dir: 'src/pages', codeSplitting: false }),
+    // The router package ships `.jsx` (its `solid` export condition): kept out of dep
+    // optimization so the Solid transform compiles it in dev instead of the raw-oxc fallback
+    // that would inject React's runtime.
+    {
+      name: 'edgy:router-deps',
+      config: () => ({
+        optimizeDeps: { exclude: ['@solidjs/router'] },
+        ssr: { optimizeDeps: { exclude: ['@solidjs/router'] }, noExternal: ['@solidjs/router'] }
+      })
+    },
+    solidPlugin({
+      ssr: true,
+      include: ['src/**/*.{tsx,ts}', '**/node_modules/@solidjs/router/dist/**/*.jsx']
+    }),
     pandacss(),
     ...(platform === 'worker' ? await workerPlatform(manifestDefine) : nodePlatform(manifestDefine))
   ]

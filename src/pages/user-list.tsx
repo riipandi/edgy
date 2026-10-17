@@ -1,6 +1,6 @@
 import { For, createMemo, createSignal } from 'solid-js'
-import { inputStyle } from '../../styles/components/input.css.ts'
-import { email, list, muted, name, row } from '../../styles/pages/user.css.ts'
+import { inputStyle } from '../styles/components/input.css.ts'
+import { email, list, muted, name, row } from '../styles/pages/user.css.ts'
 
 export interface UserListUser {
   readonly id: string

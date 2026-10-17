@@ -6,9 +6,9 @@ import { body, brand, header, main, nav } from '../styles/elements/app-shell.css
 import '../assets/global.css'
 
 /**
- * The document every page composes: it owns `<html>`, the head, and hydration support.
- * `scripts` carries the page's built browser entries resolved by the handler from the build
- * manifest — the first item is the module script, the rest are its stylesheets.
+ * The document every page composes: it owns `<html>`, the head, hydration support, and the
+ * router's outlet. `scripts` carries the page's built browser entries resolved by the handler
+ * from the build manifest — the first item is the module script, the rest are its stylesheets.
  */
 export const AppShell = (props: ParentProps<{ title: string; scripts?: readonly string[] }>) => (
   <html lang='en'>

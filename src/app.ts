@@ -38,7 +38,7 @@ export interface AppOptions {
  */
 export const createApp = (options: AppOptions): H3 =>
   new H3({
-    onError: makeErrorHandler(() => import('../web/pages/error/page.tsx')),
+    onError: makeErrorHandler(() => import('./pages/error-page.tsx')),
     plugins: [
       provideRuntime(options.runtime),
       ...(options.development === true ? [developmentMode()] : []),

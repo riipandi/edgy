@@ -1,6 +1,6 @@
-import { link } from '../../styles/components/link.css.ts'
-import { code, detail, lead, status } from '../../styles/elements/messages.css.ts'
-import { AppShell } from '../app-shell.tsx'
+import { link } from '../styles/components/link.css.ts'
+import { code, detail, lead, status } from '../styles/elements/messages.css.ts'
+import { AppShell } from './app-shell.tsx'
 
 /** What the error page is told: enough for a person to describe the problem. */
 export interface ErrorPageInput {

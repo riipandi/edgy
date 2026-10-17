@@ -53,15 +53,15 @@ describe('htmlResponse with a Solid page', () => {
     expect(policy).toContain("connect-src 'self' ws: wss:")
   })
 
-  it('answers 503 when the page throws before its first flush', async () => {
+  it('propagates a failure before the first flush to the page pipeline', () => {
     const Broken = () => {
-      throw new Error('placeholder failure')
+      throw new Error('broken shell')
     }
-    const response = htmlResponse(makeEvent(), Broken, {}, { headers: new Headers() })
-    const html = await response.text()
-
-    expect(response.status).toBe(503)
-    expect(html).not.toContain('placeholder failure')
+    // The page pipeline (`definePageHandler`, the error hook) catches it and renders the error
+    // page; the renderer itself must not hide a broken shell.
+    expect(() => htmlResponse(makeEvent(), Broken, {}, { headers: new Headers() })).toThrow(
+      'broken shell'
+    )
   })
 
   it('tears the render down when the request aborts', async () => {

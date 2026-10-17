@@ -1,4 +1,5 @@
-import { renderToStream } from '@solidjs/web'
+import { createRequestEvent, renderToStream } from '@solidjs/web'
+import { provideRequestEvent } from '@solidjs/web/storage'
 import type { H3Event } from 'h3'
 import { createComponent, type ValidComponent } from 'solid-js'
 
@@ -19,9 +20,9 @@ export type SolidTemplate<Input> = (props: Input) => unknown
  * The Solid path emits no inline script (hydration loads as a module from `script-src 'self'`),
  * so the response carries no nonce and may be cached where its data allows.
  *
- * A page that throws before its shell streams out (a placeholder while the pages are not ported
- * yet, plan-20261018_0105 phase 3) answers 503 with the page policy instead of the failure —
- * the same contract `htmlResponse` holds for a wired renderer: a page error is a page answer.
+ * A page that throws before its shell streams out answers 503 with the page policy instead of
+ * the failure — the same contract this renderer holds for a wired renderer: a page error is a
+ * page answer.
  */
 export const htmlResponse = <Input extends object>(
   event: H3Event,
@@ -40,25 +41,23 @@ export const htmlResponse = <Input extends object>(
   errHeaders.set('content-security-policy', headers.get('content-security-policy')!)
   errHeaders.set('cache-control', 'private, no-cache')
 
-  let stream: ReadableStream<Uint8Array>
-  try {
-    stream = renderToStream(
+  // The request event is how the router inside locates the render (`getRequestEvent`); the
+  // `url` prop of the page component is the fallback. A failure before the first flush escapes
+  // to the caller: the page pipeline turns it into the error page, and a page whose own shell
+  // throws is exactly what that page is for.
+  return new Response(
+    provideRequestEvent(
+      createRequestEvent(event.req),
       () =>
-        // `SolidTemplate` deliberately accepts any return; `createComponent` needs its wider
-        // component shape, and the two agree at every call site a page handler produces.
-        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-        createComponent(template as ValidComponent, input),
-      {
-        signal: event.req.signal
-      }
-    ).readable
-  } catch {
-    return new Response('Page rendering failed before its first flush', {
-      status: options.status ?? 503,
-      headers
-    })
-  }
-  return new Response(stream, { status: options.status ?? 200, headers })
+        renderToStream(
+          () =>
+            // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the two shapes agree at every call site
+            createComponent(template as ValidComponent, input),
+          { signal: event.req.signal }
+        ).readable
+    ),
+    { status: options.status ?? 200, headers }
+  )
 }
 
 /**

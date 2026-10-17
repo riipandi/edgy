@@ -71,7 +71,7 @@ describe('/assets in the application', () => {
 })
 
 describe('directoryAssets', () => {
-  const source = directoryAssets(new URL('../../../web/styles', import.meta.url).pathname)
+  const source = directoryAssets(new URL('../../styles', import.meta.url).pathname)
 
   it('reads a file under its root', async () => {
     expect((await source.meta('/pages/user.css.ts'))?.size).toBeGreaterThan(0)

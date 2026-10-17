@@ -28,7 +28,14 @@ const startsOver = (root: string, file: string): boolean => {
   if (relative.startsWith('..')) return false
   // `.env.example` is generated documentation, not configuration.
   if (/^\.env(\..+)?$/.test(relative)) return relative !== '.env.example'
-  return relative.startsWith(`src${path.sep}`) && !relative.endsWith('.test.ts')
+  if (!relative.startsWith(`src${path.sep}`) || relative.endsWith('.test.ts')) return false
+  // Page modules and styles are the client's (`src/pages/**`, `src/styles/**`): Vite hot-reloads
+  // them, and a restart would drop the in-memory development database on every template save.
+  return (
+    !relative.startsWith(`src${path.sep}pages${path.sep}`) &&
+    !relative.startsWith(`src${path.sep}styles${path.sep}`) &&
+    !relative.startsWith(`src${path.sep}assets${path.sep}`)
+  )
 }
 
 /**

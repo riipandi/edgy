@@ -1,11 +1,13 @@
-import { link } from '../../styles/components/link.css.ts'
-import { detail, display, lead } from '../../styles/elements/messages.css.ts'
-import { AppShell } from '../app-shell.tsx'
+import { defineFileRoute } from '@solidjs/router/fs'
+import { link } from '../styles/components/link.css.ts'
+import { detail, display, lead } from '../styles/elements/messages.css.ts'
 
-/** `GET /`: the front page. It reads nothing, so it ships no interactivity. */
-export default function HomePage() {
+/** `/`: the front page. It reads nothing, so it ships no interactivity. */
+export const route = defineFileRoute('/', {})
+
+function Home() {
   return (
-    <AppShell title='edgy'>
+    <>
       <h1 class={display}>edgy</h1>
       <p class={lead}>A server that renders pages and answers an API from the same code.</p>
       <p class={detail}>
@@ -18,6 +20,8 @@ export default function HomePage() {
         </a>
         .
       </p>
-    </AppShell>
+    </>
   )
 }
+
+export default Home
