@@ -7,7 +7,7 @@ The documentation map. Read AGENTS.md first, then this file, then the document a
 | [`shape.md`](./shape.md) | Repository shape: layout, toolchain, commands, conventions |
 | [`rules.md`](./rules.md) | Contracts, how-to-change recipes, traps |
 | [`architecture.md`](./architecture.md) | How the system is built today, per area (no history) |
-| [`plans/`](./plans/) | Executable plans (owner-approved contracts) — `plan-20261018_0105.md` (Marko → SolidJS 2 + `/rpc`, awaiting approval) |
+| [`plans/`](./plans/) | Executable plans (owner-approved contracts) — `plan-20261018_0105.md` (Marko → SolidJS 2 + `/rpc`, in progress: phase 1 committed) |
 | [`issues/`](./issues/) | Findings that outlive a turn — `issue-20261015_2230.md` (open) |
 | [`roadmap/`](./roadmap/) | Parked improvements with unlock triggers — `roadmap-20261016_0809.md` (Marko streaming, lazy loading, patch protocol) |
 | [`handover/`](./handover/) | Session compactions — empty |
