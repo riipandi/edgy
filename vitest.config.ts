@@ -1,10 +1,10 @@
 import marko from '@marko/vite'
-import { vanillaExtractPlugin } from '@vanilla-extract/vite-plugin'
+import { pandacss } from '@pandacss/vite'
 import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   // Tests import `.marko` templates and `.css.ts` styles, which only Vite can load.
-  plugins: [marko(), vanillaExtractPlugin()],
+  plugins: [marko(), pandacss()],
   test: {
     coverage: {
       provider: 'v8',

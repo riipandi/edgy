@@ -1,11 +1,12 @@
-import { detail, lead } from "../styles/messages.css.ts"
-import { link } from "../styles/shell.css.ts"
+import { detail, lead } from "../styles/messages.ts";
+import { link } from "../styles/shell.ts";
+import "../assets/global.css";
 
 <app-shell title="edgy">
-  <h1>edgy</h1>
-  <p class=lead>A server that renders pages and answers an API from the same code.</p>
-  <p class=detail>
-    <a href="/users" class=link>Browse the users</a>, or read them as JSON at
-    <a href="/api/users" class=link>/api/users</a>.
-  </p>
+    <h1>edgy</h1>
+    <p class=lead>A server that renders pages and answers an API from the same code.</p>
+    <p class=detail>
+        <a href="/users" class=link>Browse the users</a>, or read them as JSON at
+        <a href="/api/users" class=link>/api/users</a>.
+    </p>
 </app-shell>

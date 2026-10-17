@@ -103,11 +103,7 @@ describe('the platform', () => {
     )
 
     expect(answer.names).toEqual(
-      expect.arrayContaining([
-        'edgy:worker',
-        'edgy:worker-release-external',
-        'edgy:worker-drop-server-styles'
-      ])
+      expect.arrayContaining(['edgy:worker', 'edgy:worker-drop-server-styles'])
     )
     expect(answer.names).not.toContain('edgy:node')
     expect(answer.server).toBe('dist/worker')

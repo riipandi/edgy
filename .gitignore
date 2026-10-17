@@ -84,6 +84,7 @@ storybook-static/
 cloudflare-env.d.ts
 pnpm-exec-summary.json
 slim.report.json
+styled-system/
 RELEASE.md
 audit.json
 sbom-*

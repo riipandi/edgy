@@ -5,14 +5,18 @@ browser, and brought to life there only where it is interactive.
 
 ## What you write
 
-Pages are [Marko](https://markojs.com) templates; styles are TypeScript, compiled to plain CSS at build
-time by [vanilla-extract](https://vanilla-extract.style). Both live in the `web/` folder:
+Pages are [Marko](https://markojs.com) templates; styles are [Panda CSS](https://panda-css.com), compiled to
+plain CSS at build time. Both live in the `web/` folder:
 
 | Folder          | What it holds                                                                     |
 | --------------- | --------------------------------------------------------------------------------- |
 | `web/pages/`    | One template per page                                                             |
 | `web/tags/`     | Components. A file named `user-list.marko` is available as `<user-list>` everywhere |
-| `web/styles/`   | `*.css.ts` files: the design tokens (`theme.css.ts`) and the styles that use them  |
+| `web/styles/`   | Modules whose `css()` calls become class names the templates put on their elements |
+| `web/assets/`   | `global.css`: the cascade-layer order, and where Panda writes the generated styles |
+
+Design tokens live in `panda.config.ts` (`semanticTokens`); a color, spacing, radius or font used
+through its token name keeps every page consistent, and rebranding is a config change.
 
 A component is interactive when it has state. The user list on `/users`, for example, filters the list
 as you type; the rest of the page is static HTML and sends no script.
@@ -24,7 +28,7 @@ as you type; the rest of the page is static HTML and sends no script.
 
 ## Adding a page
 
-1. Write the template in `web/pages/`, and the styles it needs in `web/styles/`.
+1. Write the template in `web/pages/`, and any styles it needs as `css()` calls in `web/styles/`.
 2. Declare what it shows: an Effect that loads the data, and the template that renders it. The data comes
    from the same services as the API, so a page and its endpoint cannot disagree.
 3. Give it a route group and register it with the other pages. `GET /users` is the worked example.

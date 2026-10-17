@@ -74,21 +74,17 @@ describe('directoryAssets', () => {
   const source = directoryAssets(new URL('../../../web/styles', import.meta.url).pathname)
 
   it('reads a file under its root', async () => {
-    expect((await source.meta('/theme.css.ts'))?.size).toBeGreaterThan(0)
-    expect(await source.contents('/theme.css.ts')).toBeInstanceOf(Uint8Array)
+    expect((await source.meta('/shell.ts'))?.size).toBeGreaterThan(0)
+    expect(await source.contents('/shell.ts')).toBeInstanceOf(Uint8Array)
   })
 
-  it.each([
-    '/../theme.css.ts',
-    '/../../package.json',
-    '/a/../theme.css.ts',
-    '/\\theme.css.ts',
-    '/..',
-    '/'
-  ])('refuses %s', async (id) => {
-    expect(await source.meta(id)).toBeUndefined()
-    expect(await source.contents(id)).toBeUndefined()
-  })
+  it.each(['/../shell.ts', '/../../package.json', '/a/../shell.ts', '/\\shell.ts', '/..', '/'])(
+    'refuses %s',
+    async (id) => {
+      expect(await source.meta(id)).toBeUndefined()
+      expect(await source.contents(id)).toBeUndefined()
+    }
+  )
 })
 
 describe('directoryAssets confinement', () => {

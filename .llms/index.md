@@ -16,7 +16,7 @@ The documentation map. Read AGENTS.md first, then this file, then the document a
 
 ## Implemented surfaces
 
-- HTML pages: `GET /users` (server-rendered Marko, one interactive component, vanilla-extract styles), `/assets/**` for the built browser files; build, `pnpm dev`, SEA and Worker all carry the pages — see `rules.md` ("Frontend contracts")
+- HTML pages: `GET /users` (server-rendered Marko, one interactive component, Panda CSS styles), `/assets/**` for the built browser files; build, `pnpm dev`, SEA and Worker all carry the pages — see `rules.md` ("Frontend contracts")
 - HTTP server (h3 v2): `/` and `/health` at the root, `/metrics` (flagged), `/api/users` (paginated list, get, create answering 201) in the response envelope, `/.well-known/security.txt`; security headers, JSON-only bodies, rate limiting (on by default; per process, shared through Redis, or Cloudflare's binding), a configurable read cache (memory, Redis or the Workers Cache API), overload guard — see `rules.md` ("HTTP contracts")
 - CLI (`effect/cli`): `serve [--auto-migrate]`, `config:generate [--check]`, `openapi:generate [--check]`, `migrate:up`, `migrate:down`, `migrate:status`, `migrate:reset`, `migrate:seed` — see `rules.md` ("CLI contracts")
 - Database: `node:sqlite` or Cloudflare D1 (`DATABASE_DRIVER`) behind one `DatabaseService`, custom Kysely dialects, static-registry migrator, idempotent seeders

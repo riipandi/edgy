@@ -7,7 +7,7 @@ The layout, the toolchain, and the commands. Read once; return when a path or a 
 - Node.js >= 24.22 (native TypeScript stripping: source runs directly, no build step in development), pnpm 12 (`devEngines`; `npx` rejected)
 - Effect v4 (typed errors, DI layers, CLI, Config, Logger, Schema, Cache, Metric), h3 v2 (plugins, rou3 trie)
 - Kysely 0.29 on `node:sqlite` (no native addons) or Cloudflare D1 (`DATABASE_DRIVER`)
-- Pages: Marko 6 (`@marko/vite`) and vanilla-extract (`.css.ts`), server-rendered and streamed, hydrated only where interactive
+- Pages: Marko 6 (`@marko/vite`) and Panda CSS (`css()` in `web/styles/`, one generated stylesheet), server-rendered and streamed, hydrated only where interactive
 - Vite 8 (Rolldown) for every bundle; wrangler through the Cloudflare Vite plugin for Workers
 - oxfmt + oxlint; `tsc -b --noEmit` + `mtc` (Marko templates) for types; Vitest for unit tests; Playwright Test for browser tests
 

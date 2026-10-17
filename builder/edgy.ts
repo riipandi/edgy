@@ -1,5 +1,5 @@
 import marko from '@marko/vite'
-import { vanillaExtractPlugin } from '@vanilla-extract/vite-plugin'
+import { pandacss } from '@pandacss/vite'
 import type { ConfigEnv, Plugin, PluginOption } from 'vite'
 import { nodePlatform } from './node.ts'
 import { CLIENT_DIR, OUT_DIR, type Platform, platformOf, withDefaults } from './platform.ts'
@@ -38,7 +38,8 @@ const shared = (platform: Platform): Plugin => ({
  * The application's whole Vite setup.
  *
  * - **Pages and styles** (all platforms): Marko compiles templates and, in a build, links each
- *   page's browser entry. vanilla-extract turns `.css.ts` files into class names and a stylesheet.
+ *   page's browser entry. Panda CSS extracts the styles that `web/` declares into class names and
+ *   one stylesheet, which the layer-order file in `web/assets/global.css` carries.
  * - **node** (default): `vite` runs the dev server, `vite build` writes `dist/server`.
  * - **worker** (`--mode worker`): the same commands for Cloudflare Workers, writing `dist/worker`.
  *
@@ -49,7 +50,7 @@ export const edgy = async (env: Pick<ConfigEnv, 'mode'>): Promise<PluginOption[]
   return [
     shared(platform),
     marko(),
-    vanillaExtractPlugin(),
+    pandacss(),
     ...(platform === 'worker' ? await workerPlatform() : nodePlatform())
   ]
 }

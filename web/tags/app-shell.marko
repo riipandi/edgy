@@ -1,27 +1,24 @@
-import { themeClass } from "../styles/theme.css.ts"
-import { body, brand, header, link, main, nav } from "../styles/shell.css.ts"
+import { body, brand, header, link, main, nav } from "../styles/shell.ts";
 
 export interface Input {
-  title: string;
-  content: Marko.Body;
+    title: string;
+    content: Marko.Body;
 }
 
 <!doctype html>
-<html lang="en" class=themeClass>
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>${input.title}</title>
-  </head>
-  <body class=body>
-    <header class=header>
-      <a href="/" class=brand>edgy</a>
-      <nav class=nav aria-label="Main">
-        <a href="/users" class=link>Users</a>
-      </nav>
-    </header>
-    <main class=main>
-      <${input.content}/>
-    </main>
-  </body>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>${input.title}</title>
+    </head>
+    <body class=body>
+        <header class=header>
+            <a href="/" class=brand>edgy</a>
+            <nav class=nav aria-label="Main"><a href="/users" class=link>Users</a></nav>
+        </header>
+        <main class=main>
+            <${input.content}/>
+        </main>
+    </body>
 </html>

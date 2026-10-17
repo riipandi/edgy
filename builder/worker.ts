@@ -32,18 +32,6 @@ const workerConfig = (): Plugin => ({
 })
 
 /**
- * The Cloudflare plugin rejects a Worker environment with `external` set, and vanilla-extract sets
- * it on SSR for its runtime package. A Worker bundles everything, so it is removed.
- */
-const releaseSsrExternal = (): Plugin => ({
-  name: 'edgy:worker-release-external',
-  enforce: 'post',
-  config(config) {
-    if (config.ssr) delete config.ssr.external
-  }
-})
-
-/**
  * The server environment emits a copy of each page's stylesheet beside the Worker. Nothing reads
  * it (the pages link the browser build's copy under `public/`, and Wrangler uploads only the
  * Worker's modules and that directory), so it is dropped rather than left in `dist/worker/assets/`.
@@ -75,10 +63,5 @@ export const workerPlatform = async (): Promise<Plugin[]> => {
   // run does not need. The lazy import needs Vite's default config loader, since `configLoader:
   // 'runner'` closes its module runner before async factories run.
   const { cloudflare } = await import('@cloudflare/vite-plugin')
-  return [
-    workerConfig(),
-    releaseSsrExternal(),
-    dropServerStyles(),
-    ...cloudflare({ viteEnvironment: { name: 'ssr' } })
-  ]
+  return [workerConfig(), dropServerStyles(), ...cloudflare({ viteEnvironment: { name: 'ssr' } })]
 }
