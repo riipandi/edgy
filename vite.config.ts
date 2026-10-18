@@ -63,25 +63,28 @@ export default defineConfig(({ mode }) => ({
   lint: {
     jsPlugins: [{ name: 'vite-plus', specifier: 'vite-plus/oxlint-plugin' }, 'eslint-plugin-solid'],
     settings: solidLint.settings,
-    rules: { 'vite-plus/prefer-vite-plus-imports': 'error' },
-    // rules: solidLint.rules,
+    rules: {
+      'vite-plus/prefer-vite-plus-imports': 'error',
+      ...solidLint.rules
+    },
     options: { typeAware: true, typeCheck: true },
     ignorePatterns: ignoredPatterns
   },
-  plugins: lazyPlugins(() => [
-    stylex({
-      enableDevClassNames: mode === 'development',
-      useCSSLayers: { before: ['reset'], prefix: 'stylex' },
-      lightningcssOptions: { minify: mode !== 'development' }
-    }),
-    effectVite({ enabled: !uiPreview }),
-    solid({
-      diagnostics: false,
-      extensions: ['.jsx', '.tsx'],
-      ...(uiPreview ? {} : { start: true, ssr: true })
-    }),
-    uiPreview ? null : fileRoutes({ types: true })
-  ]),
+  plugins:
+    lazyPlugins(() => [
+      stylex({
+        enableDevClassNames: mode === 'development',
+        useCSSLayers: { before: ['reset'], prefix: 'stylex' },
+        lightningcssOptions: { minify: mode !== 'development' }
+      }),
+      solid({
+        diagnostics: false,
+        extensions: ['.jsx', '.tsx'],
+        ...(uiPreview ? {} : { start: true, ssr: true })
+      }),
+      uiPreview ? null : fileRoutes({ types: true }),
+      effectVite({ enabled: !uiPreview })
+    ]) ?? [],
   ssr: { noExternal: true },
   server: { port: 3000, strictPort: true },
   preview: { port: 3000, strictPort: true },
