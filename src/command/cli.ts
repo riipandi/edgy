@@ -1,30 +1,12 @@
 import { Command } from 'effect/cli'
-import pkg from '../../package.json' with { type: 'json' }
-import { configGenerateCmd } from './config-generate.ts'
-import { migrateDownCmd } from './migrate-down.ts'
-import { migrateResetCmd } from './migrate-reset.ts'
-import { migrateSeedCmd } from './migrate-seed.ts'
-import { migrateStatusCmd } from './migrate-status.ts'
-import { migrateUpCmd } from './migrate-up.ts'
-import { openapiGenerateCmd } from './openapi-generate.ts'
-import { serveCmd } from './serve.ts'
+import { migrateStatus } from './migrate-status.ts'
+import { migrateUp } from './migrate-up.ts'
+import { serve } from './serve.ts'
 
-const rootCmd = Command.make('edgy').pipe(
-  Command.withDescription('h3 + Effect HTTP server'),
-  Command.withSubcommands([
-    serveCmd,
-    configGenerateCmd,
-    openapiGenerateCmd,
-    migrateUpCmd,
-    migrateDownCmd,
-    migrateStatusCmd,
-    migrateResetCmd,
-    migrateSeedCmd
-  ])
+export const cli = Command.run(
+  Command.make('app').pipe(
+    Command.withDescription('Application commands'),
+    Command.withSubcommands([serve, migrateUp, migrateStatus])
+  ),
+  { version: '0.0.0' }
 )
-
-/** Root CLI program. Without a subcommand it prints help. The version comes from `package.json`. */
-export const run = Command.run(rootCmd, { version: pkg.version })
-
-/** The same program over explicit arguments, instead of the process's. */
-export const runWith = Command.runWith(rootCmd, { version: pkg.version })

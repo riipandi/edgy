@@ -1,12 +1,10 @@
 import type { Migration } from 'kysely/migration'
-import * as createUsersTable from './00000_create_users_table.ts'
+import * as createUsers from './001_create_users.ts'
 
-/**
- * Static migration registry. Migrations are imported rather than read from disk,
- * so the server bundle stays one file and bundlers keep the imports.
- *
- * Keys must sort in execution order: a zero-padded numeric prefix, then the name.
- */
-export const migrations: Record<string, Migration> = {
-  '00000_create_users_table': createUsersTable
+type MigrationItems = Record<string, Migration>
+
+const migrations: MigrationItems = {
+  '001_create_users': createUsers
 }
+
+export const getMigrations = async (): Promise<MigrationItems> => migrations

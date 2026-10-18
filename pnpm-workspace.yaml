@@ -1,14 +1,16 @@
-# yaml-language-server: $schema=https://www.schemastore.org/pnpm-workspace.json
-
-catalogMode: manual
-
-minimumReleaseAge: 0
-
-verifyDepsBeforeRun: false
-
 allowBuilds:
   esbuild: true
-  workerd: true
 
-catalog:
-  typescript: ^7.0.2
+minimumReleaseAgeExclude:
+  - "@solidjs/*"
+  - filesystem-routing
+  - solid-js
+  - kysely@0.29.7
+
+# permissions:
+#   '@solidjs/diagnostics':
+#     skills: true
+#   '@solidjs/web':
+#     skills: true
+#   solid-js:
+#     skills: true

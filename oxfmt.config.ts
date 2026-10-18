@@ -1,0 +1,44 @@
+import { defineConfig } from 'oxfmt'
+
+export default defineConfig({
+  endOfLine: 'lf',
+  useTabs: false,
+  tabWidth: 2,
+  printWidth: 100,
+  insertFinalNewline: true,
+  jsxSingleQuote: true,
+  singleQuote: true,
+  semi: false,
+  bracketSpacing: true,
+  trailingComma: 'none',
+  overrides: [
+    {
+      files: ['*.json', '*.jsonc'],
+      options: { tabWidth: 4 }
+    }
+  ],
+  sortImports: {
+    order: 'asc',
+    groups: [['builtin', 'external'], ['internal'], ['parent', 'sibling', 'index']],
+    internalPattern: ['#/', '$/'],
+    partitionByComment: false,
+    partitionByNewline: false,
+    newlinesBetween: false,
+    ignoreCase: true
+  },
+  sortPackageJson: {
+    sortScripts: false
+  },
+  ignorePatterns: [
+    '.output',
+    '.storage',
+    '.wrangler',
+    '**/*.md',
+    '**/*.mdx',
+    '**/*.yml',
+    '**/*.yaml',
+    '**/*.toml',
+    '**/*.gen.*',
+    '/storage/**'
+  ]
+})

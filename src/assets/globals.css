@@ -1,0 +1,20 @@
+@import './reset.css';
+@import './fontface.css';
+
+/*
+ * Global base styles. All component styling lives in src/resources/styles
+ * as StyleX; this file only carries what StyleX cannot express (font-face,
+ * resets). The StyleX plugin appends its compiled atomic CSS to this asset
+ * during build — no directive is needed.
+ */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    min-height: 100vh;
+    font-family:
+      'Mona Sans Variable', system-ui, -apple-system, Roboto, Aptos, Helvetica, sans-serif;
+    text-align: center;
+  }
+}

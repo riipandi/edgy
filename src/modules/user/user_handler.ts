@@ -1,37 +1,30 @@
-import { defineHandler, definePagedHandler } from '../../kernel/http/handler.ts'
-import { toPageRequest } from '../../kernel/http/pagination.ts'
-import {
-  UserCreateRequestSchema,
-  UserCreateResponseSchema,
-  UserGetResponseSchema,
-  UserIdParamsSchema,
-  UserListItemSchema,
-  DEFAULT_SORT,
-  UserListQuerySchema
-} from './user_schema.ts'
+import { Effect } from 'effect'
+import * as HttpRouter from 'effect/http/HttpRouter'
+import * as HttpServerResponse from 'effect/http/HttpServerResponse'
+import { parseUserId, UserIdParams } from './user_schema.ts'
 import { UserService } from './user_service.ts'
 
-/** `GET /users`: one page of users, sorted by `id` unless `sort_by` or `sort_order` say otherwise. */
-export const listUsersHandler = definePagedHandler({
-  summary: 'List users, a page at a time',
-  query: UserListQuerySchema,
-  items: UserListItemSchema,
-  run: ({ query }) => UserService.use((users) => users.list(toPageRequest(query, DEFAULT_SORT)))
+export const listUsers = Effect.gen(function* () {
+  const users = yield* UserService
+  return yield* HttpServerResponse.json(yield* users.list())
 })
 
-/** `GET /users/:id`: a single user by id. */
-export const getUserHandler = defineHandler({
-  summary: 'Get one user by id',
-  params: UserIdParamsSchema,
-  response: UserGetResponseSchema,
-  run: ({ params }) => UserService.use((users) => users.get(params.id))
-})
-
-/** `POST /users`: creates a user from a JSON body, answered with `201`. */
-export const createUserHandler = defineHandler({
-  summary: 'Create a user',
-  body: UserCreateRequestSchema,
-  response: UserCreateResponseSchema,
-  status: 201,
-  run: ({ body }) => UserService.use((users) => users.create(body))
+export const findUser = Effect.gen(function* () {
+  const params = yield* HttpRouter.schemaPathParams(UserIdParams)
+  let id: string
+  try {
+    id = parseUserId(params.id)
+  } catch {
+    return HttpServerResponse.setStatus(400)(
+      HttpServerResponse.jsonUnsafe({ message: 'Invalid user id' })
+    )
+  }
+  const users = yield* UserService
+  const user = yield* users.find(id)
+  if (user === undefined) {
+    return HttpServerResponse.setStatus(404)(
+      HttpServerResponse.jsonUnsafe({ message: 'Not found' })
+    )
+  }
+  return yield* HttpServerResponse.json(user)
 })

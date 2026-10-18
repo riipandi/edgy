@@ -1,24 +1,31 @@
-import { Effect } from 'effect'
-import type { DatabaseError } from '../../kernel/errors.ts'
-import { type UsersTable, UserId } from '../../modules/user/user_schema.ts'
-import { DatabaseService } from '../service.ts'
+import type { Kysely } from 'kysely'
+import { TypeID } from 'typeid-js'
+import type { DB } from '../schema.ts'
 
-const SAMPLE_USERS: ReadonlyArray<Pick<UsersTable, 'email' | 'name'>> = [
-  { email: 'ada@example.com', name: 'Ada Lovelace' },
-  { email: 'grace@example.com', name: 'Grace Hopper' },
-  { email: 'linus@example.com', name: 'Linus Torvalds' }
-]
+const id = (uuid: string) => TypeID.fromUUID('user', uuid).toString()
 
-/** Inserts the sample users. Rows whose `email` already exists are skipped. */
-export const seedUsers: Effect.Effect<void, DatabaseError, DatabaseService> = DatabaseService.use(
-  ({ query }) =>
-    query(async (db) => {
-      for (const user of SAMPLE_USERS) {
-        await db
-          .insertInto('users')
-          .values({ id: UserId.make(), ...user })
-          .onConflict((oc) => oc.column('email').doNothing())
-          .execute()
-      }
-    })
-)
+const users = [
+  {
+    id: id('01890a5d-ac96-774b-bcce-b302099a8057'),
+    name: 'Ada Lovelace',
+    title: 'First programmer'
+  },
+  {
+    id: id('01890a5d-ac96-774b-bcce-b302099a8058'),
+    name: 'Grace Hopper',
+    title: 'Compiler pioneer'
+  },
+  {
+    id: id('01890a5d-ac96-774b-bcce-b302099a8059'),
+    name: 'Margaret Hamilton',
+    title: 'Software engineering'
+  }
+] as const
+
+export const seedUsers = async (db: Kysely<DB>): Promise<void> => {
+  await db
+    .insertInto('users')
+    .values(users.map((user) => ({ ...user })))
+    .onConflict((conflict) => conflict.column('id').doNothing())
+    .execute()
+}

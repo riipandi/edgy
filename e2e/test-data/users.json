@@ -1,9 +1,0 @@
-{
-    "seeded": [
-        { "name": "Ada Lovelace", "email": "ada@example.com" },
-        { "name": "Grace Hopper", "email": "grace@example.com" },
-        { "name": "Linus Torvalds", "email": "linus@example.com" }
-    ],
-    "filter": { "term": "grace", "matches": ["Grace Hopper"] },
-    "pageSize": 2
-}
