@@ -10,7 +10,7 @@ The documentation map. Read AGENTS.md first, then this file, then the document a
 | [`plans/`](./plans/) | Executable plans (owner-approved contracts) — `plan-20261018_0105.md` (Marko → SolidJS 2 + `/rpc`, in progress: phases 1-4 committed) |
 | [`issues/`](./issues/) | Findings that outlive a turn — `issue-20261015_2230.md` (open) |
 | [`roadmap/`](./roadmap/) | Parked improvements with unlock triggers — empty (the frontend parkings archived with the pages on Solid) |
-| [`handover/`](./handover/) | Session compactions — empty |
+| [`handover/`](./handover/) | Session compactions — `handover-20261018_0705.md` (the Solid migration) |
 | [`audit/`](./audit/) | Point-in-time review records — empty |
 | [`archive/`](./archive/) | Terminal-status documents, flat, under their original names — `issue-20261016_0151.md` (the full audit) |
 
