@@ -15,7 +15,8 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     stylex({
       enableDevClassNames: mode === 'development',
-      useCSSLayers: { before: ['reset'], prefix: 'stylex' }
+      useCSSLayers: { before: ['reset'], prefix: 'stylex' },
+      lightningcssOptions: { minify: mode !== 'development' }
     }),
     effectServer({ enabled: !uiPreview }),
     solid({
