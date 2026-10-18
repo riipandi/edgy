@@ -7,12 +7,12 @@ The documentation map. Read AGENTS.md first, then this file, then the document a
 | [`shape.md`](./shape.md) | Repository shape: layout, toolchain, commands, conventions |
 | [`rules.md`](./rules.md) | Contracts, how-to-change recipes, traps |
 | [`architecture.md`](./architecture.md) | How the system is built today, per area (no history) |
-| [`plans/`](./plans/) | Executable plans (owner-approved contracts) — `plan-20261018_0105.md` (Marko → SolidJS 2 + `/rpc`, in progress: phases 1-4 committed) |
+| [`plans/`](./plans/) | Executable plans (owner-approved contracts) — empty (the Solid migration plan done and archived) |
 | [`issues/`](./issues/) | Findings that outlive a turn — `issue-20261015_2230.md` (open) |
 | [`roadmap/`](./roadmap/) | Parked improvements with unlock triggers — empty (the frontend parkings archived with the pages on Solid) |
 | [`handover/`](./handover/) | Session compactions — `handover-20261018_0705.md` (the Solid migration) |
 | [`audit/`](./audit/) | Point-in-time review records — empty |
-| [`archive/`](./archive/) | Terminal-status documents, flat, under their original names — `issue-20261016_0151.md` (the full audit) |
+| [`archive/`](./archive/) | Terminal-status documents, flat, under their original names — `issue-20261016_0151.md` (the full audit), `plan-20261018_0105.md` (the Solid migration), `roadmap-20261016_0809.md` (the frontend parkings) |
 
 ## Implemented surfaces
 
