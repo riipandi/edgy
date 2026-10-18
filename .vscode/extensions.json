@@ -1,11 +1,11 @@
 {
     "recommendations": [
         "EditorConfig.EditorConfig",
+        "Shellomo.enhanced-toml",
         "foxundermoon.shell-format",
         "ms-playwright.playwright",
         "oxc.oxc-vscode",
         "redhat.vscode-yaml",
-        "Shellomo.enhanced-toml",
         "vitest.explorer"
     ]
 }

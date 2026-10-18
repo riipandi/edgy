@@ -27,7 +27,7 @@
         "strictPropertyInitialization": true,
         "target": "esnext",
         "tsBuildInfoFile": ".output/tsconfig.tsbuildinfo",
-        "types": ["vite/client"],
+        "types": ["vite-plus/client"],
         "useDefineForClassFields": true,
         "verbatimModuleSyntax": true
     },

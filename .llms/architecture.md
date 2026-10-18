@@ -77,7 +77,7 @@ Vite 8 (Rolldown) builds, serves and previews both platforms. `vite.config.ts` s
 
 ## Development services
 
-`compose.yaml` runs what the app talks to, not the app: ClickStack (HyperDX, ClickHouse and the collector in one container), a one-shot that registers the development account, and Valkey. A fixed ingestion key lets the collector accept the app's default header, so telemetry works on the first `pnpm compose:up`. The all-in-one image is for development; production runs the pieces separately.
+`compose.yaml` runs what the app talks to, not the app: ClickStack (HyperDX, ClickHouse and the collector in one container), a one-shot that registers the development account, and Valkey. A fixed ingestion key lets the collector accept the app's default header, so telemetry works on the first `vpr compose:up`. The all-in-one image is for development; production runs the pieces separately.
 
 ## Testing
 

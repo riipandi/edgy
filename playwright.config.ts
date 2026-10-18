@@ -37,7 +37,7 @@ export default defineConfig({
     : [
         {
           command: [
-            'pnpm -s build',
+            'vpr build',
             'node --env-file-if-exists=.env.local dist/entry.js migrate:up',
             'node --env-file-if-exists=.env.local dist/entry.js serve'
           ].join(' && '),

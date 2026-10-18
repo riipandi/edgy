@@ -1,5 +1,5 @@
 {
-    "npm.scriptRunner": "pnpm",
+    "npm.scriptRunner": "vp",
     "oxc.disableNestedConfig": true,
     "oxc.fmt.disableNestedConfig": true,
     "js/ts.experimental.useTsgo": true,
@@ -19,11 +19,13 @@
         "wrangler.json": "jsonc"
     },
     "files.exclude": {
+        "**/.output": true,
         "**/.tanstack": true,
         "**/.vitest": true
     },
     "files.readonlyInclude": {
         "**/.output/**": true,
+        "**/file-routes.d.ts": true,
         "**/routeTree.gen.ts": true,
         "**/routes.gen.ts": true,
         "**/codegen/**": true,
@@ -35,6 +37,7 @@
     },
     "files.watcherExclude": {
         "**/.output/**": true,
+        "**/file-routes.d.ts": true,
         "**/routeTree.gen.ts": true,
         "**/routes.gen.ts": true,
         "**/codegen/**": true,
@@ -47,6 +50,7 @@
     "search.exclude": {
         "**/.output/**": true,
         "**/.vitest/**": true,
+        "**/file-routes.d.ts": true,
         "**/routeTree.gen.ts": true,
         "**/routes.gen.ts": true,
         "**/codegen/**": true,

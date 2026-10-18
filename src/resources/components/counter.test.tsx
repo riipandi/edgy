@@ -1,7 +1,7 @@
 import { captureArtifact, expectNoDiagnostics, expectRerunBudget } from '@solidjs/diagnostics'
 import { render, fireEvent } from '@solidjs/testing-library'
 import { flush } from 'solid-js'
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test } from 'vite-plus/test'
 import Counter from './counter'
 
 describe('<Counter />', () => {

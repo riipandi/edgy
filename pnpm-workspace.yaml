@@ -7,10 +7,28 @@ minimumReleaseAgeExclude:
   - solid-js
   - kysely@0.29.7
 
-# permissions:
-#   '@solidjs/diagnostics':
-#     skills: true
-#   '@solidjs/web':
-#     skills: true
-#   solid-js:
-#     skills: true
+catalog:
+  "@vitest/browser-playwright": 5.0.5
+  "@vitest/coverage-v8": 5.0.5
+  "typescript": 7.0.2
+  vite-plus: 1.3.0
+  vite: npm:@voidzero-dev/vite-plus-core@1.3.0
+  vitest: 5.0.5
+
+overrides:
+  vite@*: "catalog:"
+  vitest@*: "catalog:"
+
+peerDependencyRules:
+  allowAny:
+    - vitest
+  allowedVersions:
+    vitest: "*"
+
+permissions:
+  '@solidjs/diagnostics':
+    skills: true
+  '@solidjs/web':
+    skills: true
+  solid-js:
+    skills: true

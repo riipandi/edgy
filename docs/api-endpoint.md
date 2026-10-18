@@ -1,15 +1,15 @@
 # API Endpoint
 
-| Method | Path                        | Description                                       |
-| ------ | --------------------------- | ------------------------------------------------- |
-| `GET`  | `/`                         | The front page (HTML)                             |
-| `GET`  | `/health`                   | Readiness check (database reachable); `503` while shutting down |
-| `GET`  | `/metrics`                  | Prometheus metrics, only when `METRICS_ENABLED=true` |
-| `GET`  | `/users`                    | The user directory as an HTML page (the same `limit`, `cursor` and sort parameters as the API) |
-| `GET`  | `/api/users`                | List users, paginated                             |
-| `GET`  | `/api/users/:id`            | Fetch one user                                    |
+| Method | Path                        | Description                                                                                                                                                    |
+| ------ | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET`  | `/`                         | The front page (HTML)                                                                                                                                          |
+| `GET`  | `/health`                   | Readiness check (database reachable); `503` while shutting down                                                                                                |
+| `GET`  | `/metrics`                  | Prometheus metrics, only when `METRICS_ENABLED=true`                                                                                                           |
+| `GET`  | `/users`                    | The user directory as an HTML page (the same `limit`, `cursor` and sort parameters as the API)                                                                 |
+| `GET`  | `/api/users`                | List users, paginated                                                                                                                                          |
+| `GET`  | `/api/users/:id`            | Fetch one user                                                                                                                                                 |
 | `POST` | `/api/users`                | Create a user from a JSON body with a required `email` and `name` (`201`). Emails are stored in lowercase, and the same address in another spelling is a `409` |
-| `GET`  | `/.well-known/security.txt` | Contact metadata (RFC 9116 style)                 |
+| `GET`  | `/.well-known/security.txt` | Contact metadata (RFC 9116 style)                                                                                                                              |
 
 `HEAD` is answered wherever `GET` is, without a body. Every endpoint under `/api`, and `/health`, answers in the envelope below. `/health` carries only a `message`, with no `data`. `/` and `/.well-known/*` do not, and neither do the pages (`/`, `/users`), which answer in HTML.
 
@@ -26,7 +26,11 @@ A successful response carries the payload in `data`, and always reports the HTTP
 ```json
 {
   "status": "success",
-  "data": { "id": "user_01m5k7w3p8fvx9r2c4t6y0hq1d", "email": "ada@example.com", "name": "Ada Lovelace" },
+  "data": {
+    "id": "user_01m5k7w3p8fvx9r2c4t6y0hq1d",
+    "email": "ada@example.com",
+    "name": "Ada Lovelace"
+  },
   "metadata": { "status_code": 200, "request_id": "req_01m4zyktdnfzva2mkmb76p93hq" }
 }
 ```
@@ -46,12 +50,12 @@ An error has a human-readable `message` and an `error` object a program can act 
 }
 ```
 
-| Field | Meaning |
-| ----- | ------- |
-| `error.code` | Stable name of the failure (`NOT_FOUND`, `RATE_LIMITED`, `DATABASE_ERROR`…). Switch on this, not on `message` |
-| `error.retryable` | `true` when sending the same request again can succeed (a timeout, a busy database, a rate limit, an overload) |
-| `error.details` | Facts about this failure: the validation issues, the id that was not found, `retry_after` seconds |
-| `error.debug` | What lies behind a server-side failure. Only when the server runs at `LOG_LEVEL=Debug` or below; secrets in it are removed |
+| Field             | Meaning                                                                                                                    |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `error.code`      | Stable name of the failure (`NOT_FOUND`, `RATE_LIMITED`, `DATABASE_ERROR`…). Switch on this, not on `message`              |
+| `error.retryable` | `true` when sending the same request again can succeed (a timeout, a busy database, a rate limit, an overload)             |
+| `error.details`   | Facts about this failure: the validation issues, the id that was not found, `retry_after` seconds                          |
+| `error.debug`     | What lies behind a server-side failure. Only when the server runs at `LOG_LEVEL=Debug` or below; secrets in it are removed |
 
 The same id is in the `X-Trace-ID` header, so a client or proxy that never parses the body can still log it.
 
@@ -65,19 +69,21 @@ Responses contain only the documented fields.
 
 Lists are paged with a cursor, not a page number, so a request costs the same on the first page and the thousandth, and a row added while you read cannot shift the pages. List endpoints accept these query parameters:
 
-| Parameter    | Default | Meaning                                                                    |
-| ------------ | ------- | -------------------------------------------------------------------------- |
-| `limit`      | `20`    | Items per page, 1 to 100                                                   |
+| Parameter    | Default | Meaning                                                                         |
+| ------------ | ------- | ------------------------------------------------------------------------------- |
+| `limit`      | `20`    | Items per page, 1 to 100                                                        |
 | `cursor`     | (none)  | Where the next page starts; copy it from `metadata.next_cursor` or `links.next` |
-| `sort_by`    | `id`    | Field to sort by. `/api/users` accepts `id`, `email` and `name`            |
-| `sort_order` | `asc`   | `asc` or `desc`                                                            |
+| `sort_by`    | `id`    | Field to sort by. `/api/users` accepts `id`, `email` and `name`                 |
+| `sort_order` | `asc`   | `asc` or `desc`                                                                 |
 
 A paginated response adds the cursor to `metadata` and navigation to `links`:
 
 ```json
 {
   "status": "success",
-  "data": [{ "id": "user_01m5k7w3p8fvx9r2c4t6y0hq1d", "email": "ada@example.com", "name": "Ada Lovelace" }],
+  "data": [
+    { "id": "user_01m5k7w3p8fvx9r2c4t6y0hq1d", "email": "ada@example.com", "name": "Ada Lovelace" }
+  ],
   "metadata": {
     "status_code": 200,
     "request_id": "req_01m4zymemrfera61y7ekvtpz48",
@@ -101,19 +107,19 @@ A paginated response adds the cursor to `metadata` and navigation to `links`:
 
 ## Errors
 
-| Status | Meaning |
-| ------ | ------- |
-| `400`  | Validation failed (body, path or query), or the body is not valid JSON |
+| Status | Meaning                                                                                                                                  |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `400`  | Validation failed (body, path or query), or the body is not valid JSON                                                                   |
 | `404`  | Unknown path (`NOT_FOUND`), or unknown user (`NOT_FOUND`, `"details": { "id": "user_…" }`); an `:id` that is not a `user_` id is a `400` |
-| `405`  | A path that exists under other methods (`METHOD_NOT_ALLOWED`); `Allow` lists them |
-| `415`  | A request body that is not `application/json` |
-| `429`  | Rate limit exceeded; `Retry-After` says how many seconds to wait |
-| `409`  | The user already exists (duplicate email; `CONFLICT`) |
-| `413`  | Request body larger than `BODY_LIMIT` |
-| `499`  | The client closed the connection before the response |
-| `500`  | Server-side failure (`DATABASE_ERROR`, `INTERNAL_ERROR`); the cause goes to the log, and to the response only in debug mode, redacted |
-| `503`  | `/health` while the server is shutting down, or any `/api` request while the server is overloaded (`Retry-After: 1`) |
-| `504`  | The request exceeded `REQUEST_TIMEOUT` |
+| `405`  | A path that exists under other methods (`METHOD_NOT_ALLOWED`); `Allow` lists them                                                        |
+| `415`  | A request body that is not `application/json`                                                                                            |
+| `429`  | Rate limit exceeded; `Retry-After` says how many seconds to wait                                                                         |
+| `409`  | The user already exists (duplicate email; `CONFLICT`)                                                                                    |
+| `413`  | Request body larger than `BODY_LIMIT`                                                                                                    |
+| `499`  | The client closed the connection before the response                                                                                     |
+| `500`  | Server-side failure (`DATABASE_ERROR`, `INTERNAL_ERROR`); the cause goes to the log, and to the response only in debug mode, redacted    |
+| `503`  | `/health` while the server is shutting down, or any `/api` request while the server is overloaded (`Retry-After: 1`)                     |
+| `504`  | The request exceeded `REQUEST_TIMEOUT`                                                                                                   |
 
 ## Tracing
 
@@ -163,15 +169,15 @@ Every response carries `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY
 
 ## Other response headers
 
-| Header | When | Meaning |
-| --- | --- | --- |
-| `Cache-Control: no-store` | every `/api` response, errors included | Answers are per caller and per moment; nothing may cache them |
-| `Server-Timing: total;dur=<ms>` | every response | Time the server spent on the request |
-| `Link` | collections | The pagination links of the body (`self`, `first`, `next`) as RFC 8288 relations |
-| `X-Request-ID` | every response | The request's `req_` id; send your own to continue an upstream trace |
-| `X-Trace-ID` | when the trace was recorded | The trace's `trc_` id (same as `metadata.trace_id`); absent when telemetry is off or the request was not sampled |
-| `X-Cache` | a read served through the cache | `HIT` (from the cache), `MISS` (read from the database) or `BYPASS` (`?nocache=true`); absent otherwise. The same answer is in `metadata.cache` (`hit`, `miss`, `bypass`), errors included |
-| `Retry-After` | `429`, `503` | Seconds to wait before trying again |
+| Header                          | When                                   | Meaning                                                                                                                                                                                    |
+| ------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Cache-Control: no-store`       | every `/api` response, errors included | Answers are per caller and per moment; nothing may cache them                                                                                                                              |
+| `Server-Timing: total;dur=<ms>` | every response                         | Time the server spent on the request                                                                                                                                                       |
+| `Link`                          | collections                            | The pagination links of the body (`self`, `first`, `next`) as RFC 8288 relations                                                                                                           |
+| `X-Request-ID`                  | every response                         | The request's `req_` id; send your own to continue an upstream trace                                                                                                                       |
+| `X-Trace-ID`                    | when the trace was recorded            | The trace's `trc_` id (same as `metadata.trace_id`); absent when telemetry is off or the request was not sampled                                                                           |
+| `X-Cache`                       | a read served through the cache        | `HIT` (from the cache), `MISS` (read from the database) or `BYPASS` (`?nocache=true`); absent otherwise. The same answer is in `metadata.cache` (`hit`, `miss`, `bypass`), errors included |
+| `Retry-After`                   | `429`, `503`                           | Seconds to wait before trying again                                                                                                                                                        |
 
 For a browser app on another origin, the `Access-Control-Expose-Headers` of every response lists
 `X-Request-ID`, `X-Trace-ID`, `X-Cache`, the three `X-RateLimit-*` headers, `Retry-After` and `Link`, so a script can read them.
@@ -180,12 +186,12 @@ For a browser app on another origin, the `Access-Control-Expose-Headers` of ever
 
 Every id is a TypeID: a prefix that says what it is, then 26 characters. They sort by creation time.
 
-| Prefix  | What                         | Where you see it |
-| ------- | ---------------------------- | ---------------- |
-| `req_`  | One request                  | `x-request-id`, `metadata.request_id`, every log line of the request |
-| `trc_`  | One trace                    | `metadata.trace_id`, the `traceId` of request log lines |
-| `user_` | A user                       | `data.id`, `/api/users/:id` |
-| `inst_` | A running server instance    | `service.instance.id` in telemetry |
+| Prefix  | What                      | Where you see it                                                     |
+| ------- | ------------------------- | -------------------------------------------------------------------- |
+| `req_`  | One request               | `x-request-id`, `metadata.request_id`, every log line of the request |
+| `trc_`  | One trace                 | `metadata.trace_id`, the `traceId` of request log lines              |
+| `user_` | A user                    | `data.id`, `/api/users/:id`                                          |
+| `inst_` | A running server instance | `service.instance.id` in telemetry                                   |
 
 ## Request ID
 

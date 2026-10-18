@@ -45,12 +45,12 @@ phases:
 
 ## Shape and enforcement points
 
-| What | Where | The record |
-| --- | --- | --- |
-| <The contract> | `rules.md`, <the section> | <what the next reader must know> |
-| <The reasoning> | `architecture.md`, <the section> | <D1/D2's record> |
-| <The human-facing bit> | `docs/<the doc>`, <where> | <the sentence the reader needs> |
-| <The closed finding> | the issue → archived | <the owner's pick, the date, this plan> |
+| What                   | Where                            | The record                              |
+| ---------------------- | -------------------------------- | --------------------------------------- |
+| <The contract>         | `rules.md`, <the section>        | <what the next reader must know>        |
+| <The reasoning>        | `architecture.md`, <the section> | <D1/D2's record>                        |
+| <The human-facing bit> | `docs/<the doc>`, <where>        | <the sentence the reader needs>         |
+| <The closed finding>   | the issue → archived             | <the owner's pick, the date, this plan> |
 
 ## Execution rules
 
@@ -63,22 +63,22 @@ phases:
 
 ## Phases
 
-1. **<The contract or schema change>** — <what lands>. Validation: <the exact command or probe that proves it>. *Commit: `<type>(<scope>): <the message>`.*
-2. **<The implementation>** — <what lands>. Validation: <the command>; the edge cases from the matrix rows it touches. *Commit: `<type>(<scope>): <the message>`.*
-3. **Docs sync, ledger close, handover** — the records land (rules / architecture / docs/), the issue flips and archives, the index rows move, the handover carries the decisions. Validation: the docs' claims diff-checked against the landed code; the index agrees with the tree. *Commit: `docs: <the message>`.*
-4. **Final validation** — the matrix below, run over the tree as it stands. Validation: the matrix green end to end. *Commit: none if green; the ledger note rides the docs phase.*
+1. **<The contract or schema change>** — <what lands>. Validation: <the exact command or probe that proves it>. _Commit: `<type>(<scope>): <the message>`._
+2. **<The implementation>** — <what lands>. Validation: <the command>; the edge cases from the matrix rows it touches. _Commit: `<type>(<scope>): <the message>`._
+3. **Docs sync, ledger close, handover** — the records land (rules / architecture / docs/), the issue flips and archives, the index rows move, the handover carries the decisions. Validation: the docs' claims diff-checked against the landed code; the index agrees with the tree. _Commit: `docs: <the message>`._
+4. **Final validation** — the matrix below, run over the tree as it stands. Validation: the matrix green end to end. _Commit: none if green; the ledger note rides the docs phase._
 
 ## Test matrix
 
-| What | How | Green |
-| --- | --- | --- |
-| Unit | `go test ./<the touched packages>/ -count=1` | The new behavior + its failure paths |
-| Integration | <the seeded-DB or harness run> | <the observable> |
-| Lint | `task lint` | 0 issues |
-| Full suite | `go test ./...` (+ the debug/tag variant), sequential | All green |
-| Composition root | <the built-binary probe against a running service> | <the endpoint answers; the log clean> |
-| E2E | <relevant scenario> or — recorded n/a with the reason | — |
-| Contract drift | <the stale-check for the wire/serialization, when one exists> | — |
+| What             | How                                                           | Green                                 |
+| ---------------- | ------------------------------------------------------------- | ------------------------------------- |
+| Unit             | `go test ./<the touched packages>/ -count=1`                  | The new behavior + its failure paths  |
+| Integration      | <the seeded-DB or harness run>                                | <the observable>                      |
+| Lint             | `task lint`                                                   | 0 issues                              |
+| Full suite       | `go test ./...` (+ the debug/tag variant), sequential         | All green                             |
+| Composition root | <the built-binary probe against a running service>            | <the endpoint answers; the log clean> |
+| E2E              | <relevant scenario> or — recorded n/a with the reason         | —                                     |
+| Contract drift   | <the stale-check for the wire/serialization, when one exists> | —                                     |
 
 ## Explicitly out of scope
 

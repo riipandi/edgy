@@ -32,6 +32,7 @@ openapi:generate     Generate the OpenAPI description of the API
 ```
 
 ## Database Migration
+
 ```
 migrate:up      Run database migrations
    --to name    Apply migrations only up to this migration name
@@ -58,16 +59,16 @@ migrate:seed    Seed the database with initial data
 ```
 
 The migration commands use the database selected by `DATABASE_DRIVER`. With `d1` they run against
-the local D1 database that `pnpm dev --mode worker` and `pnpm preview --mode worker` serve, so the schema is ready before the Worker starts:
+the local D1 database that `vpr dev --mode worker` and `vpr preview --mode worker` serve, so the schema is ready before the Worker starts:
 
 ```bash
-DATABASE_DRIVER=d1 pnpm app migrate:up
+DATABASE_DRIVER=d1 vpr app migrate:up
 ```
 
 `--remote` (on `migrate:up`, `migrate:down` and `migrate:status`) always means the real D1 database
 the Worker uses, whatever `DATABASE_DRIVER` says. It needs a Cloudflare login (`wrangler login`, or
 `CLOUDFLARE_API_TOKEN` in a script) and the database named in `wrangler.jsonc`. Look before you
-apply: `pnpm app migrate:up --remote --dry-run`. `migrate:reset` and `migrate:seed` do not take it,
+apply: `vpr app migrate:up --remote --dry-run`. `migrate:reset` and `migrate:seed` do not take it,
 so production data is never wiped or filled from here.
 
 Destructive commands (`migrate:down`, `migrate:reset`) ask for confirmation; `--force` skips the

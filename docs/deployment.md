@@ -10,17 +10,17 @@ minimal `package.json`, so the result runs without the project's own `node_modul
 executable is a separate command.
 
 ```bash
-pnpm build                  # -> dist/server  (index.mjs, with assets/ for the browser beside it)
-pnpm build --mode worker    # -> dist/worker  (index.js + public/ for the browser)
-pnpm compile                # -> dist/edgy  (single executable, experimental)
+vpr build                  # -> dist/server  (index.mjs, with assets/ for the browser beside it)
+vpr build --mode worker    # -> dist/worker  (index.js + public/ for the browser)
+vpr compile                # -> dist/edgy  (single executable, experimental)
 ```
 
 `dev`, `build` and `preview` are Vite's own commands, and `--mode worker` makes any of them the
 Worker's (Vite's `--mode` is the one switch its command line passes to the configuration). Left out,
-it is the Node server. Every other Vite option works as on Vite: `pnpm build --minify`,
-`pnpm dev --port 3001`.
+it is the Node server. Every other Vite option works as on Vite: `vpr build --minify`,
+`vpr dev --port 3001`.
 
-`--minify` is Vite's own flag, so it works on any of them (`pnpm build --minify`); the browser assets
+`--minify` is Vite's own flag, so it works on any of them (`vpr build --minify`); the browser assets
 are always minified.
 
 Run the build anywhere, with no `node_modules` present:
@@ -39,28 +39,28 @@ loads it, nothing runs it.
 The same application runs in two places. The code, routes and configuration are shared; only the
 runtime and the database differ.
 
-| Target             | Runtime          | Database             | Built with        |
-| ------------------ | ---------------- | -------------------- | ----------------- |
-| Node.js server     | Node.js >= 24.22 | SQLite (`node:sqlite`) | `pnpm build`   |
-| Cloudflare Workers | workerd          | Cloudflare D1        | `pnpm build --mode worker` |
+| Target             | Runtime          | Database               | Built with                 |
+| ------------------ | ---------------- | ---------------------- | -------------------------- |
+| Node.js server     | Node.js >= 24.22 | SQLite (`node:sqlite`) | `vpr build`               |
+| Cloudflare Workers | workerd          | Cloudflare D1          | `vpr build --mode worker` |
 
 ## Cloudflare Workers
 
 ```bash
-pnpm dev --mode worker       # run the source in workerd, with hot updates
-pnpm build --mode worker     # build into dist/worker (the Worker and, in public/, the browser assets)
-pnpm preview --mode worker   # run the Worker built in dist/worker, in workerd (build it first)
-pnpm run deploy              # build a minified Worker, then publish it with wrangler
+vpr dev --mode worker       # run the source in workerd, with hot updates
+vpr build --mode worker     # build into dist/worker (the Worker and, in public/, the browser assets)
+vpr preview --mode worker   # run the Worker built in dist/worker, in workerd (build it first)
+vpr deploy              # build a minified Worker, then publish it with wrangler
 ```
 
 The Worker is the same Vite configuration with `--mode worker`. Vite's Cloudflare plugin
 reads `wrangler.jsonc` and writes the configuration that `wrangler deploy` uses, including the
 browser assets, which Cloudflare serves itself without starting the Worker. Node's built-ins
 (`node:async_hooks`) stay imports, which Cloudflare provides through the `nodejs_compat` flag.
-`--minify` works for both targets; `pnpm compile` (single executable) is Node.js only.
+`--minify` works for both targets; `vpr compile` (single executable) is Node.js only.
 
-`pnpm dev --mode worker` is the fast loop. `pnpm preview --mode worker` runs the artifact you will
-actually ship: build it the way `pnpm run deploy` does (`pnpm build --mode worker --minify`), then preview it.
+`vpr dev --mode worker` is the fast loop. `vpr preview --mode worker` runs the artifact you will
+actually ship: build it the way `vpr deploy` does (`vpr build --mode worker --minify`), then preview it.
 
 Local secrets and overrides for the Worker go in `.dev.vars` (Wrangler's own file, ignored by git).
 `.env.local` is for the Node.js server and is deliberately not read for the Worker: it would
@@ -73,10 +73,10 @@ Before the first deploy:
 2. Put application settings under `vars` in `wrangler.jsonc` and secrets in `wrangler secret put`.
    See [Configuration](./configuration.md).
 3. Create the schema, in one of two ways.
-   - Explicitly, before the deploy (recommended for production): `pnpm app migrate:up --remote`
+   - Explicitly, before the deploy (recommended for production): `vpr app migrate:up --remote`
      applies the migrations to the real database, after `--dry-run` has shown what is pending. It
      needs `wrangler login` (or `CLOUDFLARE_API_TOKEN`). Then switch the automatic route off:
-     `pnpm run deploy --var DATABASE_AUTO_MIGRATE:false`.
+     `vpr deploy --var DATABASE_AUTO_MIGRATE:false`.
    - Automatically: `wrangler.jsonc` sets `DATABASE_AUTO_MIGRATE` to `true`, so the first request to
      a new database applies the migrations. Several isolates starting at once can race on that
      first migration, and a preview upload shares these settings, so use it for a new or
@@ -128,13 +128,13 @@ addon cannot be bundled that way; none of the current dependencies do (the datab
 
 ## Single executable
 
-`pnpm compile` builds the server as one CommonJS file together with the browser assets, generates a
+`vpr compile` builds the server as one CommonJS file together with the browser assets, generates a
 preparation blob with `node --experimental-sea-config`, and injects it into a copy of the running
 `node` binary using [postject](https://github.com/nodejs/postject). The browser assets travel inside
 the executable, so it serves its own pages with nothing beside it.
 
 ```bash
-pnpm compile
+vpr compile
 ./dist/edgy serve
 ```
 

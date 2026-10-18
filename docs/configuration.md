@@ -5,7 +5,7 @@ but invalid (a non-numeric `PORT`, an unknown `DATABASE_DRIVER`) stops the proce
 names the variable, instead of failing on the first request.
 
 Every variable is optional. The defaults suit local development: they point at the services of
-`pnpm compose:up` (ClickStack for telemetry, Valkey for the shared rate limit), so a fresh checkout
+`vpr compose:up` (ClickStack for telemetry, Valkey for the shared rate limit), so a fresh checkout
 needs no setup. A deployment overrides them through its environment.
 
 Durations are whole numbers of **milliseconds** (`REQUEST_TIMEOUT=30000` is thirty seconds). A value
@@ -17,9 +17,9 @@ with a unit, such as `30 seconds`, is refused at startup with a message naming t
 the configuration itself, so it is always complete:
 
 ```bash
-pnpm app config:generate               # create .env.example (never replaces an existing, different file)
-pnpm app config:generate --overwrite   # replace it after a confirmation (--force skips the prompt)
-pnpm app config:generate --check       # fail if the file is out of date
+vpr app config:generate               # create .env.example (never replaces an existing, different file)
+vpr app config:generate --overwrite   # replace it after a confirmation (--force skips the prompt)
+vpr app config:generate --check       # fail if the file is out of date
 cp .env.example .env                # then change only what you need
 ```
 
@@ -27,19 +27,19 @@ The command never writes a real `.env` file.
 
 ## Server
 
-| Variable               | Default      | Description                                                                 |
-| ---------------------- | ------------ | --------------------------------------------------------------------------- |
-| `HOST`                 | `127.0.0.1`  | Bind address; set `0.0.0.0` in a container or behind a proxy on another host |
-| `PORT`                 | `3000`       | Bind port                                                                   |
-| `BODY_LIMIT`           | `1048576`    | Largest accepted request body in bytes; bigger bodies get `413`             |
-| `REQUEST_TIMEOUT`      | `30000`      | Milliseconds a request may run before it is cancelled and answered with `504` |
-| `SHUTDOWN_TIMEOUT`     | `10000`      | Milliseconds a stop signal waits for requests still being handled           |
-| `SHUTDOWN_DRAIN_DELAY` | `0`          | Milliseconds between `/health` turning `503` and the server closing         |
-| `MAX_IN_FLIGHT`        | `1024`       | Requests handled at once before new ones are refused with `503`; `0` turns the guard off |
-| `TRUST_PROXY`          | `false`      | Proxies that may set the client address: `false`, `true`, or a list of addresses and CIDR ranges (see below) |
-| `TRUSTED_PLATFORM`     | (empty)      | Header a CDN or platform sets to the client address, such as `CF-Connecting-IP` (see below) |
-| `PROXY_PROTOCOL`       | `false`      | Load balancers that send a PROXY protocol header naming the client: `false`, `true`, or a list of addresses and CIDR ranges (Node.js only, see below) |
-| `CLOUDFLARE_LOCATION_HEADERS` | `false` | Add the client's country and city (from Cloudflare's headers) to the request log (see below) |
+| Variable                      | Default     | Description                                                                                                                                           |
+| ----------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `HOST`                        | `127.0.0.1` | Bind address; set `0.0.0.0` in a container or behind a proxy on another host                                                                          |
+| `PORT`                        | `3000`      | Bind port                                                                                                                                             |
+| `BODY_LIMIT`                  | `1048576`   | Largest accepted request body in bytes; bigger bodies get `413`                                                                                       |
+| `REQUEST_TIMEOUT`             | `30000`     | Milliseconds a request may run before it is cancelled and answered with `504`                                                                         |
+| `SHUTDOWN_TIMEOUT`            | `10000`     | Milliseconds a stop signal waits for requests still being handled                                                                                     |
+| `SHUTDOWN_DRAIN_DELAY`        | `0`         | Milliseconds between `/health` turning `503` and the server closing                                                                                   |
+| `MAX_IN_FLIGHT`               | `1024`      | Requests handled at once before new ones are refused with `503`; `0` turns the guard off                                                              |
+| `TRUST_PROXY`                 | `false`     | Proxies that may set the client address: `false`, `true`, or a list of addresses and CIDR ranges (see below)                                          |
+| `TRUSTED_PLATFORM`            | (empty)     | Header a CDN or platform sets to the client address, such as `CF-Connecting-IP` (see below)                                                           |
+| `PROXY_PROTOCOL`              | `false`     | Load balancers that send a PROXY protocol header naming the client: `false`, `true`, or a list of addresses and CIDR ranges (Node.js only, see below) |
+| `CLOUDFLARE_LOCATION_HEADERS` | `false`     | Add the client's country and city (from Cloudflare's headers) to the request log (see below)                                                          |
 
 ### Behind a reverse proxy
 
@@ -89,24 +89,24 @@ header with a valid address from a peer that may be believed (see above). Withou
 
 ## Database
 
-| Variable                | Default                  | Description                                                              |
-| ----------------------- | ------------------------ | ------------------------------------------------------------------------ |
-| `DATABASE_DRIVER`       | `sqlite`                 | `sqlite` (Node.js) or `d1` (Cloudflare D1)                               |
-| `DATABASE_PATH`         | `./storage/data/edgy.db` | SQLite file, or `:memory:`; parent directories are created (`sqlite` only) |
-| `D1_BINDING`            | `DB`                     | Name of the D1 binding in `wrangler.jsonc` (`d1` only)                   |
-| `DATABASE_AUTO_MIGRATE` | `false` (`pnpm dev`: on) | Apply pending migrations at start: on Workers, and in `pnpm dev`, where unset means on |
+| Variable                | Default                  | Description                                                                            |
+| ----------------------- | ------------------------ | -------------------------------------------------------------------------------------- |
+| `DATABASE_DRIVER`       | `sqlite`                 | `sqlite` (Node.js) or `d1` (Cloudflare D1)                                             |
+| `DATABASE_PATH`         | `./storage/data/edgy.db` | SQLite file, or `:memory:`; parent directories are created (`sqlite` only)             |
+| `D1_BINDING`            | `DB`                     | Name of the D1 binding in `wrangler.jsonc` (`d1` only)                                 |
+| `DATABASE_AUTO_MIGRATE` | `false` (`vpr dev`: on)  | Apply pending migrations at start: on Workers, and in `vpr dev`, where unset means on  |
 
 ## Logging
 
-| Variable             | Default      | Description                                                                |
-| -------------------- | ------------ | -------------------------------------------------------------------------- |
-| `LOG_LEVEL`          | `Info`       | `All` \| `Fatal` \| `Error` \| `Warn` \| `Info` \| `Debug` \| `Trace` \| `None` (**case-sensitive**). `Debug` and `Trace` also add `error.debug` (the redacted cause) to server-error responses; `Trace` also prints every SQL statement with its duration (never the values) |
-| `LOG_TRANSPORT`      | `console,file`    | Where logs go: any of `console`, `file`, `otlp`, comma-separated (`otlp` needs `OTEL_EXPORTER_OTLP_ENDPOINT`) |
-| `LOG_FILE`           | `./storage/logs/edgy.jsonl` | Base path of the log file; the file written carries the period (see below) |
-| `LOG_ROTATION`       | `daily`      | How often a new log file starts: `hourly`, `daily`, `weekly` or `monthly` (UTC) |
-| `LOG_FILE_MAX_FILES` | `14`         | Log files kept, the current one included; older ones are deleted. `0` keeps every file |
-| `LOG_FORMAT`         | `pretty`     | Console format: `pretty` for readable lines, `json` for one JSON object per line |
-| `LOG_FLUSH_INTERVAL` | `250`        | Milliseconds log lines are buffered before they are written together (Node.js) |
+| Variable             | Default                     | Description                                                                                                                                                                                                                                                                   |
+| -------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `LOG_LEVEL`          | `Info`                      | `All` \| `Fatal` \| `Error` \| `Warn` \| `Info` \| `Debug` \| `Trace` \| `None` (**case-sensitive**). `Debug` and `Trace` also add `error.debug` (the redacted cause) to server-error responses; `Trace` also prints every SQL statement with its duration (never the values) |
+| `LOG_TRANSPORT`      | `console,file`              | Where logs go: any of `console`, `file`, `otlp`, comma-separated (`otlp` needs `OTEL_EXPORTER_OTLP_ENDPOINT`)                                                                                                                                                                 |
+| `LOG_FILE`           | `./storage/logs/edgy.jsonl` | Base path of the log file; the file written carries the period (see below)                                                                                                                                                                                                    |
+| `LOG_ROTATION`       | `daily`                     | How often a new log file starts: `hourly`, `daily`, `weekly` or `monthly` (UTC)                                                                                                                                                                                               |
+| `LOG_FILE_MAX_FILES` | `14`                        | Log files kept, the current one included; older ones are deleted. `0` keeps every file                                                                                                                                                                                        |
+| `LOG_FORMAT`         | `pretty`                    | Console format: `pretty` for readable lines, `json` for one JSON object per line                                                                                                                                                                                              |
+| `LOG_FLUSH_INTERVAL` | `250`                       | Milliseconds log lines are buffered before they are written together (Node.js)                                                                                                                                                                                                |
 
 Requests that are only noise are written at `Debug`, so they do not appear at `Info`: a browser asking for
 `favicon.ico`, a crawler for `robots.txt`, Chrome DevTools, a load balancer polling `/health` or `/metrics`
@@ -119,12 +119,12 @@ order that starts with the time (`timestamp`, `level`, `message`, `annotations`,
 one). `LOG_FORMAT=json` on the console uses the same shape. The file's name is the base name
 from `LOG_FILE` plus the period it covers, with underscores as separators:
 
-| `LOG_ROTATION` | File name                      | Starts a new file     |
-| -------------- | ------------------------------ | --------------------- |
-| `hourly`       | `edgy_20261015_09.jsonl`       | every hour            |
-| `daily`        | `edgy_20261015.jsonl`          | every day             |
-| `weekly`       | `edgy_20261012.jsonl`          | every Monday (its date) |
-| `monthly`      | `edgy_202610.jsonl`            | every month           |
+| `LOG_ROTATION` | File name                | Starts a new file       |
+| -------------- | ------------------------ | ----------------------- |
+| `hourly`       | `edgy_20261015_09.jsonl` | every hour              |
+| `daily`        | `edgy_20261015.jsonl`    | every day               |
+| `weekly`       | `edgy_20261012.jsonl`    | every Monday (its date) |
+| `monthly`      | `edgy_202610.jsonl`      | every month             |
 
 Periods are in UTC, the same clock as the `timestamp` inside each line. A restart within the same period
 appends to the same file. Each line goes to the file of its own timestamp, so lines around midnight land
@@ -138,14 +138,14 @@ logs go to the platform's stream.
 
 ## Security
 
-| Variable            | Default    | Description                                                              |
-| ------------------- | ---------- | ------------------------------------------------------------------------ |
-| `RATE_LIMIT_ENABLED` | `true`    | Turns rate limiting on `/api` on or off                                  |
-| `RATE_LIMIT_MAX`    | `100`      | Requests per client per window; at least `1`. With `cloudflare` it is only reported, so keep it equal to the limit in `wrangler.jsonc` |
-| `RATE_LIMIT_WINDOW` | `60000`    | Length of the rate-limit window, in milliseconds                         |
-| `RATE_LIMIT_STORE`  | `memory`   | Where counters live: `memory` (per process), `redis` (shared by every instance, Node.js only) or `cloudflare` (Workers only) |
-| `RATE_LIMIT_BINDING` | `RATE_LIMITER` | Name of the Workers rate-limit binding, used when `RATE_LIMIT_STORE=cloudflare` |
-| `REDIS_URL`         | `redis://:securedb@localhost:6379` | Redis or Valkey URL, used when `RATE_LIMIT_STORE` or `CACHE_STORE` is `redis` (one connection serves both). Secret; the default is the Valkey of `pnpm compose:up` |
+| Variable             | Default                            | Description                                                                                                                                                        |
+| -------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `RATE_LIMIT_ENABLED` | `true`                             | Turns rate limiting on `/api` on or off                                                                                                                            |
+| `RATE_LIMIT_MAX`     | `100`                              | Requests per client per window; at least `1`. With `cloudflare` it is only reported, so keep it equal to the limit in `wrangler.jsonc`                             |
+| `RATE_LIMIT_WINDOW`  | `60000`                            | Length of the rate-limit window, in milliseconds                                                                                                                   |
+| `RATE_LIMIT_STORE`   | `memory`                           | Where counters live: `memory` (per process), `redis` (shared by every instance, Node.js only) or `cloudflare` (Workers only)                                       |
+| `RATE_LIMIT_BINDING` | `RATE_LIMITER`                     | Name of the Workers rate-limit binding, used when `RATE_LIMIT_STORE=cloudflare`                                                                                    |
+| `REDIS_URL`          | `redis://:securedb@localhost:6379` | Redis or Valkey URL, used when `RATE_LIMIT_STORE` or `CACHE_STORE` is `redis` (one connection serves both). Secret; the default is the Valkey of `vpr compose:up` |
 
 With `memory` each running instance keeps its own counts, so the effective limit is `RATE_LIMIT_MAX`
 times the number of instances. With `redis` every instance counts against one allowance, which makes
@@ -171,13 +171,13 @@ stops startup with a message instead of failing quietly. Behind a proxy, set `TR
 User lookups by id are cached. The cache is on by default and lives in the process, which is what
 the server always did; a shared store is opt-in.
 
-| Variable           | Default  | Description                                                                 |
-| ------------------ | -------- | --------------------------------------------------------------------------- |
-| `CACHE_ENABLED`    | `true`   | Turns the cache on or off; off sends every read to the database             |
-| `CACHE_STORE`      | `memory` | `memory` (per process), `redis` (shared by every instance, Node.js only) or `cloudflare` (Workers only) |
-| `CACHE_TTL`        | `30000`  | How long an entry stays cached, in milliseconds                             |
-| `CACHE_LOCAL_TTL`  | `5000`   | With a shared store, how long a process also keeps its own copy (`0` keeps none), in milliseconds |
-| `CACHE_MAX_ENTRIES`| `256`    | Entries a process keeps in memory, per cache                                |
+| Variable            | Default  | Description                                                                                             |
+| ------------------- | -------- | ------------------------------------------------------------------------------------------------------- |
+| `CACHE_ENABLED`     | `true`   | Turns the cache on or off; off sends every read to the database                                         |
+| `CACHE_STORE`       | `memory` | `memory` (per process), `redis` (shared by every instance, Node.js only) or `cloudflare` (Workers only) |
+| `CACHE_TTL`         | `30000`  | How long an entry stays cached, in milliseconds                                                         |
+| `CACHE_LOCAL_TTL`   | `5000`   | With a shared store, how long a process also keeps its own copy (`0` keeps none), in milliseconds       |
+| `CACHE_MAX_ENTRIES` | `256`    | Entries a process keeps in memory, per cache                                                            |
 
 A write removes the entry it changes, so the only stale reads are those that follow a write made by
 another instance. With `memory` that lasts up to `CACHE_TTL`; with a shared store the entry is gone for
@@ -205,16 +205,16 @@ every read reaches D1; use a custom domain.
 
 ## Observability
 
-| Variable                         | Default     | Description                                                              |
-| -------------------------------- | ----------- | ------------------------------------------------------------------------ |
-| `METRICS_ENABLED`                | `false`     | Serve Prometheus metrics at `GET /metrics`                               |
-| `OTEL_SDK_DISABLED`              | `false`     | `true` turns trace, metric and `otlp` log export off, whatever the endpoint |
-| `OTEL_EXPORTER_OTLP_ENDPOINT`    | `http://localhost:4318` | OTLP/HTTP collector base URL; the default is the ClickStack of `pnpm compose:up` |
-| `OTEL_EXPORTER_OTLP_HEADERS`     | `authorization=edgy-dev-ingestion-key` | Headers sent with every export, `key=value` pairs separated by commas. Secret; the default is the development key of `pnpm compose:up`, and the server refuses to start with it when the endpoint is not local |
-| `OTEL_SERVICE_NAME`              | `edgy`      | Service name attached to every signal                                    |
-| `OTEL_EXPORT_INTERVAL`           | `5000`      | Milliseconds between exports of buffered traces, metrics and logs        |
-| `OTEL_EXPORTER_OTLP_COMPRESSION` | `gzip`      | Compression of export requests: `gzip` or `none`                         |
-| `OTEL_TRACES_SAMPLE_RATIO`       | `0.7`       | Fraction of requests whose trace is recorded, from 0 to 1                |
+| Variable                         | Default                                | Description                                                                                                                                                                                                    |
+| -------------------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `METRICS_ENABLED`                | `false`                                | Serve Prometheus metrics at `GET /metrics`                                                                                                                                                                     |
+| `OTEL_SDK_DISABLED`              | `false`                                | `true` turns trace, metric and `otlp` log export off, whatever the endpoint                                                                                                                                    |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`    | `http://localhost:4318`                | OTLP/HTTP collector base URL; the default is the ClickStack of `vpr compose:up`                                                                                                                               |
+| `OTEL_EXPORTER_OTLP_HEADERS`     | `authorization=edgy-dev-ingestion-key` | Headers sent with every export, `key=value` pairs separated by commas. Secret; the default is the development key of `vpr compose:up`, and the server refuses to start with it when the endpoint is not local |
+| `OTEL_SERVICE_NAME`              | `edgy`                                 | Service name attached to every signal                                                                                                                                                                          |
+| `OTEL_EXPORT_INTERVAL`           | `5000`                                 | Milliseconds between exports of buffered traces, metrics and logs                                                                                                                                              |
+| `OTEL_EXPORTER_OTLP_COMPRESSION` | `gzip`                                 | Compression of export requests: `gzip` or `none`                                                                                                                                                               |
+| `OTEL_TRACES_SAMPLE_RATIO`       | `0.7`                                  | Fraction of requests whose trace is recorded, from 0 to 1                                                                                                                                                      |
 
 Telemetry is OpenTelemetry over HTTP with JSON bodies (no gRPC), so it works with ClickStack/HyperDX,
 Grafana, Honeycomb or any OpenTelemetry collector. It is on by default and aimed at the local
@@ -268,5 +268,5 @@ CORS_ORIGINS="https://app.example.com,https://admin.example.com" \
 CORS_CREDENTIALS=true \
 LOG_LEVEL=Warn \
 PORT=8080 \
-pnpm app serve
+vpr app serve
 ```

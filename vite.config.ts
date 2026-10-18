@@ -1,18 +1,74 @@
 import solid from '@solidjs/vite-plugin'
 import { storybookTest } from '@storybook/addon-vitest/vitest-plugin'
 import stylex from '@stylexjs/unplugin/vite'
-import { playwright } from '@vitest/browser-playwright'
+import solidLint from 'eslint-plugin-solid/configs/v2'
 import { fileRoutes } from 'filesystem-routing/vite'
 import { fileURLToPath } from 'node:url'
-import { defineConfig } from 'vitest/config'
+import { defineConfig, lazyPlugins } from 'vite-plus'
+import { playwright } from 'vite-plus/test/browser-playwright'
 import { effectVite } from './src/builder/vite-plugin.ts'
 
 // Storybook and Vitest render components in the browser. The app server
 // (start + SSR + file routes) stays on for `vite` and `vite build`.
 const uiPreview = !!process.env.VITEST || process.argv.some((arg) => arg.includes('storybook'))
 
+const ignoredPatterns = [
+  '.output',
+  '.storage',
+  '.wrangler',
+  '**/*.md',
+  '**/*.mdx',
+  '**/*.yml',
+  '**/*.yaml',
+  '**/*.toml',
+  '**/*.gen.*',
+  '/storage/**'
+]
+
 export default defineConfig(({ mode }) => ({
-  plugins: [
+  staged: {
+    '*.{ts,tsx,js,jsx,css,json}': 'vp check --fix'
+  },
+  fmt: {
+    endOfLine: 'lf',
+    useTabs: false,
+    tabWidth: 2,
+    printWidth: 100,
+    insertFinalNewline: true,
+    jsxSingleQuote: true,
+    singleQuote: true,
+    semi: false,
+    bracketSpacing: true,
+    trailingComma: 'none',
+    overrides: [
+      {
+        files: ['*.json', '*.jsonc'],
+        options: { tabWidth: 4 }
+      }
+    ],
+    sortImports: {
+      order: 'asc',
+      groups: [['builtin', 'external'], ['internal'], ['parent', 'sibling', 'index']],
+      internalPattern: ['#/', '$/'],
+      partitionByComment: false,
+      partitionByNewline: false,
+      newlinesBetween: false,
+      ignoreCase: true
+    },
+    sortPackageJson: {
+      sortScripts: false
+    },
+    ignorePatterns: ignoredPatterns
+  },
+  lint: {
+    jsPlugins: [{ name: 'vite-plus', specifier: 'vite-plus/oxlint-plugin' }, 'eslint-plugin-solid'],
+    settings: solidLint.settings,
+    rules: { 'vite-plus/prefer-vite-plus-imports': 'error' },
+    // rules: solidLint.rules,
+    options: { typeAware: true, typeCheck: true },
+    ignorePatterns: ignoredPatterns
+  },
+  plugins: lazyPlugins(() => [
     stylex({
       enableDevClassNames: mode === 'development',
       useCSSLayers: { before: ['reset'], prefix: 'stylex' },
@@ -25,7 +81,7 @@ export default defineConfig(({ mode }) => ({
       ...(uiPreview ? {} : { start: true, ssr: true })
     }),
     uiPreview ? null : fileRoutes({ types: true })
-  ],
+  ]),
   ssr: { noExternal: true },
   server: { port: 3000, strictPort: true },
   preview: { port: 3000, strictPort: true },
@@ -56,7 +112,7 @@ export default defineConfig(({ mode }) => ({
           solid({ diagnostics: false, extensions: ['.jsx', '.tsx'] }),
           storybookTest({
             configDir: fileURLToPath(new URL('./.storybook', import.meta.url)),
-            storybookScript: 'pnpm storybook'
+            storybookScript: 'vpr storybook'
           }),
           {
             name: 'solid-2-storybook-deps',
