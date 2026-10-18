@@ -1,4 +1,4 @@
-import { type Duration, Effect, type Exit, LogLevel } from 'effect'
+import { type Context, type Duration, Effect, type Exit, LogLevel } from 'effect'
 import { definePlugin, type H3Event, HTTPError } from 'h3'
 import { ConfigService, telemetryEnabled } from '../config/service.ts'
 import { type InFlight, makeInFlight } from './inflight.ts'
@@ -26,6 +26,8 @@ export type HttpEnv = HttpServices[keyof HttpServices]
  * runtime exists. Closing the scope that built the layers also closes the server.
  */
 export interface HttpRuntime {
+  /** The captured service context, for a consumer that provides it itself (the rpc bridge). */
+  readonly services: Context.Context<HttpEnv>
   /** Runs a handler program. The request's `AbortSignal` interrupts it on client disconnect. */
   readonly runPromiseExit: <A, E>(
     effect: Effect.Effect<A, E, HttpEnv>,
@@ -57,6 +59,7 @@ export const makeHttpRuntime: Effect.Effect<HttpRuntime, never, HttpEnv | Config
     const diagnostics = yield* LogLevel.isEnabled('Debug')
     let draining = false
     return {
+      services,
       runPromiseExit: Effect.runPromiseExitWith(services),
       runSync: Effect.runSyncWith(services),
       requestTimeout,

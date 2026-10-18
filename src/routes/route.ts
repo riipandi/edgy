@@ -1,12 +1,18 @@
+import { Context, Effect, Layer } from 'effect'
 import { type H3Plugin, HTTPError } from 'h3'
 import type { AppConfig } from '../kernel/config/service.ts'
 import { allowedMethods } from '../kernel/http/allowed_methods.ts'
 import { type AssetSource, assetRoutes } from '../kernel/http/assets.ts'
 import { defineRouteGroup } from '../kernel/http/router.ts'
-import { unlessDraining } from '../kernel/http/runtime.ts'
+import { rpcRoutes } from '../kernel/http/rpc.ts'
+import { unlessDraining, type HttpEnv } from '../kernel/http/runtime.ts'
+import { DEFAULT_LIMIT } from '../kernel/pagination.ts'
 import { cacheControl } from '../middleware/cache_control.ts'
 import { makeMemoryRateCheck, type RateCheck } from '../middleware/rate_limit.ts'
 import { healthHandler } from '../modules/health/health_handler.ts'
+import { UserRpcs } from '../modules/user/user_rpc.ts'
+import { DEFAULT_SORT } from '../modules/user/user_schema.ts'
+import { UserService } from '../modules/user/user_service.ts'
 import { metricsHandler } from '../observer/metrics_handler.ts'
 import { apiRoutes } from './api.ts'
 import { pageRoutes } from './web.ts'
@@ -54,12 +60,17 @@ const notFoundRoutes: H3Plugin = (app) => {
   }
 }
 
-/** Route dependencies beyond the configuration. Both are absent in tests and on Workers. */
+/** Route dependencies beyond the configuration. Tests and Workers name what they can provide. */
 export interface RouteOptions {
   /** How API requests are counted against the rate limit; in-process memory when absent. */
   readonly rateCheck?: RateCheck | undefined
   /** Where `/assets/**` is read from; no such route when absent. */
   readonly assets?: AssetSource | undefined
+  /**
+   * The runtime's services context, for the rpc handlers (`/rpc`). Absent in tests that build
+   * the app without services — the rpc surface then answers 503, since nothing can serve it.
+   */
+  readonly services?: Context.Context<HttpEnv> | undefined
 }
 
 /** Every route plugin, in registration order. The catch-all must stay last. */
@@ -79,6 +90,30 @@ export const createRoutePlugins = (
     apiRoutes(config, check),
     pageRoutes(config, check),
     ...(options.assets === undefined ? [] : [assetRoutes(options.assets)]),
+    ...(options.services === undefined
+      ? []
+      : [
+          rpcRoutes(
+            UserRpcs,
+            UserRpcs.toLayer({
+              userList: (payload) =>
+                UserService.use((users) =>
+                  users
+                    .list({
+                      limit: payload.limit ?? DEFAULT_LIMIT,
+                      sortBy: DEFAULT_SORT.sortBy,
+                      sortOrder: 'asc'
+                    })
+                    .pipe(
+                      Effect.map((page) => ({ users: [...page.items] })),
+                      Effect.catchTag('DatabaseError', (error) =>
+                        Effect.fail({ code: error.code, message: error.clientMessage })
+                      )
+                    )
+                )
+            }).pipe(Layer.provide(Layer.succeedContext(options.services)))
+          )
+        ]),
     wellKnownRoutes,
     notFoundRoutes
   ]

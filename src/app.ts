@@ -58,7 +58,8 @@ export const createApp = (options: AppOptions): H3 =>
       bodyLimit(options.config.server.bodyLimit),
       ...createRoutePlugins(options.config, {
         rateCheck: options.rateCheck,
-        assets: options.assets
+        assets: options.assets,
+        services: options.runtime.services
       })
     ]
   })
