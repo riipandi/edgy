@@ -5,37 +5,42 @@ browser, and brought to life there only where it is interactive.
 
 ## What you write
 
-Pages are [Marko](https://markojs.com) templates; styles are [Panda CSS](https://panda-css.com), compiled to
-plain CSS at build time. Both live in the `web/` folder:
+Pages are [Solid](https://v2.solidjs.com) components; styles are
+[Panda CSS](https://panda-css.com), compiled to plain CSS at build time. Both live in the `src/` folder:
 
-| Folder          | What it holds                                                                     |
-| --------------- | --------------------------------------------------------------------------------- |
-| `web/pages/`    | One template per page                                                             |
-| `web/tags/`     | Components. A file named `user-list.marko` is available as `<user-list>` everywhere |
-| `web/styles/`   | Modules whose `css()` calls become class names the templates put on their elements |
-| `web/assets/`   | `global.css`: the cascade-layer order, and where Panda writes the generated styles |
+| Folder       | What it holds                                                                       |
+| ------------ | ------------------------------------------------------------------------------------ |
+| `src/pages/` | Route modules. The filename is the path: `index.tsx` serves `/`, `users.tsx` serves `/users` |
+| `src/styles/`| Modules whose `css()` calls become class names the pages put on their elements        |
+| `src/assets/`| `global.css`: the cascade-layer order, and where Panda writes the generated styles    |
 
 Design tokens live in `panda.config.ts` (`semanticTokens`); a color, spacing, radius or font used
 through its token name keeps every page consistent, and rebranding is a config change.
 
-A component is interactive when it has state. The user list on `/users`, for example, filters the list
-as you type; the rest of the page is static HTML and sends no script.
+Routing is file-based ([Solid Router](https://v2.solidjs.com/routing/solid-router)): the folder is
+scanned and each module's default export becomes its page. A page that loads its own data declares it
+with `defineFileRoute`. The user list on `/users`, for example, loads from the server over a small RPC
+call and filters as you type:
 
-```marko
-<let/query="">
-<input value:=query placeholder="Filter users">
+```tsx
+const [query, setQuery] = createSignal('')
+const users = listUsers({}) // one typed call to /rpc
+
+<input value={query()} onInput={(e) => setQuery(e.currentTarget.value)} />
 ```
 
 ## Adding a page
 
-1. Write the template in `web/pages/`, and any styles it needs as `css()` calls in `web/styles/`.
-2. Declare what it shows: an Effect that loads the data, and the template that renders it. The data comes
-   from the same services as the API, so a page and its endpoint cannot disagree.
-3. Give it a route group and register it with the other pages. `GET /users` is the worked example.
+1. Write the route module in `src/pages/` — the filename is the URL — and any styles it needs as
+   `css()` calls in `src/styles/`.
+2. Load its data from `/rpc`: a procedure over the same services as the API, so a page and its
+   endpoint cannot disagree.
+3. Wire it where the other pages are registered, if it needs server-side work. `GET /users` is the
+   worked example.
 
 Pages answer in HTML, and so do their errors: a bad query, a missing record or a server error shows an
-error page (`web/pages/error.marko`) with the status, a short message and the request ID, while the same
-failure under `/api` is JSON. The front page is `web/pages/home.marko`, served at `/`.
+error page (`src/pages/error-page.tsx`) with the status, a short message and the request ID, while the
+same failure under `/api` is JSON. The front page is `src/pages/index.tsx`, served at `/`.
 
 ## Working on pages
 
@@ -43,9 +48,9 @@ failure under `/api` is JSON. The front page is `web/pages/home.marko`, served a
 pnpm dev          # the server and the pages, on one port
 ```
 
-Editing a template or a style updates the open browser tab without a reload. Editing server code
-starts the application over (a second or less) and reloads the page. `pnpm typecheck` also checks the templates, so a misspelled
-field fails there and not in the browser.
+Editing a page or a style updates the open browser tab without a reload. Editing server code starts the
+application over (a second or less) and reloads the page. `pnpm typecheck` also checks the pages, so a
+misspelled field fails there and not in the browser.
 
 ## How pages are served
 
@@ -56,6 +61,5 @@ field fails there and not in the browser.
 | Single executable           | The built files are inside the executable                                            |
 | Cloudflare Workers          | Cloudflare serves `/assets` itself, before the Worker runs                           |
 
-Pages carry their own content security policy: scripts and styles from the same site only, plus the
-one inline script Marko needs, allowed by a per-response nonce. Because of the nonce, a page is never
-cached by a shared cache.
+Pages carry their own content security policy: scripts and styles from the same site only. The page's
+scripts are external module files, so nothing needs to be allowed inline.

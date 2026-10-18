@@ -140,7 +140,7 @@ through, not waited for. Interactive page components are tested on their own in 
 the component, by acting on them as a user would: typing in the filter and checking the list. `pnpm test` also checks that `.env.example` matches the configuration.
 
 Coverage (`pnpm test:coverage`) is measured over `src/` with V8's native coverage: no code is instrumented, so
-the Marko and Panda CSS transforms run as they do in a build, and the numbers cost about a second on
+the Solid and Panda CSS transforms run as they do in a build, and the numbers cost about a second on
 top of the test run. Code the tests cannot reach by design (the CLI commands, the server and Worker entries,
 the dev server) shows as uncovered; read the report per file rather than as one total.
 
