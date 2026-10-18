@@ -5,7 +5,7 @@ import { playwright } from '@vitest/browser-playwright'
 import { fileRoutes } from 'filesystem-routing/vite'
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
-import { effectServer } from './src/builder/vite-plugin.ts'
+import { effectVite } from './src/builder/vite-plugin.ts'
 
 // Storybook and Vitest render components in the browser. The app server
 // (start + SSR + file routes) stays on for `vite` and `vite build`.
@@ -18,7 +18,7 @@ export default defineConfig(({ mode }) => ({
       useCSSLayers: { before: ['reset'], prefix: 'stylex' },
       lightningcssOptions: { minify: mode !== 'development' }
     }),
-    effectServer({ enabled: !uiPreview }),
+    effectVite({ enabled: !uiPreview }),
     solid({
       diagnostics: false,
       extensions: ['.jsx', '.tsx'],
@@ -29,10 +29,7 @@ export default defineConfig(({ mode }) => ({
   ssr: { noExternal: true },
   server: { port: 3000, strictPort: true },
   preview: { port: 3000, strictPort: true },
-  build: {
-    assetsInlineLimit: 0,
-    target: 'esnext'
-  },
+  build: { assetsInlineLimit: 0, target: 'esnext' },
   test: {
     coverage: {
       provider: 'v8',

@@ -92,7 +92,7 @@ interface EffectDevPluginOptions {
   enabled: boolean
 }
 
-export const effectServer = (opts: EffectDevPluginOptions): Plugin => {
+export const effectVite = (opts: EffectDevPluginOptions): Plugin => {
   // Resolved in configResolved; used by closeBundle
   // to post-process the emitted entry bundle.
   let distDir = ''
@@ -109,6 +109,20 @@ export const effectServer = (opts: EffectDevPluginOptions): Plugin => {
       const standalone = env.mode === 'standalone'
       return {
         environments: {
+          client: {
+            build: {
+              rolldownOptions: {
+                output: {
+                  entryFileNames: 'assets/entry-client-[hash].js',
+                  chunkFileNames: 'assets/[name]-[hash].js',
+                  assetFileNames: (asset) =>
+                    asset.names.some((name) => name.startsWith('virtual_solid'))
+                      ? 'assets/entry-client-[hash][extname]'
+                      : 'assets/[name]-[hash][extname]'
+                }
+              }
+            }
+          },
           effect: {
             consumer: 'server',
             ...(standalone
