@@ -1,6 +1,6 @@
 import { Effect, Layer } from 'effect'
 import * as References from 'effect/References'
-import { AppConfig } from '../kernel/config/app-config.ts'
+import { AppConfig } from '#/kernel/config/app-config.ts'
 
 export const layer = Layer.unwrap(
   Effect.gen(function* () {

@@ -7,10 +7,10 @@
 
 import { HydrationScript } from '@solidjs/web'
 import type { ParentProps } from 'solid-js'
-import { styles as rootLayout } from './resources/styles/element/root-layout.stylex'
-import DevStyleXInject from './resources/styles/inject'
-import { sx } from './resources/styles/props'
-import './assets/globals.css'
+import { styles as rootLayout } from '#/resources/styles/element/root-layout.stylex'
+import DevStyleXInject from '#/resources/styles/inject'
+import { sx } from '#/resources/styles/props'
+import '#/assets/globals.css'
 
 export default function Document(props: ParentProps) {
   return (

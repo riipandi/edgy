@@ -2,11 +2,11 @@ import { Title } from '@solidjs/meta'
 import { query } from '@solidjs/router'
 import type { RouteDefinition, RouteProps } from '@solidjs/router'
 import { createMemo, isPending } from 'solid-js'
-import { getUser } from '../../../modules/user/user_fn'
-import { fx } from '../../../resources/styles/core/utils.stylex'
-import { styles as userStyles } from '../../../resources/styles/pages/user.stylex'
-import { sx } from '../../../resources/styles/props'
-import { paths } from '../../../router'
+import { getUser } from '#/modules/user/user_fn'
+import { fx } from '#/resources/styles/core/utils.stylex'
+import { styles as userStyles } from '#/resources/styles/pages/user.stylex'
+import { sx } from '#/resources/styles/props'
+import { paths } from '#/router'
 
 // Async data loading: a query (cached per key) read through a memo — the
 // surrounding <Loading> boundary (in app.tsx) shows its fallback until the

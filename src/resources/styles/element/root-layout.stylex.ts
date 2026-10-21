@@ -1,7 +1,7 @@
 // Root layout (app shell) styles.
 import * as stylex from '@stylexjs/stylex'
-import { colors } from '../core/colors.stylex'
-import { duration } from '../core/tokens.stylex'
+import { colors } from '#/resources/styles/core/colors.stylex'
+import { duration } from '#/resources/styles/core/tokens.stylex'
 
 export const styles = stylex.create({
   root: {

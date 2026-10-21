@@ -3,7 +3,7 @@ import type { SqliteDatabase } from 'kysely'
 import { mkdirSync } from 'node:fs'
 import path from 'node:path'
 import { DatabaseSync, type SQLInputValue, type StatementSync } from 'node:sqlite'
-import type { DB } from '../schema.ts'
+import type { DB } from '#/database/schema.ts'
 
 const adapt = (db: DatabaseSync): SqliteDatabase => ({
   close: () => {

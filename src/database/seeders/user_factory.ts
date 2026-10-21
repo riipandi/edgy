@@ -1,6 +1,6 @@
 import type { Kysely } from 'kysely'
 import { TypeID } from 'typeid-js'
-import type { DB } from '../schema.ts'
+import type { DB } from '#/database/schema.ts'
 
 const id = (uuid: string) => TypeID.fromUUID('user', uuid).toString()
 

@@ -3,6 +3,7 @@ import { storybookTest } from '@storybook/addon-vitest/vitest-plugin'
 import stylex from '@stylexjs/unplugin/vite'
 import solidLint from 'eslint-plugin-solid/configs/v2'
 import { fileRoutes } from 'filesystem-routing/vite'
+import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { defineConfig, lazyPlugins } from 'vite-plus'
 import { playwright } from 'vite-plus/test/browser-playwright'
@@ -71,6 +72,7 @@ export default defineConfig(({ mode }) => ({
   plugins:
     lazyPlugins(() => [
       stylex({
+        aliases: { '#/*': resolve('./src/*') },
         enableDevClassNames: mode === 'development',
         useCSSLayers: { before: ['reset'], prefix: 'stylex' },
         lightningcssOptions: { minify: mode !== 'development' }
@@ -84,6 +86,7 @@ export default defineConfig(({ mode }) => ({
       effectVite({ enabled: !uiPreview })
     ]) ?? [],
   ssr: { noExternal: true },
+  resolve: { tsconfigPaths: true },
   server: { port: 3000, strictPort: true },
   preview: { port: 3000, strictPort: true },
   build: { assetsInlineLimit: 0, target: 'esnext' },
@@ -111,6 +114,7 @@ export default defineConfig(({ mode }) => ({
         extends: false,
         plugins: [
           stylex({
+            aliases: { '#/*': resolve('./src/*') },
             enableDevClassNames: mode === 'development',
             useCSSLayers: { before: ['reset'], prefix: 'stylex' },
             lightningcssOptions: { minify: mode !== 'development' }

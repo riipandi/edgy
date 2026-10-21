@@ -1,5 +1,5 @@
 import { Effect, Layer } from 'effect'
-import { AppConfig } from '../kernel/config/app-config.ts'
+import { AppConfig } from '#/kernel/config/app-config.ts'
 
 // Effect 4 ships the in-process tracer. A remote OpenTelemetry exporter is
 // left off while OTEL_SDK_DISABLED is set, which is the e2e default.

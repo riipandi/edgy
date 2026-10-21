@@ -1,6 +1,6 @@
 // Not-found page styles.
 import * as stylex from '@stylexjs/stylex'
-import { fontSize, fontWeight } from '../core/tokens.stylex'
+import { fontSize, fontWeight } from '#/resources/styles/core/tokens.stylex'
 
 export const styles = stylex.create({
   code: {

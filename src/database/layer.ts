@@ -1,5 +1,5 @@
 import { Effect, Layer } from 'effect'
-import { AppConfig } from '../kernel/config/app-config.ts'
+import { AppConfig } from '#/kernel/config/app-config.ts'
 import { openDatabase } from './dialect/sqlite.ts'
 import { Database } from './service.ts'
 

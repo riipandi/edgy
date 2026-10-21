@@ -2,7 +2,7 @@ import { Effect } from 'effect'
 import { Metric } from 'effect'
 import * as HttpRouter from 'effect/http/HttpRouter'
 import * as HttpServerRequest from 'effect/http/HttpServerRequest'
-import { httpRequests } from '../observer/metrics.ts'
+import { httpRequests } from '#/observer/metrics.ts'
 import { REQUEST_ID_HEADER, requestIdFrom } from './request-id.ts'
 
 export const requestLog = HttpRouter.use((router) =>

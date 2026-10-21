@@ -1,7 +1,7 @@
 // Button component styles: a solid-accent recipe for actions.
 import * as stylex from '@stylexjs/stylex'
-import { colors } from '../core/colors.stylex'
-import { duration, fontWeight, radius, spacing } from '../core/tokens.stylex'
+import { colors } from '#/resources/styles/core/colors.stylex'
+import { duration, fontWeight, radius, spacing } from '#/resources/styles/core/tokens.stylex'
 
 export const styles = stylex.create({
   base: {

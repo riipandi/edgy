@@ -1,6 +1,6 @@
 import { createSignal } from 'solid-js'
-import { styles as button } from '../../resources/styles/components/button.stylex'
-import { sx } from '../styles/props'
+import { styles as button } from '#/resources/styles/components/button.stylex'
+import { sx } from '#/resources/styles/props'
 
 export default function Counter() {
   const [count, setCount] = createSignal(0)

@@ -1,8 +1,8 @@
 import { Effect } from 'effect'
 import { Command } from 'effect/cli'
-import { layer as databaseLayer } from '../database/layer.ts'
-import { migrateAndSeed } from '../database/migrator.ts'
-import { Database } from '../database/service.ts'
+import { layer as databaseLayer } from '#/database/layer.ts'
+import { migrateAndSeed } from '#/database/migrator.ts'
+import { Database } from '#/database/service.ts'
 
 export const migrateUp = Command.make('migrate:up').pipe(
   Command.withDescription('Apply Kysely migrations and seed users'),

@@ -3,7 +3,7 @@ import * as Headers from 'effect/http/Headers'
 import * as HttpRouter from 'effect/http/HttpRouter'
 import * as HttpServerRequest from 'effect/http/HttpServerRequest'
 import * as HttpServerResponse from 'effect/http/HttpServerResponse'
-import { AppConfig } from '../kernel/config/app-config.ts'
+import { AppConfig } from '#/kernel/config/app-config.ts'
 
 type Window = { readonly startedAt: number; count: number }
 

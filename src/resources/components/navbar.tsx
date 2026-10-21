@@ -1,9 +1,9 @@
 import { useLocation } from '@solidjs/router'
 import { For, Show } from 'solid-js'
-import { paths } from '../../router'
-import { fx } from '../styles/core/utils.stylex'
-import { styles as navbar } from '../styles/element/navbar.stylex'
-import { sx } from '../styles/props'
+import { fx } from '#/resources/styles/core/utils.stylex'
+import { styles as navbar } from '#/resources/styles/element/navbar.stylex'
+import { sx } from '#/resources/styles/props'
+import { paths } from '#/router'
 
 const links = [
   { href: () => paths(), label: 'Home' },

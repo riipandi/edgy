@@ -29,7 +29,8 @@
         "tsBuildInfoFile": ".output/tsconfig.tsbuildinfo",
         "types": ["vite-plus/client"],
         "useDefineForClassFields": true,
-        "verbatimModuleSyntax": true
+        "verbatimModuleSyntax": true,
+        "paths": { "#/*": ["./src/*"] }
     },
     "include": ["**/*.ts", "**/*.tsx"],
     "exclude": [".output", ".wrangler", "dist"]

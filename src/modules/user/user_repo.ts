@@ -1,7 +1,7 @@
 import { Effect, Layer } from 'effect'
 import { Context } from 'effect'
-import type { User } from '../../database/schema.ts'
-import { Database } from '../../database/service.ts'
+import type { User } from '#/database/schema.ts'
+import { Database } from '#/database/service.ts'
 
 export class UserRepo extends Context.Service<
   UserRepo,

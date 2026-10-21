@@ -1,5 +1,5 @@
 import type { Kysely } from 'kysely'
-import type { DB } from '../schema.ts'
+import type { DB } from '#/database/schema.ts'
 
 export const up = async (db: Kysely<DB>): Promise<void> => {
   await db.schema

@@ -1,6 +1,6 @@
 import { Cache, Context, Effect, Layer } from 'effect'
-import type { User } from '../../database/schema.ts'
-import { makeUserCache } from '../../kernel/cache/users.ts'
+import type { User } from '#/database/schema.ts'
+import { makeUserCache } from '#/kernel/cache/users.ts'
 import { UserRepo } from './user_repo.ts'
 
 export class UserService extends Context.Service<
