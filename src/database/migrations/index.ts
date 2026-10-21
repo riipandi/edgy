@@ -1,10 +1,10 @@
 import type { Migration } from 'kysely/migration'
-import * as createUsers from './001_create_users.ts'
+import * as createUsers from './0001_create_users_table.ts'
 
 type MigrationItems = Record<string, Migration>
 
 const MIGRATIONS: Readonly<MigrationItems> = Object.freeze({
-  '001_create_users': createUsers
+  '0001_create_users_table': createUsers
 })
 
 /** Ordered names from the statically registered migration set. */
