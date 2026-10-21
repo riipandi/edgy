@@ -15,6 +15,6 @@
     min-height: 100vh;
     font-family:
       'Mona Sans Variable', system-ui, -apple-system, Roboto, Aptos, Helvetica, sans-serif;
-    text-align: center;
+    text-align: start;
   }
 }

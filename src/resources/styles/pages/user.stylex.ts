@@ -3,13 +3,19 @@ import * as stylex from '@stylexjs/stylex'
 import { colors } from '#/resources/styles/core/colors.stylex.ts'
 import { duration, radius, spacing } from '#/resources/styles/core/tokens.stylex.ts'
 
-export const styles = stylex.create({
-  layout: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: spacing.medium,
-    width: '100%'
+// StyleX keyframes must be declared in the same module that uses them.
+const fadeSlideIn = stylex.keyframes({
+  from: {
+    opacity: 0,
+    transform: 'translateY(12px)'
   },
+  to: {
+    opacity: 1,
+    transform: 'translateY(0)'
+  }
+})
+
+export const styles = stylex.create({
   card: {
     padding: '1.5rem',
     borderRadius: radius.large,
@@ -17,7 +23,11 @@ export const styles = stylex.create({
     borderStyle: 'solid',
     borderWidth: '1px',
     borderColor: colors.borderSubtle,
-    width: '100%'
+    width: '100%',
+    animationName: fadeSlideIn,
+    animationDuration: '500ms',
+    animationTimingFunction: 'ease-out',
+    animationFillMode: 'backwards'
   },
   list: {
     display: 'flex',
@@ -25,8 +35,7 @@ export const styles = stylex.create({
     gap: spacing.hairline,
     margin: 0,
     padding: 0,
-    listStyle: 'none',
-    textAlign: 'left'
+    listStyle: 'none'
   },
   listLink: {
     display: 'block',

@@ -1,6 +1,6 @@
 import * as stylex from '@stylexjs/stylex'
 import { colors } from './colors.stylex.ts'
-import { breakpoints, duration, fontSize, fontWeight, radius } from './tokens.stylex.ts'
+import { breakpoints, duration, fontSize, fontWeight, radius, spacing } from './tokens.stylex.ts'
 
 /**
  * Shared style fragments composed by elements, components, and pages.
@@ -8,6 +8,36 @@ import { breakpoints, duration, fontSize, fontWeight, radius } from './tokens.st
  *   {...sx(fx.main, styles.local)}
  */
 export const fx = stylex.create({
+  container: {
+    width: '100%',
+    boxSizing: 'border-box',
+    marginInline: 'auto',
+    maxWidth: '64rem',
+    padding: {
+      default: spacing.large,
+      [breakpoints.small]: spacing.medium
+    }
+  },
+  eyebrow: {
+    color: colors.foregroundLink,
+    fontSize: fontSize.small,
+    fontWeight: fontWeight.semibold,
+    textTransform: 'uppercase',
+    letterSpacing: '0.1em',
+    marginBottom: '0.75rem'
+  },
+  display: {
+    color: colors.foregroundText,
+    fontSize: {
+      default: 'clamp(2.25rem, 5vw, 3rem)',
+      [breakpoints.small]: fontSize.h1
+    },
+    lineHeight: 1.15,
+    fontWeight: fontWeight.bold,
+    letterSpacing: '-0.025em',
+    maxWidth: '48rem',
+    marginBottom: '1.25rem'
+  },
   main: {
     maxWidth: '48rem',
     marginInline: 'auto',
