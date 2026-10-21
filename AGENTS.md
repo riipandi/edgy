@@ -132,6 +132,16 @@ release. Add a tool name to select part of the graph. For example, run
 
 Code comments: rare and short — only non-obvious reasons, contracts, traps. No narration, no restating names. Update or delete any comment your change makes wrong.
 
+## Running scripts
+
+Run package scripts with `vpr <name>` (alias of `vp run <name>`), never `pnpm run <name>`. Example: `vpr test`, `vpr typecheck`, `vpr docker:build`. Built-in `vp` commands (`vp dev`, `vp build`, `vp check`, `vp test`) are still invoked directly as `vp <command>`.
+
+## Testing
+
+- Unit tests sit next to the file they cover: `src/<path>/<name>.test.ts(x)`.
+- Integration tests live under `tests/` (e.g. `tests/routes/*.test.ts`) and always use the `.test.ts` extension.
+- `vp test` runs the vitest projects `unit`, `integration`, and `storybook` (see `vite.config.ts`).
+
 ## Git
 
 - Check `git status` and stage explicit paths only; never `git add -A` or `git add .`.

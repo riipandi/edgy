@@ -6,19 +6,27 @@ export class HomeScreen extends AppScreen {
     await this.page.goto(routes.home)
   }
 
+  eyebrow() {
+    return this.page.getByText('Solid Start Base Template')
+  }
+
   heading() {
-    return this.page.getByRole('heading', { name: 'Hello Solid!' })
+    return this.page.getByRole('heading', { name: 'Start simple, ship quickly.' })
   }
 
-  logo() {
-    return this.page.getByRole('img', { name: 'Solid logo' })
+  usersCta() {
+    return this.page.getByRole('link', { name: 'Users', exact: true })
   }
 
-  counter() {
-    return this.page.getByRole('button', { name: /Clicks:/ })
+  docsLink() {
+    return this.page.getByRole('link', { name: 'Docs' })
   }
 
-  learnLink() {
-    return this.page.getByRole('link', { name: 'Learn Solid' })
+  featureCard(title: string) {
+    return this.page.getByRole('heading', { name: title, level: 2 })
+  }
+
+  quickStart() {
+    return this.page.getByText('Quick Start')
   }
 }

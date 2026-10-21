@@ -178,6 +178,7 @@ catalogs:
       version: 1.3.0
 
 overrides:
+  uuid: ^14.0.3
   vite@*: npm:@voidzero-dev/vite-plus-core@1.3.0
   vitest@*: 5.0.5
 
@@ -213,6 +214,9 @@ importers:
         specifier: ^1.2.0
         version: 1.2.0
     devDependencies:
+      '@effect/vitest':
+        specifier: 4.0.5
+        version: 4.0.5(effect@4.0.5)(vitest@5.0.5)
       '@playwright/test':
         specifier: ^1.64.1
         version: 1.64.1
@@ -462,6 +466,12 @@ packages:
     peerDependencies:
       effect: ^4.0.5
       redis: '>=5.0.0 <7.0.0'
+
+  '@effect/vitest@4.0.5':
+    resolution: {integrity: sha512-q64paZ/i4V2NiRhTyqCmT2KiDbFjlxc2EZrZca8GGt+Nf8844946HyJM5bPk/q+YeRkFSxIrlCs+J+LSfky/wA==}
+    peerDependencies:
+      effect: ^4.0.5
+      vitest: 5.0.5
 
   '@emnapi/core@1.11.0':
     resolution: {integrity: sha512-l9Oo58x0HOP5znGzVhYW9U3e5wVuA4LAZU2AGezTmkhO1CgQRFDhDg4nneHsu/t3WniXg9QrG2nIXL/ZS8ln8Q==}
@@ -3139,9 +3149,8 @@ packages:
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
-  uuid@10.0.0:
-    resolution: {integrity: sha512-8XkAphELsDnEGrDxUOHB3RGvXz6TeuYSGEZBOjtTtPm2lwhGBjLgOzLHB63IUWfBpNucQjND6d3AOudO+H3RWQ==}
-    deprecated: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
+  uuid@14.0.3:
+    resolution: {integrity: sha512-Sc5u1VVln93y1Xnz4R+CunOZc7R9LUcTmhj7Rc7Eg3HVcf7rVn2FOoa812fe0W8p3jD7xeoGSYbfqCGGH2B6xw==}
     hasBin: true
 
   vite-plugin-solid@2.11.14:
@@ -3499,6 +3508,11 @@ snapshots:
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
+
+  '@effect/vitest@4.0.5(effect@4.0.5)(vitest@5.0.5)':
+    dependencies:
+      effect: 4.0.5
+      vitest: 5.0.5(@types/node@26.6.5)(@vitest/browser-playwright@5.0.5)(@vitest/browser-preview@5.0.5)(@vitest/coverage-v8@5.0.5)(@vitest/ui@5.0.5)(@voidzero-dev/vite-plus-core@1.3.0(@types/node@26.6.5)(@volar/typescript@2.4.28(typescript@7.0.2))(esbuild@0.28.2)(typescript@7.0.2))(@volar/typescript@2.4.28(typescript@7.0.2))(esbuild@0.28.2)(jsdom@30.1.3)(typescript@7.0.2)
 
   '@emnapi/core@1.11.0':
     dependencies:
@@ -5839,7 +5853,7 @@ snapshots:
 
   typeid-js@1.2.0:
     dependencies:
-      uuid: 10.0.0
+      uuid: 14.0.3
 
   typescript@6.0.3: {}
 
@@ -5891,7 +5905,7 @@ snapshots:
     dependencies:
       react: 19.3.1
 
-  uuid@10.0.0: {}
+  uuid@14.0.3: {}
 
   vite-plugin-solid@2.11.14(@testing-library/jest-dom@7.0.1(@testing-library/dom@10.4.2)(vitest@5.0.5))(@types/node@26.6.5)(@voidzero-dev/vite-plus-core@1.3.0(@types/node@26.6.5)(@volar/typescript@2.4.28(typescript@7.0.2))(esbuild@0.28.2)(typescript@7.0.2))(@volar/typescript@2.4.28(typescript@7.0.2))(esbuild@0.28.2)(solid-js@2.0.0-rc.15)(typescript@7.0.2):
     dependencies:

@@ -10,6 +10,10 @@ export class UsersScreen extends AppScreen {
     return this.page.getByRole('heading', { name: 'Users', level: 1 })
   }
 
+  eyebrow() {
+    return this.page.getByText('Directory')
+  }
+
   userLink(name: string) {
     return this.page.getByRole('link', { name, exact: true })
   }

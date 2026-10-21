@@ -5,30 +5,35 @@ const id = (uuid: string) => TypeID.fromUUID('user', uuid).toString()
 export type UserRecord = {
   id: string
   name: string
-  title: string
+  email: string
 }
 
-/** The same fixed UUIDs the seeder uses. Unknown ids render the fallback copy. */
+/** The same fixed UUIDs the seeder uses, admin first. Unknown ids render the fallback copy. */
 export const users = [
+  {
+    id: id('01890a5d-ac96-774b-bcce-b302099a8056'),
+    name: 'Admin Sistem',
+    email: 'admin@example.com'
+  },
   {
     id: id('01890a5d-ac96-774b-bcce-b302099a8057'),
     name: 'Ada Lovelace',
-    title: 'First programmer'
+    email: 'ada@example.com'
   },
   {
     id: id('01890a5d-ac96-774b-bcce-b302099a8058'),
     name: 'Grace Hopper',
-    title: 'Compiler pioneer'
+    email: 'grace@example.com'
   },
   {
     id: id('01890a5d-ac96-774b-bcce-b302099a8059'),
     name: 'Margaret Hamilton',
-    title: 'Software engineering'
+    email: 'margaret@example.com'
   }
 ] as const satisfies readonly UserRecord[]
 
 export const unknownUser = {
   id: 'user_00000000000000000000000000',
   name: 'Unknown',
-  title: 'No such user'
+  email: ''
 } as const satisfies UserRecord

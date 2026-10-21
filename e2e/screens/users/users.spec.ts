@@ -7,6 +7,7 @@ test.describe('users', () => {
 
     await expect(usersScreen.page).toHaveTitle('Users - Solid App')
     await expect(usersScreen.heading()).toBeVisible()
+    await expect(usersScreen.eyebrow()).toBeVisible()
 
     for (const record of users) {
       await expect(usersScreen.userLink(record.name)).toHaveAttribute('href', `/users/${record.id}`)
@@ -18,6 +19,6 @@ test.describe('users', () => {
     await expect(user.page).toHaveURL(new RegExp(`/users/${first.id}$`))
     await expect(user.page).toHaveTitle(`User ${first.id} - Solid App`)
     await expect(user.name()).toHaveText(first.name)
-    await expect(user.page.getByText(first.title)).toBeVisible()
+    await expect(user.page.getByText(first.email)).toBeVisible()
   })
 })

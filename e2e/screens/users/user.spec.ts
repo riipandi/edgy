@@ -20,7 +20,6 @@ test.describe('user profile', () => {
 
     await expect(user.page).toHaveTitle(`User ${unknownUser.id} - Solid App`)
     await expect(user.name()).toHaveText(unknownUser.name)
-    await expect(user.page.getByText(unknownUser.title)).toBeVisible()
   })
 
   test('returns home from a profile', async ({ user, home }) => {

@@ -97,6 +97,7 @@ export default defineConfig(({ mode }) => ({
   preview: { port: 3000, strictPort: true },
   build: { assetsInlineLimit: 0, target: 'esnext' },
   test: {
+    passWithNoTests: true,
     coverage: {
       provider: 'v8',
       reportsDirectory: '.output/coverage',
@@ -112,6 +113,16 @@ export default defineConfig(({ mode }) => ({
           environment: 'jsdom',
           include: ['src/**/*.test.{ts,tsx}'],
           setupFiles: ['./vitest-setup.ts'],
+          globals: false,
+          isolate: false
+        }
+      },
+      {
+        extends: true,
+        test: {
+          name: 'integration',
+          environment: 'node',
+          include: ['tests/**/*.test.ts'],
           globals: false,
           isolate: false
         }

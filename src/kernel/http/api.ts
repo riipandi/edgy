@@ -18,6 +18,10 @@ const routes = Layer.mergeAll(
   HttpRouter.add('GET', '/api/users/:id', findUser).pipe(Layer.provide(rateLimit))
 )
 
+// Exported for integration tests: compose with a fake UserService
+// instead of the real database-backed one.
+export const apiRoutes = routes
+
 export const api = routes.pipe(
   HttpRouter.provideRequest(userServiceLayer),
   Layer.provide(userRepoLayer),
