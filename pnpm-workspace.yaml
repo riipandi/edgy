@@ -1,13 +1,16 @@
 allowBuilds:
   esbuild: true
 
+minimumReleaseAgeStrict: true
 minimumReleaseAge: 1440
 
 minimumReleaseAgeExclude:
   - "@solidjs/*"
+  - "@storybook/addon-vitest@10.6.3"
   - filesystem-routing
-  - solid-js
   - kysely@0.29.7
+  - solid-js
+  - storybook-solidjs-vite@10.7.4
 
 catalog:
   "@vitest/browser-playwright": 5.0.5
@@ -27,10 +30,10 @@ peerDependencyRules:
   allowedVersions:
     vitest: "*"
 
-permissions:
-  "@solidjs/diagnostics":
-    skills: true
-  "@solidjs/web":
-    skills: true
-  solid-js:
-    skills: true
+# permissions:
+#   "@solidjs/diagnostics":
+#     skills: true
+#   "@solidjs/web":
+#     skills: true
+#   solid-js:
+#     skills: true
