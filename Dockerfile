@@ -70,14 +70,24 @@ ENV NODE_OPTIONS="--max-old-space-size=2048"
 ENV NODE_OPTIONS=$NODE_OPTIONS NODE_ENV=production
 
 # Define the host and port to listen on.
-ARG HOSTNAME=0.0.0.0 PORT=3000
-ENV HOSTNAME=$HOSTNAME PORT=$PORT
-ENV PATH="/nodejs/bin:$PATH"
+# Prevent load certs from system (/etc/ssl/certs/ca-certificates.crt)
+ENV PATH="/usr/bin:/usr/local/bin:/busybox:/nodejs/bin:$PATH"
+ARG HOST=0.0.0.0 PORT=3000 TZ=UTC
+ENV HOST=$HOST PORT=$PORT TZ=$TZ
+ENV SSL_CERT_FILE= SSL_CERT_DIR=
 ENV TINI_SUBREAPER=true
 
 WORKDIR /app
 USER nonroot:nonroot
 EXPOSE $PORT/tcp
 
+# # Define volumes for persistent storage and configuration.
+# VOLUME ["/srv/storage/certs", "/srv/storage/logs", "/srv/storage/uploads"]
+
+# # Healthcheck to monitor application status
+# HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+#   CMD /nodejs/bin/node entry.js hc
+
+# SHELL: /busybox/sh
 ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["node", "--max-heap-size=2048", "entry.js", "serve"]
