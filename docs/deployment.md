@@ -39,8 +39,8 @@ loads it, nothing runs it.
 The same application runs in two places. The code, routes and configuration are shared; only the
 runtime and the database differ.
 
-| Target             | Runtime          | Database               | Built with                 |
-| ------------------ | ---------------- | ---------------------- | -------------------------- |
+| Target             | Runtime          | Database               | Built with                |
+| ------------------ | ---------------- | ---------------------- | ------------------------- |
 | Node.js server     | Node.js >= 24.22 | SQLite (`node:sqlite`) | `vpr build`               |
 | Cloudflare Workers | workerd          | Cloudflare D1          | `vpr build --mode worker` |
 

@@ -47,7 +47,7 @@ field fails there and not in the browser.
 
 | Where              | What happens                                                                                                              |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------- |
-| `vpr dev`         | Vite serves scripts and styles from the source folders                                                                    |
+| `vpr dev`          | Vite serves scripts and styles from the source folders                                                                    |
 | Node.js build      | The server serves the built files under `/assets`; a file's name carries its content hash, so browsers keep it for a year |
 | Single executable  | The built files are inside the executable                                                                                 |
 | Cloudflare Workers | Cloudflare serves `/assets` itself, before the Worker runs                                                                |

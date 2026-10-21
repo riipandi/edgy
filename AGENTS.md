@@ -127,3 +127,14 @@ release. Add a tool name to select part of the graph. For example, run
 - [ ] If setup, runtime, or package-manager behavior looks wrong, run `vp env doctor` and include its output when asking for help.
 
 <!--VITE PLUS END-->
+
+## Code rules
+
+Code comments: rare and short — only non-obvious reasons, contracts, traps. No narration, no restating names. Update or delete any comment your change makes wrong.
+
+## Git
+
+- Check `git status` and stage explicit paths only; never `git add -A` or `git add .`.
+- Commit only when this turn asks for it; never push. Otherwise, when finished, suggest a one-line message and list the paths.
+- Message format: `{feat,fix,docs,refactor,chore}[(scope)]: <concise message>`.
+- Never run `git reset --hard`, `git checkout .`, `git clean -fd`, `git stash`, `git commit --no-verify`, or `git push --force`.

@@ -89,12 +89,12 @@ header with a valid address from a peer that may be believed (see above). Withou
 
 ## Database
 
-| Variable                | Default                  | Description                                                                            |
-| ----------------------- | ------------------------ | -------------------------------------------------------------------------------------- |
-| `DATABASE_DRIVER`       | `sqlite`                 | `sqlite` (Node.js) or `d1` (Cloudflare D1)                                             |
-| `DATABASE_PATH`         | `./storage/data/edgy.db` | SQLite file, or `:memory:`; parent directories are created (`sqlite` only)             |
-| `D1_BINDING`            | `DB`                     | Name of the D1 binding in `wrangler.jsonc` (`d1` only)                                 |
-| `DATABASE_AUTO_MIGRATE` | `false` (`vpr dev`: on)  | Apply pending migrations at start: on Workers, and in `vpr dev`, where unset means on  |
+| Variable                | Default                  | Description                                                                           |
+| ----------------------- | ------------------------ | ------------------------------------------------------------------------------------- |
+| `DATABASE_DRIVER`       | `sqlite`                 | `sqlite` (Node.js) or `d1` (Cloudflare D1)                                            |
+| `DATABASE_PATH`         | `./storage/data/edgy.db` | SQLite file, or `:memory:`; parent directories are created (`sqlite` only)            |
+| `D1_BINDING`            | `DB`                     | Name of the D1 binding in `wrangler.jsonc` (`d1` only)                                |
+| `DATABASE_AUTO_MIGRATE` | `false` (`vpr dev`: on)  | Apply pending migrations at start: on Workers, and in `vpr dev`, where unset means on |
 
 ## Logging
 
@@ -138,13 +138,13 @@ logs go to the platform's stream.
 
 ## Security
 
-| Variable             | Default                            | Description                                                                                                                                                        |
-| -------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `RATE_LIMIT_ENABLED` | `true`                             | Turns rate limiting on `/api` on or off                                                                                                                            |
-| `RATE_LIMIT_MAX`     | `100`                              | Requests per client per window; at least `1`. With `cloudflare` it is only reported, so keep it equal to the limit in `wrangler.jsonc`                             |
-| `RATE_LIMIT_WINDOW`  | `60000`                            | Length of the rate-limit window, in milliseconds                                                                                                                   |
-| `RATE_LIMIT_STORE`   | `memory`                           | Where counters live: `memory` (per process), `redis` (shared by every instance, Node.js only) or `cloudflare` (Workers only)                                       |
-| `RATE_LIMIT_BINDING` | `RATE_LIMITER`                     | Name of the Workers rate-limit binding, used when `RATE_LIMIT_STORE=cloudflare`                                                                                    |
+| Variable             | Default                            | Description                                                                                                                                                       |
+| -------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `RATE_LIMIT_ENABLED` | `true`                             | Turns rate limiting on `/api` on or off                                                                                                                           |
+| `RATE_LIMIT_MAX`     | `100`                              | Requests per client per window; at least `1`. With `cloudflare` it is only reported, so keep it equal to the limit in `wrangler.jsonc`                            |
+| `RATE_LIMIT_WINDOW`  | `60000`                            | Length of the rate-limit window, in milliseconds                                                                                                                  |
+| `RATE_LIMIT_STORE`   | `memory`                           | Where counters live: `memory` (per process), `redis` (shared by every instance, Node.js only) or `cloudflare` (Workers only)                                      |
+| `RATE_LIMIT_BINDING` | `RATE_LIMITER`                     | Name of the Workers rate-limit binding, used when `RATE_LIMIT_STORE=cloudflare`                                                                                   |
 | `REDIS_URL`          | `redis://:securedb@localhost:6379` | Redis or Valkey URL, used when `RATE_LIMIT_STORE` or `CACHE_STORE` is `redis` (one connection serves both). Secret; the default is the Valkey of `vpr compose:up` |
 
 With `memory` each running instance keeps its own counts, so the effective limit is `RATE_LIMIT_MAX`
@@ -205,16 +205,16 @@ every read reaches D1; use a custom domain.
 
 ## Observability
 
-| Variable                         | Default                                | Description                                                                                                                                                                                                    |
-| -------------------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `METRICS_ENABLED`                | `false`                                | Serve Prometheus metrics at `GET /metrics`                                                                                                                                                                     |
-| `OTEL_SDK_DISABLED`              | `false`                                | `true` turns trace, metric and `otlp` log export off, whatever the endpoint                                                                                                                                    |
+| Variable                         | Default                                | Description                                                                                                                                                                                                   |
+| -------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `METRICS_ENABLED`                | `false`                                | Serve Prometheus metrics at `GET /metrics`                                                                                                                                                                    |
+| `OTEL_SDK_DISABLED`              | `false`                                | `true` turns trace, metric and `otlp` log export off, whatever the endpoint                                                                                                                                   |
 | `OTEL_EXPORTER_OTLP_ENDPOINT`    | `http://localhost:4318`                | OTLP/HTTP collector base URL; the default is the ClickStack of `vpr compose:up`                                                                                                                               |
 | `OTEL_EXPORTER_OTLP_HEADERS`     | `authorization=edgy-dev-ingestion-key` | Headers sent with every export, `key=value` pairs separated by commas. Secret; the default is the development key of `vpr compose:up`, and the server refuses to start with it when the endpoint is not local |
-| `OTEL_SERVICE_NAME`              | `edgy`                                 | Service name attached to every signal                                                                                                                                                                          |
-| `OTEL_EXPORT_INTERVAL`           | `5000`                                 | Milliseconds between exports of buffered traces, metrics and logs                                                                                                                                              |
-| `OTEL_EXPORTER_OTLP_COMPRESSION` | `gzip`                                 | Compression of export requests: `gzip` or `none`                                                                                                                                                               |
-| `OTEL_TRACES_SAMPLE_RATIO`       | `0.7`                                  | Fraction of requests whose trace is recorded, from 0 to 1                                                                                                                                                      |
+| `OTEL_SERVICE_NAME`              | `edgy`                                 | Service name attached to every signal                                                                                                                                                                         |
+| `OTEL_EXPORT_INTERVAL`           | `5000`                                 | Milliseconds between exports of buffered traces, metrics and logs                                                                                                                                             |
+| `OTEL_EXPORTER_OTLP_COMPRESSION` | `gzip`                                 | Compression of export requests: `gzip` or `none`                                                                                                                                                              |
+| `OTEL_TRACES_SAMPLE_RATIO`       | `0.7`                                  | Fraction of requests whose trace is recorded, from 0 to 1                                                                                                                                                     |
 
 Telemetry is OpenTelemetry over HTTP with JSON bodies (no gRPC), so it works with ClickStack/HyperDX,
 Grafana, Honeycomb or any OpenTelemetry collector. It is on by default and aimed at the local

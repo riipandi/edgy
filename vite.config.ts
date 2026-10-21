@@ -16,8 +16,6 @@ const ignoredPatterns = [
   '.output',
   '.storage',
   '.wrangler',
-  '**/*.md',
-  '**/*.mdx',
   '**/*.yml',
   '**/*.yaml',
   '**/*.toml',
@@ -112,13 +110,18 @@ export default defineConfig(({ mode }) => ({
       {
         extends: false,
         plugins: [
+          stylex({
+            enableDevClassNames: mode === 'development',
+            useCSSLayers: { before: ['reset'], prefix: 'stylex' },
+            lightningcssOptions: { minify: mode !== 'development' }
+          }),
           solid({ diagnostics: false, extensions: ['.jsx', '.tsx'] }),
           storybookTest({
             configDir: fileURLToPath(new URL('./.storybook', import.meta.url)),
             storybookScript: 'vpr storybook'
           }),
           {
-            name: 'solid-2-storybook-deps',
+            name: 'solid-storybook-deps',
             enforce: 'post',
             config(config) {
               config.optimizeDeps ??= {}

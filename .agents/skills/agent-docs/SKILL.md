@@ -9,7 +9,7 @@ description: >
   issue, a roadmap entry, a handover, an index update, or any docs/
   change — and when the user runs /agent-docs.
 metadata:
-  short-description: "The .llms ledger and docs/ workflow"
+  short-description: 'The .llms ledger and docs/ workflow'
 ---
 
 # Agent docs — the documentation ledger workflow

@@ -1,6 +1,8 @@
 allowBuilds:
   esbuild: true
 
+minimumReleaseAge: 1440
+
 minimumReleaseAgeExclude:
   - "@solidjs/*"
   - filesystem-routing
@@ -26,9 +28,9 @@ peerDependencyRules:
     vitest: "*"
 
 permissions:
-  '@solidjs/diagnostics':
+  "@solidjs/diagnostics":
     skills: true
-  '@solidjs/web':
+  "@solidjs/web":
     skills: true
   solid-js:
     skills: true
