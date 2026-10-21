@@ -6,7 +6,7 @@ ARG PLATFORM=linux/amd64
 ARG NODE_VERSION=24
 
 # ------------------------------------------------------------------------------
-# Base image with pnpm package manager.
+# Base image with pnpm package manager (https://viteplus.dev/guide/docker)
 # ------------------------------------------------------------------------------
 FROM --platform=${PLATFORM} ghcr.io/voidzero-dev/vite-plus:latest AS base
 ENV DO_NOT_TRACK=1 CI=true LEFTHOOK=0 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=true
