@@ -1,12 +1,12 @@
 import type { Migration } from 'kysely/migration'
-import * as createPlatform from './0001_create_platform_tables.ts'
-import * as createIdentity from './0002_create_identity_table.ts'
+import * as createPlatform from './00001_create_platform_tables.ts'
+import * as createIdentity from './00002_create_identity_table.ts'
 
 type MigrationItems = Record<string, Migration>
 
 const MIGRATIONS: Readonly<MigrationItems> = Object.freeze({
-  '0001_create_platform_tables': createPlatform,
-  '0002_create_identity_table': createIdentity
+  '00001_create_platform_tables': createPlatform,
+  '00002_create_identity_table': createIdentity
 })
 
 /** Ordered names from the statically registered migration set. */
