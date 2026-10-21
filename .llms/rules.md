@@ -62,7 +62,7 @@ Contracts, how-to-change recipes, traps. Read the section a change touches befor
 - **A schema value ends in `Schema`; its inferred type does not**: `UserSchema` is the value, `User` is `typeof UserSchema.Type`. Wire contracts are `<Resource><Action><Request|Response>Schema` and `<Resource>IdParamsSchema`; `Request`/`Response` in a name always means HTTP (so the cache key is `UserLookup`). Export a type only when code consumes it; for a schema that transforms, export `typeof XSchema.Encoded` as `X…Encoded` (`Type` is the domain shape, `Encoded` the wire shape).
 - **Derive, do not repeat**: request and response schemas reuse the entity's fields (`UserSchema.fields.email`); the Kysely table type is the entity, or `Omit<Entity, …>` plus `Generated<…>`.
 - **Exceptions, on purpose**: the envelopes (`ApiSuccess`, `ApiError`, `ApiErrorBody`) are plain interfaces (the responder builds them; nothing decodes them); configuration declarations (`src/kernel/config/`) are not `Schema` values and keep lower-case names (`serverConfig`).
-- **File suffixes** inside `src/modules/<resource>/`: `*_schema.ts`, `*_repo.ts`, `*_service.ts`, `*_handler.ts`, `*_routes.ts`. The class inside keeps the `UserRepository`/`UserService` form (a service tag, not a schema). Tests: `*.test.ts` is unit/integration (Vitest), `*.spec.ts` is end-to-end (Playwright, `e2e/`).
+- **File suffixes** inside `src/modules/<resource>/`: `*_schema.ts`, `*_repo.ts`, `*_service.ts`, `*_handler.ts`, `*_routes.ts`. The class inside keeps the `UserRepositorysitory`/`UserService` form (a service tag, not a schema). Tests: `*.test.ts` is unit/integration (Vitest), `*.spec.ts` is end-to-end (Playwright, `e2e/`).
 
 ## Code comments
 

@@ -1,7 +1,7 @@
 import { Cache, Context, Effect, Layer } from 'effect'
 import type { User } from '#/database/schema.ts'
 import { makeUserCache } from '#/kernel/cache/users.ts'
-import { UserRepo } from './user_repo.ts'
+import { UserRepository } from './user_repo.ts'
 
 export class UserService extends Context.Service<
   UserService,
@@ -14,7 +14,7 @@ export class UserService extends Context.Service<
 export const layer = Layer.effect(
   UserService,
   Effect.gen(function* () {
-    const repo = yield* UserRepo
+    const repo = yield* UserRepository
     const cache = yield* makeUserCache((id) => Effect.orDie(repo.find(id)))
     return UserService.of({
       list: () => repo.list(),

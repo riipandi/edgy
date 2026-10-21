@@ -3,19 +3,19 @@ import { Context } from 'effect'
 import type { User } from '#/database/schema.ts'
 import { Database } from '#/database/service.ts'
 
-export class UserRepo extends Context.Service<
-  UserRepo,
+export class UserRepository extends Context.Service<
+  UserRepository,
   {
     readonly list: () => Effect.Effect<readonly User[], unknown>
     readonly find: (id: string) => Effect.Effect<User | undefined, unknown>
   }
->()('app/UserRepo') {}
+>()('app/UserRepository') {}
 
 export const layer = Layer.effect(
-  UserRepo,
+  UserRepository,
   Effect.gen(function* () {
     const db = yield* Database
-    return UserRepo.of({
+    return UserRepository.of({
       list: () =>
         Effect.tryPromise(() => db.selectFrom('users').selectAll().orderBy('id', 'asc').execute()),
       find: (id) =>
