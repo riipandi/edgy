@@ -1,5 +1,5 @@
 import * as stylex from '@stylexjs/stylex'
-import { colors } from './colors.stylex'
+import { colors } from './colors.stylex.ts'
 
 /**
  * Dark theme — a single `stylex.createTheme` per variable group. Values are

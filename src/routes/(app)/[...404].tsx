@@ -1,9 +1,9 @@
 import { Title } from '@solidjs/meta'
 import type { RouteDefinition } from '@solidjs/router'
 import { httpStatus } from '@solidjs/web'
-import { fx } from '#/resources/styles/core/utils.stylex'
-import { styles as notFound } from '#/resources/styles/pages/not-found.stylex'
-import { sx } from '#/resources/styles/props'
+import { fx } from '#/resources/styles/core/utils.stylex.ts'
+import { styles as notFound } from '#/resources/styles/pages/not-found.stylex.ts'
+import { sx } from '#/resources/styles/props.ts'
 
 // The catch-all route. httpStatus() is a no-op in the browser and takes
 // effect when SSR is enabled; it runs in preload so the status code is set

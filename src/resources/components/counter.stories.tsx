@@ -1,5 +1,5 @@
-import preview from '../../../.storybook/preview'
-import Counter from './counter'
+import preview from '../../../.storybook/preview.tsx'
+import Counter from './counter.tsx'
 
 const meta = preview.meta({
   component: Counter,

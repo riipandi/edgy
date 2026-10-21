@@ -61,9 +61,15 @@ export default defineConfig(({ mode }) => ({
   },
   lint: {
     jsPlugins: [{ name: 'vite-plus', specifier: 'vite-plus/oxlint-plugin' }, 'eslint-plugin-solid'],
+    plugins: ['import', 'unicorn', 'oxc', 'typescript'],
     settings: solidLint.settings,
     rules: {
       'vite-plus/prefer-vite-plus-imports': 'error',
+      'import/extensions': [
+        'error',
+        'ignorePackages',
+        { pattern: { ts: 'always', tsx: 'always' } }
+      ],
       ...solidLint.rules
     },
     options: { typeAware: true, typeCheck: true },

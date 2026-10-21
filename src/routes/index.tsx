@@ -1,10 +1,10 @@
 import { Title } from '@solidjs/meta'
 import logo from '#/assets/images/logo.svg'
-import Counter from '#/resources/components/counter'
-import Navbar from '#/resources/components/navbar'
-import { fx } from '#/resources/styles/core/utils.stylex'
-import { styles as home } from '#/resources/styles/pages/home.stylex'
-import { sx } from '#/resources/styles/props'
+import Counter from '#/resources/components/counter.tsx'
+import Navbar from '#/resources/components/navbar.tsx'
+import { fx } from '#/resources/styles/core/utils.stylex.ts'
+import { styles as home } from '#/resources/styles/pages/home.stylex.ts'
+import { sx } from '#/resources/styles/props.ts'
 
 export default function RouteComponent() {
   return (

@@ -1,7 +1,7 @@
 // Navbar (app shell nav) styles.
 import * as stylex from '@stylexjs/stylex'
-import { colors } from '#/resources/styles/core/colors.stylex'
-import { duration, fontWeight, radius, spacing } from '#/resources/styles/core/tokens.stylex'
+import { colors } from '#/resources/styles/core/colors.stylex.ts'
+import { duration, fontWeight, radius, spacing } from '#/resources/styles/core/tokens.stylex.ts'
 
 export const styles = stylex.create({
   nav: {

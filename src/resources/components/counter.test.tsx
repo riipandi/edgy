@@ -2,7 +2,7 @@ import { captureArtifact, expectNoDiagnostics, expectRerunBudget } from '@solidj
 import { render, fireEvent } from '@solidjs/testing-library'
 import { flush } from 'solid-js'
 import { describe, expect, test } from 'vite-plus/test'
-import Counter from './counter'
+import Counter from './counter.tsx'
 
 describe('<Counter />', () => {
   test('it increments on click', () => {

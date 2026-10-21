@@ -1,6 +1,6 @@
 import * as stylex from '@stylexjs/stylex'
-import { colors } from './colors.stylex'
-import { breakpoints, duration, fontSize, fontWeight, radius } from './tokens.stylex'
+import { colors } from './colors.stylex.ts'
+import { breakpoints, duration, fontSize, fontWeight, radius } from './tokens.stylex.ts'
 
 /**
  * Shared style fragments composed by elements, components, and pages.
