@@ -15,8 +15,9 @@
                 "settings": {
                     "run": "onType",
                     "fixKind": "safe_fix",
-                    "typeAware": true,
-                    "unusedDisableDirectives": "deny"
+                    "unusedDisableDirectives": "deny",
+                    "configPath": "./vite.config.ts",
+                    "typeAware": true
                 }
             }
         },
