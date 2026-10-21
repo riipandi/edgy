@@ -79,10 +79,32 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
     .column('status')
     .ifNotExists()
     .execute()
+
+  // Revisions - stores snapshots of content entries
+  // References entries in ec_* tables by collection + entry_id
+  await db.schema
+    .createTable('revisions')
+    .addColumn('id', 'text', (col) => col.primaryKey())
+    .addColumn('collection', 'text', (col) => col.notNull()) // e.g., 'posts'
+    .addColumn('entry_id', 'text', (col) => col.notNull()) // ID in the ec_* table
+    .addColumn('data', 'text', (col) => col.notNull()) // JSON snapshot of all fields
+    .addColumn('author_id', 'text')
+    .addColumn('created_at', 'text', (col) => col.defaultTo(currentTimestamp(db)))
+    .modifyEnd(modifyEndQuery(db))
+    .ifNotExists()
+    .execute()
+
+  await db.schema
+    .createIndex('idx_revisions_entry')
+    .on('revisions')
+    .columns(['collection', 'entry_id'])
+    .ifNotExists()
+    .execute()
 }
 
 export const down = async (db: Kysely<DB>): Promise<void> => {
   // Drop indexes first in reverse order
+  await db.schema.dropIndex('idx_revisions_entry').ifExists().execute()
   await db.schema.dropIndex('idx_media_status').ifExists().execute()
   await db.schema.dropIndex('idx_media_content_hash').ifExists().execute()
   await db.schema.dropIndex('idx_audit_timestamp').ifExists().execute()
@@ -90,6 +112,7 @@ export const down = async (db: Kysely<DB>): Promise<void> => {
   await db.schema.dropIndex('idx_audit_actor').ifExists().execute()
 
   // Drop tables in reverse order
+  await db.schema.dropTable('revisions').ifExists().execute()
   await db.schema.dropTable('media').ifExists().execute()
   await db.schema.dropTable('audit_logs').ifExists().execute()
   await db.schema.dropTable('options').ifExists().execute()

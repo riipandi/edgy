@@ -28,7 +28,7 @@ export default function RouteComponent(props: RouteProps<'/users/:id'>) {
     >
       <Title>{`User ${props.params.id} - Solid App`}</Title>
       <h2 {...sx(fx.h2, userStyles.detailTitle)}>{user().name}</h2>
-      <p {...sx(fx.muted)}>{user().title}</p>
+      <p {...sx(fx.muted)}>{user().email}</p>
       <a {...sx(fx.link, fx.focusable, userStyles.detailBack)} href={paths.users()}>
         All users
       </a>

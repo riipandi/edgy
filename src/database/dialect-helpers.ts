@@ -6,7 +6,8 @@
  * postgres: CURRENT_TIMESTAMP
  */
 
-import { PostgresAdapter, sql, type Kysely, type RawBuilder } from 'kysely'
+import { PostgresAdapter, sql } from 'kysely'
+import type { ColumnDataType, Kysely, RawBuilder } from 'kysely'
 import type { DatabaseDialectType } from './adapter'
 import type { DB } from './schema'
 
@@ -45,4 +46,17 @@ export function modifyEndQuery(db: Kysely<DB>): RawBuilder<string> {
     return sql`USING heap`
   }
   return sql`STRICT`
+}
+
+/**
+ * Column type for binary data.
+ *
+ * sqlite:   blob
+ * postgres: bytea
+ */
+export function binaryType(db: Kysely<DB>): ColumnDataType {
+  if (isPostgres(db)) {
+    return 'bytea'
+  }
+  return 'blob'
 }

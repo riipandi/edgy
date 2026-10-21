@@ -6,13 +6,23 @@ const isServer = typeof window === 'undefined'
 // Relative URLs work in the browser. During SSR the render runs inside the
 // Effect server that owns /api, so the absolute origin comes from the
 // incoming request instead of fetching the app's own host by name.
-export const listUsers = async (): Promise<readonly User[]> =>
-  fromResponse(await fetch(apiUrl('/api/users')))
+export const listUsers = async (): Promise<readonly User[]> => {
+  return fromResponse(await fetch(apiUrl('/api/users')))
+}
 
 export const getUser = async (id: string): Promise<User | UserView> => {
   const response = await fetch(apiUrl(`/api/users/${encodeURIComponent(id)}`))
   if (response.status === 404 || response.status === 400) {
-    return { name: 'Unknown', title: 'No such user' } satisfies UserView
+    return {
+      name: 'Unknown',
+      email: '',
+      avatar_url: null,
+      role: 0,
+      email_verified: 0,
+      data: null,
+      created_at: '',
+      updated_at: ''
+    } satisfies UserView
   }
   return fromResponse(response)
 }
