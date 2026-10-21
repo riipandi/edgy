@@ -18,7 +18,7 @@
         "docker:shell": "pnpm --silent run dockerx --entrypoint /busybox/sh $npm_package_config_image:$npm_package_version-dev",
         "docker:prune": "docker image rm --force $(docker image list --filter reference=$npm_package_config_image:* -q)",
         "docker:images": "docker image list --filter reference=$npm_package_config_image:*",
-        "dockerx": "docker run --platform=linux/amd64 --network=host --rm -it",
+        "dockerx": "docker run --platform=linux/amd64 --network=host --rm -it -v ./storage:/app/storage:rw",
         "storybook": "storybook dev -p 6006 --no-open",
         "storybook:build": "storybook build -o .output/storybook",
         "storybook:start": "vpx node-http-server --root .output/storybook --port 6006 --no-cache",
