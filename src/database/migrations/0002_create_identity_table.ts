@@ -1,5 +1,5 @@
-import { sql, type Kysely } from 'kysely'
-import { currentTimestamp } from '#/database/dialect-helpers.ts'
+import type { Kysely } from 'kysely'
+import { currentTimestamp, modifyEndQuery } from '#/database/dialect-helpers.ts'
 import type { DB } from '#/database/schema.ts'
 
 export const up = async (db: Kysely<DB>): Promise<void> => {
@@ -15,7 +15,7 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
     .addColumn('avatar_id', 'text')
     .addColumn('data', 'text')
     .addColumn('created_at', 'text', (col) => col.defaultTo(currentTimestamp(db)))
-    .modifyEnd(sql`STRICT`)
+    .modifyEnd(modifyEndQuery(db))
     .ifNotExists()
     .execute()
 

@@ -4,7 +4,15 @@ import { getMigrations } from './migrations/index.ts'
 import type { DB } from './schema.ts'
 import { seedUsers } from './seeders/user_factory.ts'
 
-const migratorFor = (db: Kysely<DB>) => new Migrator({ db, provider: { getMigrations } })
+const migratorFor = (db: Kysely<DB>) =>
+  new Migrator({
+    db,
+    migrationTableName: 'app_migration',
+    migrationLockTableName: 'app_migration_lock',
+    allowUnorderedMigrations: false,
+    disableTransactions: false,
+    provider: { getMigrations }
+  })
 
 export const migrateToLatest = (db: Kysely<DB>): Promise<MigrationResultSet> => {
   return migratorFor(db).migrateToLatest()

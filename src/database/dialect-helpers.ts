@@ -39,3 +39,10 @@ export function currentTimestamp(db: Kysely<DB>): RawBuilder<string> {
   }
   return sql`(datetime('now'))`
 }
+
+export function modifyEndQuery(db: Kysely<DB>): RawBuilder<string> {
+  if (isPostgres(db)) {
+    return sql`USING heap`
+  }
+  return sql`STRICT`
+}
