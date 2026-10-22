@@ -1,8 +1,17 @@
+import { Data } from 'effect'
 import type { Kysely } from 'kysely'
 import { Migrator, NO_MIGRATIONS, type MigrationResultSet } from 'kysely/migration'
 import { getMigrations } from './migrations/index.ts'
 import type { DB } from './schema.ts'
 import { seedUsers } from './seeders/user_factory.ts'
+
+export class MigratorError extends Data.TaggedError('MigratorError')<{
+  readonly cause: unknown
+}> {
+  override get message(): string {
+    return this.cause instanceof Error ? this.cause.message : String(this.cause)
+  }
+}
 
 function migrator(db: Kysely<DB>) {
   return new Migrator({

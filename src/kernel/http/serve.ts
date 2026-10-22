@@ -7,7 +7,7 @@ import { AppConfig } from '#/kernel/config/config.ts'
 import { renderPage } from '#/kernel/renderer/solid.ts'
 import { requestId } from '#/middleware/request-id.ts'
 import { requestLog } from '#/middleware/request-log.ts'
-import { disposeUserRuntime } from '#/modules/user/user_ssr.ts'
+import { disposeUserRuntimeEffect } from '#/modules/user/user_ssr.ts'
 import { api } from './api.ts'
 
 export const server = Layer.unwrap(
@@ -18,7 +18,7 @@ export const server = Layer.unwrap(
       HttpRouter.add('*', '*', renderPage),
       requestId,
       requestLog,
-      Layer.effectDiscard(Effect.addFinalizer(() => Effect.promise(disposeUserRuntime)))
+      Layer.effectDiscard(Effect.addFinalizer(() => disposeUserRuntimeEffect))
     )
     const withMetrics = config.observability.metricsEnabled
       ? routes.pipe(Layer.provide(PrometheusMetrics.layerHttp()))

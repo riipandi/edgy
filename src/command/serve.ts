@@ -1,7 +1,7 @@
 import { Effect, Layer } from 'effect'
 import { Command, Flag } from 'effect/cli'
-import { migrateToLatest } from '#/database/migrator.ts'
-import { runSeeders } from '#/database/seeders/index.ts'
+import { migrateToLatest, MigratorError } from '#/database/migrator.ts'
+import { runSeeders, SeederError } from '#/database/seeders/index.ts'
 import { Database } from '#/database/service.ts'
 import { AppConfig } from '#/kernel/config/config.ts'
 import { server } from '#/kernel/http/serve.ts'
@@ -10,14 +10,20 @@ import { ApplicationLayer } from '#/kernel/layers.ts'
 const migrateBeforeStart = (seed: boolean) =>
   Effect.gen(function* () {
     const { db } = yield* Database
-    const result = yield* Effect.promise(() => migrateToLatest(db))
+    const result = yield* Effect.tryPromise({
+      try: () => migrateToLatest(db),
+      catch: (cause) => new MigratorError({ cause })
+    })
     if (result.error !== undefined)
       return yield* Effect.fail(new Error('migration failed', { cause: result.error }))
     if ((result.results ?? []).length === 0) yield* Effect.logInfo('database is up to date')
     for (const item of result.results ?? [])
       yield* Effect.logInfo(`${item.status} ${item.migrationName}`)
     if (seed) {
-      yield* Effect.promise(() => runSeeders(db))
+      yield* Effect.tryPromise({
+        try: () => runSeeders(db),
+        catch: (cause) => new SeederError({ cause })
+      })
       yield* Effect.logInfo('seeders applied')
     }
   })

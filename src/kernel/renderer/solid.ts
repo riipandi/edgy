@@ -55,16 +55,17 @@ export const renderPage = Effect.gen(function* () {
     }
   }
 
-  const serverBundle = yield* Effect.promise(loadBundle)
   const webRequest = yield* HttpServerRequest.toWeb(request)
   const userService = yield* UserService
   const response = yield* Effect.tryPromise({
-    try: (signal) =>
-      withUserService(userService, () =>
+    try: async (signal) => {
+      const serverBundle = await loadBundle()
+      return withUserService(userService, () =>
         serverBundle.handleRequest(new Request(webRequest, { signal }), {
           event: { nativeEvent: NodeHttpServerRequest.toIncomingMessage(request) }
         })
-      ),
+      )
+    },
     catch: (cause) => new InternalError({ request, cause })
   })
   return HttpServerResponse.fromWeb(response)

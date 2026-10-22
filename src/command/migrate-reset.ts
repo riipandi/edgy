@@ -2,8 +2,13 @@ import { Effect } from 'effect'
 import { Command, Flag, Prompt } from 'effect/cli'
 import { DatabaseLayer } from '#/database/layer.ts'
 import { MIGRATION_COUNT } from '#/database/migrations/index.ts'
-import { migrationStatus, migrateToLatest, migrateToNoMigrations } from '#/database/migrator.ts'
-import { runSeeders } from '#/database/seeders/index.ts'
+import {
+  migrationStatus,
+  MigratorError,
+  migrateToLatest,
+  migrateToNoMigrations
+} from '#/database/migrator.ts'
+import { runSeeders, SeederError } from '#/database/seeders/index.ts'
 import { Database } from '#/database/service.ts'
 
 export const migrateResetCmd = Command.make(
@@ -31,7 +36,10 @@ export const migrateResetCmd = Command.make(
       if (config.seed && !config.up) return yield* Effect.fail(new Error('--seed requires --up'))
 
       const { db } = yield* Database
-      const migrations = yield* Effect.promise(() => migrationStatus(db))
+      const migrations = yield* Effect.tryPromise({
+        try: () => migrationStatus(db),
+        catch: (cause) => new MigratorError({ cause })
+      })
       const executed = migrations
         .filter((migration) => migration.executedAt !== undefined)
         .reverse()
@@ -59,7 +67,10 @@ export const migrateResetCmd = Command.make(
           if (!confirmed) return
         }
 
-        const downResult = yield* Effect.promise(() => migrateToNoMigrations(db))
+        const downResult = yield* Effect.tryPromise({
+          try: () => migrateToNoMigrations(db),
+          catch: (cause) => new MigratorError({ cause })
+        })
         if (downResult.error !== undefined)
           return yield* Effect.fail(new Error('rollback failed', { cause: downResult.error }))
         for (const item of downResult.results ?? [])
@@ -68,14 +79,20 @@ export const migrateResetCmd = Command.make(
 
       if (!config.up) return
 
-      const upResult = yield* Effect.promise(() => migrateToLatest(db))
+      const upResult = yield* Effect.tryPromise({
+        try: () => migrateToLatest(db),
+        catch: (cause) => new MigratorError({ cause })
+      })
       if (upResult.error !== undefined)
         return yield* Effect.fail(new Error('migration failed', { cause: upResult.error }))
       for (const item of upResult.results ?? [])
         yield* Effect.logInfo(`${item.status} ${item.migrationName}`)
 
       if (config.seed) {
-        yield* Effect.promise(() => runSeeders(db))
+        yield* Effect.tryPromise({
+          try: () => runSeeders(db),
+          catch: (cause) => new SeederError({ cause })
+        })
         yield* Effect.logInfo('seeders applied')
       }
     }).pipe(Effect.provide(DatabaseLayer))

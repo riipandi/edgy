@@ -1,7 +1,7 @@
 import { Effect } from 'effect'
 import { Command } from 'effect/cli'
 import { DatabaseLayer } from '#/database/layer.ts'
-import { migrationStatus } from '#/database/migrator.ts'
+import { migrationStatus, MigratorError } from '#/database/migrator.ts'
 import { Database } from '#/database/service.ts'
 
 export const migrateStatusCmd = Command.make('migrate:status').pipe(
@@ -9,7 +9,10 @@ export const migrateStatusCmd = Command.make('migrate:status').pipe(
   Command.withHandler(() =>
     Effect.gen(function* () {
       const { db } = yield* Database
-      const migrations = yield* Effect.promise(() => migrationStatus(db))
+      const migrations = yield* Effect.tryPromise({
+        try: () => migrationStatus(db),
+        catch: (cause) => new MigratorError({ cause })
+      })
       if (migrations.length === 0) {
         yield* Effect.logInfo('no migrations')
         return

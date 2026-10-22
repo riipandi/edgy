@@ -1,7 +1,7 @@
 import { Effect } from 'effect'
 import { CliError, Command, Flag, Prompt } from 'effect/cli'
 import { DatabaseLayer } from '#/database/layer.ts'
-import { migrateDownStep, migrationStatus } from '#/database/migrator.ts'
+import { migrateDownStep, migrationStatus, MigratorError } from '#/database/migrator.ts'
 import { Database } from '#/database/service.ts'
 
 export const migrateDownCmd = Command.make(
@@ -32,7 +32,10 @@ export const migrateDownCmd = Command.make(
         )
       : Effect.gen(function* () {
           const { db } = yield* Database
-          const migrations = yield* Effect.promise(() => migrationStatus(db))
+          const migrations = yield* Effect.tryPromise({
+            try: () => migrationStatus(db),
+            catch: (cause) => new MigratorError({ cause })
+          })
           const executed = migrations.filter((migration) => migration.executedAt !== undefined)
           const rollback = executed.slice(-config.count).reverse()
 
@@ -60,7 +63,10 @@ export const migrateDownCmd = Command.make(
           }
 
           for (let i = 0; i < rollback.length; i++) {
-            const result = yield* Effect.promise(() => migrateDownStep(db))
+            const result = yield* Effect.tryPromise({
+              try: () => migrateDownStep(db),
+              catch: (cause) => new MigratorError({ cause })
+            })
             if (result.error !== undefined)
               return yield* Effect.fail(new Error('rollback failed', { cause: result.error }))
             if ((result.results ?? []).length === 0) {
