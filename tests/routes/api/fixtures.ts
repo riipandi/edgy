@@ -109,12 +109,9 @@ const migratedDatabase = Layer.effect(
   Database,
   Effect.gen(function* () {
     const db = openDatabase(':memory:')
-    const result = yield* Effect.tryPromise({
-      try: () => migrateToLatest(db),
-      catch: (cause) => new Error(String(cause))
-    })
-    if (result.error !== undefined) return yield* Effect.fail(new Error('migration failed'))
-    return makeDatabaseService(db)
+    const service = makeDatabaseService(db)
+    yield* migrateToLatest.pipe(Effect.provideService(Database, service))
+    return service
   })
 )
 
