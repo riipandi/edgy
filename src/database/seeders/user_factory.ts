@@ -39,10 +39,15 @@ const users = [
 ]
 
 export const seedUsers = async (db: Kysely<DB>): Promise<void> => {
+  const existing = new Set(
+    (await db.selectFrom('users').select('email').execute()).map((row) => row.email)
+  )
+  const pending = users.filter((user) => !existing.has(user.email))
+  if (pending.length === 0) return
   await db
     .insertInto('users')
-    .values(users)
-    .onConflict((conflict) => conflict.column('id').doNothing())
+    .values(pending)
+    .onConflict((conflict) => conflict.column('email').doNothing())
     .execute()
 }
 
