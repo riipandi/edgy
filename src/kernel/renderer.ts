@@ -5,6 +5,7 @@ import * as HttpServerError from 'effect/http/HttpServerError'
 import * as HttpServerRequest from 'effect/http/HttpServerRequest'
 import * as HttpServerResponse from 'effect/http/HttpServerResponse'
 import * as HttpStaticServer from 'effect/http/HttpStaticServer'
+import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { UserService } from '#/modules/user/user_service.ts'
@@ -12,12 +13,14 @@ import { withUserService } from '#/modules/user/user_ssr.ts'
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url))
 
-// The bundled server lives under dist/server while client assets sit under
-// dist/client; walk up to the shared dist root, falling back to the source
-// tree layout during development.
+// The bundled server lives under <root>/server while client assets sit under
+// <root>/client; resolve the root by probing for the server bundle beside the
+// entry or up the tree from the source layout during development.
 const distRoot = (() => {
+  const probe = (dir: string): boolean => existsSync(path.join(dir, 'server/server.js'))
   let dir = moduleDir
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 6; i++) {
+    if (probe(dir)) return dir
     if (path.basename(dir) === 'dist') return dir
     const parent = path.dirname(dir)
     if (parent === dir) break

@@ -1,9 +1,8 @@
-import { NodeHttpServer } from '@effect/platform-node'
 import { Effect, Layer } from 'effect'
 import * as HttpRouter from 'effect/http/HttpRouter'
 import { PrometheusMetrics } from 'effect/observability'
-import { createServer } from 'node:http'
 import { AppConfig } from '#/kernel/config/config.ts'
+import { gracefulServerLayer } from '#/kernel/graceful.ts'
 import { renderPage } from '#/kernel/renderer.ts'
 import { requestId } from '#/middleware/request-id.ts'
 import { requestLog } from '#/middleware/request-log.ts'
@@ -32,12 +31,7 @@ export const server = Layer.unwrap(
       ? routes.pipe(Layer.provide(PrometheusMetrics.layerHttp()))
       : routes
     return HttpRouter.serve(withMetrics).pipe(
-      Layer.provide(
-        NodeHttpServer.layer(createServer, {
-          host: config.server.host,
-          port: config.server.port
-        })
-      )
+      Layer.provide(gracefulServerLayer({ host: config.server.host, port: config.server.port }))
     )
   })
 )
