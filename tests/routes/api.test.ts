@@ -4,9 +4,13 @@ import * as HttpServer from 'effect/http/HttpServer'
 import { BlockList } from 'node:net'
 import { TypeID } from 'typeid-js'
 import { afterAll, describe, expect, it } from 'vite-plus/test'
+import { openDatabase } from '#/database/dialect/sqlite.ts'
+import { migrateToLatest } from '#/database/migrator.ts'
 import { DatabaseError } from '#/database/service.ts'
+import { Database, makeDatabaseService } from '#/database/service.ts'
 import { AppConfig, type AppConfigShape } from '#/kernel/config/config.ts'
 import { apiRoutes } from '#/kernel/http/api.ts'
+import { RateLimitCounterLayer } from '#/middleware/rate-limit.ts'
 import { HealthService } from '#/modules/health/health_service.ts'
 import { UserRepositoryError } from '#/modules/user/user_repo.ts'
 import { UserService } from '#/modules/user/user_service.ts'
@@ -67,6 +71,8 @@ const config: AppConfigShape = {
     rateLimitEnabled: true,
     rateLimitMax: 1000,
     rateLimitWindow: Duration.millis(60_000),
+    rateLimitStore: 'database',
+    rateLimitRedisUrl: Redacted.make('redis://localhost:6379'),
     trustProxy: { trustAll: false, proxies: new BlockList() }
   },
   cache: {
@@ -86,16 +92,32 @@ const config: AppConfigShape = {
 }
 
 const testConfig = Layer.succeed(AppConfig, config)
+const limitedConfig = Layer.succeed(AppConfig, {
+  ...config,
+  security: { ...config.security, rateLimitMax: 2 }
+})
+
+// The rate-limit counter writes to the rate_limits table, so its database
+// starts migrated.
+const migratedDatabase = Layer.effect(
+  Database,
+  Effect.gen(function* () {
+    const db = openDatabase(':memory:')
+    const result = yield* Effect.tryPromise({
+      try: () => migrateToLatest(db),
+      catch: (cause) => new Error(String(cause))
+    })
+    if (result.error !== undefined) return yield* Effect.fail(new Error('migration failed'))
+    return makeDatabaseService(db)
+  })
+)
 
 const { handler: limitedHandler, dispose: disposeLimitedHandler } = HttpRouter.toWebHandler(
   apiRoutes.pipe(
     HttpRouter.provideRequest(testServices),
-    Layer.provide(
-      Layer.succeed(AppConfig, {
-        ...config,
-        security: { ...config.security, rateLimitMax: 2 }
-      })
-    ),
+    Layer.provide(RateLimitCounterLayer),
+    Layer.provide(migratedDatabase),
+    Layer.provide(limitedConfig),
     Layer.provide(HttpServer.layerServices)
   ),
   { disableLogger: true }
@@ -104,6 +126,8 @@ const { handler: limitedHandler, dispose: disposeLimitedHandler } = HttpRouter.t
 const { handler, dispose } = HttpRouter.toWebHandler(
   apiRoutes.pipe(
     HttpRouter.provideRequest(testServices),
+    Layer.provide(RateLimitCounterLayer),
+    Layer.provide(migratedDatabase),
     Layer.provide(testConfig),
     Layer.provide(HttpServer.layerServices)
   ),
@@ -113,6 +137,8 @@ const { handler, dispose } = HttpRouter.toWebHandler(
 const { handler: unavailableHandler, dispose: disposeUnavailableHandler } = HttpRouter.toWebHandler(
   apiRoutes.pipe(
     HttpRouter.provideRequest(Layer.mergeAll(testService, unavailableService)),
+    Layer.provide(RateLimitCounterLayer),
+    Layer.provide(migratedDatabase),
     Layer.provide(testConfig),
     Layer.provide(HttpServer.layerServices)
   ),
@@ -123,6 +149,8 @@ const { handler: unavailableUsersHandler, dispose: disposeUnavailableUsersHandle
   HttpRouter.toWebHandler(
     apiRoutes.pipe(
       HttpRouter.provideRequest(Layer.mergeAll(unavailableUserService, readyService)),
+      Layer.provide(RateLimitCounterLayer),
+      Layer.provide(migratedDatabase),
       Layer.provide(testConfig),
       Layer.provide(HttpServer.layerServices)
     ),

@@ -1,6 +1,16 @@
 import { Config, Effect } from 'effect'
 import { BlockList, isIP } from 'node:net'
-import { custom, flag, group, int, invalid, milliseconds, type ValueOf } from './field.ts'
+import {
+  choice,
+  custom,
+  flag,
+  group,
+  int,
+  invalid,
+  milliseconds,
+  secret,
+  type ValueOf
+} from './field.ts'
 
 /**
  * The TRUST_PROXY setting, following the pocket-id concept: `false` trusts no
@@ -54,6 +64,17 @@ export const isTrustedProxy = (trust: TrustProxy, address: string): boolean =>
 export const securityConfig = group(
   {
     rateLimitEnabled: flag('RATE_LIMIT_ENABLED', true, 'Enable API rate limiting'),
+    rateLimitStore: choice(
+      'RATE_LIMIT_STORE',
+      ['database', 'redis'],
+      'database',
+      'Where rate-limit windows live: the database, or a shared Valkey/Redis'
+    ),
+    rateLimitRedisUrl: secret(
+      'RATE_LIMIT_REDIS_URL',
+      'redis://localhost:6379',
+      'Valkey/Redis connection URL for the redis rate-limit store'
+    ),
     rateLimitMax: int('RATE_LIMIT_MAX', 100, 'Requests allowed per client per window', 1),
     rateLimitWindow: milliseconds(
       'RATE_LIMIT_WINDOW',

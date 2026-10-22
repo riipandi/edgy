@@ -55,6 +55,7 @@
         "@stylexjs/stylex": "^0.19.1",
         "effect": "^4.0.5",
         "kysely": "^0.29.7",
+        "redis": "^6.3.0",
         "solid-js": "^2.0.0-rc.14",
         "typeid-js": "^1.2.0"
     },

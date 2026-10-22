@@ -1,34 +1,57 @@
 import { it } from '@effect/vitest'
-import { Effect } from 'effect'
+import { Duration, Effect, Layer } from 'effect'
 import { TestClock } from 'effect/testing'
 import { expect } from 'vite-plus/test'
-import { checkRateLimit } from './rate-limit.ts'
+import { openDatabase } from '#/database/dialect/sqlite.ts'
+import { migrateToLatest } from '#/database/migrator.ts'
+import { Database, makeDatabaseService } from '#/database/service.ts'
+import { RateLimitCounter, RateLimitCounterLayerDatabase } from './rate-limit.ts'
+
+const database = Layer.effect(
+  Database,
+  Effect.gen(function* () {
+    const db = openDatabase(':memory:')
+    const result = yield* Effect.tryPromise({
+      try: () => migrateToLatest(db),
+      catch: (cause) => new Error(String(cause))
+    })
+    if (result.error !== undefined) return yield* Effect.fail(new Error('migration failed'))
+    return makeDatabaseService(db)
+  })
+)
+const counterLayer = RateLimitCounterLayerDatabase.pipe(Layer.provide(database))
 
 const program = Effect.gen(function* () {
-  const first = yield* checkRateLimit('testclock', 2)
-  const second = yield* checkRateLimit('testclock', 2)
-  const third = yield* checkRateLimit('testclock', 2)
+  const counter = yield* RateLimitCounter
 
-  expect(first.allowed).toBe(true)
-  expect(first.headers).toMatchObject({
-    'ratelimit-limit': '2',
-    'ratelimit-remaining': '1'
-  })
-  expect(second.allowed).toBe(true)
-  expect(second.headers['ratelimit-remaining']).toBe('0')
-
-  expect(third.allowed).toBe(false)
-  expect(third.headers['ratelimit-remaining']).toBe('0')
+  const first = yield* counter.consume('testclock', 2, Duration.seconds(60))
+  expect(first).toMatchObject({ allowed: true, limit: 2, remaining: 1, resetSeconds: 60 })
+  const second = yield* counter.consume('testclock', 2, Duration.seconds(60))
+  expect(second).toMatchObject({ allowed: true, remaining: 0 })
+  const third = yield* counter.consume('testclock', 2, Duration.seconds(60))
+  expect(third).toMatchObject({ allowed: false, remaining: 0 })
 
   // The window has not elapsed yet: still blocked.
   yield* TestClock.adjust('30 seconds')
-  expect(yield* checkRateLimit('testclock', 2)).toMatchObject({ allowed: false })
+  expect(yield* counter.consume('testclock', 2, Duration.seconds(60))).toMatchObject({
+    allowed: false
+  })
 
-  // Crossing the 60-second window opens a fresh one.
+  // Crossing the 60-second boundary opens a fresh window and prunes the
+  // expired one. Fixed windows are aligned to the clock, so the fresh
+  // window's reset counts down to the next bucket boundary.
   yield* TestClock.adjust('31 seconds')
-  const fresh = yield* checkRateLimit('testclock', 2)
+  const fresh = yield* counter.consume('testclock', 2, Duration.seconds(60))
   expect(fresh.allowed).toBe(true)
-  expect(fresh.headers['ratelimit-reset']).toBe('60')
+  expect(fresh.resetSeconds).toBeGreaterThan(0)
+  expect(fresh.resetSeconds).toBeLessThanOrEqual(60)
+
+  const database_ = yield* Database
+  const rows = yield* database_.query((db) => db.selectFrom('rate_limits').selectAll().execute())
+  expect(rows).toHaveLength(1)
+  expect(rows[0]).toMatchObject({ key: 'testclock', count: 1 })
 })
 
-it.effect('blocks beyond the max and resets after the window', () => program)
+it.effect('fixed window over sqlite', () =>
+  program.pipe(Effect.provide(counterLayer), Effect.provide(database))
+)
