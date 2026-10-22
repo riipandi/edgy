@@ -5,7 +5,7 @@ import { TypeID } from 'typeid-js'
 import { expect } from 'vite-plus/test'
 import { AppConfig, type AppConfigShape } from '#/kernel/config/config.ts'
 import { UserRepository, UserRepositoryError } from './user_repo.ts'
-import { UserService, UserServiceLayer } from './user_service.ts'
+import { UserCache, UserService, UserServiceLayer } from './user_service.ts'
 
 const config: AppConfigShape = {
   server: { host: '127.0.0.1', port: 0 },
@@ -75,8 +75,13 @@ it.effect('retries the lookup after a failed cache fill', () =>
         }
       })
     )
+    const userDependencies = Layer.mergeAll(flakyRepo, UserCache.layer).pipe(
+      Layer.provide(flakyRepo)
+    )
     const service = yield* UserService.pipe(
-      Effect.provide(UserServiceLayer.pipe(Layer.provide(flakyRepo), Layer.provide(testConfig)))
+      Effect.provide(
+        UserServiceLayer.pipe(Layer.provide(userDependencies), Layer.provide(testConfig))
+      )
     )
 
     const failed = yield* Effect.exit(service.find(ada.id))

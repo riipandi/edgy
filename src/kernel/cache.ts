@@ -1,31 +1,28 @@
 import { NodeRedis } from '@effect/platform-node'
-import { Cache, Duration, Effect, Layer, Redacted, Schema, type Scope } from 'effect'
+import { Cache, Context, Effect, Layer, Redacted, Schema, type Scope } from 'effect'
 import { Persistable, PersistedCache, Persistence } from 'effect/persistence'
 import type { PersistenceError } from 'effect/persistence/Persistence'
 import type { SchemaError } from 'effect/Schema'
+import { AppConfig } from './config/config.ts'
 
 /**
- * The generic lookup-cache adapter: a feature hands over its lookup and the
- * schemas needed to serialize results, and chooses whether entries live in
- * process memory or in shared Redis. Framework primitives underneath: the
- * in-memory `Cache`, and `PersistedCache` over a Redis-backed `Persistence`.
+ * The surface a `Cacheable.Class` tag carries: a keyed lookup with failure
+ * invalidation built in, and explicit invalidation for writers.
  */
-export interface LookupCache<A, E> {
+export interface CacheableService<A, E> {
   readonly get: (key: string) => Effect.Effect<A, E>
   readonly invalidate: (key: string) => Effect.Effect<void>
 }
 
-export type LookupCacheStorage =
-  | { readonly _tag: 'memory' }
-  | { readonly _tag: 'redis'; readonly url: Redacted.Redacted; readonly storeId: string }
+interface CacheableConfig {
+  readonly value: unknown
+  readonly failure: unknown
+}
 
-export interface LookupCacheOptions<A, E> {
-  readonly capacity: number
-  readonly timeToLive: Duration.Duration
-  readonly storage: LookupCacheStorage
+interface CacheableOptions<A, E, R> {
   readonly success: Schema.Schema<A>
   readonly error: Schema.Schema<E>
-  readonly lookup: (key: string) => Effect.Effect<A, E>
+  readonly lookup: (key: string) => Effect.Effect<A, E, R>
 }
 
 // Cache-backend failures degrade to a direct lookup instead of failing the
@@ -35,58 +32,110 @@ const isBackendError = (error: unknown): boolean => {
   return tag === 'PersistenceError' || tag === 'SchemaError'
 }
 
-export const makeLookupCache = <A, E>(
-  options: LookupCacheOptions<A, E>
-): Effect.Effect<LookupCache<A, E>, never, Scope.Scope> =>
+interface CacheableBacking<A, E, R> {
+  readonly get: (key: string) => Effect.Effect<A, E | PersistenceError | SchemaError, R>
+  readonly invalidate: (key: string) => Effect.Effect<void>
+}
+
+const buildService = <A, E, R>(
+  identifier: string,
+  options: CacheableOptions<A, E, R>
+): Effect.Effect<CacheableService<A, E>, never, AppConfig | R | Scope.Scope> =>
   Effect.gen(function* () {
-    if (options.storage._tag !== 'redis') {
-      const cache = yield* Cache.make<string, A, E, never>({
-        capacity: options.capacity,
-        timeToLive: options.timeToLive,
+    const config = yield* AppConfig
+    // The lookup's requirements are resolved once at layer build and captured
+    // into the service, so consumers get a plain Effect<A, E>.
+    const context = yield* Effect.context<AppConfig | R>()
+    if (!config.cache.enabled) {
+      return {
+        get: (key) => options.lookup(key).pipe(Effect.provide(context)),
+        invalidate: () => Effect.void
+      } satisfies CacheableService<A, E>
+    }
+    let backing: CacheableBacking<A, E, R>
+    if (config.cache.storage !== 'redis') {
+      const cache = yield* Cache.make<string, A, E, R>({
+        capacity: config.cache.maxEntries,
+        timeToLive: config.cache.ttl,
         lookup: options.lookup
       })
-      return {
+      backing = {
         get: (key) => Cache.get(cache, key),
         invalidate: (key) => Cache.invalidate(cache, key)
-      } satisfies LookupCache<A, E>
-    }
-
-    const { url, storeId } = options.storage
-    const Key = Persistable.Class<{ payload: { readonly id: string } }>()('LookupCacheEntry', {
-      primaryKey: (payload) => `${storeId}:${payload.id}`,
-      success: options.success,
-      error: options.error
-    })
-    type Key = InstanceType<typeof Key>
-    // The generic surface of PersistedCache over a runtime-built Persistable
-    // key does not flow through inference; the adapter narrows it here.
-    interface PersistedLookup {
-      readonly get: (key: Key) => Effect.Effect<A, E | PersistenceError | SchemaError, never>
-      readonly invalidate: (key: Key) => Effect.Effect<void, PersistenceError, never>
-    }
-    // The backing stack must live in the enclosing scope: building it inside
-    // Effect.provide would close the Redis client as soon as the cache is
-    // constructed.
-    const context = yield* Effect.orDie(
-      Layer.build(
-        Persistence.layerRedis.pipe(Layer.provide(NodeRedis.layer({ url: Redacted.value(url) })))
+      }
+    } else {
+      const Key = Persistable.Class<{ payload: { readonly id: string } }>()(identifier, {
+        primaryKey: (payload) => payload.id,
+        success: options.success,
+        error: options.error
+      })
+      type Key = InstanceType<typeof Key>
+      // The generic surface of PersistedCache over a runtime-built Persistable
+      // key does not flow through inference; the adapter narrows it here.
+      interface PersistedLookup {
+        readonly get: (key: Key) => Effect.Effect<A, E | PersistenceError | SchemaError, R>
+        readonly invalidate: (key: Key) => Effect.Effect<void, PersistenceError>
+      }
+      // The backing stack must live in the enclosing scope: building it inside
+      // Effect.provide would close the Redis client as soon as the cache is
+      // constructed.
+      const context = yield* Effect.orDie(
+        Layer.build(
+          Persistence.layerRedis.pipe(
+            Layer.provide(NodeRedis.layer({ url: Redacted.value(config.cache.redisUrl) }))
+          )
+        )
       )
-    )
-    const persisted = (yield* PersistedCache.make((key: Key) => options.lookup(key.id), {
-      storeId,
-      timeToLive: () => options.timeToLive,
-      inMemoryCapacity: options.capacity,
-      inMemoryTTL: () => options.timeToLive
-    }).pipe(Effect.provide(context), Effect.orDie)) as unknown as PersistedLookup
+      const persisted = (yield* PersistedCache.make((key: Key) => options.lookup(key.id), {
+        storeId: identifier,
+        timeToLive: () => config.cache.ttl,
+        inMemoryCapacity: config.cache.maxEntries,
+        inMemoryTTL: () => config.cache.ttl
+      }).pipe(Effect.provide(context), Effect.orDie)) as unknown as PersistedLookup
+      backing = {
+        get: (key) => persisted.get(new Key({ id: key })),
+        invalidate: (key) => persisted.invalidate(new Key({ id: key })).pipe(Effect.ignore)
+      }
+    }
     return {
       get: (key) =>
-        persisted
-          .get(new Key({ id: key }))
+        backing
+          .get(key)
           .pipe(
             Effect.catch((error) =>
               isBackendError(error) ? options.lookup(key) : Effect.fail(error as E)
+            ),
+            // A failed lookup must not stay pinned until the TTL expires: drop
+            // the entry so the next request retries the lookup.
+            Effect.catch((error) =>
+              Effect.flatMap(backing.invalidate(key), () => Effect.fail(error))
             )
-          ),
-      invalidate: (key) => persisted.invalidate(new Key({ id: key })).pipe(Effect.ignore)
-    } satisfies LookupCache<A, E>
+          )
+          .pipe(Effect.provide(context)),
+      invalidate: (key) => backing.invalidate(key)
+    } satisfies CacheableService<A, E>
   })
+
+export const Cacheable = {
+  /**
+   * Declares a feature-scoped cache as a service tag. The tag's `layer`
+   * resolves the cache configuration and the storage backend; yield the tag
+   * where the lookups happen.
+   */
+  Class: function <Config extends CacheableConfig>() {
+    return <const Tag extends string, R = never>(
+      identifier: Tag,
+      options: {
+        readonly success: Schema.Schema<Config['value']>
+        readonly error: Schema.Schema<Config['failure']>
+        readonly lookup: (key: string) => Effect.Effect<Config['value'], Config['failure'], R>
+      }
+    ) => {
+      const tag = Context.Service<any, CacheableService<Config['value'], Config['failure']>>()(
+        identifier
+      )
+      const layer = Layer.effect(tag, buildService(identifier, options))
+      return Object.assign(tag, { layer })
+    }
+  }
+}
