@@ -2,6 +2,7 @@ import { Effect } from 'effect'
 import { CliConfig, Command, Flag, GlobalFlag } from 'effect/cli'
 import pkg from '../../package.json' with { type: 'json' }
 import { configGenerateCmd } from './generate-config.ts'
+import { healthcheckCmd } from './healthcheck.ts'
 import { migrateDownCmd } from './migrate-down.ts'
 import { migrateResetCmd } from './migrate-reset.ts'
 import { migrateSeedCmd } from './migrate-seed.ts'
@@ -14,6 +15,7 @@ const rootCmd = Command.make(pkg.name).pipe(
   Command.withSubcommands([
     serveCmd,
     configGenerateCmd,
+    healthcheckCmd,
     migrateUpCmd,
     migrateDownCmd,
     migrateStatusCmd,

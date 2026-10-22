@@ -11,6 +11,15 @@ serve                Start the application server
   --seed             Run seeders; requires --auto-migrate or DATABASE_AUTO_MIGRATE=true
 ```
 
+## Health
+
+```sh
+healthcheck      Check application readiness (database ping)
+```
+
+The command pings the configured database and exits `0` when it answers, `1` when it fails or stays
+silent. The Docker image runs this command as its container healthcheck.
+
 ## Database migrations
 
 ```sh

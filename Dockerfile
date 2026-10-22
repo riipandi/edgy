@@ -82,9 +82,9 @@ VOLUME /app/storage
 USER nonroot:nonroot
 EXPOSE $PORT/tcp
 
-# # Healthcheck to monitor application status
-# HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-#   CMD /app/entry.js healthcheck
+# Healthcheck to monitor application status
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD /app/entry.js healthcheck
 
 # SHELL: /busybox/sh
 ENTRYPOINT ["/usr/bin/tini", "--"]
