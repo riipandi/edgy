@@ -1,13 +1,8 @@
 import { Effect } from 'effect'
 import type { Kysely } from 'kysely'
-import {
-  Migrator,
-  NO_MIGRATIONS,
-  type MigrationInfo,
-  type MigrationResult,
-  type MigrationResultSet,
-  type NoMigrations
-} from 'kysely/migration'
+import { Migrator, NO_MIGRATIONS } from 'kysely/migration'
+import type { MigrationInfo, NoMigrations } from 'kysely/migration'
+import type { MigrationResult, MigrationResultSet } from 'kysely/migration'
 import { Database, type DatabaseError } from './adapter.ts'
 import { getMigrations } from './migrations/index.ts'
 import type { DB } from './schema.ts'

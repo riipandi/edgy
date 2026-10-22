@@ -15,11 +15,11 @@ test.describe('user profile', () => {
     }
   })
 
-  test('shows the fallback for an unknown id', async ({ user }) => {
+  test('shows the not-found copy for an unknown id', async ({ user }) => {
     await user.open(unknownUser.id)
 
-    await expect(user.page).toHaveTitle(`User ${unknownUser.id} - Solid App`)
-    await expect(user.name()).toHaveText(unknownUser.name)
+    await expect(user.page).toHaveTitle('User not found')
+    await expect(user.name()).toHaveText('User not found')
   })
 
   test('returns home from a profile', async ({ user, home }) => {

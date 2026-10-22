@@ -1,18 +1,5 @@
 import type { User } from './user_schema.ts'
 
-const unknownUser = {
-  id: 'unknown',
-  name: 'Unknown',
-  email: '',
-  avatar_url: null,
-  role: 0,
-  email_verified: 0,
-  data: null,
-  disabled: 0,
-  created_at: '',
-  updated_at: ''
-} satisfies User
-
 export const listUsers = async (): Promise<readonly User[]> => {
   if (import.meta.env.SSR) {
     const { listUsersFromService } = await import('./user_ssr.ts')
@@ -21,15 +8,13 @@ export const listUsers = async (): Promise<readonly User[]> => {
   return fromResponse(await fetch('/api/users'))
 }
 
-export const getUser = async (id: string): Promise<User> => {
+export const getUser = async (id: string): Promise<User | undefined> => {
   if (import.meta.env.SSR) {
     const { getUserFromService } = await import('./user_ssr.ts')
-    return (await getUserFromService(id)) ?? unknownUser
+    return getUserFromService(id)
   }
   const response = await fetch(`/api/users/${encodeURIComponent(id)}`)
-  if (response.status === 404 || response.status === 400) {
-    return unknownUser
-  }
+  if (response.status === 404 || response.status === 400) return undefined
   return fromResponse(response)
 }
 

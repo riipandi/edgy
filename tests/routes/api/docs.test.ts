@@ -1,5 +1,7 @@
 import { afterAll, describe, expect, it } from 'vite-plus/test'
-import { docsConfig, testConfig, testServices, toHandler } from './fixtures.ts'
+import { toHandler } from '../../fixtures/api.ts'
+import { docsConfig, testConfig } from '../../fixtures/config.ts'
+import { testServices } from '../../fixtures/users.ts'
 
 const { handler: docsHandler, dispose: disposeDocsHandler } = toHandler(testServices, docsConfig)
 const { handler, dispose } = toHandler(testServices, testConfig)

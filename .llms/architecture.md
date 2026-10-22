@@ -8,7 +8,7 @@ The Vite API adapter builds `ApplicationLayer` into a `ManagedRuntime` and gives
 
 ## Feature and persistence boundaries
 
-`modules/user/user_service.ts` defines application operations and depends on the `UserRepository` service contract in `modules/user/user_repo.ts`. `modules/user/user_repository.ts` implements that contract using the `Database` service provided by the database adapter. The feature owns persistence behavior while the adapter owns the database connection and lifecycle. Persistence failures cross the port as `UserRepositoryError`; HTTP handlers translate those failures to a sanitized `503` response.
+`modules/user/user_service.ts` defines application operations and depends on the `UserRepository` service contract in `modules/user/user_repo.ts`, which also implements that contract using the `Database` service provided by the database adapter. The feature owns persistence behavior while the adapter owns the database connection and lifecycle. Persistence failures cross the port as `UserRepositoryError`; HTTP handlers translate those failures to a sanitized `503` response.
 
 `modules/health/health_service.ts` exposes the readiness check to the health route. The database ping is used as the readiness signal; no separate liveness route is implemented.
 

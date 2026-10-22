@@ -8,7 +8,7 @@ export type UserRecord = {
   email: string
 }
 
-/** The same fixed UUIDs the seeder uses, admin first. Unknown ids render the fallback copy. */
+/** The same fixed UUIDs the seeder uses, admin first. Unknown ids render the not-found copy. */
 export const users = [
   {
     id: id('01890a5d-ac96-774b-bcce-b302099a8056'),

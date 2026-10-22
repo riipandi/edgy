@@ -1,18 +1,12 @@
-import { Layer } from 'effect'
 import { TypeID } from 'typeid-js'
 import { afterAll, describe, expect, it } from 'vite-plus/test'
-import {
-  testConfig,
-  testServices,
-  toHandler,
-  unavailableUserService,
-  users,
-  readyService
-} from './fixtures.ts'
+import { toHandler } from '../../fixtures/api.ts'
+import { testConfig } from '../../fixtures/config.ts'
+import { testServices, unavailableUserService, users } from '../../fixtures/users.ts'
 
 const { handler, dispose } = toHandler(testServices, testConfig)
 const { handler: unavailableUsersHandler, dispose: disposeUnavailableUsersHandler } = toHandler(
-  Layer.mergeAll(unavailableUserService, readyService),
+  unavailableUserService,
   testConfig
 )
 

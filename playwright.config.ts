@@ -38,8 +38,9 @@ export default defineConfig({
     : [
         {
           command: [
-            'vpr build',
+            'vpr build --mode standalone --minify',
             'node --env-file-if-exists=.env.local dist/entry.js migrate:up',
+            'node --env-file-if-exists=.env.local dist/entry.js migrate:seed',
             'node --env-file-if-exists=.env.local dist/entry.js serve'
           ].join(' && '),
           url: new URL('/', ENV.baseURL).href,

@@ -1,11 +1,14 @@
-import { Layer } from 'effect'
 import { afterAll, describe, expect, it } from 'vite-plus/test'
-import { testConfig, testService, testServices, toHandler, unavailableService } from './fixtures.ts'
+import { toHandler } from '../../fixtures/api.ts'
+import { testConfig } from '../../fixtures/config.ts'
+import { readyService, unavailableService } from '../../fixtures/database.ts'
+import { testServices } from '../../fixtures/users.ts'
 
-const { handler, dispose } = toHandler(testServices, testConfig)
+const { handler, dispose } = toHandler(testServices, testConfig, readyService)
 const { handler: unavailableHandler, dispose: disposeUnavailableHandler } = toHandler(
-  Layer.mergeAll(testService, unavailableService),
-  testConfig
+  testServices,
+  testConfig,
+  unavailableService
 )
 
 afterAll(() => Promise.all([dispose(), disposeUnavailableHandler()]))

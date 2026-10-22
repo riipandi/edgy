@@ -17,7 +17,12 @@ const seedUser = (id: string, email: string, name: string, role: number): UserIn
 })
 
 const users = [
-  seedUser(generateUserId().toString(), 'admin@example.com', 'Admin Sistem', 100),
+  seedUser(
+    generateUserId('01890a5d-ac96-774b-bcce-b302099a8056').toString(),
+    'admin@example.com',
+    'Admin Sistem',
+    100
+  ),
   seedUser(
     generateUserId('01890a5d-ac96-774b-bcce-b302099a8057').toString(),
     'ada@example.com',

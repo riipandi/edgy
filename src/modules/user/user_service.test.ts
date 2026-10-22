@@ -77,13 +77,9 @@ it.effect('retries the lookup after a failed cache fill', () =>
         }
       })
     )
-    const userDependencies = Layer.mergeAll(flakyRepo, UserCache.layer).pipe(
-      Layer.provide(flakyRepo)
-    )
+    const userDeps = Layer.mergeAll(flakyRepo, UserCache.layer).pipe(Layer.provide(flakyRepo))
     const service = yield* UserService.pipe(
-      Effect.provide(
-        UserServiceLayer.pipe(Layer.provide(userDependencies), Layer.provide(testConfig))
-      )
+      Effect.provide(UserServiceLayer.pipe(Layer.provide(userDeps), Layer.provide(testConfig)))
     )
 
     const userId = parseUserId(ada.id)
