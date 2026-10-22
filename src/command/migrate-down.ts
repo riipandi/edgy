@@ -1,6 +1,6 @@
 import { Effect } from 'effect'
 import { CliError, Command, Flag, Prompt } from 'effect/cli'
-import { layer as databaseLayer } from '#/database/layer.ts'
+import { DatabaseLayer } from '#/database/layer.ts'
 import { migrateDownStep, migrationStatus } from '#/database/migrator.ts'
 import { Database } from '#/database/service.ts'
 
@@ -70,5 +70,5 @@ export const migrateDownCmd = Command.make(
             for (const item of result.results ?? [])
               yield* Effect.logInfo(`${item.status} ${item.migrationName}`)
           }
-        }).pipe(Effect.provide(databaseLayer))
+        }).pipe(Effect.provide(DatabaseLayer))
 ).pipe(Command.withDescription('Rollback database migrations'))

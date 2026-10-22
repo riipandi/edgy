@@ -8,9 +8,9 @@ export class UserRepository extends Context.Service<
     readonly list: () => Effect.Effect<readonly User[], DatabaseError>
     readonly find: (id: string) => Effect.Effect<User | undefined, DatabaseError>
   }
->()('app/UserRepository') {}
+>()('UserRepository') {}
 
-export const layer = Layer.effect(
+export const UserRepoLayer = Layer.effect(
   UserRepository,
   Effect.gen(function* () {
     const database = yield* Database

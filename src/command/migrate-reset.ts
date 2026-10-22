@@ -1,6 +1,6 @@
 import { Effect } from 'effect'
 import { Command, Flag, Prompt } from 'effect/cli'
-import { layer as databaseLayer } from '#/database/layer.ts'
+import { DatabaseLayer } from '#/database/layer.ts'
 import { MIGRATION_COUNT } from '#/database/migrations/index.ts'
 import { migrationStatus, migrateToLatest, migrateToNoMigrations } from '#/database/migrator.ts'
 import { runSeeders } from '#/database/seeders/index.ts'
@@ -78,5 +78,5 @@ export const migrateResetCmd = Command.make(
         yield* Effect.promise(() => runSeeders(db))
         yield* Effect.logInfo('seeders applied')
       }
-    }).pipe(Effect.provide(databaseLayer))
+    }).pipe(Effect.provide(DatabaseLayer))
 ).pipe(Command.withDescription('Rollback all migrations'))

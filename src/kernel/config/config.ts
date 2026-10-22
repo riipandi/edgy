@@ -32,9 +32,9 @@ const validatedConfig = appConfig.config.pipe(
 
 export type AppConfigShape = ValueOf<typeof appConfig>
 
-export class AppConfig extends Context.Service<AppConfig, AppConfigShape>()('app/Config') {}
+export class AppConfig extends Context.Service<AppConfig, AppConfigShape>()('AppConfig') {}
 
-export const layer: Layer.Layer<AppConfig, Config.ConfigError> = Layer.effect(
+export const ConfigLayer: Layer.Layer<AppConfig, Config.ConfigError> = Layer.effect(
   AppConfig,
   validatedConfig
 )

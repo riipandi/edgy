@@ -1,6 +1,6 @@
 import { Effect } from 'effect'
 import { Command } from 'effect/cli'
-import { layer as databaseLayer } from '#/database/layer.ts'
+import { DatabaseLayer } from '#/database/layer.ts'
 import { migrationStatus } from '#/database/migrator.ts'
 import { Database } from '#/database/service.ts'
 
@@ -19,6 +19,6 @@ export const migrateStatusCmd = Command.make('migrate:status').pipe(
           migration.executedAt === undefined ? 'pending' : migration.executedAt.toISOString()
         yield* Effect.logInfo(`${migration.name} ${at}`)
       }
-    }).pipe(Effect.provide(databaseLayer))
+    }).pipe(Effect.provide(DatabaseLayer))
   )
 )

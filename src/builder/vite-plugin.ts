@@ -7,7 +7,7 @@ import { Readable } from 'node:stream'
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web'
 import { fileURLToPath } from 'node:url'
 import type { Plugin, ViteDevServer } from 'vite-plus'
-import { layer as databaseLayer } from '#/database/layer.ts'
+import { DatabaseLayer } from '#/database/layer.ts'
 import { migrateAndSeed } from '#/database/migrator.ts'
 import { Database } from '#/database/service.ts'
 import { apiHandler } from '#/kernel/http/api.ts'
@@ -20,7 +20,7 @@ const prepare = Effect.gen(function* () {
   const result = yield* Effect.promise(() => migrateAndSeed(db))
   if (result.error !== undefined) return yield* Effect.fail(result.error)
   yield* Effect.logInfo('dev database migrated')
-}).pipe(Effect.provide(databaseLayer.pipe(Layer.provideMerge(CoreLayer))))
+}).pipe(Effect.provide(DatabaseLayer.pipe(Layer.provideMerge(CoreLayer))))
 
 const toRequest = (req: IncomingMessage): Request => {
   const host = req.headers.host ?? 'localhost'

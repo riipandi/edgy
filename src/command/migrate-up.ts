@@ -1,6 +1,6 @@
 import { Effect, Option } from 'effect'
 import { Command, Flag } from 'effect/cli'
-import { layer as databaseLayer } from '#/database/layer.ts'
+import { DatabaseLayer } from '#/database/layer.ts'
 import { MIGRATION_NAMES } from '#/database/migrations/index.ts'
 import { migrateTo, migrateToLatest, migrationStatus } from '#/database/migrator.ts'
 import { Database } from '#/database/service.ts'
@@ -43,5 +43,5 @@ export const migrateUpCmd = Command.make(
       if ((result.results ?? []).length === 0) yield* Effect.logInfo('database is up to date')
       for (const item of result.results ?? [])
         yield* Effect.logInfo(`${item.status} ${item.migrationName}`)
-    }).pipe(Effect.provide(databaseLayer))
+    }).pipe(Effect.provide(DatabaseLayer))
 ).pipe(Command.withDescription('Run database migrations'))

@@ -18,7 +18,7 @@ export class Database extends Context.Service<
     readonly read: <A>(run: (db: Kysely<DB>) => Promise<A>) => Effect.Effect<A, DatabaseError>
     readonly ping: Effect.Effect<void, DatabaseError>
   }
->()('app/Database') {}
+>()('Database') {}
 
 export const makeQueryLogger = Effect.gen(function* () {
   const traceEnabled = yield* LogLevel.isEnabled('Trace')

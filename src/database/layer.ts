@@ -3,7 +3,7 @@ import { AppConfig } from '#/kernel/config/config.ts'
 import { openDatabase } from './dialect/sqlite.ts'
 import { Database, makeDatabaseService, makeQueryLogger } from './service.ts'
 
-export const layer = Layer.effect(
+export const DatabaseLayer = Layer.effect(
   Database,
   Effect.gen(function* () {
     const config = yield* AppConfig
