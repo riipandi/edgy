@@ -152,8 +152,10 @@ export const effectVite = (opts: EffectDevPluginOptions): Plugin => {
                         }
                       }
                     : { codeSplitting: false }),
-                  banner: (chunk: { isEntry: boolean }) =>
-                    chunk.isEntry ? '#!/usr/bin/env node' : ''
+                  banner: (chunk: { isEntry: boolean }) => {
+                    const envBinaryPath = process.env.ENV_BINARY_PATH ?? '/usr/bin/env'
+                    return chunk.isEntry ? `#!${envBinaryPath} node` : ''
+                  }
                 }
               }
             }

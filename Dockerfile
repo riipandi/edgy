@@ -39,8 +39,8 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store vp install --frozen-lockfile \
 
 # Vite+ will provisions that exact Node.js automatically.
 COPY --chown=vp:vp . .
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store NODE_ENV=production \
-    vp build --mode standalone --minify
+ENV ENV_BINARY_PATH=/busybox/env NODE_ENV=production
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store vp build --mode standalone --minify
 
 # ------------------------------------------------------------------------------
 # Cleanup the builder stage and create data directory.
@@ -78,16 +78,14 @@ ENV SSL_CERT_FILE= SSL_CERT_DIR=
 ENV TINI_SUBREAPER=true
 
 WORKDIR /app
+VOLUME /app/storage
 USER nonroot:nonroot
 EXPOSE $PORT/tcp
 
-# # Define volumes for persistent storage and configuration.
-# VOLUME ["/srv/storage/certs", "/srv/storage/logs", "/srv/storage/uploads"]
-
 # # Healthcheck to monitor application status
 # HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-#   CMD /nodejs/bin/node entry.js hc
+#   CMD /app/entry.js healthcheck
 
 # SHELL: /busybox/sh
 ENTRYPOINT ["/usr/bin/tini", "--"]
-CMD ["node", "--max-heap-size=2048", "entry.js", "serve"]
+CMD ["/app/entry.js", "serve"]
