@@ -7,7 +7,7 @@ Global flags: `--version`, `--log-level <level>`, `--completions <shell>`, `--he
 ```sh
 serve                Start the HTTP server
    --auto-migrate    Run pending database migrations before starting
-   --seed            Run the seeders after the migration (requires --auto-migrate)
+   --seed            Run the database seeders (requires --auto-migrate)
 ```
 
 ## Configuration

@@ -25,4 +25,4 @@ export const migrateSeedCmd = Command.make(
       yield* Effect.promise(() => runSeeders(db))
       for (const seeder of SEEDERS) yield* Effect.logInfo(`seeded ${seeder.name}`)
     }).pipe(Effect.provide(databaseLayer))
-)
+).pipe(Command.withDescription('Seed the database with initial data'))

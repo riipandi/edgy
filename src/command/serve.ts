@@ -29,7 +29,7 @@ export const serveCmd = Command.make(
       Flag.withDefault(false)
     ),
     seed: Flag.Boolean('seed').pipe(
-      Flag.withDescription('Run the seeders after the migration (requires --auto-migrate)'),
+      Flag.withDescription('Run the database seeders (requires --auto-migrate)'),
       Flag.withDefault(false)
     )
   },
@@ -40,4 +40,4 @@ export const serveCmd = Command.make(
       if (config.autoMigrate) yield* migrateBeforeStart(config.seed)
       yield* Layer.launch(server)
     })
-)
+).pipe(Command.withDescription('Start the HTTP server'))

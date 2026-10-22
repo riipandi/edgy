@@ -79,4 +79,4 @@ export const migrateResetCmd = Command.make(
         yield* Effect.logInfo('seeders applied')
       }
     }).pipe(Effect.provide(databaseLayer))
-)
+).pipe(Command.withDescription('Rollback all migrations'))

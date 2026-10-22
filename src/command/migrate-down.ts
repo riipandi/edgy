@@ -63,4 +63,4 @@ export const migrateDownCmd = Command.make(
           yield* Effect.logInfo(`${item.status} ${item.migrationName}`)
       }
     }).pipe(Effect.provide(databaseLayer))
-)
+).pipe(Command.withDescription('Rollback database migrations'))

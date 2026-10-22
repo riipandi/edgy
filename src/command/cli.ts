@@ -8,8 +8,8 @@ import { migrateStatusCmd } from './migrate-status.ts'
 import { migrateUpCmd } from './migrate-up.ts'
 import { serveCmd } from './serve.ts'
 
-const rootCmd = Command.make('edgy').pipe(
-  Command.withDescription('h3 + Effect HTTP server'),
+const rootCmd = Command.make(pkg.name).pipe(
+  Command.withDescription(pkg.description),
   Command.withSubcommands([
     serveCmd,
     migrateUpCmd,
