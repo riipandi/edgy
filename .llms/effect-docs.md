@@ -1,0 +1,175 @@
+# Effect Documentation References
+
+## Onboarding
+
+### Learning Path
+
+- [The Effect Type](xxx)
+- [Installation](xxx)
+- [Creating Effects](xxx)
+- [Two Types of Errors](xxx)
+- [Basic Concurrency](xxx)
+
+### Core Concepts
+
+- [Importing Effect](xxx)
+- [Running Effects](xxx)
+- [Using Generators](xxx)
+- [Building Pipelines](xxx)
+- [Devtools](xxx)
+
+## Guides
+
+- [Getting Started]
+- Error Management
+  - [Expected Errors](xxx)
+  - [Unexpected Errors](xxx)
+  - [Fallback](xxx)
+  - [Matching](xxx)
+  - [Retrying](xxx)
+  - [Timing Out](xxx)
+  - [Sandboxing](xxx)
+  - [Error Accumulation](xxx)
+  - [Error Channel Operations](xxx)
+  - [Parallel and Sequential Errors](xxx)
+  - [Yieldable Errors](xxx)
+- Requirements Management
+  - [Managing Services](xxx)
+  - [Default Services](xxx)
+  - [Managing Layers](xxx)
+  - [Layer Memoization](xxx)
+- Resource Management
+  - [Introduction](xxxx)
+  - [Scope](xxxx)
+- Observability
+  - [Logging](xxx)
+  - [Metrics](xxx)
+  - [Tracing](xxx)
+  - [Tracking Fibers](xxx)
+- [Configuration](xxx)
+- [Runtime](xxx)
+- Scheduling
+  - [Using schedules](xxx)
+  - [Choosing and combining schedules](xxx)
+  - [Scheduling work with cron](xxx)
+  - [Schedule cookbook](xxx)
+- State Management
+  - [Ref](xxx)
+  - [SynchronizedRef](xxx)
+  - [SubscriptionRef](xxx)
+- [Batching](xxx)
+- Caching
+  - [Caching Effects](xxx)
+  - [Cache](xxx)
+- Concurrency
+  - [Fibers](xxx)
+  - [Deferred](xxx)
+  - [Queue](xxx)
+  - [Pubsub](xxx)
+  - [Semaphore](xxx)
+  - [Latch](xxx)
+- Stream
+  - [Introduction](xxx)
+  - [Creating Streams](xxx)
+  - [Consuming Streams](xxx)
+  - [Error Handling](xxx)
+  - [Operations](xxx)
+  - [Resourceful Streams](xxx)
+- Sink
+  - [Introduction](xxx)
+  - [Creating Sinks](xxx)
+  - [Operations](xxx)
+  - [Leftovers](xxx)
+- Testing
+  - [Testclock](xxx)
+- Code Style
+  - [Guidelines](xxx)
+  - [Dual APIS](xxx)
+  - [Branded Types](xxx)
+  - [Pattern Matching](xxx)
+  - [Excessive Nesting](xxx)
+  - [Control Flow Operators](xxx)
+- Data Types
+  - [BigDecimal](xxx)
+  - [Cause](xxx)
+  - [Chunk](xxx)
+  - [Data](xxx)
+  - [DateTime](xxx)
+  - [Duration](xxx)
+  - [Result](xxx)
+  - [Exit](xxx)
+  - [Hashset](xxx)
+  - [Option](xxx)
+  - [Redacted](xxx)
+- Trait
+  - [Equal](xxx)
+  - [Hash](xxx)
+- Behaviour
+  - [Equivalence](xxx)
+  - [Order](xxx)
+- Schema
+  - [Introduction](xxx)
+  - [Getting Started](xxx)
+  - [Basic Usage](xxx)
+  - [Filters](xxx)
+  - [Advanced Usage](xxx)
+  - [Projections](xxx)
+  - [Transformations](xxx)
+  - [Annotations](xxx)
+  - [Canonical Codecs](xxx)
+  - [Error Messages](xxx)
+  - [Error Formatters](xxx)
+  - [Class APIS](xxx)
+  - [Default Constructors](xxx)
+  - [Effect Data Types](xxx)
+  - [Standard Schema](xxx)
+  - [Arbitrary](xxx)
+  - [JSON Schema](xxx)
+  - [Equivalence](xxx)
+  - [Formatter](xxx)
+  - [Schema Compilers](xxx)
+- Platform
+  - [Introduction](xxx)
+  - [Filesystem](xxx)
+  - [Path](xxx)
+  - [PlatformLogger](xxx)
+  - [Runtime](xxx)
+  - [Terminal](xxx)
+
+## Reference
+
+- [Core Effect](xxx)
+- Platform
+  - [platform-browser](xxx)
+  - [platform-bun](xxx)
+  - [platform-deno](xxx)
+  - [platform-node-shared](xxx)
+  - [platform-node](xxx)
+- SQL
+  - [sql-clickhouse](xxxx)
+  - [sql-dl](xxxx)
+  - [sql-libsql](xxxx)
+  - [sql-mssql](xxxx)
+  - [sql-mysql2](xxxx)
+  - [sql-pg](xxxx)
+  - [sql-pglite](xxxx)
+  - [sql-sqlite-bun](xxxx)
+  - [sql-sqlite-do](xxxx)
+  - [sql-sqlite-node](xxxx)
+  - [sql-sqlite-react-native](xxxx)
+  - [sql-sqlite-wasm](xxxx)
+- AI
+  - [ai-anthropic](xxx)
+  - [ai-cloudflare](xxx)
+  - [ai-openai-compat](xxx)
+  - [ai-openai](xxx)
+  - [ai-openrouter](xxx)
+  - [ai-typesafe](xxx)
+- Reactivity
+  - [atom-react](xxx)
+  - [atom-solid](xxx)
+  - [atom-vue](xxx)
+- [Telemetry](xxx)
+- [Testing](xxx)
+- [Tooling](xxx)
+- [Other](xxx)

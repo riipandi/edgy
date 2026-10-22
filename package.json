@@ -38,7 +38,7 @@
         "e2e:ui": "playwright test --ui",
         "e2e": "playwright test",
         "coverage:report": "vpx node-http-server --root .output/coverage --port 8000 --spa --no-cache",
-        "coverage": "vp test run --coverage --project=unit",
+        "coverage": "vp test run --coverage --project=unit --project=integration",
         "test:storybook": "vp test --run --project=storybook",
         "test": "vp test --run",
         "check": "vp fmt --check && vp lint",
