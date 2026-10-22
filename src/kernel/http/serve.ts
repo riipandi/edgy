@@ -4,6 +4,7 @@ import { PrometheusMetrics } from 'effect/observability'
 import { AppConfig } from '#/kernel/config/config.ts'
 import { gracefulServerLayer } from '#/kernel/graceful.ts'
 import { renderPage } from '#/kernel/renderer.ts'
+import { cors } from '#/middleware/cors.ts'
 import { requestId } from '#/middleware/request-id.ts'
 import { requestLog } from '#/middleware/request-log.ts'
 import { securityHeadersMiddleware } from '#/middleware/security-headers.ts'
@@ -11,6 +12,8 @@ import { requestTracer } from '#/middleware/tracer.ts'
 import { trustProxy } from '#/middleware/trust-proxy.ts'
 import { disposeUserRuntimeEffect } from '#/modules/user/user_ssr.ts'
 import { apiRoutes } from './api.ts'
+
+const ssrRouter = HttpRouter.add('*', '*', renderPage)
 
 export const server = Layer.unwrap(
   Effect.gen(function* () {
@@ -20,8 +23,9 @@ export const server = Layer.unwrap(
     const routes = Layer.mergeAll(
       trustProxy,
       requestTracer,
+      cors,
       apiRoutes,
-      HttpRouter.add('*', '*', renderPage),
+      ssrRouter,
       requestId,
       requestLog,
       securityHeadersMiddleware,

@@ -6,6 +6,7 @@ import * as OpenApi from 'effect/http-api/OpenApi'
 import * as HttpRouter from 'effect/http/HttpRouter'
 import * as HttpServer from 'effect/http/HttpServer'
 import { AppConfig } from '#/kernel/config/config.ts'
+import { cors } from '#/middleware/cors.ts'
 import { rateLimit } from '#/middleware/rate-limit.ts'
 import { requestId } from '#/middleware/request-id.ts'
 import { requestLog } from '#/middleware/request-log.ts'
@@ -48,6 +49,7 @@ export const apiHandler = async () => {
       trustProxy,
       requestId,
       requestLog,
+      cors,
       securityHeadersMiddleware,
       apiRoutes,
       requestTracer

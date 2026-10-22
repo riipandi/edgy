@@ -5,7 +5,7 @@ test.describe('users', () => {
   test('lists every user and opens their profile', async ({ users: usersScreen, user }) => {
     await usersScreen.open()
 
-    await expect(usersScreen.page).toHaveTitle('Users - Solid App')
+    await expect(usersScreen.page).toHaveTitle('Users - Edgy')
     await expect(usersScreen.heading()).toBeVisible()
     await expect(usersScreen.eyebrow()).toBeVisible()
 
@@ -17,7 +17,7 @@ test.describe('users', () => {
     await usersScreen.userLink(first.name).click()
 
     await expect(user.page).toHaveURL(new RegExp(`/users/${first.id}$`))
-    await expect(user.page).toHaveTitle(`User ${first.id} - Solid App`)
+    await expect(user.page).toHaveTitle(`User ${first.id} - Edgy`)
     await expect(user.name()).toHaveText(first.name)
     await expect(user.page.getByText(first.email)).toBeVisible()
   })

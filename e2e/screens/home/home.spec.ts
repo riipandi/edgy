@@ -11,7 +11,7 @@ test.describe('home', () => {
   test('shows the landing hero, feature cards, and quick start', async ({ home }) => {
     await home.open()
 
-    await expect(home.page).toHaveTitle('Home - Solid App')
+    await expect(home.page).toHaveTitle('Home - Edgy')
     await expect(home.eyebrow()).toBeVisible()
     await expect(home.heading()).toBeVisible()
     await expect(home.usersCta()).toHaveAttribute('href', '/users')

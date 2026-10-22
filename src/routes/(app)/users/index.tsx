@@ -12,7 +12,7 @@ export default function RouteComponent() {
   const users = createMemo(() => listUsers())
   return (
     <section {...sx(userStyles.card)}>
-      <Title>Users - Solid App</Title>
+      <Title>Users - Edgy</Title>
       <ul {...sx(userStyles.list)}>
         <For each={users()}>
           {(user) => (

@@ -15,7 +15,7 @@ export const route = {
 export default function NotFound() {
   return (
     <main {...sx(fx.main)}>
-      <Title>Not Found - Solid App</Title>
+      <Title>Not Found - Edgy</Title>
       <span {...sx(notFound.code)}>404</span>
       <h1 {...sx(fx.h2)}>Page Not Found</h1>
       <p {...sx(notFound.message)}>

@@ -1,16 +1,7 @@
 import { Config, Effect } from 'effect'
 import { BlockList, isIP } from 'node:net'
-import {
-  choice,
-  custom,
-  flag,
-  group,
-  int,
-  invalid,
-  milliseconds,
-  secret,
-  type ValueOf
-} from './field.ts'
+import { choice, custom, flag, group, int, invalid, milliseconds, secret } from './field.ts'
+import type { ValueOf } from './field.ts'
 
 /**
  * The TRUST_PROXY setting, following the pocket-id concept: `false` trusts no
@@ -23,6 +14,21 @@ export interface TrustProxy {
 }
 
 const family = (address: string): 'ipv4' | 'ipv6' => (isIP(address) === 6 ? 'ipv6' : 'ipv4')
+
+const parseOriginList = (raw: string): Effect.Effect<ReadonlyArray<string>, Config.ConfigError> =>
+  Effect.suspend(() => {
+    const origins = raw
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter((origin) => origin !== '')
+    for (const origin of origins) {
+      if (!/^https?:\/\//.test(origin))
+        return Effect.fail(
+          invalid('CORS_ALLOWED_ORIGINS', `'${origin}' is not an absolute origin URL`)
+        )
+    }
+    return Effect.succeed(origins)
+  })
 
 const addEntry = (proxies: BlockList, entry: string): void => {
   const separator = entry.indexOf('/')
@@ -93,6 +99,20 @@ export const securityConfig = group(
       Config.String('TRUST_PROXY').pipe(
         Config.withDefault('false'),
         Config.mapEffect(parseTrustProxy)
+      )
+    ),
+    corsEnabled: flag('CORS_ENABLED', true, 'Enable CORS for the API'),
+    corsAllowedOrigins: custom(
+      {
+        name: 'CORS_ALLOWED_ORIGINS',
+        description:
+          'Origins allowed to call the API cross-origin, comma-separated (empty allows any origin)',
+        kind: 'string',
+        default: ''
+      },
+      Config.String('CORS_ALLOWED_ORIGINS').pipe(
+        Config.withDefault(''),
+        Config.mapEffect(parseOriginList)
       )
     )
   },

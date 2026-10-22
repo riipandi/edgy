@@ -15,7 +15,7 @@ const features: ReadonlyArray<readonly [string, string]> = [
 export default function RouteComponent() {
   return (
     <main {...sx(fx.container)}>
-      <Title>Home - Solid App</Title>
+      <Title>Home - Edgy</Title>
 
       <section {...sx(home.hero)}>
         <div {...sx(home.glow, home.glowPrimary)} />

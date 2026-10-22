@@ -26,7 +26,9 @@ const config: AppConfigShape = {
     rateLimitWindow: Duration.millis(60_000),
     rateLimitStore: 'database',
     rateLimitRedisUrl: Redacted.make('redis://localhost:6379'),
-    trustProxy: { trustAll: false, proxies: new BlockList() }
+    trustProxy: { trustAll: false, proxies: new BlockList() },
+    corsEnabled: true,
+    corsAllowedOrigins: []
   },
   cache: {
     enabled: true,

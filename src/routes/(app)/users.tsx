@@ -8,7 +8,7 @@ import { sx } from '#/resources/styles/props.ts'
 export default function RouteComponent(props: ParentProps) {
   return (
     <main {...sx(fx.container)}>
-      <Title>Users - Solid App</Title>
+      <Title>Users - Edgy</Title>
       <p {...sx(fx.eyebrow)}>Directory</p>
       <h1 {...sx(fx.display)}>Users</h1>
       {props.children}

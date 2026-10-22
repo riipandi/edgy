@@ -9,7 +9,7 @@ dependency injection, HTTP routing, middleware, structured logging, and telemetr
 provides the query builder over SQLite through Node's built-in `node:sqlite` driver.
 
 It also serves HTML pages: server-rendered [Solid](https://v2.solidjs.com) components with a
-file-based router, styled with [Panda CSS](https://panda-css.com), interactive where they need to be.
+file-based router, styled with [StyleX](https://stylexjs.com/), interactive where they need to be.
 [Vite](https://vite.dev) builds the server and browser assets; the standalone mode bundles server
 dependencies into one JavaScript entry.
 
@@ -74,7 +74,7 @@ The full documentation index lives in [docs/index.md](./docs/index.md):
 - Effect — [getting started](https://effect.website/docs/v4/getting-started) · [Config](https://effect.website/docs/v4/api/effect/Config) · [Logger](https://effect.website/docs/v4/api/effect/Logger) · [Schema](https://effect.website/docs/v4/api/effect/Schema) · [CLI](https://effect.website/docs/v4/api/effect/cli/Command)
 - Effect HTTP — [HTTP APIs](https://effect.website/docs/v4/platform/http)
 - Kysely — [documentation](https://kysely.dev)
-- Frontend — [Solid](https://v2.solidjs.com) · [Solid Router](https://v2.solidjs.com/routing/solid-router) · [Vite](https://vite.dev/guide/) · [Panda CSS](https://panda-css.com)
+- Frontend — [Solid](https://v2.solidjs.com) · [Solid Router](https://v2.solidjs.com/routing/solid-router) · [Vite](https://vite.dev/guide/) · [StyleX](https://stylexjs.com/)
 - Node.js — [`node:sqlite`](https://nodejs.org/api/sqlite.html) · [single executable applications](https://nodejs.org/api/single-executable-applications.html)
 
 ## License

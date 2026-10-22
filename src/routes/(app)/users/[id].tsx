@@ -40,7 +40,7 @@ export default function RouteComponent(props: RouteProps<'/users/:id'>) {
           {...sx(userStyles.card, userStyles.detailSection)}
           style={{ opacity: isPending(user) ? 0.5 : 1 }}
         >
-          <Title>{`User ${props.params.id} - Solid App`}</Title>
+          <Title>{`User ${props.params.id} - Edgy`}</Title>
           <h2 {...sx(fx.h2, userStyles.detailTitle)}>{value().name}</h2>
           <p {...sx(fx.muted)}>{value().email}</p>
           <a {...sx(fx.link, fx.focusable, userStyles.detailBack)} href={paths.users()}>

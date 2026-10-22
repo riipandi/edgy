@@ -12,7 +12,7 @@ import { Router } from '#/router.ts'
 export default function App() {
   return (
     <div {...sx(rootLayout.root, darkColors)}>
-      <Title>Solid App</Title>
+      <Title>Edgy</Title>
       <Router>
         {(props) => (
           <Loading fallback={<main {...sx(fx.container)}>Loading…</main>}>{props.children}</Loading>
