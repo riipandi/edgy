@@ -2,7 +2,7 @@ import { Duration, Effect, Layer, Redacted } from 'effect'
 import * as HttpRouter from 'effect/http/HttpRouter'
 import * as HttpServer from 'effect/http/HttpServer'
 import { TypeID } from 'typeid-js'
-import { describe, expect, it } from 'vite-plus/test'
+import { afterAll, describe, expect, it } from 'vite-plus/test'
 import { AppConfig, type AppConfigShape } from '#/kernel/config/config.ts'
 import { apiRoutes } from '#/kernel/http/api.ts'
 import { UserService } from '#/modules/user/user_service.ts'
@@ -67,7 +67,7 @@ const config: AppConfigShape = {
 
 const testConfig = Layer.succeed(AppConfig, config)
 
-const { handler: limitedHandler } = HttpRouter.toWebHandler(
+const { handler: limitedHandler, dispose: disposeLimitedHandler } = HttpRouter.toWebHandler(
   apiRoutes.pipe(
     HttpRouter.provideRequest(testService),
     Layer.provide(
@@ -80,13 +80,17 @@ const { handler: limitedHandler } = HttpRouter.toWebHandler(
   )
 )
 
-const { handler } = HttpRouter.toWebHandler(
+const { handler, dispose } = HttpRouter.toWebHandler(
   apiRoutes.pipe(
     HttpRouter.provideRequest(testService),
     Layer.provide(testConfig),
     Layer.provide(HttpServer.layerServices)
   )
 )
+
+afterAll(async () => {
+  await Promise.all([disposeLimitedHandler(), dispose()])
+})
 
 describe('GET /api/health', () => {
   it('responds 200', async () => {

@@ -173,6 +173,8 @@ export const effectVite = (opts: EffectDevPluginOptions): Plugin => {
       if (existsSync(entryFile)) chmodSync(entryFile, 0o755)
     },
     configureServer(server: ViteDevServer) {
+      if (!opts.enabled) return
+
       const ready = Effect.runPromise(prepare).then(() => apiHandler())
       server.middlewares.use((req, res, next) => {
         const pathname = (req.url ?? '').split('?')[0] ?? ''
@@ -187,10 +189,11 @@ export const effectVite = (opts: EffectDevPluginOptions): Plugin => {
           .then((response) => writeResponse(req, res, response))
           .catch(next)
       })
-      return () => {
-        server.httpServer?.once('close', () => {
-          void ready.then((handler) => handler.dispose())
-        })
+      return async () => {
+        await ready.then(
+          (handler) => handler.dispose(),
+          () => undefined
+        )
       }
     }
   }

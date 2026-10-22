@@ -2,15 +2,17 @@ import { Layer } from 'effect'
 import * as HttpRouter from 'effect/http/HttpRouter'
 import * as HttpServer from 'effect/http/HttpServer'
 import * as HttpServerResponse from 'effect/http/HttpServerResponse'
-import { expect, it } from 'vite-plus/test'
+import { afterAll, expect, it } from 'vite-plus/test'
 import { requestId, requestIdFrom } from '#/middleware/request-id.ts'
 
-const { handler } = HttpRouter.toWebHandler(
+const { handler, dispose } = HttpRouter.toWebHandler(
   Layer.mergeAll(
     HttpRouter.add('GET', '/request-id', HttpServerResponse.text('ok')),
     requestId
   ).pipe(Layer.provide(HttpServer.layerServices))
 )
+
+afterAll(() => dispose())
 
 it('echoes valid request ids and replaces malformed ones', async () => {
   const accepted = await handler(
