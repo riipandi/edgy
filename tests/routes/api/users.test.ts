@@ -38,6 +38,19 @@ describe('GET /api/users/:id', () => {
     expect(await response.json()).toMatchObject({ name: 'Ada Lovelace' })
   })
 
+  it('reports the cache status in the x-cache header', async () => {
+    const response = await handler(new Request(`http://localhost/api/users/${users[0]!.id}`))
+    expect(response.headers.get('x-cache')).toBe('disabled')
+  })
+
+  it('skips the cache when the nocache query param is 1', async () => {
+    const response = await handler(
+      new Request(`http://localhost/api/users/${users[0]!.id}?nocache=1`)
+    )
+    expect(response.status).toBe(200)
+    expect(response.headers.get('x-cache')).toBe('bypass')
+  })
+
   it('responds 400 for a non-TypeID id', async () => {
     const response = await handler(new Request('http://localhost/api/users/not-a-typeid'))
     expect(response.status).toBe(400)

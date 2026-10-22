@@ -5,12 +5,16 @@ minimumReleaseAgeStrict: true
 minimumReleaseAge: 1440
 
 minimumReleaseAgeExclude:
+  - "@effect/*"
+  - "@effect/platform-node"
+  - "@effect/platform-node-shared"
   - "@solidjs/*"
-  - "@storybook/addon-vitest@10.6.3"
+  - "@storybook/addon-vitest"
+  - effect
   - filesystem-routing
-  - kysely@0.29.7
+  - kysely
   - solid-js
-  - storybook-solidjs-vite@10.7.4
+  - storybook-solidjs-vite
 
 catalog:
   "@vitest/browser-playwright": 5.0.5

@@ -25,7 +25,11 @@ export const testService = Layer.succeed(
   UserService,
   UserService.of({
     list: () => Effect.succeed(users),
-    find: (id) => Effect.succeed(users.find((candidate) => candidate.id === id.toString()))
+    find: (id, bypass) =>
+      Effect.succeed({
+        user: users.find((candidate) => candidate.id === id.toString()),
+        cache: bypass ? ('bypass' as const) : ('disabled' as const)
+      })
   })
 )
 

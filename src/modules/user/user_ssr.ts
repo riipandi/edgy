@@ -1,3 +1,4 @@
+import { getRequestEvent, httpHeader } from '@solidjs/web'
 import { Data, Effect, Layer, ManagedRuntime } from 'effect'
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { ApplicationLayer, CoreLayer } from '#/kernel/layers.ts'
@@ -44,6 +45,10 @@ const runWithUserService = <A, E>(
 
 export const listUsersFromService = () => runWithUserService((service) => service.list())
 
+// The cache status is read-scoped to the SSR request: the response head is
+// committed when the shell flushes, so the header write must happen before
+// the route's data promise resolves into markup. `?nocache=1` skips the
+// cache for that request.
 export const getUserFromService = (id: string) => {
   // The SSR boundary receives the raw route param; an unparseable id resolves
   // to no user instead of crashing the render.
@@ -53,5 +58,15 @@ export const getUserFromService = (id: string) => {
   } catch {
     return Promise.resolve(undefined)
   }
-  return runWithUserService((service) => service.find(userId))
+  const event = getRequestEvent()
+  const bypass =
+    event !== undefined && new URL(event.request.url).searchParams.get('nocache') === '1'
+  return runWithUserService((service) =>
+    Effect.flatMap(service.find(userId, bypass), (result) =>
+      Effect.sync(() => {
+        httpHeader('x-cache', result.cache)
+        return result.user
+      })
+    )
+  )
 }

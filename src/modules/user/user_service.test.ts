@@ -91,12 +91,14 @@ it.effect('retries the lookup after a failed cache fill', () =>
     // The failed entry was invalidated: the next request hits the repository
     // again instead of replaying the stale failure until the TTL expires.
     const recovered = yield* service.find(userId)
-    expect(recovered?.name).toBe('Ada Lovelace')
+    expect(recovered.user?.name).toBe('Ada Lovelace')
+    expect(recovered.cache).toBe('miss')
     expect(lookups).toBe(2)
 
     // The successful fill is cached.
     const cached = yield* service.find(userId)
-    expect(cached?.name).toBe('Ada Lovelace')
+    expect(cached.user?.name).toBe('Ada Lovelace')
+    expect(cached.cache).toBe('hit')
     expect(lookups).toBe(2)
   })
 )
