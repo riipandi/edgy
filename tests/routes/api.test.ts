@@ -39,6 +39,8 @@ const config: AppConfigShape = {
     level: 'Info',
     transport: ['console'],
     file: 'storage/logs/app.jsonl',
+    rotation: 'daily',
+    fileMaxFiles: 14,
     format: 'pretty',
     flushInterval: Duration.millis(250)
   },

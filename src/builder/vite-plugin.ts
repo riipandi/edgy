@@ -10,11 +10,9 @@ import type { Plugin, ViteDevServer } from 'vite-plus'
 import { layer as databaseLayer } from '#/database/layer.ts'
 import { migrateAndSeed } from '#/database/migrator.ts'
 import { Database } from '#/database/service.ts'
-import { layer as configLayer } from '#/kernel/config/config.ts'
 import { apiHandler } from '#/kernel/http/api.ts'
-import { layer as loggerLayer } from '#/observer/logger.ts'
+import { CoreLayer } from '#/layers.ts'
 
-const runtime = Layer.mergeAll(configLayer, loggerLayer.pipe(Layer.provide(configLayer)))
 const ENTRYPOINT = 'entry.js'
 
 const prepare = Effect.gen(function* () {
@@ -22,7 +20,7 @@ const prepare = Effect.gen(function* () {
   const result = yield* Effect.promise(() => migrateAndSeed(db))
   if (result.error !== undefined) return yield* Effect.fail(result.error)
   yield* Effect.logInfo('dev database migrated')
-}).pipe(Effect.provide(databaseLayer.pipe(Layer.provide(runtime))))
+}).pipe(Effect.provide(databaseLayer.pipe(Layer.provideMerge(CoreLayer))))
 
 const toRequest = (req: IncomingMessage): Request => {
   const host = req.headers.host ?? 'localhost'

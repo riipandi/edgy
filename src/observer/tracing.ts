@@ -1,51 +1,62 @@
-import { Effect, Layer, Redacted } from 'effect'
+import { Duration, Effect, Layer, Redacted } from 'effect'
 import { FetchHttpClient } from 'effect/http'
-import { OtlpLogger, OtlpMetrics, OtlpSerialization, OtlpTracer } from 'effect/observability'
+import {
+  OtlpExporter,
+  OtlpLogger,
+  OtlpMetrics,
+  OtlpSerialization,
+  OtlpTracer
+} from 'effect/observability'
 import { AppConfig } from '#/kernel/config/config.ts'
 
-const headersFrom = (raw: string): Record<string, string> =>
-  Object.fromEntries(
-    raw
-      .split(',')
-      .map((entry) => entry.trim())
-      .filter((entry) => entry.length > 0)
-      .map((entry) => {
-        const separator = entry.indexOf('=')
-        return separator < 1 ? ['', ''] : [entry.slice(0, separator), entry.slice(separator + 1)]
-      })
-      .filter(
-        ([key, value]) =>
-          key !== undefined && key.length > 0 && value !== undefined && value.length > 0
-      )
-  )
+const headersFrom = (raw: string): Record<string, string> => {
+  const headers: Record<string, string> = {}
+  for (const entry of raw.split(',')) {
+    const separator = entry.indexOf('=')
+    if (separator < 1) continue
+    const name = entry.slice(0, separator).trim().toLowerCase()
+    const value = entry.slice(separator + 1).trim()
+    if (name.length === 0) continue
+    try {
+      headers[name] = decodeURIComponent(value)
+    } catch {
+      headers[name] = value
+    }
+  }
+  return headers
+}
 
 const signalUrl = (endpoint: string, signal: 'traces' | 'metrics' | 'logs'): string =>
   `${endpoint.replace(/\/+$/, '').replace(/\/v1\/(traces|metrics|logs)$/, '')}/v1/${signal}`
 
-export const layer = Layer.unwrap(
-  Effect.gen(function* () {
-    const config = yield* AppConfig
-    const observability = config.observability
-    if (observability.sdkDisabled || observability.endpoint.length === 0) return Layer.empty
+const options = (config: AppConfig['Service']['observability']) => ({
+  resource: { serviceName: config.serviceName },
+  headers: headersFrom(Redacted.value(config.headers)),
+  compression: config.compression,
+  exportInterval: config.exportInterval,
+  shutdownTimeout: Duration.seconds(1)
+})
 
-    const common = {
-      resource: { serviceName: observability.serviceName },
-      headers: headersFrom(Redacted.value(observability.headers)),
-      compression: observability.compression,
-      exportInterval: observability.exportInterval
-    }
-    const dependencies = Layer.merge(OtlpSerialization.layerJson, FetchHttpClient.layer)
-    const tracer = OtlpTracer.layer({ ...common, url: signalUrl(observability.endpoint, 'traces') })
-    const metrics = OtlpMetrics.layer({
-      ...common,
-      url: signalUrl(observability.endpoint, 'metrics')
-    })
-    if (config.logging.transport.includes('otlp')) {
-      return Layer.merge(
-        Layer.merge(tracer, metrics),
-        OtlpLogger.layer({ ...common, url: signalUrl(observability.endpoint, 'logs') })
-      ).pipe(Layer.provide(dependencies))
-    }
-    return Layer.merge(tracer, metrics).pipe(Layer.provide(dependencies))
+const dependencies = Layer.merge(OtlpSerialization.layerJson, FetchHttpClient.layer)
+
+export const TelemetryRuntimeLayer = Layer.unwrap(
+  Effect.gen(function* () {
+    const { observability } = yield* AppConfig
+    if (observability.sdkDisabled || observability.endpoint.length === 0)
+      return OtlpExporter.layerFlusher
+
+    const common = options(observability)
+    return Layer.merge(
+      OtlpTracer.layer({ ...common, url: signalUrl(observability.endpoint, 'traces') }),
+      OtlpMetrics.layer({ ...common, url: signalUrl(observability.endpoint, 'metrics') })
+    )
   })
-)
+).pipe(Layer.provideMerge(dependencies))
+
+export const makeOtlpLogSink = Effect.gen(function* () {
+  const { observability } = yield* AppConfig
+  return yield* OtlpLogger.make({
+    ...options(observability),
+    url: signalUrl(observability.endpoint, 'logs')
+  })
+})

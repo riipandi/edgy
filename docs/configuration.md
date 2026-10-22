@@ -24,16 +24,19 @@ returns typed `DatabaseError` failures. Migrations and seeders use the same SQLi
 
 ## Logging
 
-| Variable             | Default                  | Meaning                                                  |
-| -------------------- | ------------------------ | -------------------------------------------------------- |
-| `LOG_LEVEL`          | `Info`                   | Minimum log level.                                       |
-| `LOG_TRANSPORT`      | `console`                | Comma-separated sinks: `console`, `file`, and/or `otlp`. |
-| `LOG_FILE`           | `storage/logs/app.jsonl` | File sink path; used when `file` is selected.            |
-| `LOG_FORMAT`         | `pretty`                 | Console output format: `pretty` or `json`.               |
-| `LOG_FLUSH_INTERVAL` | `250`                    | File logger batch window in milliseconds.                |
+| Variable             | Default                  | Meaning                                                       |
+| -------------------- | ------------------------ | ------------------------------------------------------------- |
+| `LOG_LEVEL`          | `Info`                   | Minimum log level.                                            |
+| `LOG_TRANSPORT`      | `console`                | Comma-separated sinks: `console`, `file`, and/or `otlp`.      |
+| `LOG_FILE`           | `storage/logs/app.jsonl` | File sink path; used when `file` is selected.                 |
+| `LOG_ROTATION`       | `daily`                  | File period: `hourly`, `daily`, `weekly`, or `monthly` (UTC). |
+| `LOG_FILE_MAX_FILES` | `14`                     | Rotated files to keep; `0` keeps all.                         |
+| `LOG_FORMAT`         | `pretty`                 | Console output format: `pretty` or `json`.                    |
+| `LOG_FLUSH_INTERVAL` | `250`                    | Console and file sink batch window in milliseconds.           |
 
 The default console logger keeps local output readable. Select `json` for structured console output.
-The file sink uses Effect's scoped file logger and is flushed when the logger scope closes.
+The file sink writes JSON lines, rotates on UTC period boundaries, and flushes when the logger scope
+closes.
 
 ## Security and cache
 
