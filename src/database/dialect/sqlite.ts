@@ -1,6 +1,6 @@
 import { Kysely, SqliteDialect } from 'kysely'
 import type { SqliteDatabase } from 'kysely'
-import { chmodSync, mkdirSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync } from 'node:fs'
 import path from 'node:path'
 import { DatabaseSync, type SQLInputValue, type StatementSync } from 'node:sqlite'
 import type { DB } from '#/database/schema.ts'
@@ -26,8 +26,10 @@ export const openDatabase = (filename: string): Kysely<DB> => {
   const location = filename === ':memory:' ? filename : path.resolve(filename)
   if (location !== ':memory:') {
     const directory = path.dirname(location)
-    mkdirSync(directory, { recursive: true })
-    chmodSync(directory, 0o775)
+    if (!existsSync(directory)) {
+      mkdirSync(directory, { recursive: true })
+      chmodSync(directory, 0o775)
+    }
   }
   const sqlite = new DatabaseSync(location)
   sqlite.exec('pragma foreign_keys = on')
