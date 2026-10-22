@@ -90,7 +90,8 @@ const config: AppConfigShape = {
     serviceName: 'edgy',
     exportInterval: Duration.millis(5_000),
     compression: 'gzip'
-  }
+  },
+  docs: { enabled: false }
 }
 
 const testConfig = Layer.succeed(AppConfig, config)
@@ -159,12 +160,25 @@ const { handler: unavailableUsersHandler, dispose: disposeUnavailableUsersHandle
     { disableLogger: true }
   )
 
+const docsConfig = Layer.succeed(AppConfig, { ...config, docs: { enabled: true } })
+const { handler: docsHandler, dispose: disposeDocsHandler } = HttpRouter.toWebHandler(
+  apiRoutes.pipe(
+    HttpRouter.provideRequest(testServices),
+    Layer.provide(RateLimitCounterLayer),
+    Layer.provide(migratedDatabase),
+    Layer.provide(docsConfig),
+    Layer.provide(HttpServer.layerServices)
+  ),
+  { disableLogger: true }
+)
+
 afterAll(async () => {
   await Promise.all([
     disposeLimitedHandler(),
     dispose(),
     disposeUnavailableHandler(),
-    disposeUnavailableUsersHandler()
+    disposeUnavailableUsersHandler(),
+    disposeDocsHandler()
   ])
 })
 
@@ -225,6 +239,29 @@ describe('unknown API path', () => {
   it('responds 404', async () => {
     const response = await handler(new Request('http://localhost/api/nope'))
     expect(response.status).toBe(404)
+  })
+})
+
+describe('API docs', () => {
+  it('serves the OpenAPI document when enabled', async () => {
+    const response = await docsHandler(new Request('http://localhost/docs/openapi.json'))
+    expect(response.status).toBe(200)
+    const spec = await response.json()
+    expect(spec.paths['/api/health']).toBeDefined()
+    expect(spec.info.title).toBe('edgy')
+  })
+
+  it('serves the Swagger UI page when enabled', async () => {
+    const response = await docsHandler(new Request('http://localhost/docs'))
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toContain('text/html')
+  })
+
+  it('hides the docs endpoints when disabled', async () => {
+    const hidden = await handler(new Request('http://localhost/docs'))
+    expect(hidden.status).toBe(404)
+    const spec = await handler(new Request('http://localhost/docs/openapi.json'))
+    expect(spec.status).toBe(404)
   })
 })
 

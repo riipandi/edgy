@@ -1,6 +1,7 @@
 import { Config, ConfigProvider, Context, Effect, Layer } from 'effect'
 import { cacheConfig } from './cache.ts'
 import { databaseConfig } from './database.ts'
+import { docsConfig } from './docs.ts'
 import { group, type ValueOf } from './field.ts'
 import { loggingConfig } from './logging.ts'
 import { observabilityConfig, telemetryEnabled } from './observability.ts'
@@ -13,7 +14,8 @@ export const appConfig = group({
   logging: loggingConfig,
   security: securityConfig,
   cache: cacheConfig,
-  observability: observabilityConfig
+  observability: observabilityConfig,
+  docs: docsConfig
 })
 
 const validatedConfig = appConfig.config.pipe(

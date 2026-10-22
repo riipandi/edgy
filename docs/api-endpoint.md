@@ -1,10 +1,12 @@
 # API Endpoints
 
-| Method | Path             | Behavior                                               |
-| ------ | ---------------- | ------------------------------------------------------ |
-| `GET`  | `/api/health`    | Checks whether the database answers a readiness query. |
-| `GET`  | `/api/users`     | Returns the user records as a JSON array.              |
-| `GET`  | `/api/users/:id` | Returns one user, or a `400` or `404` response.        |
+| Method | Path                 | Behavior                                                  |
+| ------ | -------------------- | --------------------------------------------------------- |
+| `GET`  | `/api/health`        | Checks whether the database answers a readiness query.    |
+| `GET`  | `/api/users`         | Returns the user records as a JSON array.                 |
+| `GET`  | `/api/users/:id`     | Returns one user, or a `400` or `404` response.           |
+| `GET`  | `/docs`              | Swagger UI for the API (behind `API_DOCS_ENABLED`).       |
+| `GET`  | `/docs/openapi.json` | OpenAPI document for the API (behind `API_DOCS_ENABLED`). |
 
 ## Readiness
 
@@ -19,3 +21,7 @@ If a user lookup fails because of a database error, the endpoint returns `503` w
 ## Rate limits and request IDs
 
 API routes use the configured rate limit. A rejected request returns `429` with `Retry-After` and `RateLimit-*` headers. The fixed-window counter is stored in the `rate_limits` database table, so separate server instances share the same limit.
+
+## API documentation
+
+Setting `API_DOCS_ENABLED=true` exposes `/docs` (Swagger UI) and `/docs/openapi.json` (the OpenAPI document generated from the route contracts). Both are hidden when the flag is off, which is the default; production deployments should keep it off unless the API is meant to be public.

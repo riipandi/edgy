@@ -43,7 +43,8 @@ const config: AppConfigShape = {
     serviceName: 'edgy',
     exportInterval: Duration.millis(5_000),
     compression: 'gzip'
-  }
+  },
+  docs: { enabled: false }
 }
 
 const testConfig = Layer.succeed(AppConfig, config)
