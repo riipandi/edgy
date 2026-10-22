@@ -9,7 +9,7 @@ import {
   migrateToLatest,
   migrateToNoMigrations
 } from '#/database/migrator.ts'
-import { runSeeders, SeederError } from '#/database/seeders/index.ts'
+import { runSeeders, SeederError } from '#/database/seeder.ts'
 
 export const migrateResetCmd = Command.make(
   'migrate:reset',

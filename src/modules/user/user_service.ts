@@ -1,7 +1,8 @@
 import { Context, Effect, Layer, Schema } from 'effect'
 import { Cacheable } from '#/kernel/cache.ts'
 import { UserRepository, UserRepositoryError } from './user_repo.ts'
-import { parseUserId, UserSchema, type User, type UserIdType } from './user_schema.ts'
+import { parseUserId, UserSchema } from './user_schema.ts'
+import type { User, UserIdType } from './user_schema.ts'
 
 export class UserService extends Context.Service<
   UserService,
