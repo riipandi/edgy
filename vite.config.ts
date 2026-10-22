@@ -98,7 +98,11 @@ export default defineConfig(({ mode }) => ({
   resolve: { tsconfigPaths: true },
   server: { port: 3000, strictPort: true },
   preview: { port: 3000, strictPort: true },
-  build: { assetsInlineLimit: 0, target: 'esnext' },
+  build: {
+    assetsInlineLimit: 0,
+    chunkSizeWarningLimit: 1024 * 4,
+    target: 'esnext'
+  },
   test: {
     passWithNoTests: true,
     coverage: {

@@ -154,7 +154,7 @@ export const RateLimitCounterLayer: Layer.Layer<RateLimitCounter, never, AppConf
 // the route layers this is provided to are limited, so pages and static
 // assets stay unlimited. A store failure fails the request instead of
 // silently letting it through.
-export const rateLimit = Layer.unwrap(
+export const rateLimitMiddleware = Layer.unwrap(
   Effect.gen(function* () {
     const config = yield* AppConfig
     const counter = yield* RateLimitCounter

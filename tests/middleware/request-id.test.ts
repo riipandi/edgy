@@ -3,12 +3,12 @@ import * as HttpRouter from 'effect/http/HttpRouter'
 import * as HttpServer from 'effect/http/HttpServer'
 import * as HttpServerResponse from 'effect/http/HttpServerResponse'
 import { afterAll, expect, it } from 'vite-plus/test'
-import { requestId, requestIdFrom } from '#/middleware/request-id.ts'
+import { requestIdMiddleware, requestIdFrom } from '#/middleware/request-id.ts'
 
 const { handler, dispose } = HttpRouter.toWebHandler(
   Layer.mergeAll(
     HttpRouter.add('GET', '/request-id', HttpServerResponse.text('ok')),
-    requestId
+    requestIdMiddleware
   ).pipe(Layer.provide(HttpServer.layerServices)),
   { disableLogger: true }
 )

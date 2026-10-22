@@ -13,7 +13,7 @@ import { AppConfig } from '#/kernel/config/config.ts'
 
 type AppEffect = Effect.Effect<HttpServerResponse.HttpServerResponse, Types.unhandled>
 
-export const cors = HttpRouter.middleware(
+export const corsMiddleware = HttpRouter.middleware(
   Effect.map(AppConfig, (config) => (effect: AppEffect) => {
     if (!config.security.corsEnabled) return effect
     const allowedOrigins = config.security.corsAllowedOrigins

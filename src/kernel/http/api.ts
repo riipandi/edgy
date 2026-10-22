@@ -6,13 +6,13 @@ import * as OpenApi from 'effect/http-api/OpenApi'
 import * as HttpRouter from 'effect/http/HttpRouter'
 import * as HttpServer from 'effect/http/HttpServer'
 import { AppConfig } from '#/kernel/config/config.ts'
-import { cors } from '#/middleware/cors.ts'
-import { rateLimit } from '#/middleware/rate-limit.ts'
-import { requestId } from '#/middleware/request-id.ts'
-import { requestLog } from '#/middleware/request-log.ts'
+import { corsMiddleware } from '#/middleware/cors.ts'
+import { rateLimitMiddleware } from '#/middleware/rate-limit.ts'
+import { requestIdMiddleware } from '#/middleware/request-id.ts'
+import { requestLogMiddleware } from '#/middleware/request-log.ts'
 import { securityHeadersMiddleware } from '#/middleware/security-headers.ts'
-import { requestTracer } from '#/middleware/tracer.ts'
-import { trustProxy } from '#/middleware/trust-proxy.ts'
+import { requestTracerMiddleware } from '#/middleware/tracer.ts'
+import { trustProxyMiddleware } from '#/middleware/trust-proxy.ts'
 import { HealthApi, healthHandlers } from '#/modules/health/module.ts'
 import { UsersApi, usersHandlers } from '#/modules/user/module.ts'
 import { applicationContext, disposeUserRuntime } from '#/modules/user/user_ssr.ts'
@@ -34,7 +34,7 @@ export const apiRoutes = Layer.unwrap(
     const routes = HttpApiBuilder.layer(api, { openapiPath }).pipe(
       Layer.provide(healthHandlers(api)),
       Layer.provide(usersHandlers(api)),
-      Layer.provide(rateLimit)
+      Layer.provide(rateLimitMiddleware)
     )
     return config.docs.enabled
       ? Layer.mergeAll(routes, HttpApiScalar.layer(api, { path: apiDocsPath }))
@@ -46,13 +46,13 @@ export const apiHandler = async () => {
   const context = await applicationContext()
   const handler = HttpRouter.toWebHandler(
     Layer.mergeAll(
-      trustProxy,
-      requestId,
-      requestLog,
-      cors,
+      trustProxyMiddleware,
+      requestIdMiddleware,
+      requestLogMiddleware,
+      corsMiddleware,
       securityHeadersMiddleware,
       apiRoutes,
-      requestTracer
+      requestTracerMiddleware
     ).pipe(Layer.provide(Layer.succeedContext(context)), Layer.provide(HttpServer.layerServices))
   )
   return {

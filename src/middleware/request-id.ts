@@ -21,7 +21,7 @@ export const requestIdFrom = (value: string): RequestId | undefined => {
 // Assigns a TypeID prefixed `req_` to every request. An incoming
 // x-request-id header wins when it parses; the id echoes back on the
 // response so clients and logs can correlate them.
-export const requestId = HttpRouter.use((router) =>
+export const requestIdMiddleware = HttpRouter.use((router) =>
   router.addGlobalMiddleware((effect) =>
     Effect.gen(function* () {
       const request = yield* HttpServerRequest.HttpServerRequest

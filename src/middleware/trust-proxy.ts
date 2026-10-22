@@ -33,7 +33,7 @@ export const resolveClientIp = (
   return request.modify({ remoteAddress: Option.some(client) })
 }
 
-export const trustProxy = HttpRouter.middleware(
+export const trustProxyMiddleware = HttpRouter.middleware(
   Effect.map(
     AppConfig,
     (config) => (httpEffect) =>

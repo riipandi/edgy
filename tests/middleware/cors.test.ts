@@ -4,7 +4,7 @@ import * as HttpServer from 'effect/http/HttpServer'
 import * as HttpServerResponse from 'effect/http/HttpServerResponse'
 import { expect, it } from 'vite-plus/test'
 import { AppConfig, type AppConfigShape } from '#/kernel/config/config.ts'
-import { cors } from '#/middleware/cors.ts'
+import { corsMiddleware } from '#/middleware/cors.ts'
 import { config as baseAppConfig } from '../fixtures/config.ts'
 
 const configLayer = (security: Partial<AppConfigShape['security']>): Layer.Layer<AppConfig> =>
@@ -18,7 +18,7 @@ const serveWith = (security: Partial<AppConfigShape['security']>) =>
     Layer.mergeAll(
       HttpRouter.add('GET', '/api/ok', HttpServerResponse.text('ok')),
       HttpRouter.add('OPTIONS', '*', HttpServerResponse.text('')),
-      cors
+      corsMiddleware
     ).pipe(Layer.provide(configLayer(security)), Layer.provide(HttpServer.layerServices)),
     { disableLogger: true }
   )

@@ -3,7 +3,7 @@ import * as HttpRouter from 'effect/http/HttpRouter'
 import * as HttpServerRequest from 'effect/http/HttpServerRequest'
 import { recordRequest, statusClass } from '#/observer/metrics.ts'
 
-export const requestLog = HttpRouter.use((router) =>
+export const requestLogMiddleware = HttpRouter.use((router) =>
   router.addGlobalMiddleware((effect) =>
     Effect.gen(function* () {
       const request = yield* HttpServerRequest.HttpServerRequest
