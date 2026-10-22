@@ -136,6 +136,10 @@ export const effectVite = (opts: EffectDevPluginOptions): Plugin => {
                 output: {
                   format: 'esm',
                   entryFileNames: ENTRYPOINT,
+                  // Vendor chunks (standalone) and non-JS assets share the
+                  // chunks directory instead of the rolldown default.
+                  chunkFileNames: 'chunks/[name]-[hash].js',
+                  assetFileNames: 'chunks/[name]-[hash][extname]',
                   // Standalone splits dependencies into a shared vendor chunk
                   // so no single file gets too large; the plain build stays
                   // one file because it only contains app code.
@@ -160,7 +164,7 @@ export const effectVite = (opts: EffectDevPluginOptions): Plugin => {
     // Stale-artifact clean before the effect environment emits. emptyOutDir
     // stays false because this environment writes to dist/ itself, which
     // would wipe the earlier client/server environment output. Everything
-    // under dist/assets (plus entry.js) belongs to this environment only.
+    // under dist/chunks (plus entry.js) belongs to this environment only.
     buildStart() {
       rmSync(path.join(distDir, 'assets'), { recursive: true, force: true })
       rmSync(path.join(distDir, 'chunks'), { recursive: true, force: true })
@@ -169,6 +173,13 @@ export const effectVite = (opts: EffectDevPluginOptions): Plugin => {
     closeBundle() {
       const entryFile = path.join(distDir, ENTRYPOINT)
       if (existsSync(entryFile)) chmodSync(entryFile, 0o755)
+      // Dedupe stylex <outDir>/assets/stylex.css for bundles. Its styles already
+      // ship inside the client's entry stylesheet, so drop the duplicate.
+      const stylexFile = path.join(distDir, 'assets', 'stylex.css')
+      if (existsSync(stylexFile)) {
+        rmSync(stylexFile)
+        rmSync(path.join(distDir, 'assets'), { recursive: true, force: true })
+      }
     },
     configureServer(server: ViteDevServer) {
       if (!opts.enabled) return
