@@ -153,5 +153,6 @@ describe('rate limiting', () => {
     expect(response.status).toBe(429)
     expect(await response.text()).toBe('Too Many Requests')
     expect(response.headers.get('ratelimit-remaining')).toBe('0')
+    expect(Number(response.headers.get('retry-after'))).toBeGreaterThanOrEqual(1)
   })
 })

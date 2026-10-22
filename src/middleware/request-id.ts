@@ -27,6 +27,7 @@ export const requestId = HttpRouter.use((router) =>
       const request = yield* HttpServerRequest.HttpServerRequest
       const header = request.headers[REQUEST_ID_HEADER]
       const id = (header !== undefined ? requestIdFrom(header) : undefined) ?? newRequestId()
+      yield* Effect.annotateLogsScoped({ requestId: id.toString() })
       const response = yield* effect
       return HttpServerResponse.setHeader(REQUEST_ID_HEADER, id.toString())(response)
     })

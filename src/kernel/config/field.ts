@@ -93,10 +93,7 @@ export const choiceList = <const Choices extends readonly [string, ...string[]]>
     Config.String(name).pipe(
       Config.withDefault(fallback.join(',')),
       Config.mapEffect((raw) => {
-        const values = raw
-          .split(',')
-          .map((value) => value.trim())
-          .filter(Boolean)
+        const values = raw.split(',').map((value) => value.trim())
         const valid = values.filter((value): value is Choices[number] =>
           choices.some((choice) => choice === value)
         )

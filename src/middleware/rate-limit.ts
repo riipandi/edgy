@@ -74,9 +74,15 @@ export const rateLimit = Layer.unwrap(
           clientWindows
         )
         if (!verdict.allowed) {
+          const retryAfter = Math.max(1, Number(verdict.headers['ratelimit-reset']))
           return HttpServerResponse.setStatus(429)(
             HttpServerResponse.text('Too Many Requests')
-          ).pipe(HttpServerResponse.setHeaders(verdict.headers))
+          ).pipe(
+            HttpServerResponse.setHeaders({
+              ...verdict.headers,
+              'retry-after': String(retryAfter)
+            })
+          )
         }
         const response = yield* effect
         return HttpServerResponse.setHeaders(verdict.headers)(response)

@@ -1,5 +1,5 @@
 import { Effect } from 'effect'
-import { Command, Flag, Prompt } from 'effect/cli'
+import { CliError, Command, Flag, Prompt } from 'effect/cli'
 import { layer as databaseLayer } from '#/database/layer.ts'
 import { migrateDownStep, migrationStatus } from '#/database/migrator.ts'
 import { Database } from '#/database/service.ts'
@@ -23,44 +23,52 @@ export const migrateDownCmd = Command.make(
     )
   },
   (config) =>
-    Effect.gen(function* () {
-      const { db } = yield* Database
-      const migrations = yield* Effect.promise(() => migrationStatus(db))
-      const executed = migrations.filter((migration) => migration.executedAt !== undefined)
-      const rollback = executed.slice(-config.count).reverse()
+    config.count < 1
+      ? Effect.fail(
+          new CliError.UserError({
+            cause: '--count must be at least 1',
+            userMessage: '--count must be at least 1'
+          })
+        )
+      : Effect.gen(function* () {
+          const { db } = yield* Database
+          const migrations = yield* Effect.promise(() => migrationStatus(db))
+          const executed = migrations.filter((migration) => migration.executedAt !== undefined)
+          const rollback = executed.slice(-config.count).reverse()
 
-      if (rollback.length === 0) {
-        yield* Effect.logInfo('no executed migrations to roll back')
-        return
-      }
+          if (rollback.length === 0) {
+            yield* Effect.logInfo('no executed migrations to roll back')
+            return
+          }
 
-      if (config.dryRun) {
-        for (const migration of rollback) yield* Effect.logInfo(`would rollback ${migration.name}`)
-        return
-      }
+          if (config.dryRun) {
+            for (const migration of rollback)
+              yield* Effect.logInfo(`would rollback ${migration.name}`)
+            return
+          }
 
-      if (!config.force) {
-        if (!process.stdin.isTTY)
-          return yield* Effect.fail(
-            new Error('non-interactive session: pass --force to skip the confirmation prompt')
-          )
-        const confirmed = yield* Prompt.Confirm({
-          message: `Roll back ${rollback.length} migration(s)?`,
-          initial: false
-        })
-        if (!confirmed) return
-      }
+          if (!config.force) {
+            if (!process.stdin.isTTY)
+              return yield* Effect.fail(
+                new Error('non-interactive session: pass --force to skip the confirmation prompt')
+              )
+            const confirmed = yield* Prompt.Confirm({
+              message: `Roll back ${rollback.length} migration(s)?`,
+              initial: false
+            })
+            if (!confirmed) return
+          }
 
-      for (let i = 0; i < rollback.length; i++) {
-        const result = yield* Effect.promise(() => migrateDownStep(db))
-        if (result.error !== undefined)
-          return yield* Effect.fail(new Error('rollback failed', { cause: result.error }))
-        if ((result.results ?? []).length === 0) {
-          yield* Effect.logInfo('no executed migrations left to roll back')
-          return
-        }
-        for (const item of result.results ?? [])
-          yield* Effect.logInfo(`${item.status} ${item.migrationName}`)
-      }
-    }).pipe(Effect.provide(databaseLayer))
+          for (let i = 0; i < rollback.length; i++) {
+            const result = yield* Effect.promise(() => migrateDownStep(db))
+            if (result.error !== undefined)
+              return yield* Effect.fail(new Error('rollback failed', { cause: result.error }))
+            if ((result.results ?? []).length === 0) {
+              yield* Effect.logInfo('no executed migrations left to roll back')
+              return
+            }
+            for (const item of result.results ?? [])
+              yield* Effect.logInfo(`${item.status} ${item.migrationName}`)
+          }
+        }).pipe(Effect.provide(databaseLayer))
 ).pipe(Command.withDescription('Rollback database migrations'))

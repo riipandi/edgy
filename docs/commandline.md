@@ -21,8 +21,9 @@ migrate:reset    Roll back all migrations
 migrate:seed     Run database seeders
 ```
 
-Migrations and seeders use the configured SQLite database (`DATABASE_PATH`). Destructive commands
-ask for confirmation; pass `--force` to skip the prompt. There is no remote database option.
+Migrations and seeders use the configured SQLite database (`DATABASE_PATH`). `migrate:down --count`
+must be at least `1`. Destructive commands ask for confirmation; pass `--force` to skip the prompt.
+There is no remote database option.
 
 ## Configuration example
 

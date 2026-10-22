@@ -40,7 +40,8 @@ returns typed `DatabaseError` failures. Migrations and seeders use the same SQLi
 
 The default console logger keeps local output readable. Select `json` for structured console output.
 The file sink writes JSON lines, rotates on UTC period boundaries, and flushes when the logger scope
-closes.
+closes. `LOG_TRANSPORT` accepts only the listed sinks; unknown or empty comma-separated entries fail
+configuration parsing.
 
 ## Security and cache
 
