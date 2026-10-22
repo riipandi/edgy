@@ -9,8 +9,9 @@ import { trustProxy } from '#/middleware/trust-proxy.ts'
 import { HealthApi, healthHandlers } from '#/modules/health/module.ts'
 import { UsersApi, usersHandlers } from '#/modules/user/module.ts'
 import { applicationContext, disposeUserRuntime } from '#/modules/user/user_ssr.ts'
+import pkg from '../../../package.json' with { type: 'json' }
 
-export const api = HttpApi.make('edgy').add(HealthApi, UsersApi).prefix('/api')
+export const api = HttpApi.make(pkg.name).add(HealthApi, UsersApi).prefix('/api')
 
 export const apiRoutes = HttpApiBuilder.layer(api).pipe(
   Layer.provide(healthHandlers(api)),
