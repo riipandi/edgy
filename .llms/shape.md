@@ -10,7 +10,7 @@ Edgy is a TypeScript ESM application running on Node.js 24 or newer. `effect` an
 | ---------------------------------- | --------------------------------------------------------------------- |
 | `src/main.ts`, `src/command/`      | Process entry point and CLI commands.                                 |
 | `src/layers.ts`                    | Core and application dependency graphs.                               |
-| `src/kernel/`                      | Configuration, HTTP composition, caching, and Solid rendering.        |
+| `src/kernel/`                      | Configuration, HTTP composition, and Solid rendering.                 |
 | `src/modules/`                     | Health and user features, including their repository implementations. |
 | `src/database/`                    | Kysely schema, SQLite adapter, migrations, and seeders.               |
 | `src/middleware/`, `src/observer/` | HTTP middleware and logging/telemetry.                                |

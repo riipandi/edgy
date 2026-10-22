@@ -77,6 +77,8 @@ const config: AppConfigShape = {
   },
   cache: {
     enabled: true,
+    storage: 'memory',
+    redisUrl: Redacted.make('redis://localhost:6379'),
     ttl: Duration.millis(30_000),
     maxEntries: 256
   },

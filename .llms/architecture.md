@@ -18,4 +18,4 @@ Kysely runs over SQLite through Node's built-in `node:sqlite` adapter. `database
 
 ## Operational limits
 
-The user lookup cache and rate limiter are process-local. A multi-instance deployment does not share either state. The configured database driver currently permits SQLite only; PostgreSQL helper functions do not imply a PostgreSQL adapter is implemented.
+The user lookup cache defaults to process memory; `CACHE_STORAGE=redis` shares entries through Redis (`PersistedCache` over the compose Redis) and degrades to direct lookups when the backend is unreachable. Rate-limit windows live in the configured store: fixed-window counters in the database, or shared counters in Redis (`RATE_LIMIT_STORE=redis` over the compose Redis). The configured database driver currently permits SQLite only; PostgreSQL helper functions do not imply a PostgreSQL adapter is implemented.

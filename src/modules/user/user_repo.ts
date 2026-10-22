@@ -1,10 +1,15 @@
-import { Context, Data, Effect, Layer } from 'effect'
+import { Context, Effect, Layer, Schema } from 'effect'
 import { Database } from '#/database/adapter.ts'
 import type { User } from './user_schema.ts'
 
-export class UserRepositoryError extends Data.TaggedError('UserRepositoryError')<{
-  readonly cause: unknown
-}> {}
+export class UserRepositoryError extends Schema.TaggedError<UserRepositoryError>()(
+  'UserRepositoryError',
+  { cause: Schema.Defect() }
+) {
+  override get message(): string {
+    return this.cause instanceof Error ? this.cause.message : String(this.cause)
+  }
+}
 
 export class UserRepository extends Context.Service<
   UserRepository,
