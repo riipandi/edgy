@@ -25,7 +25,7 @@ dependencies into one JavaScript entry.
 - **Zero native dependencies** — SQLite via `node:sqlite`, so the bundle needs no compiled addon.
 - **Server-rendered pages** — streamed Solid pages with a file-based router, hydrated where they are interactive, with typed, build-time styles.
 - **Standalone build** — Vite builds the Node.js server and browser assets; `--minify` reduces the server bundle.
-- **Standalone bundle** — `pnpm build:standalone` produces one executable JavaScript entry.
+- **Standalone bundle** — `vpr build:standalone` produces one executable JavaScript entry.
 
 ## Requirements
 
@@ -35,12 +35,12 @@ dependencies into one JavaScript entry.
 ## Getting started
 
 ```bash
-pnpm install
-pnpm app migrate:up       # create the users table
-pnpm app migrate:seed     # insert sample rows (idempotent)
-pnpm dev                  # http://localhost:3000, pages update live, server code reloads
-pnpm test                 # run the test suite
-pnpm compose:up           # local ClickStack collector and UI for telemetry
+vp install
+vpr app migrate:up       # create the users table
+vpr app migrate:seed     # insert sample rows (idempotent)
+vpr dev                  # http://localhost:3000, pages update live, server code reloads
+vpr test                 # run the test suite
+vpr compose:up           # local ClickStack collector and UI for telemetry
 ```
 
 Settings are optional environment variables. See [Configuration](./docs/configuration.md) for names,

@@ -14,7 +14,12 @@ This file holds the workflow rules, always in force; the detail — the reposito
 - Do not add, remove, or rename a top-level directory unless asked; extend an existing package.
 - Porting a plan into code means implementing it. A doc may describe a larger surface than the code has.
 - Comments are short and rare. Write one only for what the code cannot say (a why, a contract, a trap), in plain words, with no filler. Never restate the code, and never mention a decision, plan, issue, audit, session, or another file in a code comment. The full rule is in `.llms/rules.md` ("Code comments").
-- When working with Effect, read the documentation in `node_modules/@effect/**/ai-docs` and `node_modules/effect/ai-docs` first.
+- When working with Effect, check `.llms/effect-docs.md` first — every Effect implementation starts there (it links the v4 docs and names the modules this repository reaches for) — then read the pinned module docs in `node_modules/@effect/**/ai-docs` and `node_modules/effect/ai-docs`; the module cache is the truth, the website is the guide.
+
+## Tooling (vite-plus)
+
+- The project runs on vite-plus (`vp`/`vpr`). Invoke every project script through the task runner: `vpr <script>` (`vpr dev`, `vpr build`, `vpr test`, `vpr check`, `vpr start`, `vpr e2e`, …) and the application CLI through `vpr app <command>` (`vpr app serve`, `vpr app migrate:up`, `vpr app config:generate`, …).
+- Do not use `pnpm <script>` or `pnpm app` — that shorthand is not the project's convention.
 
 ## Skills
 

@@ -127,7 +127,7 @@ export const configGenerateCmd = Command.make(
     writeGenerated({
       ...options,
       content: renderExample(appConfig.specs),
-      regenerate: 'pnpm app config:generate',
+      regenerate: 'vpr app config:generate',
       refuse: (name) => (isRealDotenv(name) ? 'real dotenv files are never generated' : undefined),
       summary: `${appConfig.specs.length} variables`
     })

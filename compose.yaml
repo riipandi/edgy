@@ -1,13 +1,13 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/compose-spec/compose-spec/master/schema/compose-spec.json
 
-# Development services. The application itself runs on the host (`pnpm dev`);
+# Development services. The application itself runs on the host (`vpr dev`);
 # this file only supplies what it talks to:
 #   - ClickStack (HyperDX + ClickHouse + an OpenTelemetry collector) to receive traces, metrics and logs
 #   - Redis, for RATE_LIMIT_STORE=redis
 #
-#   pnpm compose:up        start both, in the background
-#   pnpm compose:down      stop them (data is kept in ./.storage)
-#   pnpm compose:cleanup   stop them and delete their data
+#   vpr compose:up        start both, in the background
+#   vpr compose:down      stop them (data is kept in ./.storage)
+#   vpr compose:cleanup   stop them and delete their data
 #
 # HyperDX UI: http://localhost:8080, signed in with the development account below.
 #   email    admin@example.com    (HYPERDX_EMAIL)
@@ -68,7 +68,7 @@ services:
 
   # One-shot: ClickStack has no collector pipelines until a team exists, and a team exists only
   # after someone registers. This registers the development account (idempotent: an existing
-  # account answers 409) so telemetry works from the first `pnpm compose:up`, with no clicking.
+  # account answers 409) so telemetry works from the first `vpr compose:up`, with no clicking.
   clickstack-init:
     <<: *common
     image: docker.io/curlimages/curl:${CURL_VERSION:-8.14.1}

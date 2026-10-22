@@ -1,6 +1,6 @@
 # Command line
 
-Run application commands from source with `pnpm app <command>`. Global options include `--version`,
+Run application commands from source with `vpr app <command>`. Global options include `--version`,
 `--log-level <level>`, and `--help`.
 
 ## Server
@@ -24,10 +24,22 @@ silent. The Docker image runs this command as its container healthcheck.
 
 ```sh
 migrate:up       Apply pending migrations
-migrate:down     Roll back the latest migration
+  --to <name>    Apply only up to this migration name
+  --dry-run      List pending migrations without applying them
+
+migrate:down     Roll back executed migrations
+  --count <n>    How many to roll back (default 1)
+  --dry-run      List what would roll back
+
 migrate:status   Show applied and pending migrations
+
 migrate:reset    Roll back all migrations
+  --up           Re-apply all migrations after the rollback
+  --seed         Run the seeders after the re-apply (requires --up)
+  --dry-run      Print what would roll back
+
 migrate:seed     Run database seeders
+  --dry-run      Report what would be seeded
 ```
 
 Migrations and seeders use the configured SQLite database (`DATABASE_PATH`). `migrate:down --count`
