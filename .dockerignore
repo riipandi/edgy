@@ -15,7 +15,6 @@
 .github
 .husky
 .temp
-.react-email
 .unikraft
 .vscode
 .zed
@@ -31,15 +30,10 @@ npm-debug.log
 slim.report.json
 playwright-report/
 tests-results/
+file-routes.d.ts
 routeTree.gen.ts
 routes.gen.ts
 sbom-*
-/api/docs.go
-/api/swagger.json
-/api/swagger.yaml
-/codegen/
-/web/output/
-/specs/
 *.gen.ts
 .docs/
 .data/
