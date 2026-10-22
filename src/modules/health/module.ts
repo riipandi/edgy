@@ -1,8 +1,11 @@
-import { Layer } from 'effect'
-import * as HttpRouter from 'effect/http/HttpRouter'
-import { rateLimit } from '#/middleware/rate-limit.ts'
-import { health } from './health_handler.ts'
+import { Schema } from 'effect'
+import * as HttpApiEndpoint from 'effect/http-api/HttpApiEndpoint'
+import * as HttpApiError from 'effect/http-api/HttpApiError'
+import * as HttpApiGroup from 'effect/http-api/HttpApiGroup'
 
-export const HealthModule = HttpRouter.addAll([HttpRouter.route('GET', '/health', health)], {
-  prefix: '/api'
-}).pipe(Layer.provide(rateLimit))
+export class HealthApi extends HttpApiGroup.make('health').add(
+  HttpApiEndpoint.get('health', '/health', {
+    success: Schema.Struct({ status: Schema.Literal('ok') }),
+    error: HttpApiError.ServiceUnavailable
+  })
+) {}

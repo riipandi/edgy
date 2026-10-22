@@ -18,7 +18,17 @@ export const UserSchema = Schema.Struct({
 })
 
 export const UserIdParams = Schema.Struct({
-  id: Schema.String
+  id: Schema.String.check(
+    Schema.isPattern(/^user_[0-9a-hjkmnp-tv-z]{26}$/),
+    Schema.makeFilter((value: string) => {
+      try {
+        TypeID.fromString(value, 'user')
+        return true
+      } catch {
+        return false
+      }
+    })
+  )
 })
 
 export function generateUserId(uuid?: string): UserIdType {

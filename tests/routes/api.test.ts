@@ -178,7 +178,7 @@ describe('GET /api/health', () => {
   it('responds 503 when the database readiness probe fails', async () => {
     const response = await unavailableHandler(new Request('http://localhost/api/health'))
     expect(response.status).toBe(503)
-    expect(await response.json()).toEqual({ status: 'unavailable' })
+    expect(await response.json()).toEqual({ _tag: 'ServiceUnavailable' })
   })
 })
 
@@ -197,7 +197,7 @@ describe('GET /api/users', () => {
   it('maps repository failures to a sanitized 503 response', async () => {
     const response = await unavailableUsersHandler(new Request('http://localhost/api/users'))
     expect(response.status).toBe(503)
-    expect(await response.json()).toEqual({ message: 'Service unavailable' })
+    expect(await response.json()).toEqual({ _tag: 'ServiceUnavailable' })
   })
 })
 
@@ -217,6 +217,7 @@ describe('GET /api/users/:id', () => {
     const missing = TypeID.fromUUID('user', '01890a5d-ac96-774b-bcce-b302099a8059').toString()
     const response = await handler(new Request(`http://localhost/api/users/${missing}`))
     expect(response.status).toBe(404)
+    expect(await response.json()).toEqual({ _tag: 'NotFound' })
   })
 })
 
