@@ -3,6 +3,9 @@ import { binaryType, currentTimestamp, modifyEndQuery } from '#/database/dialect
 import type { DB } from '#/database/schema.ts'
 
 export const up = async (db: Kysely<DB>): Promise<void> => {
+  // ---------------------------------------------------------------------------
+  // Table and indexes for: users
+  // ---------------------------------------------------------------------------
   await db.schema
     .createTable('users')
     .addColumn('id', 'text', (col) => col.primaryKey())
@@ -20,7 +23,9 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
 
   await db.schema.createIndex('idx_users_email').on('users').column('email').ifNotExists().execute()
 
-  // Passkey credentials
+  // ---------------------------------------------------------------------------
+  // Table and indexes for: passkey credentials
+  // ---------------------------------------------------------------------------
   await db.schema
     .createTable('credentials')
     .addColumn('id', 'text', (col) => col.primaryKey()) // Base64url credential ID
@@ -47,7 +52,10 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
     .ifNotExists()
     .execute()
 
-  // Auth tokens (magic links, email verification, invites, recovery)
+  // ---------------------------------------------------------------------------
+  // Table and indexes for: auth tokens
+  // Purpose: magic links, email verification, invites, recovery
+  // ---------------------------------------------------------------------------
   await db.schema
     .createTable('auth_tokens')
     .addColumn('hash', 'text', (col) => col.primaryKey()) // SHA-256 hash of token
@@ -75,7 +83,9 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
     .ifNotExists()
     .execute()
 
-  // OAuth accounts (external provider links)
+  // ---------------------------------------------------------------------------
+  // Table and indexes for: oauth accounts (external provider links)
+  // ---------------------------------------------------------------------------
   await db.schema
     .createTable('oauth_accounts')
     .addColumn('provider', 'text', (col) => col.notNull())
@@ -97,7 +107,9 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
     .ifNotExists()
     .execute()
 
-  // Allowed domains for self-signup
+  // ---------------------------------------------------------------------------
+  // Table and indexes for: allowed domains for self-signup
+  // ---------------------------------------------------------------------------
   await db.schema
     .createTable('allowed_domains')
     .addColumn('domain', 'text', (col) => col.primaryKey())
@@ -107,7 +119,9 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
     .ifNotExists()
     .execute()
 
-  // WebAuthn challenges (ephemeral, with TTL)
+  // ---------------------------------------------------------------------------
+  // Table and indexes for: webauthn challenges (ephemeral, with TTL)
+  // ---------------------------------------------------------------------------
   await db.schema
     .createTable('auth_challenges')
     .addColumn('challenge', 'text', (col) => col.primaryKey()) // Base64url challenge

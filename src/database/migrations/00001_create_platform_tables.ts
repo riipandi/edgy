@@ -3,16 +3,21 @@ import { currentTimestamp, modifyEndQuery } from '#/database/dialect-helpers.ts'
 import type { DB } from '#/database/schema.ts'
 
 export const up = async (db: Kysely<DB>): Promise<void> => {
-  // Options (key-value store)
+  // ---------------------------------------------------------------------------
+  // Table and indexes for: app settings (key-value store)
+  // ---------------------------------------------------------------------------
   await db.schema
-    .createTable('options')
+    .createTable('app_settings')
     .addColumn('name', 'text', (col) => col.primaryKey())
     .addColumn('value', 'text', (col) => col.notNull())
+    .addColumn('updated_at', 'text', (col) => col.defaultTo(currentTimestamp(db)))
     .modifyEnd(modifyEndQuery(db))
     .ifNotExists()
     .execute()
 
-  // Audit logs (security events)
+  // ---------------------------------------------------------------------------
+  // Table and indexes for: audit logs (security events)
+  // ---------------------------------------------------------------------------
   await db.schema
     .createTable('audit_logs')
     .addColumn('id', 'text', (col) => col.primaryKey())
@@ -47,7 +52,9 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
     .ifNotExists()
     .execute()
 
-  // Media
+  // ---------------------------------------------------------------------------
+  // Table and indexes for: media stores
+  // ---------------------------------------------------------------------------
   await db.schema
     .createTable('media')
     .addColumn('id', 'text', (col) => col.primaryKey())
@@ -80,8 +87,10 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
     .ifNotExists()
     .execute()
 
-  // Revisions - stores snapshots of content entries
-  // References entries in ec_* tables by collection + entry_id
+  // ---------------------------------------------------------------------------
+  // Table and indexes for: revisions
+  // Purpose: stores snapshots of content entries
+  // ---------------------------------------------------------------------------
   await db.schema
     .createTable('revisions')
     .addColumn('id', 'text', (col) => col.primaryKey())
