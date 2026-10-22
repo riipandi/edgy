@@ -1,6 +1,7 @@
 import { Data, Effect, Layer, ManagedRuntime } from 'effect'
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { ApplicationLayer, CoreLayer } from '#/kernel/layers.ts'
+import { parseUserId, type UserIdType } from './user_schema.ts'
 import { UserService } from './user_service.ts'
 
 export class DisposeError extends Data.TaggedError('DisposeError')<{
@@ -43,4 +44,14 @@ const runWithUserService = <A, E>(
 
 export const listUsersFromService = () => runWithUserService((service) => service.list())
 
-export const getUserFromService = (id: string) => runWithUserService((service) => service.find(id))
+export const getUserFromService = (id: string) => {
+  // The SSR boundary receives the raw route param; an unparseable id resolves
+  // to no user instead of crashing the render.
+  let userId: UserIdType
+  try {
+    userId = parseUserId(id)
+  } catch {
+    return Promise.resolve(undefined)
+  }
+  return runWithUserService((service) => service.find(userId))
+}

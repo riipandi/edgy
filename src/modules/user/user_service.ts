@@ -1,13 +1,13 @@
 import { Context, Effect, Layer, Schema } from 'effect'
 import { Cacheable } from '#/kernel/cache.ts'
 import { UserRepository, UserRepositoryError } from './user_repo.ts'
-import { UserSchema, type User } from './user_schema.ts'
+import { parseUserId, UserSchema, type User, type UserIdType } from './user_schema.ts'
 
 export class UserService extends Context.Service<
   UserService,
   {
     readonly list: () => Effect.Effect<readonly User[], UserRepositoryError>
-    readonly find: (id: string) => Effect.Effect<User | undefined, UserRepositoryError>
+    readonly find: (id: UserIdType) => Effect.Effect<User | undefined, UserRepositoryError>
   }
 >()('UserService') {}
 
@@ -17,7 +17,7 @@ export const UserCache = Cacheable.Class<{
 }>()('UserCache', {
   success: Schema.UndefinedOr(UserSchema),
   error: UserRepositoryError,
-  lookup: (id) => UserRepository.use((repo) => repo.find(id))
+  lookup: (key) => UserRepository.use((repo) => repo.find(parseUserId(key)))
 })
 
 export const UserServiceLayer = Layer.effect(
@@ -27,7 +27,7 @@ export const UserServiceLayer = Layer.effect(
     const cache = yield* UserCache
     return UserService.of({
       list: () => repo.list(),
-      find: (id) => cache.get(id)
+      find: (id) => cache.get(id.toString())
     })
   })
 )

@@ -1,6 +1,6 @@
 import { Context, Effect, Layer, Schema } from 'effect'
 import { Database } from '#/database/adapter.ts'
-import type { User } from './user_schema.ts'
+import type { User, UserIdType } from './user_schema.ts'
 
 export class UserRepositoryError extends Schema.TaggedError<UserRepositoryError>()(
   'UserRepositoryError',
@@ -15,7 +15,7 @@ export class UserRepository extends Context.Service<
   UserRepository,
   {
     readonly list: () => Effect.Effect<readonly User[], UserRepositoryError>
-    readonly find: (id: string) => Effect.Effect<User | undefined, UserRepositoryError>
+    readonly find: (id: UserIdType) => Effect.Effect<User | undefined, UserRepositoryError>
   }
 >()('UserRepository') {}
 
@@ -27,9 +27,11 @@ export const UserRepositoryLayer = Layer.effect(
       database
         .read((db) => db.selectFrom('users').selectAll().orderBy('id', 'asc').execute())
         .pipe(Effect.mapError((cause) => new UserRepositoryError({ cause })))
-    const find = (id: string) =>
+    const find = (id: UserIdType) =>
       database
-        .read((db) => db.selectFrom('users').selectAll().where('id', '=', id).executeTakeFirst())
+        .read((db) =>
+          db.selectFrom('users').selectAll().where('id', '=', id.toString()).executeTakeFirst()
+        )
         .pipe(Effect.mapError((cause) => new UserRepositoryError({ cause })))
 
     return UserRepository.of({ list, find })

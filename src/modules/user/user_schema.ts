@@ -2,6 +2,8 @@ import { Schema } from 'effect'
 import type { Insertable, Selectable, Updateable } from 'kysely'
 import { TypeID, typeid } from 'typeid-js'
 
+export type UserIdType = TypeID<'user'>
+
 export const UserSchema = Schema.Struct({
   id: Schema.String,
   email: Schema.String,
@@ -19,11 +21,11 @@ export const UserIdParams = Schema.Struct({
   id: Schema.String
 })
 
-export function generateUserId(uuid?: string): TypeID<'user'> {
+export function generateUserId(uuid?: string): UserIdType {
   return uuid ? TypeID.fromUUID('user', uuid) : typeid('user')
 }
 
-export function parseUserId(value: string): TypeID<'user'> {
+export function parseUserId(value: string): UserIdType {
   return TypeID.fromString(value, 'user')
 }
 

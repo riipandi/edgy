@@ -5,6 +5,7 @@ import { TypeID } from 'typeid-js'
 import { expect } from 'vite-plus/test'
 import { AppConfig, type AppConfigShape } from '#/kernel/config/config.ts'
 import { UserRepository, UserRepositoryError } from './user_repo.ts'
+import { parseUserId } from './user_schema.ts'
 import { UserCache, UserService, UserServiceLayer } from './user_service.ts'
 
 const config: AppConfigShape = {
@@ -84,17 +85,18 @@ it.effect('retries the lookup after a failed cache fill', () =>
       )
     )
 
-    const failed = yield* Effect.exit(service.find(ada.id))
+    const userId = parseUserId(ada.id)
+    const failed = yield* Effect.exit(service.find(userId))
     expect(failed._tag).toBe('Failure')
 
     // The failed entry was invalidated: the next request hits the repository
     // again instead of replaying the stale failure until the TTL expires.
-    const recovered = yield* service.find(ada.id)
+    const recovered = yield* service.find(userId)
     expect(recovered?.name).toBe('Ada Lovelace')
     expect(lookups).toBe(2)
 
     // The successful fill is cached.
-    const cached = yield* service.find(ada.id)
+    const cached = yield* service.find(userId)
     expect(cached?.name).toBe('Ada Lovelace')
     expect(lookups).toBe(2)
   })

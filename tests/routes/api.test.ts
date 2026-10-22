@@ -37,7 +37,7 @@ const testService = Layer.succeed(
   UserService,
   UserService.of({
     list: () => Effect.succeed(users),
-    find: (id) => Effect.succeed(users.find((candidate) => candidate.id === id))
+    find: (id) => Effect.succeed(users.find((candidate) => candidate.id === id.toString()))
   })
 )
 const unavailableUserService = Layer.succeed(
