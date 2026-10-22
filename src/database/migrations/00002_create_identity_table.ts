@@ -43,6 +43,7 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
     .addColumn('backed_up', 'integer', (col) => col.notNull().defaultTo(0))
     .addColumn('transports', 'text') // JSON array
     .addColumn('name', 'text') // User-friendly name
+    .addColumn('algorithm', 'integer', (col) => col.notNull().defaultTo(-7))
     .addColumn('created_at', 'text', (col) => col.defaultTo(currentTimestamp(db)))
     .addColumn('last_used_at', 'text', (col) => col.defaultTo(currentTimestamp(db)))
     .addForeignKeyConstraint('credentials_user_fk', ['user_id'], 'users', ['id'], (cb) =>
@@ -115,6 +116,23 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
     .execute()
 
   // ---------------------------------------------------------------------------
+  // Table and indexes for: oauth clients
+  // Implements the oauth_clients registry so that the authorization endpoint
+  // can validate client_id and enforce a per-client redirect URI allowlist.
+  // ---------------------------------------------------------------------------
+  await db.schema
+    .createTable('oauth_clients')
+    .addColumn('id', 'text', (col) => col.primaryKey()) // Client ID (e.g. URL or opaque string)
+    .addColumn('name', 'text', (col) => col.notNull()) // Human-readable name
+    .addColumn('redirect_uris', 'text', (col) => col.notNull()) // JSON array of allowed redirect URIs
+    .addColumn('scopes', 'text') // JSON array of allowed scopes (null = all)
+    .addColumn('created_at', 'text', (col) => col.defaultTo(currentTimestamp(db)))
+    .addColumn('updated_at', 'text', (col) => col.defaultTo(currentTimestamp(db)))
+    .modifyEnd(modifyEndQuery(db))
+    .ifNotExists()
+    .execute()
+
+  // ---------------------------------------------------------------------------
   // Table and indexes for: allowed domains for self-signup
   // ---------------------------------------------------------------------------
   await db.schema
@@ -162,6 +180,7 @@ export const down = async (db: Kysely<DB>): Promise<void> => {
   // Drop tables in reverse order
   await db.schema.dropTable('auth_challenges').ifExists().execute()
   await db.schema.dropTable('allowed_domains').ifExists().execute()
+  await db.schema.dropTable('oauth_clients').ifExists().execute()
   await db.schema.dropTable('oauth_accounts').ifExists().execute()
   await db.schema.dropTable('auth_tokens').ifExists().execute()
   await db.schema.dropTable('credentials').ifExists().execute()

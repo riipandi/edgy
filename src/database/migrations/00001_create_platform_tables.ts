@@ -59,11 +59,27 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
     .execute()
 
   // ---------------------------------------------------------------------------
+  // Table and indexes for: media folder
+  // ---------------------------------------------------------------------------
+  await db.schema
+    .createTable('media_folders')
+    .ifNotExists()
+    .addColumn('id', 'text', (col) => col.primaryKey())
+    .addColumn('name', 'text', (col) => col.notNull())
+    .addColumn('name_key', 'text', (col) => col.notNull().unique())
+    .modifyEnd(modifyEndQuery(db))
+    .ifNotExists()
+    .execute()
+
+  // ---------------------------------------------------------------------------
   // Table and indexes for: media stores
   // ---------------------------------------------------------------------------
   await db.schema
     .createTable('media')
     .addColumn('id', 'text', (col) => col.primaryKey())
+    .addColumn('folder_id', 'text', (col) =>
+      col.references('media_folders.id').onDelete('set null')
+    )
     .addColumn('filename', 'text', (col) => col.notNull())
     .addColumn('mime_type', 'text', (col) => col.notNull())
     .addColumn('size', 'integer')
@@ -74,6 +90,8 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
     .addColumn('storage_key', 'text', (col) => col.notNull())
     .addColumn('content_hash', 'text') // xxHash64 for deduplication
     .addColumn('status', 'text', (col) => col.notNull().defaultTo('ready'))
+    .addColumn('focal_x', 'real')
+    .addColumn('focal_y', 'real')
     .addColumn('created_at', 'text', (col) => col.defaultTo(currentTimestamp(db)))
     .addColumn('author_id', 'text')
     .modifyEnd(modifyEndQuery(db))
@@ -92,7 +110,6 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
     .column('status')
     .ifNotExists()
     .execute()
-
   await db.schema
     .createIndex('idx_media_mime_type')
     .on('media')
@@ -109,6 +126,47 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
     .createIndex('idx_media_created_at')
     .on('media')
     .column('created_at')
+    .ifNotExists()
+    .execute()
+  await db.schema
+    .createIndex('idx_media_folder_id')
+    .on('media')
+    .column('folder_id')
+    .ifNotExists()
+    .execute()
+
+  // ---------------------------------------------------------------------------
+  // Table and indexes for: media upload attempts
+  // ---------------------------------------------------------------------------
+  await db.schema
+    .createTable('media_upload_attempts')
+    .addColumn('storage_key', 'text', (col) => col.primaryKey())
+    .addColumn('media_id', 'text', (col) => col.notNull())
+    .addColumn('status', 'text', (col) => col.notNull().defaultTo('active'))
+    .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(currentTimestamp(db)))
+    .addColumn('updated_at', 'text', (col) => col.notNull().defaultTo(currentTimestamp(db)))
+    .modifyEnd(modifyEndQuery(db))
+    .ifNotExists()
+    .execute()
+
+  await db.schema
+    .createIndex('idx_media_upload_attempts_media_id')
+    .on('media_upload_attempts')
+    .column('media_id')
+    .ifNotExists()
+    .execute()
+
+  await db.schema
+    .createIndex('idx_media_upload_attempts_status_created_at')
+    .on('media_upload_attempts')
+    .columns(['status', 'created_at'])
+    .ifNotExists()
+    .execute()
+
+  await db.schema
+    .createIndex('idx_media_storage_key')
+    .on('media')
+    .column('storage_key')
     .ifNotExists()
     .execute()
 
@@ -139,6 +197,10 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
 export const down = async (db: Kysely<DB>): Promise<void> => {
   // Drop indexes first in reverse order
   await db.schema.dropIndex('idx_revisions_entry').ifExists().execute()
+  await db.schema.dropIndex('idx_media_storage_key').ifExists().execute()
+  await db.schema.dropIndex('idx_media_upload_attempts_status_created_at').ifExists().execute()
+  await db.schema.dropIndex('idx_media_upload_attempts_media_id').ifExists().execute()
+  await db.schema.dropIndex('idx_media_folder_id').ifExists().execute()
   await db.schema.dropIndex('idx_media_created_at').ifExists().execute()
   await db.schema.dropIndex('idx_media_filename').ifExists().execute()
   await db.schema.dropIndex('idx_media_mime_type').ifExists().execute()
@@ -151,7 +213,9 @@ export const down = async (db: Kysely<DB>): Promise<void> => {
 
   // Drop tables in reverse order
   await db.schema.dropTable('revisions').ifExists().execute()
+  await db.schema.dropTable('media_upload_attempts').ifExists().execute()
   await db.schema.dropTable('media').ifExists().execute()
+  await db.schema.dropTable('media_folders').ifExists().execute()
   await db.schema.dropTable('audit_logs').ifExists().execute()
   await db.schema.dropTable('options').ifExists().execute()
 }

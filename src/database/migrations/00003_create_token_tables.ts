@@ -86,6 +86,7 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
     .addColumn('expires_at', 'text', (col) => col.notNull())
     .addColumn('interval', 'integer', (col) => col.notNull().defaultTo(5))
     .addColumn('created_at', 'text', (col) => col.defaultTo(currentTimestamp(db)))
+    .addColumn('last_polled_at', 'text')
     .modifyEnd(modifyEndQuery(db))
     .ifNotExists()
     .execute()
