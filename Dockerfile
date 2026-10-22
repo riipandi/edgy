@@ -88,4 +88,4 @@ EXPOSE $PORT/tcp
 
 # SHELL: /busybox/sh
 ENTRYPOINT ["/usr/bin/tini", "--"]
-CMD ["/app/entry.js", "serve"]
+CMD ["/app/entry.js", "serve", "--auto-migrate"]
