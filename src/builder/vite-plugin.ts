@@ -7,10 +7,11 @@ import { Readable } from 'node:stream'
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web'
 import { fileURLToPath } from 'node:url'
 import type { Plugin, ViteDevServer } from 'vite-plus'
+import { loadEnv } from 'vite-plus'
 import { DatabaseLayer } from '#/database/adapter.ts'
 import { Database } from '#/database/adapter.ts'
 import { migrateAndSeed, MigratorError } from '#/database/migrator.ts'
-import { apiHandler } from '#/kernel/http/api.ts'
+import { apiHandler, apiDocsPath } from '#/kernel/http/api.ts'
 import { CoreLayer } from '#/kernel/layers.ts'
 
 const ENTRYPOINT = 'entry.js'
@@ -178,10 +179,18 @@ export const effectVite = (opts: EffectDevPluginOptions): Plugin => {
     configureServer(server: ViteDevServer) {
       if (!opts.enabled) return
 
+      // Mirror the start command's --env-file-if-exists=.env.local so the dev
+      // server reads the same configuration; real environment entries win.
+      const env = loadEnv(server.config.mode, process.cwd(), '')
+      for (const [key, value] of Object.entries(env)) {
+        if (process.env[key] === undefined) process.env[key] = value
+      }
+
       const ready = Effect.runPromise(prepare).then(() => apiHandler())
       server.middlewares.use((req, res, next) => {
         const pathname = (req.url ?? '').split('?')[0] ?? ''
-        if (!pathname.startsWith('/api/')) {
+        const handled = pathname.startsWith('/api/') || pathname === apiDocsPath
+        if (!handled) {
           next()
           return
         }

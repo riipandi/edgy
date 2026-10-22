@@ -5,7 +5,7 @@ export const docsConfig = group(
     enabled: flag(
       'API_DOCS_ENABLED',
       false,
-      'Expose the OpenAPI document and the Swagger UI for the API'
+      'Expose the OpenAPI document and the Scalar API reference for the API'
     )
   },
   'Docs'

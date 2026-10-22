@@ -14,6 +14,9 @@ import { UsersApi, usersHandlers } from '#/modules/user/module.ts'
 import { applicationContext, disposeUserRuntime } from '#/modules/user/user_ssr.ts'
 import pkg from '../../../package.json' with { type: 'json' }
 
+export const apiDocsPath = '/api-docs'
+export const openApiPath = '/api/openapi.json'
+
 export const api = HttpApi.make(pkg.name)
   .add(HealthApi, UsersApi)
   .annotate(OpenApi.Title, pkg.name)
@@ -23,14 +26,14 @@ export const api = HttpApi.make(pkg.name)
 export const apiRoutes = Layer.unwrap(
   Effect.gen(function* () {
     const config = yield* AppConfig
-    const openapiPath = config.docs.enabled ? ('/oapi/openapi.json' as const) : undefined
+    const openapiPath = config.docs.enabled ? openApiPath : undefined
     const routes = HttpApiBuilder.layer(api, { openapiPath }).pipe(
       Layer.provide(healthHandlers(api)),
       Layer.provide(usersHandlers(api)),
       Layer.provide(rateLimit)
     )
     return config.docs.enabled
-      ? Layer.mergeAll(routes, HttpApiScalar.layer(api, { path: '/api-docs' }))
+      ? Layer.mergeAll(routes, HttpApiScalar.layer(api, { path: apiDocsPath }))
       : routes
   })
 )
