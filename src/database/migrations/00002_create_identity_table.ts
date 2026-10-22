@@ -15,6 +15,7 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
     .addColumn('role', 'integer', (col) => col.notNull().defaultTo(10)) // SUBSCRIBER
     .addColumn('email_verified', 'integer', (col) => col.notNull().defaultTo(0))
     .addColumn('data', 'text')
+    .addColumn('disabled', 'integer', (col) => col.notNull().defaultTo(0))
     .addColumn('created_at', 'text', (col) => col.defaultTo(currentTimestamp(db)))
     .addColumn('updated_at', 'text', (col) => col.defaultTo(currentTimestamp(db)))
     .modifyEnd(modifyEndQuery(db))
@@ -22,6 +23,12 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
     .execute()
 
   await db.schema.createIndex('idx_users_email').on('users').column('email').ifNotExists().execute()
+  await db.schema
+    .createIndex('idx_users_disabled')
+    .on('users')
+    .column('disabled')
+    .ifNotExists()
+    .execute()
 
   // ---------------------------------------------------------------------------
   // Table and indexes for: passkey credentials
@@ -149,6 +156,7 @@ export const down = async (db: Kysely<DB>): Promise<void> => {
   await db.schema.dropIndex('idx_oauth_accounts_user').ifExists().execute()
   await db.schema.dropIndex('idx_auth_tokens_email').ifExists().execute()
   await db.schema.dropIndex('idx_credentials_user').ifExists().execute()
+  await db.schema.dropIndex('idx_users_disabled').ifExists().execute()
   await db.schema.dropIndex('idx_users_email').ifExists().execute()
 
   // Drop tables in reverse order

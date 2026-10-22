@@ -51,6 +51,12 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
     .column('timestamp')
     .ifNotExists()
     .execute()
+  await db.schema
+    .createIndex('idx_audit_resource')
+    .on('audit_logs')
+    .columns(['resource_type', 'resource_id'])
+    .ifNotExists()
+    .execute()
 
   // ---------------------------------------------------------------------------
   // Table and indexes for: media stores
@@ -87,6 +93,25 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
     .ifNotExists()
     .execute()
 
+  await db.schema
+    .createIndex('idx_media_mime_type')
+    .on('media')
+    .column('mime_type')
+    .ifNotExists()
+    .execute()
+  await db.schema
+    .createIndex('idx_media_filename')
+    .on('media')
+    .column('filename')
+    .ifNotExists()
+    .execute()
+  await db.schema
+    .createIndex('idx_media_created_at')
+    .on('media')
+    .column('created_at')
+    .ifNotExists()
+    .execute()
+
   // ---------------------------------------------------------------------------
   // Table and indexes for: revisions
   // Purpose: stores snapshots of content entries
@@ -114,8 +139,12 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
 export const down = async (db: Kysely<DB>): Promise<void> => {
   // Drop indexes first in reverse order
   await db.schema.dropIndex('idx_revisions_entry').ifExists().execute()
+  await db.schema.dropIndex('idx_media_created_at').ifExists().execute()
+  await db.schema.dropIndex('idx_media_filename').ifExists().execute()
+  await db.schema.dropIndex('idx_media_mime_type').ifExists().execute()
   await db.schema.dropIndex('idx_media_status').ifExists().execute()
   await db.schema.dropIndex('idx_media_content_hash').ifExists().execute()
+  await db.schema.dropIndex('idx_audit_resource').ifExists().execute()
   await db.schema.dropIndex('idx_audit_timestamp').ifExists().execute()
   await db.schema.dropIndex('idx_audit_action').ifExists().execute()
   await db.schema.dropIndex('idx_audit_actor').ifExists().execute()
