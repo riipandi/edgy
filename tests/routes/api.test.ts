@@ -77,7 +77,8 @@ const { handler: limitedHandler, dispose: disposeLimitedHandler } = HttpRouter.t
       })
     ),
     Layer.provide(HttpServer.layerServices)
-  )
+  ),
+  { disableLogger: true }
 )
 
 const { handler, dispose } = HttpRouter.toWebHandler(
@@ -85,7 +86,8 @@ const { handler, dispose } = HttpRouter.toWebHandler(
     HttpRouter.provideRequest(testService),
     Layer.provide(testConfig),
     Layer.provide(HttpServer.layerServices)
-  )
+  ),
+  { disableLogger: true }
 )
 
 afterAll(async () => {

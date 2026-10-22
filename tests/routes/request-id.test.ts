@@ -9,7 +9,8 @@ const { handler, dispose } = HttpRouter.toWebHandler(
   Layer.mergeAll(
     HttpRouter.add('GET', '/request-id', HttpServerResponse.text('ok')),
     requestId
-  ).pipe(Layer.provide(HttpServer.layerServices))
+  ).pipe(Layer.provide(HttpServer.layerServices)),
+  { disableLogger: true }
 )
 
 afterAll(() => dispose())

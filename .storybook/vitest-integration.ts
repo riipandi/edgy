@@ -7,10 +7,12 @@ import { fileURLToPath } from 'node:url'
 import type { TestProjectConfiguration } from 'vite-plus'
 import { playwright } from 'vite-plus/test/browser-playwright'
 
-const hasStoryFiles =
-  globSync('src/**/*.stories.tsx', { cwd: fileURLToPath(new URL('.', import.meta.url)) }).length > 0
-
 export const storybookProject = (mode: string): TestProjectConfiguration => {
+  const hasStoryFiles =
+    globSync('../**/*.stories.tsx', {
+      cwd: fileURLToPath(new URL('.', import.meta.url))
+    }).length > 0
+
   if (!hasStoryFiles) {
     return {
       extends: false,
