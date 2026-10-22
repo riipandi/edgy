@@ -32,6 +32,7 @@ pnpm app migrate:seed
 
 To migrate before serving, use `pnpm app serve --auto-migrate` or set
 `DATABASE_AUTO_MIGRATE=true`. See [Command line](./commandline.md) for migration commands.
+With `DATABASE_PATH=:memory:`, startup migrations and requests use the same database for the lifetime of the server.
 
 ## Observability
 

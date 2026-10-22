@@ -1,26 +1,14 @@
-import { Context, Effect, Layer } from 'effect'
+import { Context, Data, Effect } from 'effect'
 import type { User } from '#/database/schema.ts'
-import { Database, type DatabaseError } from '#/database/service.ts'
+
+export class UserRepositoryError extends Data.TaggedError('UserRepositoryError')<{
+  readonly cause: unknown
+}> {}
 
 export class UserRepository extends Context.Service<
   UserRepository,
   {
-    readonly list: () => Effect.Effect<readonly User[], DatabaseError>
-    readonly find: (id: string) => Effect.Effect<User | undefined, DatabaseError>
+    readonly list: () => Effect.Effect<readonly User[], UserRepositoryError>
+    readonly find: (id: string) => Effect.Effect<User | undefined, UserRepositoryError>
   }
 >()('UserRepository') {}
-
-export const UserRepoLayer = Layer.effect(
-  UserRepository,
-  Effect.gen(function* () {
-    const database = yield* Database
-    return UserRepository.of({
-      list: () =>
-        database.read((db) => db.selectFrom('users').selectAll().orderBy('id', 'asc').execute()),
-      find: (id) =>
-        database.read((db) =>
-          db.selectFrom('users').selectAll().where('id', '=', id).executeTakeFirst()
-        )
-    })
-  })
-)

@@ -1,11 +1,11 @@
 import { Effect, Layer } from 'effect'
 import { Command, Flag } from 'effect/cli'
-import { DatabaseLayer } from '#/database/layer.ts'
 import { migrateToLatest } from '#/database/migrator.ts'
 import { runSeeders } from '#/database/seeders/index.ts'
 import { Database } from '#/database/service.ts'
 import { AppConfig } from '#/kernel/config/config.ts'
 import { server } from '#/kernel/http/serve.ts'
+import { ApplicationLayer } from '#/layers.ts'
 
 const migrateBeforeStart = (seed: boolean) =>
   Effect.gen(function* () {
@@ -20,7 +20,7 @@ const migrateBeforeStart = (seed: boolean) =>
       yield* Effect.promise(() => runSeeders(db))
       yield* Effect.logInfo('seeders applied')
     }
-  }).pipe(Effect.provide(DatabaseLayer))
+  })
 
 export const serveCmd = Command.make(
   'serve',
@@ -44,5 +44,5 @@ export const serveCmd = Command.make(
         )
       if (autoMigrate) yield* migrateBeforeStart(config.seed)
       yield* Layer.launch(server)
-    })
+    }).pipe(Effect.provide(ApplicationLayer))
 ).pipe(Command.withDescription('Start the application server'))

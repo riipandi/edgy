@@ -3,8 +3,11 @@ import * as HttpRouter from 'effect/http/HttpRouter'
 import * as HttpServer from 'effect/http/HttpServer'
 import { TypeID } from 'typeid-js'
 import { afterAll, describe, expect, it } from 'vite-plus/test'
+import { DatabaseError } from '#/database/service.ts'
 import { AppConfig, type AppConfigShape } from '#/kernel/config/config.ts'
 import { apiRoutes } from '#/kernel/http/api.ts'
+import { HealthService } from '#/modules/health/health_service.ts'
+import { UserRepositoryError } from '#/modules/user/user_repo.ts'
 import { UserService } from '#/modules/user/user_service.ts'
 
 const user = (uuid: string, name: string) => ({
@@ -31,6 +34,20 @@ const testService = Layer.succeed(
     find: (id) => Effect.succeed(users.find((candidate) => candidate.id === id))
   })
 )
+const unavailableUserService = Layer.succeed(
+  UserService,
+  UserService.of({
+    list: () => Effect.fail(new UserRepositoryError({ cause: new Error('offline') })),
+    find: () => Effect.fail(new UserRepositoryError({ cause: new Error('offline') }))
+  })
+)
+
+const readyService = Layer.succeed(HealthService, HealthService.of({ check: Effect.void }))
+const unavailableService = Layer.succeed(
+  HealthService,
+  HealthService.of({ check: Effect.fail(new DatabaseError({ cause: new Error('offline') })) })
+)
+const testServices = Layer.mergeAll(testService, readyService)
 
 const config: AppConfigShape = {
   server: { host: '127.0.0.1', port: 0 },
@@ -69,7 +86,7 @@ const testConfig = Layer.succeed(AppConfig, config)
 
 const { handler: limitedHandler, dispose: disposeLimitedHandler } = HttpRouter.toWebHandler(
   apiRoutes.pipe(
-    HttpRouter.provideRequest(testService),
+    HttpRouter.provideRequest(testServices),
     Layer.provide(
       Layer.succeed(AppConfig, {
         ...config,
@@ -83,21 +100,52 @@ const { handler: limitedHandler, dispose: disposeLimitedHandler } = HttpRouter.t
 
 const { handler, dispose } = HttpRouter.toWebHandler(
   apiRoutes.pipe(
-    HttpRouter.provideRequest(testService),
+    HttpRouter.provideRequest(testServices),
     Layer.provide(testConfig),
     Layer.provide(HttpServer.layerServices)
   ),
   { disableLogger: true }
 )
 
+const { handler: unavailableHandler, dispose: disposeUnavailableHandler } = HttpRouter.toWebHandler(
+  apiRoutes.pipe(
+    HttpRouter.provideRequest(Layer.mergeAll(testService, unavailableService)),
+    Layer.provide(testConfig),
+    Layer.provide(HttpServer.layerServices)
+  ),
+  { disableLogger: true }
+)
+
+const { handler: unavailableUsersHandler, dispose: disposeUnavailableUsersHandler } =
+  HttpRouter.toWebHandler(
+    apiRoutes.pipe(
+      HttpRouter.provideRequest(Layer.mergeAll(unavailableUserService, readyService)),
+      Layer.provide(testConfig),
+      Layer.provide(HttpServer.layerServices)
+    ),
+    { disableLogger: true }
+  )
+
 afterAll(async () => {
-  await Promise.all([disposeLimitedHandler(), dispose()])
+  await Promise.all([
+    disposeLimitedHandler(),
+    dispose(),
+    disposeUnavailableHandler(),
+    disposeUnavailableUsersHandler()
+  ])
 })
 
 describe('GET /api/health', () => {
-  it('responds 200', async () => {
+  it('responds 200 when the database answers the readiness probe', async () => {
     const response = await handler(new Request('http://localhost/api/health'))
     expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ status: 'ok' })
+  })
+
+  it('responds 503 when the database readiness probe fails', async () => {
+    const response = await unavailableHandler(new Request('http://localhost/api/health'))
+    expect(response.status).toBe(503)
+    expect(await response.json()).toEqual({ status: 'unavailable' })
   })
 })
 
@@ -111,6 +159,12 @@ describe('GET /api/users', () => {
       'Ada Lovelace',
       'Grace Hopper'
     ])
+  })
+
+  it('maps repository failures to a sanitized 503 response', async () => {
+    const response = await unavailableUsersHandler(new Request('http://localhost/api/users'))
+    expect(response.status).toBe(503)
+    expect(await response.json()).toEqual({ message: 'Service unavailable' })
   })
 })
 

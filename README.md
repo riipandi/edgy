@@ -15,10 +15,10 @@ dependencies into one JavaScript entry.
 
 ## Features
 
-- **Typed end to end** — handlers return `Effect<A, AppError, HttpEnv>`; each error carries its own HTTP status.
-- **One response format** — every API response is a documented envelope, with built-in pagination.
+- **Typed failures** — persistence errors stay in Effect's error channel and are mapped to sanitized HTTP responses.
+- **Small JSON API** — health and user routes return JSON responses without an envelope layer.
 - **Effect HTTP stack** — routes, middleware, and the Node.js HTTP server use Effect's HTTP platform.
-- **Built-in middleware** — request ID (TypeID), structured request logger, security headers, rate limiting and configurable CORS.
+- **Built-in middleware** — request IDs, request logging, and configurable rate limiting.
 - **Observable** — Effect exports OpenTelemetry traces, metrics, and optional logs over OTLP.
 - **Configurable** — grouped, validated environment configuration controls the server, SQLite, cache, rate limit, logging, and telemetry.
 - **Resilient** — typed database errors, bounded in-memory caching and rate limiting, graceful shutdown.
@@ -49,8 +49,8 @@ defaults, and validation rules.
 Verify it is up:
 
 ```bash
-curl http://localhost:3000/health
-# {"status":"success","message":"...","metadata":{...}}
+curl http://localhost:3000/api/health
+# {"status":"ok"}
 
 curl 'http://localhost:3000/api/users?limit=10'
 # {"status":"success","data":[{"id":"user_01m5k7w3p8fvx9r2c4t6y0hq1d","email":"ada@example.com","name":"Ada Lovelace"}, ...],"metadata":{...},"links":{...}}

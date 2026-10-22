@@ -6,6 +6,8 @@ import * as HttpServerResponse from 'effect/http/HttpServerResponse'
 import { Path } from 'effect/Path'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { UserService } from '#/modules/user/user_service.ts'
+import { withUserService } from '#/modules/user/user_ssr.ts'
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url))
 const distRoot =
@@ -55,11 +57,14 @@ export const renderPage = Effect.gen(function* () {
 
   const serverBundle = yield* Effect.promise(loadBundle)
   const webRequest = yield* HttpServerRequest.toWeb(request)
+  const userService = yield* UserService
   const response = yield* Effect.tryPromise({
     try: (signal) =>
-      serverBundle.handleRequest(new Request(webRequest, { signal }), {
-        event: { nativeEvent: NodeHttpServerRequest.toIncomingMessage(request) }
-      }),
+      withUserService(userService, () =>
+        serverBundle.handleRequest(new Request(webRequest, { signal }), {
+          event: { nativeEvent: NodeHttpServerRequest.toIncomingMessage(request) }
+        })
+      ),
     catch: (cause) => new InternalError({ request, cause })
   })
   return HttpServerResponse.fromWeb(response)

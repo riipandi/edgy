@@ -7,12 +7,19 @@ import { AppConfig } from '#/kernel/config/config.ts'
 import { renderPage } from '#/kernel/renderer/solid.ts'
 import { requestId } from '#/middleware/request-id.ts'
 import { requestLog } from '#/middleware/request-log.ts'
+import { disposeUserRuntime } from '#/modules/user/user_ssr.ts'
 import { api } from './api.ts'
 
 export const server = Layer.unwrap(
   Effect.gen(function* () {
     const config = yield* AppConfig
-    const routes = Layer.mergeAll(api, HttpRouter.add('*', '*', renderPage), requestId, requestLog)
+    const routes = Layer.mergeAll(
+      api,
+      HttpRouter.add('*', '*', renderPage),
+      requestId,
+      requestLog,
+      Layer.effectDiscard(Effect.addFinalizer(() => Effect.promise(disposeUserRuntime)))
+    )
     const withMetrics = config.observability.metricsEnabled
       ? routes.pipe(Layer.provide(PrometheusMetrics.layerHttp()))
       : routes
