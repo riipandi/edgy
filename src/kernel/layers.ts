@@ -1,6 +1,6 @@
 import { NodeServices } from '@effect/platform-node'
 import { Layer } from 'effect'
-import { DatabaseLayer } from '#/database/layer.ts'
+import { DatabaseLayer } from '#/database/adapter.ts'
 import { LoggerLayer } from '#/observer/logger.ts'
 import { TelemetryRuntimeLayer } from '#/observer/tracing.ts'
 import { ConfigLayer } from './config/config.ts'

@@ -1,9 +1,9 @@
 import { Effect, Option } from 'effect'
 import { Command, Flag } from 'effect/cli'
-import { DatabaseLayer } from '#/database/layer.ts'
+import { DatabaseLayer } from '#/database/adapter.ts'
+import { Database } from '#/database/adapter.ts'
 import { MIGRATION_NAMES } from '#/database/migrations/index.ts'
 import { migrateTo, migrateToLatest, migrationStatus, MigratorError } from '#/database/migrator.ts'
-import { Database } from '#/database/service.ts'
 
 export const migrateUpCmd = Command.make(
   'migrate:up',

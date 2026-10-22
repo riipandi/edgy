@@ -1,6 +1,7 @@
 import { Effect } from 'effect'
 import { Command, Flag, Prompt } from 'effect/cli'
-import { DatabaseLayer } from '#/database/layer.ts'
+import { DatabaseLayer } from '#/database/adapter.ts'
+import { Database } from '#/database/adapter.ts'
 import { MIGRATION_COUNT } from '#/database/migrations/index.ts'
 import {
   migrationStatus,
@@ -9,7 +10,6 @@ import {
   migrateToNoMigrations
 } from '#/database/migrator.ts'
 import { runSeeders, SeederError } from '#/database/seeders/index.ts'
-import { Database } from '#/database/service.ts'
 
 export const migrateResetCmd = Command.make(
   'migrate:reset',

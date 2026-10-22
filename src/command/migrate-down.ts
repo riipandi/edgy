@@ -1,8 +1,8 @@
 import { Effect } from 'effect'
 import { CliError, Command, Flag, Prompt } from 'effect/cli'
-import { DatabaseLayer } from '#/database/layer.ts'
+import { DatabaseLayer } from '#/database/adapter.ts'
+import { Database } from '#/database/adapter.ts'
 import { migrateDownStep, migrationStatus, MigratorError } from '#/database/migrator.ts'
-import { Database } from '#/database/service.ts'
 
 export const migrateDownCmd = Command.make(
   'migrate:down',

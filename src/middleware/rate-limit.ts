@@ -5,8 +5,8 @@ import * as HttpServerRequest from 'effect/http/HttpServerRequest'
 import * as HttpServerResponse from 'effect/http/HttpServerResponse'
 import { RateLimiter } from 'effect/persistence'
 import { sql, type Insertable, type Kysely, type Selectable } from 'kysely'
+import { Database } from '#/database/adapter.ts'
 import type { DB } from '#/database/schema.ts'
-import { Database } from '#/database/service.ts'
 import { AppConfig } from '#/kernel/config/config.ts'
 
 export class RateLimitError extends Data.TaggedError('RateLimitError')<{

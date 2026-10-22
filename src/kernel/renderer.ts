@@ -9,9 +9,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { UserService } from '#/modules/user/user_service.ts'
 import { withUserService } from '#/modules/user/user_ssr.ts'
 
+const distDir = path.resolve(moduleDir, '../../../dist')
 const moduleDir = path.dirname(fileURLToPath(import.meta.url))
-const distRoot =
-  path.basename(moduleDir) === 'renderer' ? path.resolve(moduleDir, '../../../dist') : moduleDir
+const distRoot = path.basename(moduleDir) === 'renderer' ? distDir : moduleDir
 const clientRoot = path.join(distRoot, 'client')
 
 const mimeTypes: Record<string, string> = {

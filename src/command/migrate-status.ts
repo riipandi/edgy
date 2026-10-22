@@ -1,8 +1,8 @@
 import { Effect } from 'effect'
 import { Command } from 'effect/cli'
-import { DatabaseLayer } from '#/database/layer.ts'
+import { DatabaseLayer } from '#/database/adapter.ts'
+import { Database } from '#/database/adapter.ts'
 import { migrationStatus, MigratorError } from '#/database/migrator.ts'
-import { Database } from '#/database/service.ts'
 
 export const migrateStatusCmd = Command.make('migrate:status').pipe(
   Command.withDescription('Check database migration status'),

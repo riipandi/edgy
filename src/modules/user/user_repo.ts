@@ -1,5 +1,5 @@
 import { Context, Data, Effect, Layer } from 'effect'
-import { Database } from '#/database/service.ts'
+import { Database } from '#/database/adapter.ts'
 import type { User } from './user_schema.ts'
 
 export class UserRepositoryError extends Data.TaggedError('UserRepositoryError')<{

@@ -2,9 +2,9 @@ import { it } from '@effect/vitest'
 import { Duration, Effect, Layer } from 'effect'
 import { TestClock } from 'effect/testing'
 import { expect } from 'vite-plus/test'
+import { Database, makeDatabaseService } from '#/database/adapter.ts'
 import { openDatabase } from '#/database/dialect/sqlite.ts'
 import { migrateToLatest } from '#/database/migrator.ts'
-import { Database, makeDatabaseService } from '#/database/service.ts'
 import { RateLimitCounter, RateLimitCounterLayerDatabase } from './rate-limit.ts'
 
 const database = Layer.effect(

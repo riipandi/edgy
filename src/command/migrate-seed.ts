@@ -1,8 +1,8 @@
 import { Effect } from 'effect'
 import { Command, Flag } from 'effect/cli'
-import { DatabaseLayer } from '#/database/layer.ts'
+import { DatabaseLayer } from '#/database/adapter.ts'
+import { Database } from '#/database/adapter.ts'
 import { runSeeders, SeederError, SEEDERS } from '#/database/seeders/index.ts'
-import { Database } from '#/database/service.ts'
 
 export const migrateSeedCmd = Command.make(
   'migrate:seed',

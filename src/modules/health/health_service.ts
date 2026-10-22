@@ -1,5 +1,5 @@
 import { Context, Effect, Layer } from 'effect'
-import { Database, type DatabaseError } from '#/database/service.ts'
+import { Database, type DatabaseError } from '#/database/adapter.ts'
 
 export class HealthService extends Context.Service<
   HealthService,
