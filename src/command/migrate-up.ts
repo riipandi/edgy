@@ -19,7 +19,7 @@ export const migrateUpCmd = Command.make(
   },
   (config) =>
     Effect.gen(function* () {
-      const db = yield* Database
+      const { db } = yield* Database
       const target = Option.getOrUndefined(config.to)
       if (target !== undefined && !MIGRATION_NAMES.includes(target))
         return yield* Effect.fail(new Error(`unknown migration '${target}'`))

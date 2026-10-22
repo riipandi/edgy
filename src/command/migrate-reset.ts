@@ -30,7 +30,7 @@ export const migrateResetCmd = Command.make(
     Effect.gen(function* () {
       if (config.seed && !config.up) return yield* Effect.fail(new Error('--seed requires --up'))
 
-      const db = yield* Database
+      const { db } = yield* Database
       const migrations = yield* Effect.promise(() => migrationStatus(db))
       const executed = migrations
         .filter((migration) => migration.executedAt !== undefined)

@@ -45,12 +45,11 @@ field fails there and not in the browser.
 
 ## How pages are served
 
-| Where              | What happens                                                                                                              |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------- |
-| `vpr dev`          | Vite serves scripts and styles from the source folders                                                                    |
-| Node.js build      | The server serves the built files under `/assets`; a file's name carries its content hash, so browsers keep it for a year |
-| Single executable  | The built files are inside the executable                                                                                 |
-| Cloudflare Workers | Cloudflare serves `/assets` itself, before the Worker runs                                                                |
+| Where             | What happens                                                                                                              |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `vpr dev`         | Vite serves scripts and styles from the source folders                                                                    |
+| Node.js build     | The server serves the built files under `/assets`; a file's name carries its content hash, so browsers keep it for a year |
+| Single executable | The built files are inside the executable                                                                                 |
 
 Pages carry their own content security policy: scripts and styles from the same site only, plus the
 one inline script Marko needs, allowed by a per-response nonce. Because of the nonce, a page is never

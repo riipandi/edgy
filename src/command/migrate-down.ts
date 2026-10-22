@@ -24,7 +24,7 @@ export const migrateDownCmd = Command.make(
   },
   (config) =>
     Effect.gen(function* () {
-      const db = yield* Database
+      const { db } = yield* Database
       const migrations = yield* Effect.promise(() => migrationStatus(db))
       const executed = migrations.filter((migration) => migration.executedAt !== undefined)
       const rollback = executed.slice(-config.count).reverse()

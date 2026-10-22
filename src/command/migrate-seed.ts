@@ -14,7 +14,7 @@ export const migrateSeedCmd = Command.make(
   },
   (config) =>
     Effect.gen(function* () {
-      const db = yield* Database
+      const { db } = yield* Database
 
       if (config.dryRun) {
         for (const seeder of SEEDERS)

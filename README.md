@@ -4,29 +4,28 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?style=flat-square&logo=typescript&logoColor=white)](tsconfig.json)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
 
-A small, opinionated reference server that shows how to wire [Effect](https://effect.website) (typed
-errors, dependency injection, structured logging) to [H3](https://h3.dev) (routing, middleware) and
-[Kysely](https://kysely.dev). The same code runs on Node.js (Node's built-in `node:sqlite`) and on
-Cloudflare Workers ([D1](https://developers.cloudflare.com/d1/)); a setting picks the database.
+A small, opinionated reference server built with [Effect](https://effect.website) for typed errors,
+dependency injection, HTTP routing, middleware, structured logging, and telemetry. [Kysely](https://kysely.dev)
+provides the query builder over SQLite through Node's built-in `node:sqlite` driver.
 
 It also serves HTML pages: server-rendered [Solid](https://v2.solidjs.com) components with a
 file-based router, styled with [Panda CSS](https://panda-css.com), interactive where they need to be.
-[Vite](https://vite.dev) builds everything into a standalone bundle with no `node_modules` at runtime, and the build can optionally
-compile a single executable using Node's [Single Executable Applications](https://nodejs.org/api/single-executable-applications.html) API.
+[Vite](https://vite.dev) builds the server and browser assets; the standalone mode bundles server
+dependencies into one JavaScript entry.
 
 ## Features
 
 - **Typed end to end** — handlers return `Effect<A, AppError, HttpEnv>`; each error carries its own HTTP status.
 - **One response format** — every API response is a documented envelope, with built-in pagination.
-- **Plugin-based routing** — route groups and middleware are H3 plugins, composed in one place.
+- **Effect HTTP stack** — routes, middleware, and the Node.js HTTP server use Effect's HTTP platform.
 - **Built-in middleware** — request ID (TypeID), structured request logger, security headers, rate limiting and configurable CORS.
-- **Observable** — OpenTelemetry traces, metrics and logs over HTTP (ClickStack/HyperDX in development), with the trace id returned to the caller.
-- **Resilient** — overload guard, retried reads on D1, a rate limit that can be shared across instances and fails open, graceful shutdown.
-- **Two targets** — a Node.js server and a Cloudflare Worker (`pnpm dev --mode worker` runs it locally).
+- **Observable** — Effect exports OpenTelemetry traces, metrics, and optional logs over OTLP.
+- **Configurable** — grouped, validated environment configuration controls the server, SQLite, cache, rate limit, logging, and telemetry.
+- **Resilient** — typed database errors, bounded in-memory caching and rate limiting, graceful shutdown.
 - **Zero native dependencies** — SQLite via `node:sqlite`, so the bundle needs no compiled addon.
 - **Server-rendered pages** — streamed Solid pages with a file-based router, hydrated where they are interactive, with typed, build-time styles.
-- **One build for both targets** — Vite builds the server and the browser assets for Node.js and Workers; `--minify` for a smaller server.
-- **Optional single executable** — `pnpm compile` produces one self-contained binary.
+- **Standalone build** — Vite builds the Node.js server and browser assets; `--minify` reduces the server bundle.
+- **Standalone bundle** — `pnpm build:standalone` produces one executable JavaScript entry.
 
 ## Requirements
 
@@ -41,12 +40,11 @@ pnpm app migrate:up       # create the users table
 pnpm app migrate:seed     # insert sample rows (idempotent)
 pnpm dev                  # http://localhost:3000, pages update live, server code reloads
 pnpm test                 # run the test suite
-pnpm dev --mode worker    # the same app as a Cloudflare Worker, locally
-pnpm compose:up           # ClickStack (HyperDX) and Valkey in Docker, for telemetry
+pnpm compose:up           # local ClickStack collector and UI for telemetry
 ```
 
-Every setting is an optional environment variable; `pnpm app config:generate` writes `.env.example`
-with all of them.
+Settings are optional environment variables. See [Configuration](./docs/configuration.md) for names,
+defaults, and validation rules.
 
 Verify it is up:
 
@@ -69,15 +67,14 @@ The full documentation index lives in [docs/index.md](./docs/index.md):
 | [API endpoints](./docs/api-endpoint.md)  | Endpoint list, request ID tracing, the OpenAPI description |
 | [Pages](./docs/frontend.md)              | Writing a page, styling, how pages are served              |
 | [Development](./docs/development.md)     | Day-to-day commands, database workflow, validation         |
-| [Deployment](./docs/deployment.md)       | Node.js and Cloudflare Workers targets, bundling           |
+| [Deployment](./docs/deployment.md)       | Node.js server and bundled assets                          |
 
 ## References
 
 - Effect — [getting started](https://effect.website/docs/v4/getting-started) · [Config](https://effect.website/docs/v4/api/effect/Config) · [Logger](https://effect.website/docs/v4/api/effect/Logger) · [Schema](https://effect.website/docs/v4/api/effect/Schema) · [CLI](https://effect.website/docs/v4/api/effect/cli/Command)
-- H3 — [guide](https://h3.dev/guide/api/h3) · [event](https://h3.dev/guide/api/h3event) · [middleware](https://h3.dev/guide/basics/middleware) · [plugins](https://h3.dev/guide/advanced/plugins) · [utilities](https://h3.dev/utils)
+- Effect HTTP — [HTTP APIs](https://effect.website/docs/v4/platform/http)
 - Kysely — [documentation](https://kysely.dev)
-- Cloudflare — [Workers](https://developers.cloudflare.com/workers/) · [D1](https://developers.cloudflare.com/d1/) · [Wrangler](https://developers.cloudflare.com/workers/wrangler/)
-- Frontend — [Solid](https://v2.solidjs.com) · [Solid Router](https://v2.solidjs.com/routing/solid-router) · [Vite](https://vite.dev/guide/) · [Panda CSS](https://panda-css.com) · [Cloudflare Vite plugin](https://developers.cloudflare.com/workers/vite-plugin/)
+- Frontend — [Solid](https://v2.solidjs.com) · [Solid Router](https://v2.solidjs.com/routing/solid-router) · [Vite](https://vite.dev/guide/) · [Panda CSS](https://panda-css.com)
 - Node.js — [`node:sqlite`](https://nodejs.org/api/sqlite.html) · [single executable applications](https://nodejs.org/api/single-executable-applications.html)
 
 ## License

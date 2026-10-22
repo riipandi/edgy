@@ -1,5 +1,5 @@
 import { Kysely, SqliteDialect } from 'kysely'
-import type { SqliteDatabase } from 'kysely'
+import type { LogEvent, SqliteDatabase } from 'kysely'
 import { chmodSync, existsSync, mkdirSync } from 'node:fs'
 import path from 'node:path'
 import { DatabaseSync, type SQLInputValue, type StatementSync } from 'node:sqlite'
@@ -22,7 +22,7 @@ const adapt = (db: DatabaseSync): SqliteDatabase => ({
   }
 })
 
-export const openDatabase = (filename: string): Kysely<DB> => {
+export const openDatabase = (filename: string, log?: (event: LogEvent) => void): Kysely<DB> => {
   const location = filename === ':memory:' ? filename : path.resolve(filename)
   if (location !== ':memory:') {
     const directory = path.dirname(location)
@@ -35,6 +35,7 @@ export const openDatabase = (filename: string): Kysely<DB> => {
   sqlite.exec('pragma foreign_keys = on')
   sqlite.exec('pragma journal_mode = wal')
   return new Kysely<DB>({
-    dialect: new SqliteDialect({ database: adapt(sqlite) })
+    dialect: new SqliteDialect({ database: adapt(sqlite) }),
+    ...(log === undefined ? {} : { log })
   })
 }

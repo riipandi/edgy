@@ -158,9 +158,7 @@ The same numbers are in the `X-RateLimit-Limit`, `X-RateLimit-Remaining` and `X-
 headers. `reset` is a Unix timestamp. A refused request (`429`) carries them too, in the headers and in
 the error body's `metadata.rate_limit`, plus `Retry-After` (seconds to wait).
 
-On Cloudflare Workers with `RATE_LIMIT_STORE=cloudflare` the store only says allowed or refused, so
-`remaining` (and `X-RateLimit-Remaining`) is left out; `limit` is the configured `RATE_LIMIT_MAX`.
-Probes (`/health`, `/`) and `/.well-known` are never limited.
+The in-memory counter is process-local. Probes (`/health`, `/`) and `/.well-known` are never limited.
 
 ## Security headers
 

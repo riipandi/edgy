@@ -7,9 +7,10 @@ import { Readable } from 'node:stream'
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web'
 import { fileURLToPath } from 'node:url'
 import type { Plugin, ViteDevServer } from 'vite-plus'
-import { openDatabase } from '#/database/dialect/sqlite.ts'
+import { layer as databaseLayer } from '#/database/layer.ts'
 import { migrateAndSeed } from '#/database/migrator.ts'
-import { layer as configLayer, AppConfig } from '#/kernel/config/app-config.ts'
+import { Database } from '#/database/service.ts'
+import { layer as configLayer } from '#/kernel/config/config.ts'
 import { apiHandler } from '#/kernel/http/api.ts'
 import { layer as loggerLayer } from '#/observer/logger.ts'
 
@@ -17,14 +18,11 @@ const runtime = Layer.mergeAll(configLayer, loggerLayer.pipe(Layer.provide(confi
 const ENTRYPOINT = 'entry.js'
 
 const prepare = Effect.gen(function* () {
-  const config = yield* AppConfig
-  const db = openDatabase(config.databasePath)
-  const result = yield* Effect.promise(() => migrateAndSeed(db)).pipe(
-    Effect.ensuring(Effect.promise(() => db.destroy()))
-  )
+  const { db } = yield* Database
+  const result = yield* Effect.promise(() => migrateAndSeed(db))
   if (result.error !== undefined) return yield* Effect.fail(result.error)
   yield* Effect.logInfo('dev database migrated')
-})
+}).pipe(Effect.provide(databaseLayer.pipe(Layer.provide(runtime))))
 
 const toRequest = (req: IncomingMessage): Request => {
   const host = req.headers.host ?? 'localhost'
@@ -177,9 +175,7 @@ export const effectVite = (opts: EffectDevPluginOptions): Plugin => {
       if (existsSync(entryFile)) chmodSync(entryFile, 0o755)
     },
     configureServer(server: ViteDevServer) {
-      const ready = Effect.runPromise(prepare.pipe(Effect.provide(runtime))).then(() =>
-        apiHandler()
-      )
+      const ready = Effect.runPromise(prepare).then(() => apiHandler())
       server.middlewares.use((req, res, next) => {
         const pathname = (req.url ?? '').split('?')[0] ?? ''
         if (!pathname.startsWith('/api/')) {

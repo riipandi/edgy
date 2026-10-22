@@ -8,7 +8,7 @@ export const migrateStatusCmd = Command.make('migrate:status').pipe(
   Command.withDescription('Check database migration status'),
   Command.withHandler(() =>
     Effect.gen(function* () {
-      const db = yield* Database
+      const { db } = yield* Database
       const migrations = yield* Effect.promise(() => migrationStatus(db))
       if (migrations.length === 0) {
         yield* Effect.logInfo('no migrations')

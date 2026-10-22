@@ -1,7 +1,7 @@
 {
     "name": "edgy",
     "version": "0.0.0",
-    "description": "Blueprint to create edge application with Effect, Kysely, and SolidJS",
+    "description": "Node.js application blueprint with Effect, Kysely, and SolidJS",
     "license": "MIT",
     "type": "module",
     "imports": {

@@ -1,9 +1,9 @@
-import { Effect, Layer } from 'effect'
+import { Duration, Effect, Layer, Redacted } from 'effect'
 import * as HttpRouter from 'effect/http/HttpRouter'
 import * as HttpServer from 'effect/http/HttpServer'
 import { TypeID } from 'typeid-js'
 import { describe, expect, it } from 'vite-plus/test'
-import { AppConfig } from '#/kernel/config/app-config.ts'
+import { AppConfig, type AppConfigShape } from '#/kernel/config/config.ts'
 import { apiRoutes } from '#/kernel/http/api.ts'
 import { UserService } from '#/modules/user/user_service.ts'
 
@@ -32,13 +32,35 @@ const testService = Layer.succeed(
   })
 )
 
-const config = {
-  host: '127.0.0.1',
-  port: 0,
-  databasePath: ':memory:',
-  logLevel: 'Info' as const,
-  otelDisabled: true,
-  rateLimitMax: 1000
+const config: AppConfigShape = {
+  server: { host: '127.0.0.1', port: 0 },
+  database: { driver: 'sqlite', path: ':memory:', autoMigrate: false },
+  logging: {
+    level: 'Info',
+    transport: ['console'],
+    file: 'storage/logs/app.jsonl',
+    format: 'pretty',
+    flushInterval: Duration.millis(250)
+  },
+  security: {
+    rateLimitEnabled: true,
+    rateLimitMax: 1000,
+    rateLimitWindow: Duration.millis(60_000)
+  },
+  cache: {
+    enabled: true,
+    ttl: Duration.millis(30_000),
+    maxEntries: 256
+  },
+  observability: {
+    metricsEnabled: false,
+    sdkDisabled: true,
+    endpoint: 'http://localhost:4318',
+    headers: Redacted.make('authorization=dev-key'),
+    serviceName: 'edgy',
+    exportInterval: Duration.millis(5_000),
+    compression: 'gzip'
+  }
 }
 
 const testConfig = Layer.succeed(AppConfig, config)
@@ -46,7 +68,12 @@ const testConfig = Layer.succeed(AppConfig, config)
 const { handler: limitedHandler } = HttpRouter.toWebHandler(
   apiRoutes.pipe(
     HttpRouter.provideRequest(testService),
-    Layer.provide(Layer.succeed(AppConfig, { ...config, rateLimitMax: 2 })),
+    Layer.provide(
+      Layer.succeed(AppConfig, {
+        ...config,
+        security: { ...config.security, rateLimitMax: 2 }
+      })
+    ),
     Layer.provide(HttpServer.layerServices)
   )
 )
