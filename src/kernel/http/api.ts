@@ -1,6 +1,7 @@
 import { Layer } from 'effect'
 import * as HttpRouter from 'effect/http/HttpRouter'
 import * as HttpServer from 'effect/http/HttpServer'
+import { requestTracer } from '#/middleware/tracer.ts'
 import { HealthModule } from '#/modules/health/module.ts'
 import { UserRoutes } from '#/modules/user/module.ts'
 import { applicationContext, disposeUserRuntime } from '#/modules/user/user_ssr.ts'
@@ -14,7 +15,10 @@ export const api = Layer.mergeAll(HealthModule, UserRoutes)
 export const apiHandler = async () => {
   const context = await applicationContext()
   const handler = HttpRouter.toWebHandler(
-    api.pipe(Layer.provide(Layer.succeedContext(context)), Layer.provide(HttpServer.layerServices))
+    Layer.mergeAll(api, requestTracer).pipe(
+      Layer.provide(Layer.succeedContext(context)),
+      Layer.provide(HttpServer.layerServices)
+    )
   )
   return {
     ...handler,
