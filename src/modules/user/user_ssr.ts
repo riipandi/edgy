@@ -1,6 +1,6 @@
 import { Effect, Layer, ManagedRuntime } from 'effect'
 import { AsyncLocalStorage } from 'node:async_hooks'
-import { ApplicationLayer, CoreLayer } from '#/layers.ts'
+import { ApplicationLayer, CoreLayer } from '#/kernel/layers.ts'
 import { UserService } from './user_service.ts'
 
 // Separate server bundles must resolve the same request context.

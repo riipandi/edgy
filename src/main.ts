@@ -1,7 +1,7 @@
 import { NodeRuntime } from '@effect/platform-node'
 import { Effect } from 'effect'
 import { run } from '#/command/cli.ts'
-import { CoreLayer } from './layers.ts'
+import { CoreLayer } from '#/kernel/layers.ts'
 
 // Telemetry exists for the long-running server. A one-shot command would
 // only wait, at exit, for a collector it has nothing worth sending to,

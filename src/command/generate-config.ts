@@ -1,8 +1,8 @@
 import { Console, Effect, FileSystem, Path } from 'effect'
 import { Command } from 'effect/cli'
 import { CliError, Flag, Prompt } from 'effect/cli'
-import { appConfig } from '../kernel/config/config.ts'
-import { renderExample } from '../kernel/config/example.ts'
+import { appConfig } from '#/kernel/config/config.ts'
+import { renderExample } from '#/kernel/config/example.ts'
 
 const isRealDotenv = (name: string): boolean =>
   /^\.env(\..+)?$/i.test(name) && name.toLowerCase() !== '.env.example'

@@ -5,7 +5,7 @@ import { runSeeders } from '#/database/seeders/index.ts'
 import { Database } from '#/database/service.ts'
 import { AppConfig } from '#/kernel/config/config.ts'
 import { server } from '#/kernel/http/serve.ts'
-import { ApplicationLayer } from '#/layers.ts'
+import { ApplicationLayer } from '#/kernel/layers.ts'
 
 const migrateBeforeStart = (seed: boolean) =>
   Effect.gen(function* () {

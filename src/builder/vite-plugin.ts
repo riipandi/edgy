@@ -11,7 +11,7 @@ import { DatabaseLayer } from '#/database/layer.ts'
 import { migrateAndSeed } from '#/database/migrator.ts'
 import { Database } from '#/database/service.ts'
 import { apiHandler } from '#/kernel/http/api.ts'
-import { CoreLayer } from '#/layers.ts'
+import { CoreLayer } from '#/kernel/layers.ts'
 
 const ENTRYPOINT = 'entry.js'
 
