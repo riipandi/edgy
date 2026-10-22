@@ -104,6 +104,7 @@ export const RateLimitCounterLayerRedis = (url: Redacted.Redacted) =>
       RateLimitCounter,
       Effect.gen(function* () {
         const limiter = yield* RateLimiter.RateLimiter
+        yield* Effect.addFinalizer(() => Effect.logInfo('closing redis rate-limit connection'))
         const consume = (key: string, max: number, window: Duration.Duration) =>
           limiter
             .consume({ key, limit: max, window, onExceeded: 'fail', algorithm: 'fixed-window' })
@@ -136,7 +137,6 @@ export const RateLimitCounterLayerRedis = (url: Redacted.Redacted) =>
       Layer.provide(NodeRedis.layer({ url: Redacted.value(url) }))
     )
   )
-
 // ---------------------------------------------------------------------------
 // store selection and the route middleware
 // ---------------------------------------------------------------------------

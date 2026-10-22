@@ -16,6 +16,8 @@ import { apiRoutes } from './api.ts'
 export const server = Layer.unwrap(
   Effect.gen(function* () {
     const config = yield* AppConfig
+    // The HTTP server's own finalizer runs first, so this log lands after the drain finishes.
+    yield* Effect.addFinalizer(() => Effect.logInfo('server stopped accepting connections'))
     const routes = Layer.mergeAll(
       trustProxy,
       requestTracer,

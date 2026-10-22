@@ -40,7 +40,7 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store vp install --frozen-lockfile \
 # Vite+ will provisions that exact Node.js automatically.
 COPY --chown=vp:vp . .
 ENV ENV_BINARY_PATH=/busybox/env NODE_ENV=production
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store vp build --mode standalone --minify
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store vpr build --mode standalone --minify
 
 # ------------------------------------------------------------------------------
 # Cleanup the builder stage and create data directory.

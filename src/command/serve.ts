@@ -1,5 +1,6 @@
 import { Effect, Layer } from 'effect'
 import { Command, Flag } from 'effect/cli'
+import { DatabaseLayer } from '#/database/adapter.ts'
 import { migrateToLatest } from '#/database/migrator.ts'
 import { runSeeders } from '#/database/seeder.ts'
 import { AppConfig } from '#/kernel/config/config.ts'
@@ -16,6 +17,19 @@ const migrateBeforeStart = (seed: boolean) =>
       yield* Effect.logInfo('Seeders applied')
     }
   })
+
+// Resolves with the signal name when a shutdown signal arrives. The scope then
+// closes normally, which awaits every finalizer; interruption would detach
+// them instead. A second signal falls back to Node's force-exit.
+const awaitShutdownSignal = Effect.callback<string>((resume) => {
+  const handler = (signal: NodeJS.Signals): void => resume(Effect.succeed(signal))
+  process.once('SIGINT', handler)
+  process.once('SIGTERM', handler)
+  return Effect.sync(() => {
+    process.off('SIGINT', handler)
+    process.off('SIGTERM', handler)
+  })
+})
 
 export const serveCmd = Command.make(
   'serve',
@@ -37,7 +51,18 @@ export const serveCmd = Command.make(
         return yield* Effect.fail(
           new Error('--seed requires --auto-migrate or DATABASE_AUTO_MIGRATE=true')
         )
-      if (autoMigrate) yield* migrateBeforeStart(config.seed)
-      yield* Layer.launch(server)
-    }).pipe(Effect.provide(ApplicationLayer))
+      if (autoMigrate) {
+        // Migrations run on their own database session so the server's
+        // long-lived connection is only opened once the schema is ready.
+        yield* migrateBeforeStart(config.seed).pipe(Effect.provide(DatabaseLayer))
+      }
+      // The server waits for a shutdown signal and completes its scope normally,
+      // so every finalizer — connection drain, database and Redis closes,
+      // telemetry flush — runs and is awaited before the process exits.
+      yield* Effect.gen(function* () {
+        const signal = yield* awaitShutdownSignal
+        yield* Effect.logInfo(`shutting down (received ${signal})`)
+      }).pipe(Effect.provide(server.pipe(Layer.provideMerge(ApplicationLayer))))
+      yield* Effect.logInfo('application terminated')
+    })
 ).pipe(Command.withDescription('Start the application server'))

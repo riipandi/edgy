@@ -92,6 +92,7 @@ const buildService = <A, E, R>(
         inMemoryCapacity: config.cache.maxEntries,
         inMemoryTTL: () => config.cache.ttl
       }).pipe(Effect.provide(context), Effect.orDie)) as unknown as PersistedLookup
+      yield* Effect.addFinalizer(() => Effect.logInfo('closing redis cache connection'))
       backing = {
         get: (key) => persisted.get(new Key({ id: key })),
         invalidate: (key) => persisted.invalidate(new Key({ id: key })).pipe(Effect.ignore)

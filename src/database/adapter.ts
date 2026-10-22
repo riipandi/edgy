@@ -66,11 +66,16 @@ export const DatabaseLayer = Layer.effect(
     return yield* Effect.acquireRelease(
       Effect.sync(() => openDatabase(config.database.path, log)),
       (database) =>
-        Effect.tryPromise({
-          try: () => database.destroy(),
-          catch: (cause) => new DatabaseError({ cause })
-        }).pipe(
-          Effect.catch((error) => Effect.logError(`database destroy failed: ${error.message}`))
+        Effect.logInfo('closing database connection').pipe(
+          Effect.andThen(
+            Effect.tryPromise({
+              try: () => database.destroy(),
+              catch: (cause) => new DatabaseError({ cause })
+            }).pipe(
+              Effect.tap(() => Effect.logInfo('database connection closed')),
+              Effect.catch((error) => Effect.logError(`database destroy failed: ${error.message}`))
+            )
+          )
         )
     )
   }).pipe(Effect.map(makeDatabaseService))

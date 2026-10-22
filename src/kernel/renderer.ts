@@ -11,6 +11,7 @@ import { UserService } from '#/modules/user/user_service.ts'
 import { withUserService } from '#/modules/user/user_ssr.ts'
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url))
+
 // The bundled server lives under dist/server while client assets sit under
 // dist/client; walk up to the shared dist root, falling back to the source
 // tree layout during development.
@@ -22,8 +23,9 @@ const distRoot = (() => {
     if (parent === dir) break
     dir = parent
   }
-  return path.resolve(moduleDir, '../../dist')
+  return path.resolve(moduleDir, '../dist')
 })()
+
 const clientRoot = path.join(distRoot, 'client')
 
 const loadBundle = () =>
