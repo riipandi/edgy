@@ -30,10 +30,7 @@
         "types": ["vite-plus/client"],
         "useDefineForClassFields": true,
         "verbatimModuleSyntax": true,
-        "paths": {
-            "~/package.json": ["./package.json"],
-            "#/*": ["./src/*"]
-        }
+        "paths": { "#/*": ["./src/*"] }
     },
     "include": ["**/*.ts", "**/*.tsx"],
     "exclude": [".output", ".wrangler", "dist"]

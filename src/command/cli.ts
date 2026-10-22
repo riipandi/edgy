@@ -1,6 +1,6 @@
 import { Effect } from 'effect'
 import { CliConfig, Command, Flag, GlobalFlag } from 'effect/cli'
-import pkg from '~/package.json' with { type: 'json' }
+import pkg from '../../package.json' with { type: 'json' }
 import { configGenerateCmd } from './generate-config.ts'
 import { migrateDownCmd } from './migrate-down.ts'
 import { migrateResetCmd } from './migrate-reset.ts'
