@@ -5,8 +5,8 @@
 | `GET`  | `/api/health`        | Checks whether the database answers a readiness query.    |
 | `GET`  | `/api/users`         | Returns the user records as a JSON array.                 |
 | `GET`  | `/api/users/:id`     | Returns one user, or a `400` or `404` response.           |
-| `GET`  | `/docs`              | Swagger UI for the API (behind `API_DOCS_ENABLED`).       |
-| `GET`  | `/docs/openapi.json` | OpenAPI document for the API (behind `API_DOCS_ENABLED`). |
+| `GET`  | `/api-docs`          | Scalar API reference (behind `API_DOCS_ENABLED`).         |
+| `GET`  | `/oapi/openapi.json` | OpenAPI document for the API (behind `API_DOCS_ENABLED`). |
 
 ## Readiness
 
@@ -24,4 +24,4 @@ API routes use the configured rate limit. A rejected request returns `429` with 
 
 ## API documentation
 
-Setting `API_DOCS_ENABLED=true` exposes `/docs` (Swagger UI) and `/docs/openapi.json` (the OpenAPI document generated from the route contracts). Both are hidden when the flag is off, which is the default; production deployments should keep it off unless the API is meant to be public.
+Setting `API_DOCS_ENABLED=true` exposes `/api-docs` (the Scalar API reference) and `/oapi/openapi.json` (the OpenAPI document generated from the route contracts). Both are hidden when the flag is off, which is the default; production deployments should keep it off unless the API is meant to be public.

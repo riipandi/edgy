@@ -1,7 +1,7 @@
 import { Effect, Layer } from 'effect'
 import * as HttpApi from 'effect/http-api/HttpApi'
 import * as HttpApiBuilder from 'effect/http-api/HttpApiBuilder'
-import * as HttpApiSwagger from 'effect/http-api/HttpApiSwagger'
+import * as HttpApiScalar from 'effect/http-api/HttpApiScalar'
 import * as OpenApi from 'effect/http-api/OpenApi'
 import * as HttpRouter from 'effect/http/HttpRouter'
 import * as HttpServer from 'effect/http/HttpServer'
@@ -23,13 +23,15 @@ export const api = HttpApi.make(pkg.name)
 export const apiRoutes = Layer.unwrap(
   Effect.gen(function* () {
     const config = yield* AppConfig
-    const openapiPath = config.docs.enabled ? ('/docs/openapi.json' as const) : undefined
+    const openapiPath = config.docs.enabled ? ('/oapi/openapi.json' as const) : undefined
     const routes = HttpApiBuilder.layer(api, { openapiPath }).pipe(
       Layer.provide(healthHandlers(api)),
       Layer.provide(usersHandlers(api)),
       Layer.provide(rateLimit)
     )
-    return config.docs.enabled ? Layer.mergeAll(routes, HttpApiSwagger.layer(api)) : routes
+    return config.docs.enabled
+      ? Layer.mergeAll(routes, HttpApiScalar.layer(api, { path: '/api-docs' }))
+      : routes
   })
 )
 
