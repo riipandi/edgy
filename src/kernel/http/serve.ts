@@ -7,6 +7,7 @@ import { AppConfig } from '#/kernel/config/config.ts'
 import { renderPage } from '#/kernel/renderer.ts'
 import { requestId } from '#/middleware/request-id.ts'
 import { requestLog } from '#/middleware/request-log.ts'
+import { securityHeaders } from '#/middleware/security-headers.ts'
 import { requestTracer } from '#/middleware/tracer.ts'
 import { trustProxy } from '#/middleware/trust-proxy.ts'
 import { disposeUserRuntimeEffect } from '#/modules/user/user_ssr.ts'
@@ -22,6 +23,7 @@ export const server = Layer.unwrap(
       HttpRouter.add('*', '*', renderPage),
       requestId,
       requestLog,
+      securityHeaders,
       Layer.effectDiscard(Effect.addFinalizer(() => disposeUserRuntimeEffect))
     )
     const withMetrics = config.observability.metricsEnabled

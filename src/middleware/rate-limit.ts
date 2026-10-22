@@ -4,7 +4,7 @@ import * as HttpRouter from 'effect/http/HttpRouter'
 import * as HttpServerRequest from 'effect/http/HttpServerRequest'
 import * as HttpServerResponse from 'effect/http/HttpServerResponse'
 import { RateLimiter } from 'effect/persistence'
-import { sql, type Insertable, type Kysely, type Selectable } from 'kysely'
+import { sql, type Kysely } from 'kysely'
 import { Database } from '#/database/adapter.ts'
 import type { DB } from '#/database/schema.ts'
 import { AppConfig } from '#/kernel/config/config.ts'
@@ -48,10 +48,6 @@ export const RateLimitSchema = Schema.Struct({
 // Table interface for Kysely
 export type IRateLimit = typeof RateLimitSchema.Type
 
-// Kysely types for operations
-export type RateLimit = Selectable<IRateLimit>
-export type RateLimitInsert = Insertable<IRateLimit>
-
 declare module '#/database/schema.ts' {
   interface DB {
     rate_limits: IRateLimit
@@ -65,16 +61,9 @@ const bumpWindow = (db: Kysely<DB>, key: string, bucket: string): Promise<number
     .onConflict((conflict) =>
       conflict.columns(['key', 'window']).doUpdateSet({ count: sql`rate_limits.count + 1` })
     )
-    .execute()
-    .then(() =>
-      db
-        .selectFrom('rate_limits')
-        .select('count')
-        .where('key', '=', key)
-        .where('window', '=', bucket)
-        .executeTakeFirstOrThrow()
-        .then((row) => row.count)
-    )
+    .returning('count')
+    .executeTakeFirstOrThrow()
+    .then((row) => row.count)
 
 export const RateLimitCounterLayerDatabase = Layer.effect(
   RateLimitCounter,

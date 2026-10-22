@@ -1,5 +1,5 @@
 import { Schema } from 'effect'
-import type { Insertable, Selectable, Updateable } from 'kysely'
+import type { Insertable, Selectable } from 'kysely'
 import { TypeID, typeid } from 'typeid-js'
 
 export type UserIdType = TypeID<'user'>
@@ -45,7 +45,6 @@ export type IUser = typeof UserSchema.Type
 // Kysely types for operations
 export type User = Selectable<IUser>
 export type UserInsert = Insertable<IUser>
-export type UserUpdate = Updateable<IUser>
 
 declare module '#/database/schema.ts' {
   interface DB {

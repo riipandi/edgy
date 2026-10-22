@@ -41,8 +41,3 @@ const cliConfig = CliConfig.layer({ builtIns })
 
 /** Root CLI program. Without a subcommand it prints help. The version comes from `package.json`. */
 export const run = Command.run(rootCmd, { version: pkg.version }).pipe(Effect.provide(cliConfig))
-
-/** The same program over explicit arguments, instead of the process's. */
-export const runWith = (args: ReadonlyArray<string>) => {
-  return Command.runWith(rootCmd, { version: pkg.version })(args).pipe(Effect.provide(cliConfig))
-}

@@ -14,13 +14,30 @@ export const httpRequestDuration = Metric.histogram('http_request_duration_secon
 
 export const statusClass = (status: number): string => `${Math.floor(status / 100)}xx`
 
+const KNOWN_METHODS = new Set([
+  'GET',
+  'HEAD',
+  'POST',
+  'PUT',
+  'PATCH',
+  'DELETE',
+  'OPTIONS',
+  'TRACE',
+  'CONNECT'
+])
+
+// Bounded to known methods so an exotic method cannot grow the series set.
+export const methodLabel = (method: string): string =>
+  KNOWN_METHODS.has(method) ? method : 'OTHER'
+
 // Bounded attributes only (method, status class) so the series count stays flat
 // no matter how many routes exist.
 export const recordRequest = (method: string, status: string, durationMs: number) =>
   Effect.gen(function* () {
-    yield* Metric.update(Metric.withAttributes(httpRequests, { method, status }), 1)
+    const boundedMethod = methodLabel(method)
+    yield* Metric.update(Metric.withAttributes(httpRequests, { method: boundedMethod, status }), 1)
     yield* Metric.update(
-      Metric.withAttributes(httpRequestDuration, { method }),
+      Metric.withAttributes(httpRequestDuration, { method: boundedMethod }),
       Math.max(0, durationMs) / 1000
     )
   })

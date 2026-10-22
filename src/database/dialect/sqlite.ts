@@ -31,7 +31,9 @@ export const openDatabase = (filename: string, log?: (event: LogEvent) => void):
       chmodSync(directory, 0o775)
     }
   }
-  const sqlite = new DatabaseSync(location)
+  // node:sqlite defaults the busy timeout to 0: a concurrent writer gets
+  // SQLITE_BUSY immediately instead of waiting out the lock.
+  const sqlite = new DatabaseSync(location, { timeout: 5_000 })
   sqlite.exec('pragma foreign_keys = on')
   sqlite.exec('pragma journal_mode = wal')
   return new Kysely<DB>({

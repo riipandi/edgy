@@ -1,7 +1,20 @@
 import { it } from '@effect/vitest'
 import { Effect, Metric } from 'effect'
 import { expect } from 'vite-plus/test'
-import { httpRequestDuration, httpRequests, recordRequest } from './metrics.ts'
+import { httpRequestDuration, httpRequests, methodLabel, recordRequest } from './metrics.ts'
+
+it.effect('maps unknown methods to OTHER to keep the series bounded', () =>
+  Effect.gen(function* () {
+    yield* recordRequest('BREW', '2xx', 1)
+    yield* recordRequest('get', '2xx', 1)
+
+    const other = yield* Metric.value(
+      Metric.withAttributes(httpRequests, { method: 'OTHER', status: '2xx' })
+    )
+    expect(other.count).toBe(2)
+    expect(methodLabel('GET')).toBe('GET')
+  })
+)
 
 it.effect('accumulates bounded request series', () =>
   Effect.gen(function* () {

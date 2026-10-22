@@ -52,12 +52,36 @@ const renderFromBundle = Effect.gen(function* () {
   return HttpServerResponse.fromWeb(response)
 })
 
+let staticHandlerMemo:
+  | Effect.Effect<
+      HttpServerResponse.HttpServerResponse,
+      HttpServerError.HttpServerError,
+      HttpServerRequest.HttpServerRequest
+    >
+  | undefined
+
+// Built once and reused: constructing the static handler per request would
+// rebuild its mime map and closures on every miss. The build reads no files,
+// so its failure channel is a defect, not a request error.
+const staticHandler = Effect.suspend(() => {
+  const memo = staticHandlerMemo
+  return (
+    memo ??
+    Effect.flatMap(
+      Effect.orDie(HttpStaticServer.make({ root: clientRoot, index: 'index.html' })),
+      (handler) => {
+        staticHandlerMemo = handler
+        return handler
+      }
+    )
+  )
+})
+
 export const renderPage = Effect.gen(function* () {
   const request = yield* HttpServerRequest.HttpServerRequest
   const { pathname } = new URL(request.originalUrl, 'http://localhost')
   if ((request.method === 'GET' || request.method === 'HEAD') && pathname !== '/') {
-    const staticFiles = yield* HttpStaticServer.make({ root: clientRoot, index: 'index.html' })
-    return yield* staticFiles.pipe(
+    return yield* staticHandler.pipe(
       Effect.catch(
         (
           error

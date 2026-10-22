@@ -131,9 +131,10 @@ export const Cacheable = {
         readonly lookup: (key: string) => Effect.Effect<Config['value'], Config['failure'], R>
       }
     ) => {
-      const tag = Context.Service<any, CacheableService<Config['value'], Config['failure']>>()(
-        identifier
-      )
+      const tag = Context.Service<
+        CacheableService<Config['value'], Config['failure']>,
+        CacheableService<Config['value'], Config['failure']>
+      >()(identifier)
       const layer = Layer.effect(tag, buildService(identifier, options))
       return Object.assign(tag, { layer })
     }

@@ -90,3 +90,7 @@ When enabled, the server serves the Scalar API reference at `/api-docs` and the 
 Traces and metrics use Effect's OTLP exporters. Logs use OTLP when `LOG_TRANSPORT` includes `otlp`.
 One-shot CLI commands disable OTLP export by default so they do not wait on a collector during
 shutdown. Set `OTEL_SDK_DISABLED=false` explicitly if a one-shot command should export telemetry.
+
+The `/metrics` endpoint is unauthenticated by design: it is meant to be scraped from inside the
+network, and access control belongs to the reverse proxy or the scrape configuration. Keep
+`METRICS_ENABLED` off on deployments that expose the port directly.

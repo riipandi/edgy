@@ -7,6 +7,9 @@ import * as HttpRouter from 'effect/http/HttpRouter'
 import * as HttpServer from 'effect/http/HttpServer'
 import { AppConfig } from '#/kernel/config/config.ts'
 import { rateLimit } from '#/middleware/rate-limit.ts'
+import { requestId } from '#/middleware/request-id.ts'
+import { requestLog } from '#/middleware/request-log.ts'
+import { securityHeaders } from '#/middleware/security-headers.ts'
 import { requestTracer } from '#/middleware/tracer.ts'
 import { trustProxy } from '#/middleware/trust-proxy.ts'
 import { HealthApi, healthHandlers } from '#/modules/health/module.ts'
@@ -41,10 +44,14 @@ export const apiRoutes = Layer.unwrap(
 export const apiHandler = async () => {
   const context = await applicationContext()
   const handler = HttpRouter.toWebHandler(
-    Layer.mergeAll(trustProxy, apiRoutes, requestTracer).pipe(
-      Layer.provide(Layer.succeedContext(context)),
-      Layer.provide(HttpServer.layerServices)
-    )
+    Layer.mergeAll(
+      trustProxy,
+      requestId,
+      requestLog,
+      securityHeaders,
+      apiRoutes,
+      requestTracer
+    ).pipe(Layer.provide(Layer.succeedContext(context)), Layer.provide(HttpServer.layerServices))
   )
   return {
     ...handler,
