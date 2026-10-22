@@ -2,7 +2,7 @@ import { Effect, Layer } from 'effect'
 import { Command, Flag } from 'effect/cli'
 import { Database } from '#/database/adapter.ts'
 import { migrateToLatest, MigratorError } from '#/database/migrator.ts'
-import { runSeeders, SeederError } from '#/database/seeder.ts'
+import { runSeeders } from '#/database/seeder.ts'
 import { AppConfig } from '#/kernel/config/config.ts'
 import { server } from '#/kernel/http/serve.ts'
 import { ApplicationLayer } from '#/kernel/layers.ts'
@@ -20,10 +20,7 @@ const migrateBeforeStart = (seed: boolean) =>
     for (const item of result.results ?? [])
       yield* Effect.logInfo(`${item.status} ${item.migrationName}`)
     if (seed) {
-      yield* Effect.tryPromise({
-        try: () => runSeeders(db),
-        catch: (cause) => new SeederError({ cause })
-      })
+      yield* runSeeders
       yield* Effect.logInfo('seeders applied')
     }
   })

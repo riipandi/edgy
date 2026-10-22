@@ -9,7 +9,7 @@ import {
   migrateToLatest,
   migrateToNoMigrations
 } from '#/database/migrator.ts'
-import { runSeeders, SeederError } from '#/database/seeder.ts'
+import { runSeeders } from '#/database/seeder.ts'
 
 export const migrateResetCmd = Command.make(
   'migrate:reset',
@@ -89,10 +89,7 @@ export const migrateResetCmd = Command.make(
         yield* Effect.logInfo(`${item.status} ${item.migrationName}`)
 
       if (config.seed) {
-        yield* Effect.tryPromise({
-          try: () => runSeeders(db),
-          catch: (cause) => new SeederError({ cause })
-        })
+        yield* runSeeders
         yield* Effect.logInfo('seeders applied')
       }
     }).pipe(Effect.provide(DatabaseLayer))

@@ -1,5 +1,6 @@
-import { Data } from 'effect'
+import { Data, Effect } from 'effect'
 import type { Kysely } from 'kysely'
+import { Database } from './adapter.ts'
 import type { DB } from './schema.ts'
 import { seedUsers, USER_SEED_COUNT } from './seeders/user_factory.ts'
 
@@ -22,7 +23,13 @@ export const SEEDERS: ReadonlyArray<Seeder> = Object.freeze([
   { name: 'users', records: USER_SEED_COUNT, run: seedUsers }
 ])
 
-/** Runs every seeder in registry order. */
-export const runSeeders = async (db: Kysely<DB>): Promise<void> => {
-  for (const seeder of SEEDERS) await seeder.run(db)
-}
+/** Runs every seeder in registry order against the acquired database. */
+export const runSeeders: Effect.Effect<void, SeederError, Database> = Effect.gen(function* () {
+  const { db } = yield* Database
+  for (const seeder of SEEDERS) {
+    yield* Effect.tryPromise({
+      try: () => seeder.run(db),
+      catch: (cause) => new SeederError({ cause })
+    })
+  }
+})
