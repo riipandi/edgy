@@ -19,7 +19,10 @@ const field = <A>(spec: FieldSpec, config: Config.Config<A>): Node<A> => ({
   specs: [spec]
 })
 
-const invalid = (name: string, message: string) =>
+/** A field whose parsing goes beyond the standard kinds. */
+export const custom = field
+
+export const invalid = (name: string, message: string) =>
   new Config.ConfigError(new ConfigProvider.SourceError({ message: `${name}: ${message}` }))
 
 export const text = (name: string, fallback: string, description: string) =>

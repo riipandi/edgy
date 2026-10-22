@@ -1,4 +1,55 @@
-import { flag, group, int, milliseconds, type ValueOf } from './field.ts'
+import { Config, Effect } from 'effect'
+import { BlockList, isIP } from 'node:net'
+import { custom, flag, group, int, invalid, milliseconds, type ValueOf } from './field.ts'
+
+/**
+ * The TRUST_PROXY setting, following the pocket-id concept: `false` trusts no
+ * proxy, `true` trusts every address, and anything else is a comma-separated
+ * list of proxy IPs or CIDR ranges.
+ */
+export interface TrustProxy {
+  readonly trustAll: boolean
+  readonly proxies: BlockList
+}
+
+const family = (address: string): 'ipv4' | 'ipv6' => (isIP(address) === 6 ? 'ipv6' : 'ipv4')
+
+const addEntry = (proxies: BlockList, entry: string): void => {
+  const separator = entry.indexOf('/')
+  const address = separator === -1 ? entry : entry.slice(0, separator)
+  if (isIP(address) === 0) throw new Error(`'${entry}' is not an IP or CIDR range`)
+  if (separator === -1) proxies.addAddress(address, family(address))
+  else proxies.addSubnet(address, Number(entry.slice(separator + 1)), family(address))
+}
+
+export const parseTrustProxy = (raw: string): Effect.Effect<TrustProxy, Config.ConfigError> =>
+  Effect.suspend(() => {
+    const value = raw.trim().toLowerCase()
+    if (value === '' || value === 'false')
+      return Effect.succeed<TrustProxy>({ trustAll: false, proxies: new BlockList() })
+    if (value === 'true')
+      return Effect.succeed<TrustProxy>({ trustAll: true, proxies: new BlockList() })
+
+    const proxies = new BlockList()
+    const entries = raw
+      .split(',')
+      .map((entry) => entry.trim())
+      .filter((entry) => entry !== '')
+    if (entries.length === 0)
+      return Effect.fail(invalid('TRUST_PROXY', 'expected proxy IPs or CIDR ranges, or true/false'))
+    for (const entry of entries) {
+      try {
+        addEntry(proxies, entry)
+      } catch {
+        return Effect.fail(invalid('TRUST_PROXY', `'${entry}' is not an IP or CIDR range`))
+      }
+    }
+    return Effect.succeed<TrustProxy>({ trustAll: false, proxies })
+  })
+
+/** Whether `address` may set the client IP in X-Forwarded-For or X-Real-IP. */
+export const isTrustedProxy = (trust: TrustProxy, address: string): boolean =>
+  trust.trustAll || (isIP(address) !== 0 && trust.proxies.check(address, family(address)))
 
 export const securityConfig = group(
   {
@@ -9,6 +60,19 @@ export const securityConfig = group(
       60_000,
       'Rate-limit window in milliseconds',
       1
+    ),
+    trustProxy: custom(
+      {
+        name: 'TRUST_PROXY',
+        description:
+          'Proxies that may set X-Forwarded-For: true, false, or comma-separated IPs/CIDRs',
+        kind: 'string',
+        default: 'false'
+      },
+      Config.String('TRUST_PROXY').pipe(
+        Config.withDefault('false'),
+        Config.mapEffect(parseTrustProxy)
+      )
     )
   },
   'Security'

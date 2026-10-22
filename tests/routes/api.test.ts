@@ -1,6 +1,7 @@
 import { Duration, Effect, Layer, Redacted } from 'effect'
 import * as HttpRouter from 'effect/http/HttpRouter'
 import * as HttpServer from 'effect/http/HttpServer'
+import { BlockList } from 'node:net'
 import { TypeID } from 'typeid-js'
 import { afterAll, describe, expect, it } from 'vite-plus/test'
 import { DatabaseError } from '#/database/service.ts'
@@ -65,7 +66,8 @@ const config: AppConfigShape = {
   security: {
     rateLimitEnabled: true,
     rateLimitMax: 1000,
-    rateLimitWindow: Duration.millis(60_000)
+    rateLimitWindow: Duration.millis(60_000),
+    trustProxy: { trustAll: false, proxies: new BlockList() }
   },
   cache: {
     enabled: true,

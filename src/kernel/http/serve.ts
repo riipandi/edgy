@@ -8,6 +8,7 @@ import { renderPage } from '#/kernel/renderer/solid.ts'
 import { requestId } from '#/middleware/request-id.ts'
 import { requestLog } from '#/middleware/request-log.ts'
 import { requestTracer } from '#/middleware/tracer.ts'
+import { trustProxy } from '#/middleware/trust-proxy.ts'
 import { disposeUserRuntimeEffect } from '#/modules/user/user_ssr.ts'
 import { api } from './api.ts'
 
@@ -15,6 +16,7 @@ export const server = Layer.unwrap(
   Effect.gen(function* () {
     const config = yield* AppConfig
     const routes = Layer.mergeAll(
+      trustProxy,
       requestTracer,
       api,
       HttpRouter.add('*', '*', renderPage),
