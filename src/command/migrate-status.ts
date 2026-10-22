@@ -4,8 +4,8 @@ import { layer as databaseLayer } from '#/database/layer.ts'
 import { migrationStatus } from '#/database/migrator.ts'
 import { Database } from '#/database/service.ts'
 
-export const migrateStatus = Command.make('migrate:status').pipe(
-  Command.withDescription('Show Kysely migration status'),
+export const migrateStatusCmd = Command.make('migrate:status').pipe(
+  Command.withDescription('Check database migration status'),
   Command.withHandler(() =>
     Effect.gen(function* () {
       const db = yield* Database

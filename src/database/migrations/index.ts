@@ -1,16 +1,16 @@
 import type { Migration } from 'kysely/migration'
-import * as createPlatform from './00001_create_platform_tables.ts'
-import * as createIdentity from './00002_create_identity_table.ts'
-import * as createToken from './00003_create_token_tables.ts'
-import * as createRateLimit from './00004_rate_limits_table.ts'
+import * as m00001 from './00001_create_platform_tables.ts'
+import * as m00002 from './00002_create_identity_table.ts'
+import * as m00003 from './00003_create_token_tables.ts'
+import * as m00004 from './00004_rate_limits_table.ts'
 
 type MigrationItems = Record<string, Migration>
 
 const MIGRATIONS: Readonly<MigrationItems> = Object.freeze({
-  '00001_create_platform_tables': createPlatform,
-  '00002_create_identity_table': createIdentity,
-  '00003_create_token_tables.ts': createToken,
-  '00004_rate_limits_table.ts': createRateLimit
+  '00001_create_platform_tables': m00001,
+  '00002_create_identity_table': m00002,
+  '00003_create_token_tables': m00003,
+  '00004_rate_limits_table': m00004
 })
 
 /** Ordered names from the statically registered migration set. */

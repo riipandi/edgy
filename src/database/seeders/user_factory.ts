@@ -38,3 +38,6 @@ export const seedUsers = async (db: Kysely<DB>): Promise<void> => {
     .onConflict((conflict) => conflict.column('id').doNothing())
     .execute()
 }
+
+/** Number of records inserted by the users seeder, for dry-run reports. */
+export const USER_SEED_COUNT = users.length

@@ -217,5 +217,5 @@ export const down = async (db: Kysely<DB>): Promise<void> => {
   await db.schema.dropTable('media').ifExists().execute()
   await db.schema.dropTable('media_folders').ifExists().execute()
   await db.schema.dropTable('audit_logs').ifExists().execute()
-  await db.schema.dropTable('options').ifExists().execute()
+  await db.schema.dropTable('app_settings').ifExists().execute()
 }

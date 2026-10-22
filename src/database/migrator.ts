@@ -1,5 +1,5 @@
 import type { Kysely } from 'kysely'
-import { Migrator, type MigrationResultSet } from 'kysely/migration'
+import { Migrator, NO_MIGRATIONS, type MigrationResultSet } from 'kysely/migration'
 import { getMigrations } from './migrations/index.ts'
 import type { DB } from './schema.ts'
 import { seedUsers } from './seeders/user_factory.ts'
@@ -15,9 +15,17 @@ function migrator(db: Kysely<DB>) {
   })
 }
 
-export const migrateToLatest = (db: Kysely<DB>): Promise<MigrationResultSet> => {
-  return migrator(db).migrateToLatest()
-}
+export const migrateToLatest = (db: Kysely<DB>): Promise<MigrationResultSet> =>
+  migrator(db).migrateToLatest()
+
+export const migrateTo = (db: Kysely<DB>, target: string): Promise<MigrationResultSet> =>
+  migrator(db).migrateTo(target)
+
+export const migrateDownStep = (db: Kysely<DB>): Promise<MigrationResultSet> =>
+  migrator(db).migrateDown()
+
+export const migrateToNoMigrations = (db: Kysely<DB>): Promise<MigrationResultSet> =>
+  migrator(db).migrateTo(NO_MIGRATIONS)
 
 export const migrationStatus = (db: Kysely<DB>) => migrator(db).getMigrations()
 
