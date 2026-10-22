@@ -68,12 +68,12 @@ export const securityConfig = group(
       'RATE_LIMIT_STORE',
       ['database', 'redis'],
       'database',
-      'Where rate-limit windows live: the database, or a shared Valkey/Redis'
+      'Where rate-limit windows live: the database, or a shared Redis'
     ),
     rateLimitRedisUrl: secret(
       'RATE_LIMIT_REDIS_URL',
       'redis://localhost:6379',
-      'Valkey/Redis connection URL for the redis rate-limit store'
+      'Redis connection URL for the redis rate-limit store'
     ),
     rateLimitMax: int('RATE_LIMIT_MAX', 100, 'Requests allowed per client per window', 1),
     rateLimitWindow: milliseconds(

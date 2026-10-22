@@ -3,7 +3,7 @@
 # Development services. The application itself runs on the host (`pnpm dev`);
 # this file only supplies what it talks to:
 #   - ClickStack (HyperDX + ClickHouse + an OpenTelemetry collector) to receive traces, metrics and logs
-#   - Valkey, a Redis-compatible store, for RATE_LIMIT_STORE=redis
+#   - Redis, for RATE_LIMIT_STORE=redis
 #
 #   pnpm compose:up        start both, in the background
 #   pnpm compose:down      stop them (data is kept in ./.storage)
@@ -19,7 +19,7 @@
 #
 # OTLP/HTTP:  http://localhost:4318 (OTEL_EXPORTER_OTLP_ENDPOINT); gRPC is not published on purpose
 #
-# Host ports are variables (CLICKSTACK_UI_PORT, OTLP_HTTP_PORT, VALKEY_PORT) for machines where
+# Host ports are variables (CLICKSTACK_UI_PORT, OTLP_HTTP_PORT, REDIS_PORT) for machines where
 # 8080, 4318 or 6379 are taken by another stack. They are published on 127.0.0.1 only: the
 # development accounts and keys below are defaults, not secrets, so they must not be reachable
 # from the network.
@@ -99,17 +99,15 @@ services:
     mem_limit: 32m # set memory limit
     cpus: 0.5 # set CPUs limit
     depends_on:
-      # Started, not healthy: waiting for health would hold `compose up --detach`
-      # for a minute. The script below retries until the API answers instead.
       clickstack: { condition: service_started }
 
-  valkey:
+  redis:
     <<: *common
-    image: docker.io/valkey/valkey:${VALKEY_VERSION:-9.2-alpine}
-    hostname: valkey
-    ports: ['127.0.0.1:${VALKEY_PORT:-6379}:6379']
-    volumes: ['./.storage/valkey:/data:rw']
-    command: '--appendonly yes --appendfsync everysec --requirepass ${VALKEY_PASSWORD:-securedb}'
+    image: docker.io/library/redis:${REDIS_VERSION:-8-alpine}
+    hostname: redis
+    ports: ['127.0.0.1:${REDIS_PORT:-6379}:6379']
+    volumes: ['./.storage/redis:/data:rw']
+    command: '--appendonly yes --appendfsync everysec --requirepass ${REDIS_PASSWORD:-securedb}'
     shm_size: 32m # set shared memory limit
     mem_limit: 128m # set memory limit
     cpus: 1.0 # set CPUs limit
@@ -117,7 +115,7 @@ services:
       test:
         [
           'CMD-SHELL',
-          'valkey-cli --no-auth-warning -a $${VALKEY_PASSWORD:-securedb} ping | grep PONG',
+          'redis-cli --no-auth-warning -a $${REDIS_PASSWORD:-securedb} ping | grep PONG',
         ]
       start_period: 5s
       interval: 15s
