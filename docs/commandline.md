@@ -23,3 +23,17 @@ migrate:seed     Run database seeders
 
 Migrations and seeders use the configured SQLite database (`DATABASE_PATH`). Destructive commands
 ask for confirmation; pass `--force` to skip the prompt. There is no remote database option.
+
+## Configuration example
+
+```sh
+config:generate                 Generate `.env.example` from the application configuration
+  --check                       Fail if `.env.example` is missing or out of date
+  --output, -o <path>            Choose another output path
+  --stdout                      Print the generated content instead of writing it
+  --overwrite                   Replace an existing file after confirmation
+  --force                       Skip confirmation; requires `--overwrite`
+```
+
+The command refuses real `.env` files, including through symlinks. It does not replace an existing
+file unless `--overwrite` is set; use `--check` in CI to detect stale configuration examples.

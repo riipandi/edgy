@@ -4,6 +4,10 @@ The application reads optional environment variables through Effect `Config`. Va
 server, database, logging, security, cache, and observability. Invalid values fail during startup
 rather than surfacing on the first request. Durations use whole milliseconds.
 
+Run `pnpm app config:generate` to render `.env.example` from the same declarations. The generator
+redacts secret defaults, refuses real `.env` files, and requires confirmation before replacing a
+different existing output file.
+
 ## Server
 
 | Variable | Default   | Meaning               |

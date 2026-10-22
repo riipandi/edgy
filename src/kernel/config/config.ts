@@ -7,10 +7,6 @@ import { observabilityConfig, telemetryEnabled } from './observability.ts'
 import { securityConfig } from './security.ts'
 import { serverConfig } from './server.ts'
 
-export type { LogFormat } from './logging.ts'
-export type { ObservabilityConfig } from './observability.ts'
-export { telemetryEnabled } from './observability.ts'
-
 export const appConfig = group({
   server: serverConfig,
   database: databaseConfig,
@@ -42,3 +38,7 @@ export const layer: Layer.Layer<AppConfig, Config.ConfigError> = Layer.effect(
   AppConfig,
   validatedConfig
 )
+
+export type { LogFormat } from './logging.ts'
+export type { ObservabilityConfig } from './observability.ts'
+export { telemetryEnabled } from './observability.ts'
