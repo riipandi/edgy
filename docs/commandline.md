@@ -4,14 +4,14 @@ Global flags: `--version`, `--log-level <level>`, `--completions <shell>`, `--he
 
 ## Server
 
-```
+```sh
 serve                Start the HTTP server
    --auto-migrate    Run pending database migrations before starting
 ```
 
 ## Configuration
 
-```
+```sh
 config:generate      Generate .env.example from the application configuration
    --output, -o      File to write (default: .env.example; never a real .env file)
    --overwrite       Replace an existing file whose content differs (asks for confirmation)
@@ -22,7 +22,7 @@ config:generate      Generate .env.example from the application configuration
 
 ## API description
 
-```
+```sh
 openapi:generate     Generate the OpenAPI description of the API
    --output, -o      File to write (default: docs/openapi.json)
    --overwrite       Replace an existing file whose content differs (asks for confirmation)
@@ -33,7 +33,7 @@ openapi:generate     Generate the OpenAPI description of the API
 
 ## Database Migration
 
-```
+```sh
 migrate:up      Run database migrations
    --to name    Apply migrations only up to this migration name
    --remote     Use the remote D1 database instead of the local one
