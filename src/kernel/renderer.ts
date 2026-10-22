@@ -8,6 +8,8 @@ import * as HttpStaticServer from 'effect/http/HttpStaticServer'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { typeid } from 'typeid-js'
+import { cspFor } from '#/middleware/security-headers.ts'
 import { UserService } from '#/modules/user/user_service.ts'
 import { withUserService } from '#/modules/user/user_ssr.ts'
 
@@ -35,7 +37,10 @@ const loadBundle = () =>
   import(pathToFileURL(path.join(distRoot, 'server/server.js')).href) as Promise<{
     handleRequest: (
       request: Request,
-      options?: { readonly event?: { readonly nativeEvent?: unknown } }
+      options?: {
+        readonly nonce?: string
+        readonly event?: { readonly nativeEvent?: unknown }
+      }
     ) => Promise<Response>
   }>
 
@@ -43,18 +48,22 @@ const renderFromBundle = Effect.gen(function* () {
   const request = yield* HttpServerRequest.HttpServerRequest
   const webRequest = yield* HttpServerRequest.toWeb(request)
   const userService = yield* UserService
+  const nonce = typeid('nonce').toString()
   const response = yield* Effect.tryPromise({
     try: async (signal) => {
       const serverBundle = await loadBundle()
       return withUserService(userService, () =>
         serverBundle.handleRequest(new Request(webRequest, { signal }), {
+          nonce,
           event: { nativeEvent: NodeHttpServerRequest.toIncomingMessage(request) }
         })
       )
     },
     catch: (cause) => new InternalError({ request, cause })
   })
-  return HttpServerResponse.fromWeb(response)
+  return HttpServerResponse.setHeaders({
+    'content-security-policy': cspFor(nonce)
+  })(HttpServerResponse.fromWeb(response))
 })
 
 let staticHandlerMemo:

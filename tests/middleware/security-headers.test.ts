@@ -3,12 +3,18 @@ import * as HttpRouter from 'effect/http/HttpRouter'
 import * as HttpServer from 'effect/http/HttpServer'
 import * as HttpServerResponse from 'effect/http/HttpServerResponse'
 import { afterAll, expect, it } from 'vite-plus/test'
-import { securityHeaders } from '#/middleware/security-headers.ts'
+import {
+  applySecurityHeaders,
+  cspFor,
+  securityHeaders,
+  securityHeadersMiddleware
+} from '#/middleware/security-headers.ts'
 
 const { handler, dispose } = HttpRouter.toWebHandler(
-  Layer.mergeAll(HttpRouter.add('GET', '/', HttpServerResponse.text('ok')), securityHeaders).pipe(
-    Layer.provide(HttpServer.layerServices)
-  ),
+  Layer.mergeAll(
+    HttpRouter.add('GET', '/', HttpServerResponse.text('ok')),
+    securityHeadersMiddleware
+  ).pipe(Layer.provide(HttpServer.layerServices)),
   { disableLogger: true }
 )
 
@@ -23,4 +29,22 @@ it('sets the hardening headers on every response', async () => {
   expect(csp).toContain("default-src 'self'")
   expect(csp).toContain('frame-ancestors')
   expect(csp).toContain('unsafe-inline')
+})
+
+it('omits script-src when no nonce is given', () => {
+  expect(securityHeaders['content-security-policy']).not.toContain('script-src')
+})
+
+it('leaves a response that already carries a CSP untouched', () => {
+  const withCsp = HttpServerResponse.setHeaders({
+    'content-security-policy': "script-src 'self'"
+  })(HttpServerResponse.empty())
+  expect(applySecurityHeaders(withCsp).headers['content-security-policy']).toBe("script-src 'self'")
+})
+
+it('builds a nonce CSP that keeps the strict-dynamic chain', () => {
+  const csp = cspFor('nonce_01m5jtbsr4ehya4j9w1z5cjkqq')
+  expect(csp).toContain("'nonce-nonce_01m5jtbsr4ehya4j9w1z5cjkqq'")
+  expect(csp).toContain("'strict-dynamic'")
+  expect(csp).toContain("default-src 'self'")
 })

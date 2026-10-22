@@ -9,7 +9,7 @@ import { AppConfig } from '#/kernel/config/config.ts'
 import { rateLimit } from '#/middleware/rate-limit.ts'
 import { requestId } from '#/middleware/request-id.ts'
 import { requestLog } from '#/middleware/request-log.ts'
-import { securityHeaders } from '#/middleware/security-headers.ts'
+import { securityHeadersMiddleware } from '#/middleware/security-headers.ts'
 import { requestTracer } from '#/middleware/tracer.ts'
 import { trustProxy } from '#/middleware/trust-proxy.ts'
 import { HealthApi, healthHandlers } from '#/modules/health/module.ts'
@@ -48,7 +48,7 @@ export const apiHandler = async () => {
       trustProxy,
       requestId,
       requestLog,
-      securityHeaders,
+      securityHeadersMiddleware,
       apiRoutes,
       requestTracer
     ).pipe(Layer.provide(Layer.succeedContext(context)), Layer.provide(HttpServer.layerServices))
