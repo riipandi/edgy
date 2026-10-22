@@ -14,7 +14,7 @@ The Vite API adapter builds `ApplicationLayer` into a `ManagedRuntime` and gives
 
 ## Persistence
 
-Kysely runs over SQLite through Node's built-in `node:sqlite` adapter. `DatabaseLayer` acquires the Kysely instance and destroys it when its Effect scope closes. Migrations and seeders use the same database service from CLI commands.
+Kysely runs over SQLite through Node's built-in `node:sqlite` adapter. `database/schema.ts` exports an empty `Database` interface that feature schemas augment with their table types. The user feature derives its Kysely row type from its Effect entity schema in `modules/user/user_schema.ts`. `DatabaseLayer` acquires the Kysely instance and destroys it when its Effect scope closes. Migrations and seeders use the same database service from CLI commands.
 
 ## Operational limits
 

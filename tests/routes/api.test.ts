@@ -18,6 +18,7 @@ const user = (uuid: string, name: string) => ({
   role: 20,
   email_verified: 1,
   data: null,
+  disabled: 0,
   created_at: '2024-01-01 00:00:00',
   updated_at: '2024-01-01 00:00:00'
 })

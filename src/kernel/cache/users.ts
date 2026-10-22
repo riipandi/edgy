@@ -1,6 +1,6 @@
 import { Cache, Effect } from 'effect'
-import type { User } from '#/database/schema.ts'
 import type { CacheConfig } from '#/kernel/config/cache.ts'
+import type { User } from '#/modules/user/user_schema.ts'
 
 export const makeUserCache = <E>(
   config: CacheConfig,

@@ -5,6 +5,7 @@
 - `ApplicationLayer` in `src/layers.ts` is the composition point for application services; it builds the user and health services over one `DatabaseLayer` instance per layer scope.
 - `serve --auto-migrate` applies migrations and then serves requests with the same scoped `Database` service, including when `DATABASE_PATH=:memory:`.
 - Feature services depend on repository interfaces. Repository implementations belong in their feature module and use the database service; keep Kysely query construction out of HTTP handlers and application services.
+- A feature's Effect entity schema defines its row type and Kysely table type; it augments `src/database/schema.ts`'s `Database` interface instead of registering tables centrally.
 - `/api/health` is a readiness probe: it returns `200` when the database ping succeeds and `503` when it fails. It is not a process liveness probe.
 - User repository failures return a sanitized `503` response. The underlying database cause must not be included in the HTTP body.
 - API routes are rate-limited in process memory. Multiple server instances do not share counters.

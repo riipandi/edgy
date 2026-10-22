@@ -1,15 +1,17 @@
-import type { User, UserView } from './user_schema.ts'
+import type { User } from './user_schema.ts'
 
 const unknownUser = {
+  id: 'unknown',
   name: 'Unknown',
   email: '',
   avatar_url: null,
   role: 0,
   email_verified: 0,
   data: null,
+  disabled: 0,
   created_at: '',
   updated_at: ''
-} satisfies UserView
+} satisfies User
 
 export const listUsers = async (): Promise<readonly User[]> => {
   if (import.meta.env.SSR) {
@@ -19,7 +21,7 @@ export const listUsers = async (): Promise<readonly User[]> => {
   return fromResponse(await fetch('/api/users'))
 }
 
-export const getUser = async (id: string): Promise<User | UserView> => {
+export const getUser = async (id: string): Promise<User> => {
   if (import.meta.env.SSR) {
     const { getUserFromService } = await import('./user_ssr.ts')
     return (await getUserFromService(id)) ?? unknownUser

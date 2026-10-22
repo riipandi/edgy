@@ -1,6 +1,6 @@
 import { Context, Data, Effect, Layer } from 'effect'
-import type { User } from '#/database/schema.ts'
 import { Database } from '#/database/service.ts'
+import type { User } from './user_schema.ts'
 
 export class UserRepositoryError extends Data.TaggedError('UserRepositoryError')<{
   readonly cause: unknown

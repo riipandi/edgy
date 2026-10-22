@@ -30,7 +30,7 @@ export const findUser = withPersistenceErrors(
     const params = yield* HttpRouter.schemaPathParams(UserIdParams)
     let id: string
     try {
-      id = parseUserId(params.id)
+      id = parseUserId(params.id).toString()
     } catch {
       return HttpServerResponse.setStatus(400)(
         HttpServerResponse.jsonUnsafe({ message: 'Invalid user id' })
