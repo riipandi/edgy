@@ -226,6 +226,24 @@
             }
         },
         {
+            "name": "Days of headroom",
+            "x": 0,
+            "y": 48,
+            "w": 6,
+            "h": 4,
+            "config": {
+                "displayType": "number",
+                "numberFormat": {
+                    "output": "number",
+                    "mantissa": 0
+                },
+                "configType": "sql",
+                "source": "Logs",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT round(space.free_space / greatest(qlog.rate, 1) / 86400, 0) AS days_headroom FROM system.disks AS space CROSS JOIN (SELECT sum(written_bytes) / greatest(dateDiff('second', min(event_time), max(event_time)), 1) AS rate FROM system.query_log WHERE event_time >= now() - INTERVAL 7 DAY AND type = 'QueryFinish') AS qlog"
+            }
+        },
+        {
             "name": "Merges in flight",
             "x": 18,
             "y": 25,
