@@ -3,6 +3,7 @@ import { Command, Flag } from 'effect/cli'
 import { migrateToLatest } from '#/database/migrator.ts'
 import { runSeeders } from '#/database/seeder.ts'
 import { AppConfig } from '#/kernel/config/config.ts'
+import { awaitShutdownSignal } from '#/kernel/graceful.ts'
 import { server } from '#/kernel/http/serve.ts'
 import { ApplicationLayer } from '#/kernel/layers.ts'
 
@@ -16,19 +17,6 @@ const migrateBeforeStart = (seed: boolean) =>
       yield* Effect.logInfo('Seeders applied')
     }
   })
-
-// Resolves with the signal name when a shutdown signal arrives. The scope then
-// closes normally, which awaits every finalizer; interruption would detach
-// them instead. A second signal falls back to Node's force-exit.
-const awaitShutdownSignal = Effect.callback<string>((resume) => {
-  const handler = (signal: NodeJS.Signals): void => resume(Effect.succeed(signal))
-  process.once('SIGINT', handler)
-  process.once('SIGTERM', handler)
-  return Effect.sync(() => {
-    process.off('SIGINT', handler)
-    process.off('SIGTERM', handler)
-  })
-})
 
 export const serveCmd = Command.make(
   'serve',
