@@ -169,34 +169,10 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
     .column('storage_key')
     .ifNotExists()
     .execute()
-
-  // ---------------------------------------------------------------------------
-  // Table and indexes for: revisions
-  // Purpose: stores snapshots of content entries
-  // ---------------------------------------------------------------------------
-  await db.schema
-    .createTable('revisions')
-    .addColumn('id', 'text', (col) => col.primaryKey())
-    .addColumn('collection', 'text', (col) => col.notNull()) // e.g., 'posts'
-    .addColumn('entry_id', 'text', (col) => col.notNull()) // ID in the ec_* table
-    .addColumn('data', 'text', (col) => col.notNull()) // JSON snapshot of all fields
-    .addColumn('author_id', 'text')
-    .addColumn('created_at', 'text', (col) => col.defaultTo(currentTimestamp(db)))
-    .modifyEnd(modifyEndQuery(db))
-    .ifNotExists()
-    .execute()
-
-  await db.schema
-    .createIndex('idx_revisions_entry')
-    .on('revisions')
-    .columns(['collection', 'entry_id'])
-    .ifNotExists()
-    .execute()
 }
 
 export const down = async (db: Kysely<DB>): Promise<void> => {
   // Drop indexes first in reverse order
-  await db.schema.dropIndex('idx_revisions_entry').ifExists().execute()
   await db.schema.dropIndex('idx_media_storage_key').ifExists().execute()
   await db.schema.dropIndex('idx_media_upload_attempts_status_created_at').ifExists().execute()
   await db.schema.dropIndex('idx_media_upload_attempts_media_id').ifExists().execute()
@@ -212,7 +188,6 @@ export const down = async (db: Kysely<DB>): Promise<void> => {
   await db.schema.dropIndex('idx_audit_actor').ifExists().execute()
 
   // Drop tables in reverse order
-  await db.schema.dropTable('revisions').ifExists().execute()
   await db.schema.dropTable('media_upload_attempts').ifExists().execute()
   await db.schema.dropTable('media').ifExists().execute()
   await db.schema.dropTable('media_folders').ifExists().execute()
