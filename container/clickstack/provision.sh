@@ -127,8 +127,8 @@ fi
 # are regenerated whenever the stack is recreated. The API compares those
 # fields against `_id`, so the names are resolved here, and an unknown name
 # fails the run instead of provisioning a dashboard with a dangling reference.
-# `tiles` maps a tile name to the id it already has, so an update keeps it;
-# two tiles sharing a name are left to the API, which mints fresh ids.
+# `tiles` and `filters` map a name to the id it already has, so an update keeps
+# it; two entries sharing a name are left to the API, which mints fresh ids.
 filter='
 def id_of($table; $kind):
   if . == null then . else ($table[.] // error("unknown \($kind) \(.)")) end;
@@ -144,7 +144,7 @@ def id_of($table; $kind):
     .filters |= map(
       (if .source then .sourceId = (.source | id_of($sources; "source")) else . end)
       | del(.source)
-      | (if $mode == "create" then del(.id) else . end)
+      | (if $filters[.name] then .id = $filters[.name] else del(.id) end)
     )
   else . end)
 '
@@ -156,7 +156,12 @@ for file in "$dir"/*.json; do
         mode=update
         method=PUT
         url="$api/dashboards/$id"
-        tiles=$(api_curl "$url" | jq -c '[.data.tiles[]]
+        stored=$(api_curl "$url")
+        tiles=$(printf '%s' "$stored" | jq -c '[.data.tiles[]]
+      | group_by(.name)
+      | map(select(length == 1) | {(.[0].name): .[0].id})
+      | add // {}')
+        filters=$(printf '%s' "$stored" | jq -c '[(.data.filters // [])[]]
       | group_by(.name)
       | map(select(length == 1) | {(.[0].name): .[0].id})
       | add // {}')
@@ -165,10 +170,12 @@ for file in "$dir"/*.json; do
         method=POST
         url="$api/dashboards"
         tiles='{}'
+        filters='{}'
     fi
 
-    body=$(jq -c --arg mode "$mode" --argjson sources "$sources" \
-        --argjson connections "$connections" --argjson tiles "$tiles" "$filter" "$file") || {
+    body=$(jq -c --argjson sources "$sources" \
+        --argjson connections "$connections" --argjson tiles "$tiles" \
+        --argjson filters "$filters" "$filter" "$file") || {
         echo "HyperDX: $file could not be prepared"
         exit 1
     }
@@ -190,3 +197,22 @@ for file in "$dir"/*.json; do
     fi
     echo "HyperDX: provisioned $name"
 done
+
+# A dashboard this repository no longer ships is removed, so a renamed file does
+# not leave its old copy behind. The `edgy` tag scopes the sweep: a dashboard
+# created by hand on the same instance carries no such tag and is left alone.
+names=$(for file in "$dir"/*.json; do jq -r '.name' "$file"; done | jq -R . | jq -sc .)
+api_curl "$api/dashboards" |
+    jq -r --argjson names "$names" '
+        .data[]
+        | select((.tags // []) | index("edgy"))
+        | select(.name as $name | $names | index($name) | not)
+        | "\(.id) \(.name)"' >/tmp/stale.txt
+while read -r id name; do
+    status=$(curl -s -o /tmp/answer -w '%{http_code}' -X DELETE -H "$auth" "$api/dashboards/$id")
+    if [ "$status" != '200' ]; then
+        echo "HyperDX: $name could not be removed: $(jq -c '.message // .' /tmp/answer)"
+        exit 1
+    fi
+    echo "HyperDX: removed $name"
+done </tmp/stale.txt

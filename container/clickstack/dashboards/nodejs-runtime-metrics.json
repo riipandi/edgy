@@ -1,20 +1,27 @@
 {
     "name": "Node.js Runtime Metrics",
-    "tags": ["otel", "runtime-metrics", "nodejs"],
+    "tags": ["edgy", "runtime", "nodejs"],
+    "filters": [
+        {
+            "name": "Service",
+            "type": "QUERY_EXPRESSION",
+            "expression": "ServiceName",
+            "source": "Metrics",
+            "sourceMetricType": "gauge",
+            "where": "ResourceAttributes.telemetry.sdk.language:\"nodejs\"",
+            "whereLanguage": "lucene"
+        }
+    ],
     "tiles": [
         {
-            "name": "EL Delay p99 (ms)",
+            "name": "Event loop delay p99 (ms)",
             "x": 0,
             "y": 0,
             "w": 6,
             "h": 4,
             "config": {
                 "displayType": "number",
-                "numberFormat": {
-                    "output": "number",
-                    "mantissa": 1,
-                    "thousandSeparated": true
-                },
+                "numberFormat": { "output": "number", "mantissa": 1, "thousandSeparated": true },
                 "alignDateRangeToGranularity": true,
                 "source": "Metrics",
                 "select": [
@@ -28,17 +35,14 @@
             }
         },
         {
-            "name": "Event Loop Util",
+            "name": "Event loop utilization (%)",
             "x": 6,
             "y": 0,
             "w": 6,
             "h": 4,
             "config": {
                 "displayType": "number",
-                "numberFormat": {
-                    "output": "percent",
-                    "mantissa": 1
-                },
+                "numberFormat": { "output": "percent", "mantissa": 1 },
                 "alignDateRangeToGranularity": true,
                 "source": "Metrics",
                 "select": [
@@ -52,17 +56,14 @@
             }
         },
         {
-            "name": "Heap Used",
+            "name": "Heap used",
             "x": 12,
             "y": 0,
             "w": 6,
             "h": 4,
             "config": {
                 "displayType": "number",
-                "numberFormat": {
-                    "output": "byte",
-                    "mantissa": 1
-                },
+                "numberFormat": { "output": "byte", "mantissa": 1 },
                 "alignDateRangeToGranularity": true,
                 "source": "Metrics",
                 "select": [
@@ -76,17 +77,14 @@
             }
         },
         {
-            "name": "CPU Utilization",
+            "name": "CPU utilization (%)",
             "x": 18,
             "y": 0,
             "w": 6,
             "h": 4,
             "config": {
                 "displayType": "number",
-                "numberFormat": {
-                    "output": "percent",
-                    "mantissa": 1
-                },
+                "numberFormat": { "output": "percent", "mantissa": 1 },
                 "alignDateRangeToGranularity": true,
                 "source": "Metrics",
                 "select": [
@@ -100,18 +98,14 @@
             }
         },
         {
-            "name": "Event Loop Delay Percentiles (ms)",
+            "name": "Event loop delay percentiles (ms)",
             "x": 0,
             "y": 4,
             "w": 12,
             "h": 7,
             "config": {
                 "displayType": "line",
-                "numberFormat": {
-                    "output": "number",
-                    "mantissa": 1,
-                    "thousandSeparated": true
-                },
+                "numberFormat": { "output": "number", "mantissa": 1, "thousandSeparated": true },
                 "alignDateRangeToGranularity": true,
                 "source": "Metrics",
                 "select": [
@@ -119,38 +113,35 @@
                         "aggFn": "avg",
                         "valueExpression": "Value",
                         "metricType": "gauge",
-                        "alias": "p50",
-                        "metricName": "nodejs.eventloop.delay.p50"
+                        "metricName": "nodejs.eventloop.delay.p50",
+                        "alias": "p50"
                     },
                     {
                         "aggFn": "avg",
                         "valueExpression": "Value",
                         "metricType": "gauge",
-                        "alias": "p90",
-                        "metricName": "nodejs.eventloop.delay.p90"
+                        "metricName": "nodejs.eventloop.delay.p90",
+                        "alias": "p90"
                     },
                     {
                         "aggFn": "avg",
                         "valueExpression": "Value",
                         "metricType": "gauge",
-                        "alias": "p99",
-                        "metricName": "nodejs.eventloop.delay.p99"
+                        "metricName": "nodejs.eventloop.delay.p99",
+                        "alias": "p99"
                     }
                 ]
             }
         },
         {
-            "name": "Event Loop Utilization",
+            "name": "Event loop utilization over time (%)",
             "x": 12,
             "y": 4,
             "w": 12,
             "h": 7,
             "config": {
                 "displayType": "line",
-                "numberFormat": {
-                    "output": "percent",
-                    "mantissa": 1
-                },
+                "numberFormat": { "output": "percent", "mantissa": 1 },
                 "alignDateRangeToGranularity": true,
                 "source": "Metrics",
                 "select": [
@@ -164,17 +155,14 @@
             }
         },
         {
-            "name": "V8 Heap: Used vs Limit",
+            "name": "V8 heap: used vs limit",
             "x": 0,
             "y": 11,
             "w": 12,
             "h": 7,
             "config": {
                 "displayType": "line",
-                "numberFormat": {
-                    "output": "byte",
-                    "mantissa": 1
-                },
+                "numberFormat": { "output": "byte", "mantissa": 1 },
                 "alignDateRangeToGranularity": true,
                 "source": "Metrics",
                 "select": [
@@ -182,33 +170,29 @@
                         "aggFn": "avg",
                         "valueExpression": "Value",
                         "metricType": "gauge",
-                        "alias": "used",
-                        "metricName": "v8js.memory.heap.used"
+                        "metricName": "v8js.memory.heap.used",
+                        "alias": "used"
                     },
                     {
                         "aggFn": "avg",
                         "valueExpression": "Value",
                         "metricType": "gauge",
-                        "alias": "limit",
-                        "metricName": "v8js.memory.heap.limit"
+                        "metricName": "v8js.memory.heap.limit",
+                        "alias": "limit"
                     }
                 ]
             }
         },
         {
-            "name": "V8 Heap Spaces (physical size)",
+            "name": "V8 heap spaces (physical size)",
             "x": 12,
             "y": 11,
             "w": 12,
             "h": 7,
             "config": {
                 "displayType": "line",
-                "numberFormat": {
-                    "output": "byte",
-                    "mantissa": 1
-                },
+                "numberFormat": { "output": "byte", "mantissa": 1 },
                 "alignDateRangeToGranularity": true,
-                "groupBy": "",
                 "source": "Metrics",
                 "select": [
                     {
@@ -221,17 +205,14 @@
             }
         },
         {
-            "name": "CPU Utilization over time",
+            "name": "CPU utilization over time (%)",
             "x": 0,
             "y": 18,
             "w": 12,
             "h": 7,
             "config": {
                 "displayType": "line",
-                "numberFormat": {
-                    "output": "percent",
-                    "mantissa": 1
-                },
+                "numberFormat": { "output": "percent", "mantissa": 1 },
                 "alignDateRangeToGranularity": true,
                 "source": "Metrics",
                 "select": [
@@ -245,13 +226,14 @@
             }
         },
         {
-            "name": "Event Loop Busy Time",
+            "name": "Event loop busy time (s/min)",
             "x": 12,
             "y": 18,
             "w": 12,
             "h": 7,
             "config": {
                 "displayType": "line",
+                "numberFormat": { "output": "number", "mantissa": 2, "thousandSeparated": true },
                 "alignDateRangeToGranularity": true,
                 "source": "Metrics",
                 "select": [
@@ -263,18 +245,6 @@
                     }
                 ]
             }
-        }
-    ],
-    "filters": [
-        {
-            "id": "svc-filter-001",
-            "name": "ServiceName",
-            "type": "QUERY_EXPRESSION",
-            "expression": "ServiceName",
-            "where": "ResourceAttributes.telemetry.sdk.language:\"nodejs\"",
-            "whereLanguage": "lucene",
-            "source": "Metrics",
-            "sourceMetricType": "gauge"
         }
     ]
 }

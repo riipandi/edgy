@@ -1,0 +1,146 @@
+{
+    "name": "Redis Database",
+    "tags": ["edgy", "infra", "redis"],
+    "tiles": [
+        {
+            "name": "Keys in use",
+            "x": 0,
+            "y": 0,
+            "w": 6,
+            "h": 4,
+            "config": {
+                "displayType": "number",
+                "configType": "sql",
+                "source": "Metrics",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT sum(latest) AS keys FROM (SELECT max(Value) AS latest FROM $__sourceTable(gauge) WHERE $__timeFilter(TimeUnix) AND MetricName = 'redis_db_keys' GROUP BY Attributes['db'])"
+            }
+        },
+        {
+            "name": "Memory used (MB)",
+            "x": 6,
+            "y": 0,
+            "w": 6,
+            "h": 4,
+            "config": {
+                "displayType": "number",
+                "configType": "sql",
+                "source": "Metrics",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT if(count() = 0, 0, round(max(Value) / 1024 / 1024, 1)) AS used_mb FROM $__sourceTable(gauge) WHERE $__timeFilter(TimeUnix) AND MetricName = 'redis_memory_used_bytes'"
+            }
+        },
+        {
+            "name": "Cache hit rate (%)",
+            "x": 12,
+            "y": 0,
+            "w": 6,
+            "h": 4,
+            "config": {
+                "displayType": "number",
+                "configType": "sql",
+                "source": "Metrics",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT round(100 * maxIf(Value, MetricName = 'redis_keyspace_hits_total') / greatest(maxIf(Value, MetricName = 'redis_keyspace_hits_total') + maxIf(Value, MetricName = 'redis_keyspace_misses_total'), 1), 2) AS hit_pct FROM $__sourceTable(sum) WHERE $__timeFilter(TimeUnix) AND MetricName IN ('redis_keyspace_hits_total', 'redis_keyspace_misses_total')"
+            }
+        },
+        {
+            "name": "Connected clients",
+            "x": 18,
+            "y": 0,
+            "w": 6,
+            "h": 4,
+            "config": {
+                "displayType": "number",
+                "configType": "sql",
+                "source": "Metrics",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT if(count() = 0, 0, max(Value)) AS clients FROM $__sourceTable(gauge) WHERE $__timeFilter(TimeUnix) AND MetricName = 'redis_connected_clients'"
+            }
+        },
+        {
+            "name": "Commands per second",
+            "x": 0,
+            "y": 4,
+            "w": 12,
+            "h": 7,
+            "config": {
+                "displayType": "line",
+                "configType": "sql",
+                "source": "Metrics",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT $__timeInterval(TimeUnix) AS ts, round((max(Value) - min(Value)) / $__interval_s, 2) AS commands_per_s FROM $__sourceTable(sum) WHERE $__timeFilter(TimeUnix) AND MetricName = 'redis_commands_processed_total' GROUP BY ts ORDER BY ts"
+            }
+        },
+        {
+            "name": "Memory used vs limit (MB)",
+            "x": 12,
+            "y": 4,
+            "w": 12,
+            "h": 7,
+            "config": {
+                "displayType": "line",
+                "configType": "sql",
+                "source": "Metrics",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT $__timeInterval(TimeUnix) AS ts, MetricName AS series, round(max(Value) / 1024 / 1024, 1) AS mb FROM $__sourceTable(gauge) WHERE $__timeFilter(TimeUnix) AND MetricName IN ('redis_memory_used_bytes', 'redis_memory_max_bytes') GROUP BY ts, series ORDER BY ts"
+            }
+        },
+        {
+            "name": "Evictions and expirations per minute",
+            "x": 0,
+            "y": 11,
+            "w": 12,
+            "h": 7,
+            "config": {
+                "displayType": "line",
+                "configType": "sql",
+                "source": "Metrics",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT $__timeInterval(TimeUnix) AS ts, MetricName AS series, round((max(Value) - min(Value)) * 60 / $__interval_s, 0) AS per_minute FROM $__sourceTable(sum) WHERE $__timeFilter(TimeUnix) AND MetricName IN ('redis_evicted_keys_total', 'redis_expired_keys_total', 'redis_rejected_connections_total') GROUP BY ts, series ORDER BY ts"
+            }
+        },
+        {
+            "name": "Event loop latency (ms)",
+            "x": 12,
+            "y": 11,
+            "w": 12,
+            "h": 7,
+            "config": {
+                "displayType": "line",
+                "configType": "sql",
+                "source": "Metrics",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT $__timeInterval(TimeUnix) AS ts, round(avg(Value) / 1000, 2) AS latency_ms FROM $__sourceTable(gauge) WHERE $__timeFilter(TimeUnix) AND MetricName = 'redis_instantaneous_eventloop_duration_usec' GROUP BY ts ORDER BY ts"
+            }
+        },
+        {
+            "name": "Persistence and replication",
+            "x": 0,
+            "y": 18,
+            "w": 12,
+            "h": 7,
+            "config": {
+                "displayType": "table",
+                "configType": "sql",
+                "source": "Metrics",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT MetricName AS metric, max(Value) AS value FROM $__sourceTable(gauge) WHERE $__timeFilter(TimeUnix) AND MetricName IN ('redis_rdb_last_bgsave_status', 'redis_aof_last_write_status', 'redis_aof_enabled', 'redis_connected_slaves', 'redis_uptime_in_seconds') GROUP BY metric ORDER BY metric"
+            }
+        },
+        {
+            "name": "Scrape health",
+            "x": 12,
+            "y": 18,
+            "w": 12,
+            "h": 7,
+            "config": {
+                "displayType": "table",
+                "configType": "sql",
+                "source": "Metrics",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT MetricName AS metric, round(max(Value), 3) AS value, max(TimeUnix) AS last_sample FROM $__sourceTable(gauge) WHERE $__timeFilter(TimeUnix) AND MetricName IN ('redis_up', 'redis_exporter_last_scrape_error', 'redis_exporter_last_scrape_duration_seconds', 'up') GROUP BY metric ORDER BY metric"
+            }
+        }
+    ]
+}

@@ -102,10 +102,14 @@ Select the `otlp` value in `LOG_TRANSPORT` to export logs as well. See
 [Configuration](./configuration.md) for the full list of options.
 
 The stack ships six dashboards, provisioned from `container/clickstack/dashboards` on
-`vpr compose:up`: the application (throughput, latency, errors, logs), reliability, storage,
-the telemetry pipeline, Redis, and Node.js runtime metrics. Edit those JSON files rather than the
-copies in the UI — `container/clickstack/provision.sh` owns them and overwrites them
-on every start.
+`vpr compose:up`: `Application Overview` (traffic, latency, errors, and the storage footprint
+per service), `Application Errors`, `Redis Database`, `ClickHouse Database` (size, disk capacity,
+writes, and query latency split into application and infrastructure data), `Pipeline Collector`,
+and `Node.js Runtime Metrics`. Edit those JSON files rather than the copies in the UI —
+`container/clickstack/provision.sh` owns them and overwrites them on every start. Every dashboard
+carries the `edgy` tag plus one area tag (`application`, `infra`, `runtime`), which is also how the
+provisioner knows which dashboards it may remove: a file that is renamed or deleted takes its old
+dashboard with it, while a dashboard created by hand is left alone.
 
 The files are written in the shape the v2 REST API accepts, with each tile and filter naming its
 source and connection; the provisioner resolves those names to the ids HyperDX assigned, because
