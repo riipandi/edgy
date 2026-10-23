@@ -10,6 +10,7 @@
             "h": 4,
             "config": {
                 "displayType": "number",
+                "numberFormat": { "output": "number", "mantissa": 0, "thousandSeparated": true },
                 "configType": "sql",
                 "source": "Metrics",
                 "connection": "Local ClickHouse",
@@ -24,6 +25,7 @@
             "h": 4,
             "config": {
                 "displayType": "number",
+                "numberFormat": { "output": "number", "mantissa": 0, "thousandSeparated": true },
                 "configType": "sql",
                 "source": "Metrics",
                 "connection": "Local ClickHouse",
@@ -38,6 +40,7 @@
             "h": 4,
             "config": {
                 "displayType": "number",
+                "numberFormat": { "output": "number", "mantissa": 0, "thousandSeparated": true },
                 "configType": "sql",
                 "source": "Metrics",
                 "connection": "Local ClickHouse",
@@ -52,6 +55,7 @@
             "h": 4,
             "config": {
                 "displayType": "number",
+                "numberFormat": { "output": "number", "mantissa": 1 },
                 "configType": "sql",
                 "source": "Metrics",
                 "connection": "Local ClickHouse",
@@ -66,6 +70,7 @@
             "h": 7,
             "config": {
                 "displayType": "line",
+                "numberFormat": { "output": "number", "mantissa": 0, "thousandSeparated": true },
                 "configType": "sql",
                 "source": "Metrics",
                 "connection": "Local ClickHouse",
@@ -73,17 +78,18 @@
             }
         },
         {
-            "name": "Queue depth vs capacity",
+            "name": "Exported per minute by signal",
             "x": 12,
             "y": 4,
             "w": 12,
             "h": 7,
             "config": {
                 "displayType": "line",
+                "numberFormat": { "output": "number", "mantissa": 0, "thousandSeparated": true },
                 "configType": "sql",
                 "source": "Metrics",
                 "connection": "Local ClickHouse",
-                "sqlTemplate": "SELECT $__timeInterval(TimeUnix) AS ts, MetricName AS series, max(Value) AS value FROM $__sourceTable(gauge) WHERE $__timeFilter(TimeUnix) AND MetricName IN ('otelcol_exporter_queue_size', 'otelcol_exporter_queue_capacity', 'otelcol_exporter_in_flight_requests') GROUP BY ts, series ORDER BY ts"
+                "sqlTemplate": "SELECT $__timeInterval(TimeUnix) AS ts, MetricName AS series, max(Value) - min(Value) AS exported FROM $__sourceTable(sum) WHERE $__timeFilter(TimeUnix) AND MetricName IN ('otelcol_exporter_sent_spans', 'otelcol_exporter_sent_log_records', 'otelcol_exporter_sent_metric_points') GROUP BY ts, series ORDER BY ts"
             }
         },
         {
@@ -94,6 +100,7 @@
             "h": 7,
             "config": {
                 "displayType": "line",
+                "numberFormat": { "output": "number", "mantissa": 0, "thousandSeparated": true },
                 "configType": "sql",
                 "source": "Metrics",
                 "connection": "Local ClickHouse",
@@ -101,27 +108,44 @@
             }
         },
         {
-            "name": "Collector memory (MB)",
+            "name": "Queue depth vs capacity",
             "x": 12,
             "y": 11,
             "w": 12,
             "h": 7,
             "config": {
                 "displayType": "line",
+                "numberFormat": { "output": "number", "mantissa": 0, "thousandSeparated": true },
                 "configType": "sql",
                 "source": "Metrics",
                 "connection": "Local ClickHouse",
-                "sqlTemplate": "SELECT $__timeInterval(TimeUnix) AS ts, round(max(Value) / 1024 / 1024, 1) AS rss_mb FROM $__sourceTable(gauge) WHERE $__timeFilter(TimeUnix) AND MetricName = 'otelcol_process_memory_rss' GROUP BY ts ORDER BY ts"
+                "sqlTemplate": "SELECT $__timeInterval(TimeUnix) AS ts, MetricName AS series, max(Value) AS value FROM $__sourceTable(gauge) WHERE $__timeFilter(TimeUnix) AND MetricName IN ('otelcol_exporter_queue_size', 'otelcol_exporter_queue_capacity', 'otelcol_exporter_in_flight_requests') GROUP BY ts, series ORDER BY ts"
             }
         },
         {
-            "name": "Collector CPU (% of a core)",
+            "name": "Collector memory",
             "x": 0,
             "y": 18,
             "w": 12,
             "h": 7,
             "config": {
                 "displayType": "line",
+                "numberFormat": { "output": "byte", "mantissa": 1 },
+                "configType": "sql",
+                "source": "Metrics",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT $__timeInterval(TimeUnix) AS ts, max(Value) AS bytes FROM $__sourceTable(gauge) WHERE $__timeFilter(TimeUnix) AND MetricName = 'otelcol_process_memory_rss' GROUP BY ts ORDER BY ts"
+            }
+        },
+        {
+            "name": "Collector CPU (% of a core)",
+            "x": 12,
+            "y": 18,
+            "w": 12,
+            "h": 7,
+            "config": {
+                "displayType": "line",
+                "numberFormat": { "output": "number", "mantissa": 2 },
                 "configType": "sql",
                 "source": "Metrics",
                 "connection": "Local ClickHouse",
@@ -129,11 +153,26 @@
             }
         },
         {
+            "name": "Drop rate (%)",
+            "x": 0,
+            "y": 25,
+            "w": 6,
+            "h": 4,
+            "config": {
+                "displayType": "number",
+                "numberFormat": { "output": "number", "mantissa": 2 },
+                "configType": "sql",
+                "source": "Metrics",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT round(100 * sumIf(delta, MetricName LIKE 'otelcol_receiver_refused_%' OR MetricName LIKE 'otelcol_receiver_failed_%') / greatest(sum(delta), 1), 2) AS drop_pct FROM (SELECT MetricName, max(Value) - min(Value) AS delta FROM $__sourceTable(sum) WHERE $__timeFilter(TimeUnix) AND MetricName LIKE 'otelcol_receiver_%' GROUP BY MetricName)"
+            }
+        },
+        {
             "name": "Scrape health",
-            "x": 12,
-            "y": 18,
-            "w": 12,
-            "h": 7,
+            "x": 6,
+            "y": 25,
+            "w": 18,
+            "h": 4,
             "config": {
                 "displayType": "table",
                 "configType": "sql",

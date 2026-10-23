@@ -101,15 +101,26 @@ Tracing and metrics export over OTLP by default; set `OTEL_SDK_DISABLED=true` to
 Select the `otlp` value in `LOG_TRANSPORT` to export logs as well. See
 [Configuration](./configuration.md) for the full list of options.
 
-The stack ships six dashboards, provisioned from `container/clickstack/dashboards` on
-`vpr compose:up`: `Application Overview` (traffic, latency, errors, and the storage footprint
-per service), `Application Errors`, `Redis Database`, `ClickHouse Database` (size, disk capacity,
-writes, and query latency split into application and infrastructure data), `Pipeline Collector`,
-and `Node.js Runtime Metrics`. Edit those JSON files rather than the copies in the UI —
-`container/clickstack/provision.sh` owns them and overwrites them on every start. Every dashboard
-carries the `edgy` tag plus one area tag (`application`, `infra`, `runtime`), which is also how the
-provisioner knows which dashboards it may remove: a file that is renamed or deleted takes its old
-dashboard with it, while a dashboard created by hand is left alone.
+The stack ships eight dashboards, provisioned from `container/clickstack/dashboards` on
+`vpr compose:up`. `Application Overview` carries the golden signals and a two-tile storage summary;
+`Application SLI` reads the `http_requests` and `http_request_duration_seconds` metrics for request
+rate, 5xx/4xx share, latency, and probe freshness; `Application Errors` and `Application Traces`
+carry incident and transaction investigation. `Redis Database`, `ClickHouse Database` (size, disk
+capacity, writes, retention, query latency, and the application footprint split from infrastructure
+metrics), `Pipeline Collector`, and `Node.js Runtime Metrics` cover the dependencies and the process.
+
+Edit those JSON files rather than the copies in the UI — `container/clickstack/provision.sh` owns
+them and overwrites them on every start. Every dashboard carries the `edgy` tag plus one area tag
+(`application`, `infra`, `runtime`), which is also how the provisioner knows which dashboards it may
+remove: a file that is renamed or deleted takes its old dashboard with it, while a dashboard created
+by hand is left alone.
+
+Every tile that reads event data bounds itself with `$__timeFilter`, so the range picker applies
+and a query never scans the full table; the tiles that read instantaneous state (`system.parts`,
+`system.disks`, `system.merges`) report the current value and say so in their name. Counters are
+turned into rates with `(max(Value) - min(Value)) / $__interval_s`, because a counter row stores the
+running total, not a per-interval delta. A tile that divides also guards with `if(count() = 0, 0,
+...)`, so an empty range reads as zero rather than as a broken chart.
 
 The files are written in the shape the v2 REST API accepts, with each tile and filter naming its
 source and connection; the provisioner resolves those names to the ids HyperDX assigned, because
@@ -127,8 +138,16 @@ Redis metrics arrive through a `redis_exporter` sidecar. The all-in-one image ge
 collector configuration, so `container/clickstack/otel-collector.yaml` is merged over it to add that
 scrape target.
 
-The application exports `http_requests` (counter), `http_request_duration_seconds`
-(histogram), and the Node.js runtime gauges `nodejs.eventloop.*`, `v8js.memory.heap.*` and
-`process.cpu.utilization`, sampled every ten seconds from `src/observer/runtime-metrics.ts`.
-The names follow the Node.js OpenTelemetry semantic conventions, so a dashboard written against
-that convention reads this service without a mapping layer.
+The application exports `http_requests` (counter), `http_request_duration_seconds` (histogram),
+and the Node.js runtime gauges `nodejs.eventloop.*`, `v8js.memory.*`, `process.memory.*`,
+`process.cpu.utilization`, and the `v8js.gc.duration` counter, sampled every ten seconds from
+`src/observer/runtime-metrics.ts`. The names follow the Node.js OpenTelemetry semantic conventions,
+so a dashboard written against that convention reads this service without a mapping layer.
+`v8js.memory.heap.limit` is the size limit V8 would let the heap grow to, not the committed heap;
+`v8js.memory.heap.space.physical_size` carries one series per heap space, so a growing `old_space`
+is visible on its own.
+
+`http_requests` is labelled with the method and the status class only, and
+`http_request_duration_seconds` with the method only — the series count stays flat no matter how
+many routes exist. Per-route and per-status-code breakdowns come from traces instead, where
+`SpanName` and the `http.status_code` span attribute carry them.

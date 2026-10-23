@@ -71,25 +71,17 @@
             }
         },
         {
-            "name": "Log lines",
+            "name": "Services reporting",
             "x": 18,
             "y": 0,
             "w": 6,
             "h": 4,
             "config": {
                 "displayType": "number",
-                "numberFormat": {
-                    "output": "number",
-                    "mantissa": 0,
-                    "thousandSeparated": true
-                },
-                "alignDateRangeToGranularity": true,
-                "source": "Logs",
-                "select": [
-                    {
-                        "aggFn": "count"
-                    }
-                ]
+                "configType": "sql",
+                "source": "Traces",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT uniqExact(ServiceName) AS services FROM $__sourceTable WHERE $__timeFilter(Timestamp) AND $__filters"
             }
         },
         {
@@ -189,7 +181,7 @@
             }
         },
         {
-            "name": "Services reporting",
+            "name": "Signal freshness",
             "x": 12,
             "y": 11,
             "w": 12,
@@ -199,21 +191,25 @@
                 "configType": "sql",
                 "source": "Traces",
                 "connection": "Local ClickHouse",
-                "sqlTemplate": "SELECT ServiceName AS service, count() AS spans, max(Timestamp) AS last_event FROM $__sourceTable WHERE $__timeFilter(Timestamp) AND $__filters GROUP BY service ORDER BY spans DESC LIMIT 20"
+                "sqlTemplate": "SELECT ServiceName AS service, count() AS spans, round(quantile(0.95)(Duration / 1e6), 1) AS p95_ms, max(Timestamp) AS last_event FROM $__sourceTable WHERE $__timeFilter(Timestamp) AND $__filters GROUP BY service ORDER BY spans DESC LIMIT 20"
             }
         },
         {
-            "name": "Telemetry footprint (MB)",
+            "name": "Telemetry footprint",
             "x": 0,
             "y": 19,
             "w": 6,
             "h": 4,
             "config": {
                 "displayType": "number",
+                "numberFormat": {
+                    "output": "byte",
+                    "mantissa": 1
+                },
                 "configType": "sql",
                 "source": "Traces",
                 "connection": "Local ClickHouse",
-                "sqlTemplate": "SELECT round(sum(bytes_on_disk) / 1024 / 1024, 2) AS mb FROM system.parts WHERE active AND database = 'default' AND table IN ('otel_traces', 'otel_logs')"
+                "sqlTemplate": "SELECT sum(bytes_on_disk) AS bytes FROM system.parts WHERE active AND database = 'default' AND table IN ('otel_traces', 'otel_logs', 'otel_traces_kv_rollup_15m', 'otel_logs_kv_rollup_15m')"
             }
         },
         {
@@ -224,52 +220,15 @@
             "h": 4,
             "config": {
                 "displayType": "number",
+                "numberFormat": {
+                    "output": "number",
+                    "mantissa": 0,
+                    "thousandSeparated": true
+                },
                 "configType": "sql",
                 "source": "Traces",
                 "connection": "Local ClickHouse",
                 "sqlTemplate": "SELECT count() AS rows FROM $__sourceTable WHERE $__timeFilter(Timestamp) AND $__filters"
-            }
-        },
-        {
-            "name": "Rows per hour",
-            "x": 12,
-            "y": 19,
-            "w": 12,
-            "h": 4,
-            "config": {
-                "displayType": "number",
-                "configType": "sql",
-                "source": "Traces",
-                "connection": "Local ClickHouse",
-                "sqlTemplate": "SELECT if(count() = 0, 0, round(count() / greatest(dateDiff('hour', min(Timestamp), max(Timestamp)), 1))) AS rows_per_hour FROM $__sourceTable WHERE $__timeFilter(Timestamp) AND $__filters"
-            }
-        },
-        {
-            "name": "Footprint by service",
-            "x": 0,
-            "y": 23,
-            "w": 12,
-            "h": 8,
-            "config": {
-                "displayType": "table",
-                "configType": "sql",
-                "source": "Traces",
-                "connection": "Local ClickHouse",
-                "sqlTemplate": "SELECT ServiceName AS service, count() AS rows, round(count() / greatest((SELECT count() FROM default.otel_traces), 1) * (SELECT sum(bytes_on_disk) FROM system.parts WHERE active AND database = 'default' AND table = 'otel_traces') / 1024 / 1024, 2) AS est_mb FROM $__sourceTable WHERE $__timeFilter(Timestamp) AND $__filters GROUP BY service ORDER BY est_mb DESC LIMIT 20"
-            }
-        },
-        {
-            "name": "Growth per hour",
-            "x": 12,
-            "y": 23,
-            "w": 12,
-            "h": 8,
-            "config": {
-                "displayType": "line",
-                "configType": "sql",
-                "source": "Traces",
-                "connection": "Local ClickHouse",
-                "sqlTemplate": "SELECT toStartOfHour(Timestamp) AS hour, ServiceName AS service, count() AS rows FROM $__sourceTable WHERE $__timeFilter(Timestamp) AND $__filters GROUP BY hour, service ORDER BY hour"
             }
         }
     ]

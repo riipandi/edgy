@@ -3,50 +3,55 @@
     "tags": ["edgy", "infra", "clickhouse"],
     "tiles": [
         {
-            "name": "On-disk size (now)",
+            "name": "On-disk size",
             "x": 0,
             "y": 0,
             "w": 6,
             "h": 4,
             "config": {
                 "displayType": "number",
-                "configType": "sql",
-                "source": "Logs",
-                "connection": "Local ClickHouse",
-                "sqlTemplate": "SELECT sum(bytes_on_disk) AS bytes FROM system.parts WHERE active AND database = 'default' AND table LIKE 'otel_%'",
                 "numberFormat": {
                     "output": "byte",
                     "mantissa": 1
-                }
+                },
+                "configType": "sql",
+                "source": "Logs",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT sum(bytes_on_disk) AS bytes FROM system.parts WHERE active AND database = 'default' AND table LIKE 'otel_%'"
             }
         },
         {
-            "name": "Rows stored (now)",
+            "name": "Rows stored",
             "x": 6,
             "y": 0,
             "w": 6,
             "h": 4,
             "config": {
                 "displayType": "number",
-                "configType": "sql",
-                "source": "Logs",
-                "connection": "Local ClickHouse",
-                "sqlTemplate": "SELECT sum(rows) AS rows FROM system.parts WHERE active AND database = 'default' AND table LIKE 'otel_%'",
                 "numberFormat": {
                     "output": "number",
                     "mantissa": 0,
                     "thousandSeparated": true
-                }
+                },
+                "configType": "sql",
+                "source": "Logs",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT sum(rows) AS rows FROM system.parts WHERE active AND database = 'default' AND table LIKE 'otel_%'"
             }
         },
         {
-            "name": "Active parts (now)",
+            "name": "Active parts",
             "x": 12,
             "y": 0,
             "w": 6,
             "h": 4,
             "config": {
                 "displayType": "number",
+                "numberFormat": {
+                    "output": "number",
+                    "mantissa": 0,
+                    "thousandSeparated": true
+                },
                 "configType": "sql",
                 "source": "Logs",
                 "connection": "Local ClickHouse",
@@ -61,6 +66,11 @@
             "h": 4,
             "config": {
                 "displayType": "number",
+                "numberFormat": {
+                    "output": "number",
+                    "mantissa": 1,
+                    "thousandSeparated": true
+                },
                 "configType": "sql",
                 "source": "Logs",
                 "connection": "Local ClickHouse",
@@ -75,6 +85,11 @@
             "h": 7,
             "config": {
                 "displayType": "line",
+                "numberFormat": {
+                    "output": "number",
+                    "mantissa": 0,
+                    "thousandSeparated": true
+                },
                 "configType": "sql",
                 "source": "Logs",
                 "connection": "Local ClickHouse",
@@ -89,6 +104,11 @@
             "h": 7,
             "config": {
                 "displayType": "line",
+                "numberFormat": {
+                    "output": "number",
+                    "mantissa": 1,
+                    "thousandSeparated": true
+                },
                 "configType": "sql",
                 "source": "Logs",
                 "connection": "Local ClickHouse",
@@ -96,7 +116,7 @@
             }
         },
         {
-            "name": "Size per table (now)",
+            "name": "Size per table",
             "x": 0,
             "y": 11,
             "w": 12,
@@ -124,7 +144,7 @@
             }
         },
         {
-            "name": "Parts and merges (now)",
+            "name": "Parts and merges",
             "x": 0,
             "y": 18,
             "w": 12,
@@ -159,14 +179,14 @@
             "h": 4,
             "config": {
                 "displayType": "number",
-                "configType": "sql",
-                "source": "Logs",
-                "connection": "Local ClickHouse",
-                "sqlTemplate": "SELECT sum(free_space) AS free_bytes FROM system.disks",
                 "numberFormat": {
                     "output": "byte",
                     "mantissa": 1
-                }
+                },
+                "configType": "sql",
+                "source": "Logs",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT sum(free_space) AS free_bytes FROM system.disks"
             }
         },
         {
@@ -177,55 +197,92 @@
             "h": 4,
             "config": {
                 "displayType": "number",
-                "configType": "sql",
-                "source": "Logs",
-                "connection": "Local ClickHouse",
-                "sqlTemplate": "SELECT sum(total_space) AS total_bytes FROM system.disks",
                 "numberFormat": {
                     "output": "byte",
                     "mantissa": 1
-                }
+                },
+                "configType": "sql",
+                "source": "Logs",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT sum(total_space) AS total_bytes FROM system.disks"
             }
         },
         {
-            "name": "Application data",
+            "name": "Disk used (%)",
             "x": 12,
             "y": 25,
             "w": 6,
             "h": 4,
             "config": {
                 "displayType": "number",
+                "numberFormat": {
+                    "output": "number",
+                    "mantissa": 1
+                },
                 "configType": "sql",
                 "source": "Logs",
                 "connection": "Local ClickHouse",
-                "sqlTemplate": "SELECT sum(bytes_on_disk) AS bytes FROM system.parts WHERE active AND database = 'default' AND table NOT LIKE 'otel_metrics_%' AND table LIKE 'otel_%'",
-                "numberFormat": {
-                    "output": "byte",
-                    "mantissa": 1
-                }
+                "sqlTemplate": "SELECT round(100 * (sum(total_space) - sum(free_space)) / greatest(sum(total_space), 1), 1) AS used_pct FROM system.disks"
             }
         },
         {
-            "name": "Infrastructure data",
+            "name": "Merges in flight",
             "x": 18,
             "y": 25,
             "w": 6,
             "h": 4,
             "config": {
                 "displayType": "number",
+                "numberFormat": {
+                    "output": "number",
+                    "mantissa": 0,
+                    "thousandSeparated": true
+                },
                 "configType": "sql",
                 "source": "Logs",
                 "connection": "Local ClickHouse",
-                "sqlTemplate": "SELECT sum(bytes_on_disk) AS bytes FROM system.parts WHERE active AND database = 'default' AND table LIKE 'otel_metrics_%'",
+                "sqlTemplate": "SELECT count() AS merges FROM system.merges"
+            }
+        },
+        {
+            "name": "Application data",
+            "x": 0,
+            "y": 29,
+            "w": 6,
+            "h": 4,
+            "config": {
+                "displayType": "number",
                 "numberFormat": {
                     "output": "byte",
                     "mantissa": 1
-                }
+                },
+                "configType": "sql",
+                "source": "Logs",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT sum(bytes_on_disk) AS bytes FROM system.parts WHERE active AND database = 'default' AND table LIKE 'otel_%' AND table NOT LIKE 'otel_metrics_%'"
+            }
+        },
+        {
+            "name": "Infrastructure data",
+            "x": 6,
+            "y": 29,
+            "w": 6,
+            "h": 4,
+            "config": {
+                "displayType": "number",
+                "numberFormat": {
+                    "output": "byte",
+                    "mantissa": 1
+                },
+                "configType": "sql",
+                "source": "Logs",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT sum(bytes_on_disk) AS bytes FROM system.parts WHERE active AND database = 'default' AND table LIKE 'otel_metrics_%'"
             }
         },
         {
             "name": "Storage by signal family",
-            "x": 0,
+            "x": 12,
             "y": 29,
             "w": 12,
             "h": 8,
@@ -239,16 +296,54 @@
         },
         {
             "name": "Writes per minute: app vs infra",
-            "x": 12,
-            "y": 29,
+            "x": 0,
+            "y": 33,
             "w": 12,
             "h": 8,
             "config": {
                 "displayType": "line",
+                "numberFormat": {
+                    "output": "number",
+                    "mantissa": 0,
+                    "thousandSeparated": true
+                },
                 "configType": "sql",
                 "source": "Logs",
                 "connection": "Local ClickHouse",
                 "sqlTemplate": "SELECT $__timeInterval(event_time) AS ts, if(tables[1] LIKE 'default.otel_metrics_%', 'infra', 'app') AS family, sum(written_rows) AS rows FROM system.query_log WHERE type = 'QueryFinish' AND query_kind = 'Insert' AND $__timeFilter(event_time) GROUP BY ts, family ORDER BY ts"
+            }
+        },
+        {
+            "name": "Application rows written per hour",
+            "x": 0,
+            "y": 41,
+            "w": 12,
+            "h": 7,
+            "config": {
+                "displayType": "line",
+                "numberFormat": {
+                    "output": "number",
+                    "mantissa": 0,
+                    "thousandSeparated": true
+                },
+                "configType": "sql",
+                "source": "Logs",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT $__timeInterval(event_time) AS ts, sum(written_rows) AS rows FROM system.query_log WHERE type = 'QueryFinish' AND query_kind = 'Insert' AND tables[1] NOT LIKE 'default.otel_metrics_%' AND $__timeFilter(event_time) GROUP BY ts ORDER BY ts"
+            }
+        },
+        {
+            "name": "Application footprint by service",
+            "x": 12,
+            "y": 41,
+            "w": 12,
+            "h": 7,
+            "config": {
+                "displayType": "table",
+                "configType": "sql",
+                "source": "Logs",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT ServiceName AS service, count() AS rows, round(count() / greatest((SELECT count() FROM default.otel_traces), 1) * (SELECT sum(bytes_on_disk) FROM system.parts WHERE active AND database = 'default' AND table = 'otel_traces') / 1024 / 1024, 2) AS est_mb FROM default.otel_traces WHERE $__timeFilter(Timestamp) GROUP BY service ORDER BY est_mb DESC LIMIT 20"
             }
         }
     ]

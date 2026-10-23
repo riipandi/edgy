@@ -77,14 +77,14 @@
             }
         },
         {
-            "name": "CPU utilization (%)",
+            "name": "Resident set size",
             "x": 18,
             "y": 0,
             "w": 6,
             "h": 4,
             "config": {
                 "displayType": "number",
-                "numberFormat": { "output": "percent", "mantissa": 1 },
+                "numberFormat": { "output": "byte", "mantissa": 1 },
                 "alignDateRangeToGranularity": true,
                 "source": "Metrics",
                 "select": [
@@ -92,7 +92,7 @@
                         "aggFn": "avg",
                         "valueExpression": "Value",
                         "metricType": "gauge",
-                        "metricName": "process.cpu.utilization"
+                        "metricName": "process.memory.rss"
                     }
                 ]
             }
@@ -155,7 +155,7 @@
             }
         },
         {
-            "name": "V8 heap: used vs limit",
+            "name": "V8 heap: used vs size limit",
             "x": 0,
             "y": 11,
             "w": 12,
@@ -178,13 +178,13 @@
                         "valueExpression": "Value",
                         "metricType": "gauge",
                         "metricName": "v8js.memory.heap.limit",
-                        "alias": "limit"
+                        "alias": "size limit"
                     }
                 ]
             }
         },
         {
-            "name": "V8 heap spaces (physical size)",
+            "name": "V8 heap by space",
             "x": 12,
             "y": 11,
             "w": 12,
@@ -193,6 +193,7 @@
                 "displayType": "line",
                 "numberFormat": { "output": "byte", "mantissa": 1 },
                 "alignDateRangeToGranularity": true,
+                "groupBy": "Attributes['space']",
                 "source": "Metrics",
                 "select": [
                     {
@@ -205,8 +206,23 @@
             }
         },
         {
-            "name": "CPU utilization over time (%)",
+            "name": "Garbage collection time (s)",
             "x": 0,
+            "y": 18,
+            "w": 12,
+            "h": 7,
+            "config": {
+                "displayType": "line",
+                "numberFormat": { "output": "number", "mantissa": 3 },
+                "configType": "sql",
+                "source": "Metrics",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT $__timeInterval(TimeUnix) AS ts, Attributes['kind'] AS kind, round(max(Value) - min(Value), 4) AS seconds FROM $__sourceTable(sum) WHERE $__timeFilter(TimeUnix) AND MetricName = 'v8js.gc.duration' GROUP BY ts, kind ORDER BY ts"
+            }
+        },
+        {
+            "name": "CPU utilization over time (%)",
+            "x": 12,
             "y": 18,
             "w": 12,
             "h": 7,
@@ -226,24 +242,69 @@
             }
         },
         {
-            "name": "Event loop busy time (s/min)",
-            "x": 12,
-            "y": 18,
+            "name": "Event loop busy time (s per interval)",
+            "x": 0,
+            "y": 25,
             "w": 12,
             "h": 7,
             "config": {
                 "displayType": "line",
                 "numberFormat": { "output": "number", "mantissa": 2, "thousandSeparated": true },
+                "configType": "sql",
+                "source": "Metrics",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT $__timeInterval(TimeUnix) AS ts, round(max(Value) - min(Value), 3) AS seconds FROM $__sourceTable(sum) WHERE $__timeFilter(TimeUnix) AND MetricName = 'nodejs.eventloop.time' GROUP BY ts ORDER BY ts"
+            }
+        },
+        {
+            "name": "Memory outside the heap",
+            "x": 12,
+            "y": 25,
+            "w": 12,
+            "h": 7,
+            "config": {
+                "displayType": "line",
+                "numberFormat": { "output": "byte", "mantissa": 1 },
                 "alignDateRangeToGranularity": true,
                 "source": "Metrics",
                 "select": [
                     {
-                        "aggFn": "sum",
+                        "aggFn": "avg",
                         "valueExpression": "Value",
-                        "metricType": "sum",
-                        "metricName": "nodejs.eventloop.time"
+                        "metricType": "gauge",
+                        "metricName": "process.memory.external"
                     }
                 ]
+            }
+        },
+        {
+            "name": "Process uptime",
+            "x": 0,
+            "y": 32,
+            "w": 12,
+            "h": 4,
+            "config": {
+                "displayType": "number",
+                "numberFormat": { "output": "number", "mantissa": 0, "thousandSeparated": true },
+                "configType": "sql",
+                "source": "Metrics",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT round(if(count() = 0, 0, max(Value))) AS seconds FROM $__sourceTable(gauge) WHERE $__timeFilter(TimeUnix) AND MetricName = 'process.uptime'"
+            }
+        },
+        {
+            "name": "Heap pressure (used / size limit, %)",
+            "x": 12,
+            "y": 32,
+            "w": 12,
+            "h": 4,
+            "config": {
+                "displayType": "number",
+                "numberFormat": { "output": "number", "mantissa": 1 },
+                "configType": "sql",
+                "source": "Metrics",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT round(100 * maxIf(Value, MetricName = 'v8js.memory.heap.used') / greatest(maxIf(Value, MetricName = 'v8js.memory.heap.limit'), 1), 1) AS used_pct FROM $__sourceTable(gauge) WHERE $__timeFilter(TimeUnix) AND MetricName IN ('v8js.memory.heap.used', 'v8js.memory.heap.limit')"
             }
         }
     ]

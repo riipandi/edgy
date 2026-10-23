@@ -1,0 +1,164 @@
+{
+    "name": "Application Traces",
+    "tags": ["edgy", "application"],
+    "filters": [
+        {
+            "name": "Service",
+            "type": "QUERY_EXPRESSION",
+            "expression": "ServiceName",
+            "source": "Traces"
+        }
+    ],
+    "tiles": [
+        {
+            "name": "Spans",
+            "x": 0,
+            "y": 0,
+            "w": 6,
+            "h": 4,
+            "config": {
+                "displayType": "number",
+                "numberFormat": {
+                    "output": "number",
+                    "mantissa": 0,
+                    "thousandSeparated": true
+                },
+                "alignDateRangeToGranularity": true,
+                "source": "Traces",
+                "select": [
+                    {
+                        "aggFn": "count"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "Distinct traces",
+            "x": 6,
+            "y": 0,
+            "w": 6,
+            "h": 4,
+            "config": {
+                "displayType": "number",
+                "numberFormat": {
+                    "output": "number",
+                    "mantissa": 0,
+                    "thousandSeparated": true
+                },
+                "configType": "sql",
+                "source": "Traces",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT uniqExact(TraceId) AS traces FROM $__sourceTable WHERE $__timeFilter(Timestamp) AND $__filters"
+            }
+        },
+        {
+            "name": "Spans per trace",
+            "x": 12,
+            "y": 0,
+            "w": 6,
+            "h": 4,
+            "config": {
+                "displayType": "number",
+                "numberFormat": {
+                    "output": "number",
+                    "mantissa": 2
+                },
+                "configType": "sql",
+                "source": "Traces",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT if(count() = 0, 0, round(count() / greatest(uniqExact(TraceId), 1), 2)) AS spans_per_trace FROM $__sourceTable WHERE $__timeFilter(Timestamp) AND $__filters"
+            }
+        },
+        {
+            "name": "Span p99 (ms)",
+            "x": 18,
+            "y": 0,
+            "w": 6,
+            "h": 4,
+            "config": {
+                "displayType": "number",
+                "numberFormat": {
+                    "output": "number",
+                    "mantissa": 1,
+                    "thousandSeparated": true
+                },
+                "alignDateRangeToGranularity": true,
+                "source": "Traces",
+                "select": [
+                    {
+                        "aggFn": "quantile",
+                        "level": 0.99,
+                        "valueExpression": "Duration / 1e6"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "Latency distribution (ms)",
+            "x": 12,
+            "y": 4,
+            "w": 12,
+            "h": 7,
+            "config": {
+                "displayType": "bar",
+                "numberFormat": {
+                    "output": "number",
+                    "mantissa": 0,
+                    "thousandSeparated": true
+                },
+                "configType": "sql",
+                "source": "Traces",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT multiIf(Duration < 1e7, '<10ms', Duration < 5e7, '10-50ms', Duration < 1e8, '50-100ms', Duration < 5e8, '100-500ms', Duration < 1e9, '0.5-1s', '>1s') AS bucket, count() AS spans FROM $__sourceTable WHERE $__timeFilter(Timestamp) AND $__filters GROUP BY bucket ORDER BY min(Duration)"
+            }
+        },
+        {
+            "name": "Top operations",
+            "x": 0,
+            "y": 11,
+            "w": 12,
+            "h": 8,
+            "config": {
+                "displayType": "table",
+                "numberFormat": {
+                    "output": "number",
+                    "mantissa": 0,
+                    "thousandSeparated": true
+                },
+                "configType": "sql",
+                "source": "Traces",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT ServiceName AS service, SpanName AS operation, count() AS spans, round(quantile(0.95)(Duration / 1e6), 1) AS p95_ms, round(max(Duration) / 1e6, 1) AS max_ms FROM $__sourceTable WHERE $__timeFilter(Timestamp) AND $__filters GROUP BY service, operation ORDER BY spans DESC LIMIT 50"
+            }
+        },
+        {
+            "name": "Slowest traces",
+            "x": 12,
+            "y": 11,
+            "w": 12,
+            "h": 8,
+            "config": {
+                "displayType": "table",
+                "configType": "sql",
+                "source": "Traces",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT TraceId, ServiceName AS service, SpanName AS operation, count() AS spans, round(max(Duration) / 1e6, 1) AS max_ms, max(Timestamp) AS started_at FROM $__sourceTable WHERE $__timeFilter(Timestamp) AND $__filters GROUP BY TraceId, service, operation ORDER BY max_ms DESC LIMIT 50"
+            }
+        },
+        {
+            "name": "Error traces",
+            "x": 0,
+            "y": 19,
+            "w": 24,
+            "h": 8,
+            "config": {
+                "displayType": "search",
+                "alignDateRangeToGranularity": true,
+                "source": "Traces",
+                "select": "",
+                "where": "StatusCode = 'Error'",
+                "whereLanguage": "sql"
+            }
+        }
+    ]
+}

@@ -10,6 +10,7 @@
             "h": 4,
             "config": {
                 "displayType": "number",
+                "numberFormat": { "output": "number", "mantissa": 0, "thousandSeparated": true },
                 "configType": "sql",
                 "source": "Metrics",
                 "connection": "Local ClickHouse",
@@ -17,17 +18,18 @@
             }
         },
         {
-            "name": "Memory used (MB)",
+            "name": "Memory used",
             "x": 6,
             "y": 0,
             "w": 6,
             "h": 4,
             "config": {
                 "displayType": "number",
+                "numberFormat": { "output": "byte", "mantissa": 1 },
                 "configType": "sql",
                 "source": "Metrics",
                 "connection": "Local ClickHouse",
-                "sqlTemplate": "SELECT if(count() = 0, 0, round(max(Value) / 1024 / 1024, 1)) AS used_mb FROM $__sourceTable(gauge) WHERE $__timeFilter(TimeUnix) AND MetricName = 'redis_memory_used_bytes'"
+                "sqlTemplate": "SELECT if(count() = 0, 0, max(Value)) AS bytes FROM $__sourceTable(gauge) WHERE $__timeFilter(TimeUnix) AND MetricName = 'redis_memory_used_bytes'"
             }
         },
         {
@@ -38,6 +40,7 @@
             "h": 4,
             "config": {
                 "displayType": "number",
+                "numberFormat": { "output": "number", "mantissa": 2 },
                 "configType": "sql",
                 "source": "Metrics",
                 "connection": "Local ClickHouse",
@@ -52,6 +55,7 @@
             "h": 4,
             "config": {
                 "displayType": "number",
+                "numberFormat": { "output": "number", "mantissa": 0, "thousandSeparated": true },
                 "configType": "sql",
                 "source": "Metrics",
                 "connection": "Local ClickHouse",
@@ -66,6 +70,7 @@
             "h": 7,
             "config": {
                 "displayType": "line",
+                "numberFormat": { "output": "number", "mantissa": 2, "thousandSeparated": true },
                 "configType": "sql",
                 "source": "Metrics",
                 "connection": "Local ClickHouse",
@@ -73,27 +78,44 @@
             }
         },
         {
-            "name": "Memory used vs limit (MB)",
+            "name": "Memory used vs limit",
             "x": 12,
             "y": 4,
             "w": 12,
             "h": 7,
             "config": {
                 "displayType": "line",
+                "numberFormat": { "output": "byte", "mantissa": 1 },
                 "configType": "sql",
                 "source": "Metrics",
                 "connection": "Local ClickHouse",
-                "sqlTemplate": "SELECT $__timeInterval(TimeUnix) AS ts, MetricName AS series, round(max(Value) / 1024 / 1024, 1) AS mb FROM $__sourceTable(gauge) WHERE $__timeFilter(TimeUnix) AND MetricName IN ('redis_memory_used_bytes', 'redis_memory_max_bytes') GROUP BY ts, series ORDER BY ts"
+                "sqlTemplate": "SELECT $__timeInterval(TimeUnix) AS ts, MetricName AS series, max(Value) AS bytes FROM $__sourceTable(gauge) WHERE $__timeFilter(TimeUnix) AND MetricName IN ('redis_memory_used_bytes', 'redis_memory_max_bytes') GROUP BY ts, series ORDER BY ts"
             }
         },
         {
-            "name": "Evictions and expirations per minute",
+            "name": "Command latency (µs)",
             "x": 0,
             "y": 11,
             "w": 12,
             "h": 7,
             "config": {
                 "displayType": "line",
+                "numberFormat": { "output": "number", "mantissa": 1, "thousandSeparated": true },
+                "configType": "sql",
+                "source": "Metrics",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT $__timeInterval(TimeUnix) AS ts, round(sum(Sum) / greatest(sum(Count), 1), 1) AS avg_us FROM $__sourceTable(histogram) WHERE $__timeFilter(TimeUnix) AND MetricName = 'redis_commands_latencies_usec' GROUP BY ts ORDER BY ts"
+            }
+        },
+        {
+            "name": "Evictions and expirations per minute",
+            "x": 12,
+            "y": 11,
+            "w": 12,
+            "h": 7,
+            "config": {
+                "displayType": "line",
+                "numberFormat": { "output": "number", "mantissa": 0, "thousandSeparated": true },
                 "configType": "sql",
                 "source": "Metrics",
                 "connection": "Local ClickHouse",
@@ -101,13 +123,29 @@
             }
         },
         {
-            "name": "Event loop latency (ms)",
-            "x": 12,
-            "y": 11,
+            "name": "Memory fragmentation and blocked clients",
+            "x": 0,
+            "y": 18,
             "w": 12,
             "h": 7,
             "config": {
                 "displayType": "line",
+                "numberFormat": { "output": "number", "mantissa": 2 },
+                "configType": "sql",
+                "source": "Metrics",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT $__timeInterval(TimeUnix) AS ts, MetricName AS series, round(max(Value), 2) AS value FROM $__sourceTable(gauge) WHERE $__timeFilter(TimeUnix) AND MetricName IN ('redis_allocator_frag_ratio', 'redis_blocked_clients', 'redis_total_blocking_keys') GROUP BY ts, series ORDER BY ts"
+            }
+        },
+        {
+            "name": "Event loop latency (ms)",
+            "x": 12,
+            "y": 18,
+            "w": 12,
+            "h": 7,
+            "config": {
+                "displayType": "line",
+                "numberFormat": { "output": "number", "mantissa": 2 },
                 "configType": "sql",
                 "source": "Metrics",
                 "connection": "Local ClickHouse",
@@ -117,7 +155,7 @@
         {
             "name": "Persistence and replication",
             "x": 0,
-            "y": 18,
+            "y": 25,
             "w": 12,
             "h": 7,
             "config": {
@@ -125,13 +163,13 @@
                 "configType": "sql",
                 "source": "Metrics",
                 "connection": "Local ClickHouse",
-                "sqlTemplate": "SELECT MetricName AS metric, max(Value) AS value FROM $__sourceTable(gauge) WHERE $__timeFilter(TimeUnix) AND MetricName IN ('redis_rdb_last_bgsave_status', 'redis_aof_last_write_status', 'redis_aof_enabled', 'redis_connected_slaves', 'redis_uptime_in_seconds') GROUP BY metric ORDER BY metric"
+                "sqlTemplate": "SELECT MetricName AS metric, max(Value) AS value, max(TimeUnix) AS last_sample FROM $__sourceTable(gauge) WHERE $__timeFilter(TimeUnix) AND MetricName IN ('redis_rdb_last_bgsave_status', 'redis_aof_last_write_status', 'redis_aof_enabled', 'redis_connected_slaves', 'redis_slowlog_length', 'redis_uptime_in_seconds') GROUP BY metric ORDER BY metric"
             }
         },
         {
             "name": "Scrape health",
             "x": 12,
-            "y": 18,
+            "y": 25,
             "w": 12,
             "h": 7,
             "config": {
