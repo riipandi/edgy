@@ -6,7 +6,7 @@
 #   -> email    : admin@example.com
 #   -> password : @Password123!
 #
-# The collector accepts the ingestion key `edgy-dev-ingestion-key` (CLICKSTACK_INGESTION_KEY):
+# The collector accepts the ingestion key `edgy-dev-ingestion-key`:
 #   OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 #   OTEL_EXPORTER_OTLP_HEADERS=authorization=edgy-dev-ingestion-key
 ### 
@@ -33,6 +33,7 @@ services:
     <<: *common
     # All-in-one: HyperDX app + API, ClickHouse, MongoDB and the OpenTelemetry collector
     # in one container. Fine for development; production runs them as separate services.
+    # @ref: https://clickhouse.com/docs/clickstack/managing/config
     image: docker.io/hyperdx/hyperdx-all-in-one:${CLICKSTACK_VERSION:-2}
     hostname: clickstack
     ports:
@@ -42,19 +43,16 @@ services:
       - './.storage/clickstack/db:/data/db:rw'
       - './.storage/clickstack/ch_data:/var/lib/clickhouse:rw'
       - './.storage/clickstack/ch_logs:/var/log/clickhouse-server:rw'
-      - './container/clickstack/dashboards:/dashboards:ro'
-      - './container/clickstack/resolve-dashboard-refs.mjs:/clickstack/resolve-dashboard-refs.mjs:ro'
-      - './container/clickstack/render-tiles.mjs:/clickstack/render-tiles.mjs:ro'
       - './container/clickstack/otel-collector.yaml:/etc/otel/extra-config.yaml:ro'
     environment:
       CLICKHOUSE_PASSWORD: securedb
       CLICKHOUSE_USER: default
       CUSTOM_OTELCOL_CONFIG_FILE: /etc/otel/extra-config.yaml
       FRONTEND_URL: http://localhost:${HYPERDX_PORT:-8080}
+      HYPERDX_API_KEY: ${CLICKSTACK_INGESTION_KEY:-edgy-dev-ingestion-key}
       HYPERDX_LOG_LEVEL: ${HYPERDX_LOG_LEVEL:-debug}
       INGESTION_API_KEY: ${CLICKSTACK_INGESTION_KEY:-edgy-dev-ingestion-key}
-      DASHBOARD_PROVISIONER_DIR: /dashboards
-      DASHBOARD_PROVISIONER_ALL_TEAMS: true
+      OTLP_AUTH_TOKEN: ${CLICKSTACK_INGESTION_KEY:-edgy-dev-ingestion-key}
       USAGE_STATS_ENABLED: false
     shm_size: 512m # set shared memory limit
     mem_limit: 2g # set memory limit
@@ -65,55 +63,16 @@ services:
 
   clickstack-init:
     <<: *common
-    image: docker.io/curlimages/curl:${CURL_VERSION:-latest}
+    image: docker.io/badouralix/curl-jq:${CURLJQ_VERSION:-alpine}
     restart: no
-    entrypoint: ['/bin/sh', '-c']
-    command:
-      - |
-        i=0
-        until curl -sf http://clickstack:8080/api/health >/dev/null; do
-          i=$$((i + 1))
-          [ "$$i" -ge 90 ] && { echo "HyperDX did not become ready"; exit 1; }
-          sleep 2
-        done
-        body=$$(printf '{"email":"%s","password":"%s","confirmPassword":"%s"}' "$$HYPERDX_EMAIL" "$$HYPERDX_PASSWORD" "$$HYPERDX_PASSWORD")
-        status=$$(curl -s -o /dev/null -w '%{http_code}' -X POST http://clickstack:8080/api/register/password -H 'Content-Type: application/json' -d "$$body")
-        case "$$status" in
-          200) echo "HyperDX: registered $${HYPERDX_EMAIL}" ;;
-          409) echo "HyperDX: account already exists" ;;
-          *) echo "HyperDX: registration answered $$status"; exit 1 ;;
-        esac
+    entrypoint: ['/bin/sh', '/clickstack/provision.sh']
+    volumes:
+      - './container/clickstack/provision.sh:/clickstack/provision.sh:ro'
+      - './container/clickstack/dashboards:/dashboards:ro'
     environment:
       HYPERDX_EMAIL: ${HYPERDX_EMAIL:-admin@example.com}
       HYPERDX_PASSWORD: ${HYPERDX_PASSWORD:-@Password123!}
-    healthcheck:
-      disable: true
-    depends_on:
-      clickstack: { condition: service_started }
-
-  clickstack-dashboard:
-    <<: *common
-    image: docker.io/docker:${DOCKER_CLI_VERSION:-29-cli}
-    restart: no
-    entrypoint: ['/bin/sh', '-c']
-    command:
-      - |
-        i=0
-        until docker exec edgy-clickstack-1 curl -sf http://localhost:8080/api/health >/dev/null 2>&1; do
-          i=$$((i + 1))
-          [ "$$i" -ge 90 ] && { echo "HyperDX did not become ready"; exit 1; }
-          sleep 2
-        done
-        # The files name their sources and connections; HyperDX compares those
-        # fields against _id, so resolve the names to ids first. The ids are
-        # regenerated whenever the stack is recreated, so they cannot be committed.
-        docker exec edgy-clickstack-1 node /clickstack/resolve-dashboard-refs.mjs --src /dashboards --out /tmp/dashboards
-        docker exec -e RUN_SCHEDULED_TASKS_EXTERNALLY=true \
-          -e MONGO_URI=mongodb://127.0.0.1:27017/hyperdx \
-          -e DASHBOARD_PROVISIONER_DIR=/tmp/dashboards \
-          -e DASHBOARD_PROVISIONER_ALL_TEAMS=true \
-          edgy-clickstack-1 sh -c 'cd /app/packages/api && ./bin/hyperdx task provision-dashboards'
-    volumes: ['/var/run/docker.sock:/var/run/docker.sock:ro']
+      CLICKSTACK_ACCESS_KEY: ${CLICKSTACK_ACCESS_KEY:-}
     healthcheck:
       disable: true
     depends_on:

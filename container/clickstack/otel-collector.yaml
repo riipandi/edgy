@@ -14,8 +14,8 @@ receivers:
             - targets: ['redis-exporter:9121']
 
 processors:
-  # Dashboards group by ServiceName; without this every Redis series would land
-  # under the collector's own service name.
+  # Dashboards group by ServiceName; without this every Redis series 
+  # would land under the collector's own service name.
   resource/redis:
     attributes:
       - key: service.name

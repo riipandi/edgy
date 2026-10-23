@@ -1,25 +1,22 @@
 {
-    "version": "0.1.0",
     "name": "Node.js Runtime Metrics",
     "tags": ["otel", "runtime-metrics", "nodejs"],
     "tiles": [
         {
-            "id": "55ef66",
+            "name": "EL Delay p99 (ms)",
             "x": 0,
             "y": 0,
             "w": 6,
             "h": 4,
             "config": {
-                "name": "EL Delay p99 (ms)",
-                "source": "Metrics",
                 "displayType": "number",
                 "numberFormat": {
                     "output": "number",
                     "mantissa": 1,
                     "thousandSeparated": true
                 },
-                "granularity": "auto",
                 "alignDateRangeToGranularity": true,
+                "source": "Metrics",
                 "select": [
                     {
                         "aggFn": "avg",
@@ -27,27 +24,23 @@
                         "metricType": "gauge",
                         "metricName": "nodejs.eventloop.delay.p99"
                     }
-                ],
-                "where": "",
-                "whereLanguage": "sql"
+                ]
             }
         },
         {
-            "id": "31e132",
+            "name": "Event Loop Util",
             "x": 6,
             "y": 0,
             "w": 6,
             "h": 4,
             "config": {
-                "name": "Event Loop Util",
-                "source": "Metrics",
                 "displayType": "number",
                 "numberFormat": {
                     "output": "percent",
                     "mantissa": 1
                 },
-                "granularity": "auto",
                 "alignDateRangeToGranularity": true,
+                "source": "Metrics",
                 "select": [
                     {
                         "aggFn": "avg",
@@ -55,27 +48,23 @@
                         "metricType": "gauge",
                         "metricName": "nodejs.eventloop.utilization"
                     }
-                ],
-                "where": "",
-                "whereLanguage": "sql"
+                ]
             }
         },
         {
-            "id": "52f4a5",
+            "name": "Heap Used",
             "x": 12,
             "y": 0,
             "w": 6,
             "h": 4,
             "config": {
-                "name": "Heap Used",
-                "source": "Metrics",
                 "displayType": "number",
                 "numberFormat": {
                     "output": "byte",
                     "mantissa": 1
                 },
-                "granularity": "auto",
                 "alignDateRangeToGranularity": true,
+                "source": "Metrics",
                 "select": [
                     {
                         "aggFn": "avg",
@@ -83,27 +72,23 @@
                         "metricType": "gauge",
                         "metricName": "v8js.memory.heap.used"
                     }
-                ],
-                "where": "",
-                "whereLanguage": "sql"
+                ]
             }
         },
         {
-            "id": "2029f0",
+            "name": "CPU Utilization",
             "x": 18,
             "y": 0,
             "w": 6,
             "h": 4,
             "config": {
-                "name": "CPU Utilization",
-                "source": "Metrics",
                 "displayType": "number",
                 "numberFormat": {
                     "output": "percent",
                     "mantissa": 1
                 },
-                "granularity": "auto",
                 "alignDateRangeToGranularity": true,
+                "source": "Metrics",
                 "select": [
                     {
                         "aggFn": "avg",
@@ -111,28 +96,24 @@
                         "metricType": "gauge",
                         "metricName": "process.cpu.utilization"
                     }
-                ],
-                "where": "",
-                "whereLanguage": "sql"
+                ]
             }
         },
         {
-            "id": "f9dae7",
+            "name": "Event Loop Delay Percentiles (ms)",
             "x": 0,
             "y": 4,
             "w": 12,
             "h": 7,
             "config": {
-                "name": "Event Loop Delay Percentiles (ms)",
-                "source": "Metrics",
                 "displayType": "line",
                 "numberFormat": {
                     "output": "number",
                     "mantissa": 1,
                     "thousandSeparated": true
                 },
-                "granularity": "auto",
                 "alignDateRangeToGranularity": true,
+                "source": "Metrics",
                 "select": [
                     {
                         "aggFn": "avg",
@@ -155,27 +136,23 @@
                         "alias": "p99",
                         "metricName": "nodejs.eventloop.delay.p99"
                     }
-                ],
-                "where": "",
-                "whereLanguage": "sql"
+                ]
             }
         },
         {
-            "id": "93c11e",
+            "name": "Event Loop Utilization",
             "x": 12,
             "y": 4,
             "w": 12,
             "h": 7,
             "config": {
-                "name": "Event Loop Utilization",
-                "source": "Metrics",
                 "displayType": "line",
                 "numberFormat": {
                     "output": "percent",
                     "mantissa": 1
                 },
-                "granularity": "auto",
                 "alignDateRangeToGranularity": true,
+                "source": "Metrics",
                 "select": [
                     {
                         "aggFn": "avg",
@@ -183,27 +160,23 @@
                         "metricType": "gauge",
                         "metricName": "nodejs.eventloop.utilization"
                     }
-                ],
-                "where": "",
-                "whereLanguage": "sql"
+                ]
             }
         },
         {
-            "id": "7155d4",
+            "name": "V8 Heap: Used vs Limit",
             "x": 0,
             "y": 11,
             "w": 12,
             "h": 7,
             "config": {
-                "name": "V8 Heap: Used vs Limit",
-                "source": "Metrics",
                 "displayType": "line",
                 "numberFormat": {
                     "output": "byte",
                     "mantissa": 1
                 },
-                "granularity": "auto",
                 "alignDateRangeToGranularity": true,
+                "source": "Metrics",
                 "select": [
                     {
                         "aggFn": "avg",
@@ -219,27 +192,24 @@
                         "alias": "limit",
                         "metricName": "v8js.memory.heap.limit"
                     }
-                ],
-                "where": "",
-                "whereLanguage": "sql"
+                ]
             }
         },
         {
-            "id": "c2ea50",
+            "name": "V8 Heap Spaces (physical size)",
             "x": 12,
             "y": 11,
             "w": 12,
             "h": 7,
             "config": {
-                "name": "V8 Heap Spaces (physical size)",
-                "source": "Metrics",
                 "displayType": "line",
                 "numberFormat": {
                     "output": "byte",
                     "mantissa": 1
                 },
-                "granularity": "auto",
                 "alignDateRangeToGranularity": true,
+                "groupBy": "",
+                "source": "Metrics",
                 "select": [
                     {
                         "aggFn": "avg",
@@ -247,28 +217,23 @@
                         "metricType": "gauge",
                         "metricName": "v8js.memory.heap.space.physical_size"
                     }
-                ],
-                "where": "",
-                "whereLanguage": "sql",
-                "groupBy": ""
+                ]
             }
         },
         {
-            "id": "ea6e2d",
+            "name": "CPU Utilization over time",
             "x": 0,
             "y": 18,
             "w": 12,
             "h": 7,
             "config": {
-                "name": "CPU Utilization",
-                "source": "Metrics",
                 "displayType": "line",
                 "numberFormat": {
                     "output": "percent",
                     "mantissa": 1
                 },
-                "granularity": "auto",
                 "alignDateRangeToGranularity": true,
+                "source": "Metrics",
                 "select": [
                     {
                         "aggFn": "avg",
@@ -276,23 +241,19 @@
                         "metricType": "gauge",
                         "metricName": "process.cpu.utilization"
                     }
-                ],
-                "where": "",
-                "whereLanguage": "sql"
+                ]
             }
         },
         {
-            "id": "a73b57",
+            "name": "Event Loop Busy Time",
             "x": 12,
             "y": 18,
             "w": 12,
             "h": 7,
             "config": {
-                "name": "Event Loop Busy Time",
-                "source": "Metrics",
                 "displayType": "line",
-                "granularity": "auto",
                 "alignDateRangeToGranularity": true,
+                "source": "Metrics",
                 "select": [
                     {
                         "aggFn": "sum",
@@ -300,9 +261,7 @@
                         "metricType": "sum",
                         "metricName": "nodejs.eventloop.time"
                     }
-                ],
-                "where": "",
-                "whereLanguage": "sql"
+                ]
             }
         }
     ],
@@ -312,11 +271,9 @@
             "name": "ServiceName",
             "type": "QUERY_EXPRESSION",
             "expression": "ServiceName",
-            "source": "6ad9d65d4bf6302ba08b0743",
-            "sourceMetricType": "gauge",
             "where": "ResourceAttributes.telemetry.sdk.language:\"nodejs\"",
-            "whereLanguage": "lucene"
+            "whereLanguage": "lucene",
+            "source": "Metrics"
         }
-    ],
-    "containers": []
+    ]
 }

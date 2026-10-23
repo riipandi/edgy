@@ -104,13 +104,13 @@ Select the `otlp` value in `LOG_TRANSPORT` to export logs as well. See
 The stack ships six dashboards, provisioned from `container/clickstack/dashboards` on
 `vpr compose:up`: the application (throughput, latency, errors, logs), reliability, storage,
 the telemetry pipeline, Redis, and Node.js runtime metrics. Edit those JSON files rather than the
-copies in the UI — the provisioner owns them and overwrites them on every start.
+copies in the UI — `container/clickstack/provision.sh` owns them and overwrites them
+on every start.
 
-A tile names its source and connection; `resolve-dashboard-refs.mjs` turns those names into the
-ids HyperDX stores before provisioning, because the ids are regenerated whenever the stack is
-recreated. Run `vpr compose:dashboard` to render every tile through HyperDX's own
-`renderChartConfig` and report which ones come back empty or fail — it is the check that catches
-a tile whose source, connection, or query is wrong.
+The files are written in the shape the v2 REST API accepts, with each tile and filter naming its
+source and connection; the provisioner resolves those names to the ids HyperDX assigned, because
+the ids are regenerated whenever the stack is recreated. A dashboard that already exists is
+updated in place, so a restart never leaves duplicates behind.
 
 Redis metrics arrive through a `redis_exporter` sidecar. The all-in-one image generates its own
 collector configuration, so `container/clickstack/otel-collector.yaml` is merged over it to add that
