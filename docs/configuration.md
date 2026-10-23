@@ -1,40 +1,61 @@
 # Application configuration
 
-The application reads optional environment variables through Effect `Config`. Values are grouped by
-app, server, database, logging, security, cache, observability, and docs. Invalid values fail during
-startup rather than surfacing on the first request. Durations use whole milliseconds.
+The application reads optional environment variables through Effect `Config`, validated at startup.
+Values are grouped by app, server, database, logging, security, cache, observability, and docs.
+Invalid values fail during startup rather than surfacing on the first request. Durations use whole
+milliseconds.
 
-Run `vpr app config:generate` to render `.env.example` from the same declarations. The generator
+Run `vpr app generate:config` to create `.env.example` from the same declarations. The generator
 redacts secret defaults, refuses real `.env` files, and requires confirmation before replacing a
 different existing output file.
 
-## App
+## Example file
 
-| Variable       | Default                 | Meaning                                                       |
-| -------------- | ----------------------- | ------------------------------------------------------------- |
-| `APP_BASE_URL` | `http://localhost:3000` | Public origin; relative request URLs are resolved against it. |
+`.env.example` lists every variable with its default and a one-line description. It is generated
+from the configuration itself, so it is always complete:
+
+```bash
+vpr app generate:config               # create .env.example (never replaces an existing, different file)
+vpr app generate:config --overwrite   # replace it after a confirmation (--force skips the prompt)
+vpr app generate:config --check       # fail if the file is out of date
+cp .env.example .env.local            # then change only what you need
+```
+
+## General Configuration
+
+| Variable           | Default                 | Meaning                                                       |
+| ------------------ | ----------------------- | ------------------------------------------------------------- |
+| `API_DOCS_ENABLED` | `false`                 | Expose the OpenAPI document and the Scalar API reference.     |
+| `APP_BASE_URL`     | `http://localhost:3000` | Public origin; relative request URLs are resolved against it. |
+| `SERVER_HOST`      | `0.0.0.0`               | HTTP listener address                                         |
+| `SERVER_PORT`      | `3000`                  | HTTP listener port                                            |
 
 Set `APP_BASE_URL` to the origin users reach the application on. It must be an absolute `http` or
 `https` URL; only the origin is kept, so a trailing path is dropped and an invalid value fails
 startup. Behind a reverse proxy, use the public origin rather than the bind address.
 
-## Server
-
-| Variable      | Default   | Meaning               |
-| ------------- | --------- | --------------------- |
-| `SERVER_HOST` | `0.0.0.0` | HTTP listener address |
-| `SERVER_PORT` | `3000`    | HTTP listener port    |
+When `API_DOCS_ENABLED` enabled, the server serves the Scalar API reference at `/api-docs` and the OpenAPI
+document at `/api/openapi.json`. Keep it off unless the API is meant to be public.
 
 ## Database
 
-| Variable                | Default               | Meaning                                                                                       |
-| ----------------------- | --------------------- | --------------------------------------------------------------------------------------------- |
-| `DATABASE_DRIVER`       | `sqlite`              | SQLite is the supported driver.                                                               |
-| `DATABASE_PATH`         | `storage/data/app.db` | SQLite file path; use `:memory:` for an in-memory database.                                   |
-| `DATABASE_AUTO_MIGRATE` | `false`               | Apply migrations before the server starts. The `--auto-migrate` serve flag also enables this. |
+| Variable                | Default                                   | Meaning                                                                                       |
+| ----------------------- | ----------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `DATABASE_DRIVER`       | `sqlite`                                  | SQLite is the supported driver.                                                               |
+| `DATABASE_PATH`         | `storage/data/app.db`                     | SQLite file path; use `:memory:` for an in-memory database.                                   |
+| `DATABASE_AUTO_MIGRATE` | `false`                                   | Apply migrations before the server starts. The `--auto-migrate` serve flag also enables this. |
+| `REDIS_ENABLE`          | `false`                                   | Use Redis for the rate-limit and cache stores.                                                |
+| `REDIS_URL`             | `redis://default:securedb@localhost:6379` | Redis connection URL; each feature uses its own database.                                     |
 
 Database access is exposed through an Effect service. It owns the Kysely connection lifecycle and
 returns typed `DatabaseError` failures. Migrations and seeders use the same SQLite-backed service.
+
+One connection serves every feature that needs Redis. Features are separated by database index
+rather than by URL: the cache uses database `1` and the rate limiter database `2`, so keys never
+collide and a deployment configures a single server. `REDIS_URL` accepts `redis://` and `rediss://`
+URLs; a database index written in the URL is replaced by the feature's own index. Set
+`REDIS_ENABLE=true` only when Redis is reachable — the process connects at startup, and an
+unreachable server fails the layers that depend on it.
 
 ## Logging
 
@@ -57,15 +78,15 @@ configuration parsing.
 
 | Variable               | Default | Meaning                                                                                |
 | ---------------------- | ------- | -------------------------------------------------------------------------------------- |
+| `CACHE_ENABLED`        | `true`  | Cache user lookups.                                                                    |
+| `CACHE_MAX_ENTRIES`    | `256`   | Maximum entries held by the user lookup cache.                                         |
+| `CACHE_TTL`            | `30000` | Cache entry lifetime in milliseconds.                                                  |
+| `CORS_ALLOWED_ORIGINS` | `*`     | Comma-separated absolute origins. Empty allows any origin.                             |
+| `CORS_ENABLED`         | `true`  | Answer cross-origin requests.                                                          |
 | `RATE_LIMIT_ENABLED`   | `true`  | Enable API rate limiting.                                                              |
 | `RATE_LIMIT_MAX`       | `100`   | Requests allowed for a client during one window; must be at least `1`.                 |
 | `RATE_LIMIT_WINDOW`    | `60000` | Rate-limit window in milliseconds.                                                     |
 | `TRUST_PROXY`          | `false` | Proxies that may set `X-Forwarded-For`: `true`, `false`, or comma-separated IPs/CIDRs. |
-| `CORS_ENABLED`         | `true`  | Answer cross-origin requests.                                                          |
-| `CORS_ALLOWED_ORIGINS` | empty   | Comma-separated absolute origins. Empty allows any origin.                             |
-| `CACHE_ENABLED`        | `true`  | Cache user lookups.                                                                    |
-| `CACHE_TTL`            | `30000` | Cache entry lifetime in milliseconds.                                                  |
-| `CACHE_MAX_ENTRIES`    | `256`   | Maximum entries held by the user lookup cache.                                         |
 
 Rate limiting applies only to the API routes. Its fixed-window counters live in the `rate_limits`
 database table by default, or in Redis when `REDIS_ENABLE=true`, which lets several instances share
@@ -76,37 +97,12 @@ own address, and a spoofed forwarded header from an untrusted peer is ignored. C
 live in process memory by default, or in Redis when `REDIS_ENABLE=true`; a failed lookup is never
 cached.
 
-## Redis
-
-| Variable       | Default                                   | Meaning                                                   |
-| -------------- | ----------------------------------------- | --------------------------------------------------------- |
-| `REDIS_ENABLE` | `false`                                   | Use Redis for the rate-limit and cache stores.            |
-| `REDIS_URL`    | `redis://default:securedb@localhost:6379` | Redis connection URL; each feature uses its own database. |
-
-One connection serves every feature that needs Redis. Features are separated by database index
-rather than by URL: the cache uses database `1` and the rate limiter database `2`, so keys never
-collide and a deployment configures a single server. `REDIS_URL` accepts `redis://` and `rediss://`
-URLs; a database index written in the URL is replaced by the feature's own index. Set
-`REDIS_ENABLE=true` only when Redis is reachable — the process connects at startup, and an
-unreachable server fails the layers that depend on it.
-
-## CORS
-
 `CORS_ENABLED` defaults to `true` and `CORS_ALLOWED_ORIGINS` defaults to empty, which allows any
 origin. The server echoes the caller's origin and allows credentials on that origin. This is safe
 only while the API carries no authentication: with no cookie or session token to steal, a cross-site
 caller reads the same public data as any other client. Set `CORS_ALLOWED_ORIGINS` to the origins you
 serve before the API gains an auth cookie, otherwise any site a signed-in user visits can read the
 API with that user's credentials.
-
-## Docs
-
-| Variable           | Default | Meaning                                                   |
-| ------------------ | ------- | --------------------------------------------------------- |
-| `API_DOCS_ENABLED` | `false` | Expose the OpenAPI document and the Scalar API reference. |
-
-When enabled, the server serves the Scalar API reference at `/api-docs` and the OpenAPI document at
-`/api/openapi.json`. Keep it off unless the API is meant to be public.
 
 ## Observability
 

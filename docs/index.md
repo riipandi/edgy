@@ -8,7 +8,6 @@ Human-facing documentation for the Edgy reference server.
 | [CLI](./commandline.md)             | Commands, flags, confirmation and dry-run behaviour      |
 | [Configuration](./configuration.md) | Environment variables, defaults, examples                |
 | [API endpoints](./api-endpoint.md)  | Endpoint list, request ID tracing, error response shapes |
-| [Pages](./frontend.md)              | Writing a page, styling, how pages are served            |
 | [Development](./development.md)     | Day-to-day commands, database workflow, validation       |
 | [Deployment](./deployment.md)       | Node.js server and bundled assets                        |
 
@@ -16,6 +15,5 @@ Human-facing documentation for the Edgy reference server.
 
 - **Run it locally for the first time** — README (getting started) → [Configuration](./configuration.md)
 - **Work on the code** — [Development](./development.md) → [CLI](./commandline.md)
-- **Build a page** — [Pages](./frontend.md) → [Development](./development.md)
 - **Ship it** — [Deployment](./deployment.md) → [Configuration](./configuration.md)
 - **Integrate with it** — [API endpoints](./api-endpoint.md)

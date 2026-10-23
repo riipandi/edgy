@@ -38,7 +38,7 @@ jobs:
       #     vp run e2e --project Chromium
 
       # - name: .env.example is current
-      #   run: vp run app config:generate --check
+      #   run: vp run app generate:config --check
 
       # - name: The API description is current
       #   run: vp run app openapi:generate --check

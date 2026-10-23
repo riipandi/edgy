@@ -1,14 +1,15 @@
 # Command line
 
-Run application commands from source with `vpr app <command>`. Global options include `--version`,
-`--log-level <level>`, and `--help`.
+Run application commands from source with `vpr app <command>`.
+
+Global flags: `--version`, `--log-level <level>`, `--help`.
 
 ## Server
 
 ```sh
-serve                Start the application server
-  --auto-migrate     Apply pending migrations before starting
-  --seed             Run seeders; requires --auto-migrate or DATABASE_AUTO_MIGRATE=true
+serve                  Start the application server
+    --auto-migrate     Apply pending migrations before starting
+    --seed             Run the seeders; requires automatic migration
 ```
 
 The server shuts down gracefully: `SIGINT` and `SIGTERM` are awaited by the serve command itself.
@@ -31,38 +32,39 @@ silent. The Docker image runs this command as its container healthcheck.
 ## Database migrations
 
 ```sh
-migrate:up       Apply pending migrations
-  --to <name>    Apply only up to this migration name
-  --dry-run      List pending migrations without applying them
+migrate:up       Run database migrations
+  --to <name>    Apply migrations only up to this migration name
+  --dry-run      List the pending migrations without applying them
 
-migrate:down     Roll back executed migrations
-  --count <n>    How many to roll back (default 1)
-  --dry-run      List what would roll back
+migrate:down     Rollback database migrations
+   --count int   Number of migrations to roll back (default: 1)
+   --dry-run     List the migrations that would be rolled back without changing anything
+   --force       Skip the confirmation prompt
 
-migrate:status   Show applied and pending migrations
+migrate:status   Check database migration status
 
-migrate:reset    Roll back all migrations
-  --up           Re-apply all migrations after the rollback
-  --seed         Run the seeders after the re-apply (requires --up)
-  --dry-run      Print what would roll back
+migrate:reset   Rollback all migrations
+   --up         Re-apply all migrations after the rollback (fresh schema)
+   --seed       Run the seeders after the re-apply (requires --up)
+   --dry-run    Print what would be rolled back without changing anything
+   --force      Skip the confirmation prompt
 
-migrate:seed     Run database seeders
-  --dry-run      Report what would be seeded
+migrate:seed    Seed the database with initial data
+   --dry-run    Report what would be seeded without changing anything
 ```
 
-Migrations and seeders use the configured SQLite database (`DATABASE_PATH`). `migrate:down --count`
-must be at least `1`. Destructive commands ask for confirmation; pass `--force` to skip the prompt.
-There is no remote database option.
+Destructive commands (`migrate:down`, `migrate:reset`) ask for confirmation; `--force`
+skips the prompt, and non-interactive sessions must pass `--force` explicitly.
 
 ## Configuration example
 
 ```sh
-config:generate                 Generate `.env.example` from the application configuration
-  --check                       Fail if `.env.example` is missing or out of date
-  --output, -o <path>            Choose another output path
-  --stdout                      Print the generated content instead of writing it
-  --overwrite                   Replace an existing file after confirmation
-  --force                       Skip confirmation; requires `--overwrite`
+generate:config      Generate .env.example from the application configuration
+   --output, -o      File to write (default: .env.example; never a real .env file)
+   --overwrite       Replace an existing file whose content differs (asks for confirmation)
+   --check           Do not write; exit with an error if the file is missing or out of date
+   --stdout          Print the generated file instead of writing it
+   --force           Skip the confirmation prompt of --overwrite
 ```
 
 The command refuses real `.env` files, including through symlinks. It does not replace an existing

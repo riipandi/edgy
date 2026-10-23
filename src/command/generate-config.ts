@@ -121,13 +121,13 @@ const writeGenerated = (file: GeneratedFile) =>
   })
 
 export const configGenerateCmd = Command.make(
-  'config:generate',
+  'generate:config',
   generatedFileFlags('.env.example', 'never a real .env file'),
   (options) =>
     writeGenerated({
       ...options,
       content: renderExample(appConfig.specs),
-      regenerate: 'vpr app config:generate',
+      regenerate: 'vpr app generate:config',
       refuse: (name) => (isRealDotenv(name) ? 'real dotenv files are never generated' : undefined),
       summary: `${appConfig.specs.length} variables`
     })

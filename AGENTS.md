@@ -18,7 +18,7 @@ This file holds the workflow rules, always in force; the detail — the reposito
 
 ## Tooling (vite-plus)
 
-- The project runs on vite-plus (`vp`/`vpr`). Invoke every project script through the task runner: `vpr <script>` (`vpr dev`, `vpr build`, `vpr test`, `vpr check`, `vpr start`, `vpr e2e`, …) and the application CLI through `vpr app <command>` (`vpr app serve`, `vpr app migrate:up`, `vpr app config:generate`, …).
+- The project runs on vite-plus (`vp`/`vpr`). Invoke every project script through the task runner: `vpr <script>` (`vpr dev`, `vpr build`, `vpr test`, `vpr check`, `vpr start`, `vpr e2e`, …) and the application CLI through `vpr app <command>` (`vpr app serve`, `vpr app migrate:up`, `vpr app generate:config`, …).
 - Do not use `pnpm <script>` or `pnpm app` — that shorthand is not the project's convention.
 
 ## Skills
