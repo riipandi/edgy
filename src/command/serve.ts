@@ -1,6 +1,5 @@
 import { Effect, Layer } from 'effect'
 import { Command, Flag } from 'effect/cli'
-import { DatabaseLayer } from '#/database/adapter.ts'
 import { migrateToLatest } from '#/database/migrator.ts'
 import { runSeeders } from '#/database/seeder.ts'
 import { AppConfig } from '#/kernel/config/config.ts'
@@ -51,18 +50,22 @@ export const serveCmd = Command.make(
         return yield* Effect.fail(
           new Error('--seed requires --auto-migrate or DATABASE_AUTO_MIGRATE=true')
         )
-      if (autoMigrate) {
-        // Migrations run on their own database session so the server's
-        // long-lived connection is only opened once the schema is ready.
-        yield* migrateBeforeStart(config.seed).pipe(Effect.provide(DatabaseLayer))
-      }
+      // Migrations and requests must share one layer build: a second build
+      // would open a second database, which with DATABASE_PATH=:memory: has no
+      // schema. Running the migration while the layer builds also keeps the
+      // listener closed until the schema is ready.
+      const application = autoMigrate
+        ? Layer.effectDiscard(migrateBeforeStart(config.seed)).pipe(
+            Layer.provideMerge(ApplicationLayer)
+          )
+        : ApplicationLayer
       // The server waits for a shutdown signal and completes its scope normally,
       // so every finalizer — connection drain, database and Redis closes,
       // telemetry flush — runs and is awaited before the process exits.
       yield* Effect.gen(function* () {
         const signal = yield* awaitShutdownSignal
         yield* Effect.logInfo(`shutting down (received ${signal})`)
-      }).pipe(Effect.provide(server.pipe(Layer.provideMerge(ApplicationLayer))))
+      }).pipe(Effect.provide(server.pipe(Layer.provideMerge(application))))
       yield* Effect.logInfo('application terminated')
     })
 ).pipe(Command.withDescription('Start the application server'))
