@@ -96,7 +96,6 @@ export default defineConfig(({ mode }) => ({
       effectVite({ enabled: !uiPreview }),
       devtoolsJson()
     ]) ?? [],
-  ssr: { noExternal: true },
   resolve: { tsconfigPaths: true },
   server: { port: 3000, strictPort: true },
   preview: { port: 3000, strictPort: true },
