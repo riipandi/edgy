@@ -27,6 +27,12 @@ export const cspFor = (nonce?: string): string =>
     : [`script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`, ...CSP_DIRECTIVES]
   ).join('; ')
 
+// The Scalar reference is one self-hosted page whose bootstrap script is
+// inline and carries no nonce, so it admits inline scripts on that route
+// alone. Scoped to the docs layer, never global.
+export const docsCspFor = (): string =>
+  [`script-src 'self' 'unsafe-inline'`, ...CSP_DIRECTIVES].join('; ')
+
 export const securityHeaders = {
   'content-security-policy': cspFor(),
   'referrer-policy': 'strict-origin-when-cross-origin',
@@ -43,3 +49,9 @@ export const securityHeadersMiddleware = HttpRouter.middleware(
   (httpEffect) => Effect.map(httpEffect, applySecurityHeaders),
   { global: true }
 )
+
+export const docsSecurityHeadersMiddleware = HttpRouter.middleware((httpEffect) =>
+  Effect.map(httpEffect, (response) =>
+    HttpServerResponse.setHeader(response, 'content-security-policy', docsCspFor())
+  )
+).layer
