@@ -42,4 +42,3 @@ logs. Keep collector credentials in the runtime environment and do not commit th
 The Docker image defines a container healthcheck that runs `entry.js healthcheck`. The command pings
 the database and exits `0` when the application is ready, `1` when the database fails or does not
 answer. Docker marks the container unhealthy while the command keeps failing.
-g.

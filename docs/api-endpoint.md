@@ -8,6 +8,16 @@
 | `GET`  | `/api-docs`         | Scalar API reference (behind `API_DOCS_ENABLED`).         |
 | `GET`  | `/api/openapi.json` | OpenAPI document for the API (behind `API_DOCS_ENABLED`). |
 
+Every row answers `HEAD` as well: the router falls back from `HEAD` to the `GET` route and returns the
+same status and headers without a body.
+
+## Response headers
+
+`x-cache` reports the user lookup cache on `/api/users/:id` and on the SSR user page: `hit` when the
+entry was served from the cache, `miss` when it was read from the database, and `bypass` when the
+request skipped the cache. Add `?nocache=1` to any user read to force a `bypass` — the result is read
+from the database and the cached entry is replaced.
+
 ## Readiness
 
 `/api/health` returns `200` with `{"status":"ok"}` when the database responds. It returns `503` with `{"_tag":"ServiceUnavailable"}` when the database probe fails. This endpoint measures readiness; it does not report whether the process itself is alive.
@@ -20,7 +30,7 @@ If a user lookup fails because of a database error, the endpoint returns `503` w
 
 ## Rate limits and request IDs
 
-API routes use the configured rate limit. A rejected request returns `429` with `Retry-After` and `RateLimit-*` headers. The fixed-window counter is stored in the `rate_limits` database table, so separate server instances share the same limit.
+API routes use the configured rate limit. A rejected request returns `429` with `Retry-After` and `RateLimit-*` headers. A store that cannot be read returns `503` rather than an unthrottled request. The fixed-window counter is stored in the `rate_limits` database table, so separate server instances share the same limit.
 
 ## API documentation
 

@@ -16,8 +16,8 @@ The log records `shutting down (received <signal>)` when the signal arrives, the
 reports its own teardown — the HTTP server drains in-flight requests (up to its 20-second shutdown
 timeout) and logs `server stopped accepting connections`, the database logs `closing database
 connection` and `database connection closed`, a Redis-backed rate-limit or cache store logs its
-close the same way, and `terminated` lands after every finalizer has finished. The process exits
-`0`; a second signal exits immediately.
+close the same way, and `application terminated` lands after every finalizer has finished. The
+process exits `0`; a second signal exits immediately.
 
 ## Health
 

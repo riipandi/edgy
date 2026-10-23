@@ -51,8 +51,8 @@ components, so a misspelled field fails there and not in the browser.
 
 ## How pages are served
 
-| Where             | What happens                                                                                                              |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `vpr dev`         | Vite serves scripts and styles from the source folders                                                                    |
-| Node.js build     | The server serves the built files under `/assets`; a file's name carries its content hash, so browsers keep it for a year |
-| Single executable | The built files are inside the executable                                                                                 |
+| Where             | What happens                                                                                                                                                       |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `vpr dev`         | Vite serves scripts and styles from the source folders                                                                                                             |
+| Node.js build     | The server serves the built files under `/assets`; a file's name carries its content hash, so it is sent with `Cache-Control: public, max-age=31536000, immutable` |
+| Single executable | The built files are inside the executable                                                                                                                          |
