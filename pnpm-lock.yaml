@@ -286,6 +286,9 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
+      vite-plugin-devtools-json:
+        specifier: ^1.1.2
+        version: 1.1.2(@voidzero-dev/vite-plus-core@1.3.0(@types/node@26.6.5)(@volar/typescript@2.4.28(typescript@7.0.2))(esbuild@0.28.2)(typescript@7.0.2))
       vite-plugin-solid:
         specifier: ^2.11.14
         version: 2.11.14(@testing-library/jest-dom@7.0.1(@testing-library/dom@10.4.2)(vitest@5.0.5))(@types/node@26.6.5)(@voidzero-dev/vite-plus-core@1.3.0(@types/node@26.6.5)(@volar/typescript@2.4.28(typescript@7.0.2))(esbuild@0.28.2)(typescript@7.0.2))(@volar/typescript@2.4.28(typescript@7.0.2))(esbuild@0.28.2)(solid-js@2.0.0-rc.17)(typescript@7.0.2)
@@ -3168,6 +3171,11 @@ packages:
     resolution: {integrity: sha512-Sc5u1VVln93y1Xnz4R+CunOZc7R9LUcTmhj7Rc7Eg3HVcf7rVn2FOoa812fe0W8p3jD7xeoGSYbfqCGGH2B6xw==}
     hasBin: true
 
+  vite-plugin-devtools-json@1.1.2:
+    resolution: {integrity: sha512-C8AdDdRniqUxA1XT2Gqny/j3hGFx5NwlfJPVEvdMVo1qeO/44Ado361sLm3DDwNxPLZnPHQHgeEIMULl7dN9Pw==}
+    peerDependencies:
+      vite: ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0
+
   vite-plugin-solid@2.11.14:
     resolution: {integrity: sha512-7ZVBt8rpoyqmlwin2kRIUveaHoF6/kulY7gsnD+qFh4nS29V4OPAnw+ojoAspXIjObiL9o1xh9a/nTuYHm02Rw==}
     peerDependencies:
@@ -5925,6 +5933,11 @@ snapshots:
       react: 19.3.1
 
   uuid@14.0.3: {}
+
+  vite-plugin-devtools-json@1.1.2(@voidzero-dev/vite-plus-core@1.3.0(@types/node@26.6.5)(@volar/typescript@2.4.28(typescript@7.0.2))(esbuild@0.28.2)(typescript@7.0.2)):
+    dependencies:
+      uuid: 14.0.3
+      vite: '@voidzero-dev/vite-plus-core@1.3.0(@types/node@26.6.5)(@volar/typescript@2.4.28(typescript@7.0.2))(esbuild@0.28.2)(typescript@7.0.2)'
 
   vite-plugin-solid@2.11.14(@testing-library/jest-dom@7.0.1(@testing-library/dom@10.4.2)(vitest@5.0.5))(@types/node@26.6.5)(@voidzero-dev/vite-plus-core@1.3.0(@types/node@26.6.5)(@volar/typescript@2.4.28(typescript@7.0.2))(esbuild@0.28.2)(typescript@7.0.2))(@volar/typescript@2.4.28(typescript@7.0.2))(esbuild@0.28.2)(solid-js@2.0.0-rc.17)(typescript@7.0.2):
     dependencies:

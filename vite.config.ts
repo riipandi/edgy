@@ -3,6 +3,7 @@ import stylex from '@stylexjs/unplugin/vite'
 import solidLint from 'eslint-plugin-solid/configs/v2'
 import { fileRoutes } from 'filesystem-routing/vite'
 import { resolve } from 'node:path'
+import devtoolsJson from 'vite-plugin-devtools-json'
 import { defineConfig, lazyPlugins } from 'vite-plus'
 import { storybookProject } from './.storybook/vitest-integration.ts'
 import { effectVite } from './src/builder/vite-plugin.ts'
@@ -92,7 +93,8 @@ export default defineConfig(({ mode }) => ({
         ...(uiPreview ? {} : { start: true, ssr: true })
       }),
       uiPreview ? null : fileRoutes({ types: true }),
-      effectVite({ enabled: !uiPreview })
+      effectVite({ enabled: !uiPreview }),
+      devtoolsJson()
     ]) ?? [],
   ssr: { noExternal: true },
   resolve: { tsconfigPaths: true },

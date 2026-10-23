@@ -83,6 +83,7 @@
         "storybook": "^10.6.3",
         "storybook-solidjs-vite": "^10.7.4",
         "typescript": "catalog:",
+        "vite-plugin-devtools-json": "^1.1.2",
         "vite-plugin-solid": "^2.11.14",
         "vite-plus": "catalog:"
     },
