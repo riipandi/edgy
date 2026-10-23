@@ -1,53 +1,17 @@
 import { it } from '@effect/vitest'
-import { Duration, Effect, Layer, Redacted } from 'effect'
-import { BlockList } from 'node:net'
+import { Effect, Layer } from 'effect'
 import { TypeID } from 'typeid-js'
 import { expect } from 'vite-plus/test'
 import { AppConfig, type AppConfigShape } from '#/kernel/config/config.ts'
+import { config as fixtureConfig } from '../../../tests/fixtures/config.ts'
 import { UserRepository, UserRepositoryError } from './user_repo.ts'
 import { parseUserId } from './user_schema.ts'
 import { UserCache, UserService, UserServiceLayer } from './user_service.ts'
 
+// A smaller cache than the fixture's so the eviction path is reachable.
 const config: AppConfigShape = {
-  app: { baseUrl: 'http://localhost:3000' },
-  server: { host: '127.0.0.1', port: 0 },
-  database: { driver: 'sqlite', path: ':memory:', autoMigrate: false },
-  logging: {
-    level: 'Info',
-    transport: ['console'],
-    file: 'storage/logs/app.jsonl',
-    rotation: 'daily',
-    fileMaxFiles: 14,
-    format: 'pretty',
-    flushInterval: Duration.millis(250)
-  },
-  security: {
-    rateLimitEnabled: true,
-    rateLimitMax: 1000,
-    rateLimitWindow: Duration.millis(60_000),
-    trustProxy: { trustAll: false, proxies: new BlockList() },
-    corsEnabled: true,
-    corsAllowedOrigins: []
-  },
-  cache: {
-    enabled: true,
-    ttl: Duration.millis(30_000),
-    maxEntries: 16
-  },
-  redis: {
-    enabled: false,
-    url: 'redis://default:securedb@localhost:6379'
-  },
-  observability: {
-    metricsEnabled: false,
-    sdkDisabled: true,
-    endpoint: 'http://localhost:4318',
-    headers: Redacted.make('authorization=dev-key'),
-    serviceName: 'edgy',
-    exportInterval: Duration.millis(5_000),
-    compression: 'gzip'
-  },
-  docs: { enabled: false }
+  ...fixtureConfig,
+  cache: { ...fixtureConfig.cache, maxEntries: 16 }
 }
 
 const testConfig = Layer.succeed(AppConfig, config)
