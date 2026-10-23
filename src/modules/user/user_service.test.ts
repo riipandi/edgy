@@ -25,18 +25,18 @@ const config: AppConfigShape = {
     rateLimitEnabled: true,
     rateLimitMax: 1000,
     rateLimitWindow: Duration.millis(60_000),
-    rateLimitStore: 'database',
-    rateLimitRedisUrl: Redacted.make('redis://localhost:6379'),
     trustProxy: { trustAll: false, proxies: new BlockList() },
     corsEnabled: true,
     corsAllowedOrigins: []
   },
   cache: {
     enabled: true,
-    storage: 'memory',
-    redisUrl: Redacted.make('redis://localhost:6379'),
     ttl: Duration.millis(30_000),
     maxEntries: 16
+  },
+  redis: {
+    enabled: false,
+    url: 'redis://default:securedb@localhost:6379'
   },
   observability: {
     metricsEnabled: false,

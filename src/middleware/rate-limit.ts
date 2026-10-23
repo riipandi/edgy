@@ -8,6 +8,7 @@ import { sql, type Kysely } from 'kysely'
 import { Database } from '#/database/adapter.ts'
 import type { DB } from '#/database/schema.ts'
 import { AppConfig } from '#/kernel/config/config.ts'
+import { redisUrlForDatabase } from '#/kernel/config/redis.ts'
 
 export class RateLimitError extends Data.TaggedError('RateLimitError')<{
   readonly cause: unknown
@@ -144,8 +145,10 @@ export const RateLimitCounterLayerRedis = (url: Redacted.Redacted) =>
 export const RateLimitCounterLayer: Layer.Layer<RateLimitCounter, never, AppConfig | Database> =
   Layer.unwrap(
     Effect.map(AppConfig, (config): Layer.Layer<RateLimitCounter, never, AppConfig | Database> =>
-      config.security.rateLimitStore === 'redis'
-        ? RateLimitCounterLayerRedis(config.security.rateLimitRedisUrl)
+      config.redis.enabled
+        ? RateLimitCounterLayerRedis(
+            Redacted.make(redisUrlForDatabase(config.redis.url, 'rateLimit'))
+          )
         : RateLimitCounterLayerDatabase
     )
   )

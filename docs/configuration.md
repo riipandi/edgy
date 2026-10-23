@@ -20,10 +20,10 @@ startup. Behind a reverse proxy, use the public origin rather than the bind addr
 
 ## Server
 
-| Variable | Default   | Meaning               |
-| -------- | --------- | --------------------- |
-| `HOST`   | `0.0.0.0` | HTTP listener address |
-| `PORT`   | `3000`    | HTTP listener port    |
+| Variable      | Default   | Meaning               |
+| ------------- | --------- | --------------------- |
+| `SERVER_HOST` | `0.0.0.0` | HTTP listener address |
+| `SERVER_PORT` | `3000`    | HTTP listener port    |
 
 ## Database
 
@@ -55,29 +55,40 @@ configuration parsing.
 
 ## Security and cache
 
-| Variable               | Default                  | Meaning                                                                                |
-| ---------------------- | ------------------------ | -------------------------------------------------------------------------------------- |
-| `RATE_LIMIT_ENABLED`   | `true`                   | Enable API rate limiting.                                                              |
-| `RATE_LIMIT_STORE`     | `database`               | Where rate-limit windows live: the database, or a shared Redis.                        |
-| `RATE_LIMIT_REDIS_URL` | `redis://localhost:6379` | Redis connection URL for the redis rate-limit store. Treat this as a secret.           |
-| `RATE_LIMIT_MAX`       | `100`                    | Requests allowed for a client during one window; must be at least `1`.                 |
-| `RATE_LIMIT_WINDOW`    | `60000`                  | Rate-limit window in milliseconds.                                                     |
-| `TRUST_PROXY`          | `false`                  | Proxies that may set `X-Forwarded-For`: `true`, `false`, or comma-separated IPs/CIDRs. |
-| `CORS_ENABLED`         | `true`                   | Answer cross-origin requests.                                                          |
-| `CORS_ALLOWED_ORIGINS` | empty                    | Comma-separated absolute origins. Empty allows any origin.                             |
-| `CACHE_ENABLED`        | `true`                   | Cache user lookups.                                                                    |
-| `CACHE_STORAGE`        | `memory`                 | Where cache entries live: in process memory, or shared Redis.                          |
-| `CACHE_REDIS_URL`      | `redis://localhost:6379` | Redis connection URL for the redis cache storage. Treat this as a secret.              |
-| `CACHE_TTL`            | `30000`                  | Cache entry lifetime in milliseconds.                                                  |
-| `CACHE_MAX_ENTRIES`    | `256`                    | Maximum entries held by the user lookup cache.                                         |
+| Variable               | Default | Meaning                                                                                |
+| ---------------------- | ------- | -------------------------------------------------------------------------------------- |
+| `RATE_LIMIT_ENABLED`   | `true`  | Enable API rate limiting.                                                              |
+| `RATE_LIMIT_MAX`       | `100`   | Requests allowed for a client during one window; must be at least `1`.                 |
+| `RATE_LIMIT_WINDOW`    | `60000` | Rate-limit window in milliseconds.                                                     |
+| `TRUST_PROXY`          | `false` | Proxies that may set `X-Forwarded-For`: `true`, `false`, or comma-separated IPs/CIDRs. |
+| `CORS_ENABLED`         | `true`  | Answer cross-origin requests.                                                          |
+| `CORS_ALLOWED_ORIGINS` | empty   | Comma-separated absolute origins. Empty allows any origin.                             |
+| `CACHE_ENABLED`        | `true`  | Cache user lookups.                                                                    |
+| `CACHE_TTL`            | `30000` | Cache entry lifetime in milliseconds.                                                  |
+| `CACHE_MAX_ENTRIES`    | `256`   | Maximum entries held by the user lookup cache.                                         |
 
-Rate limiting applies only to the API routes. Its fixed-window counters live in the configured store:
-the `rate_limits` database table, or Redis for deployments with several instances sharing the limit.
-A store that cannot be read answers `503` instead of letting the request through unthrottled.
-`TRUST_PROXY` controls which reverse proxies may set the client address through `X-Forwarded-For` or
-`X-Real-IP`; requests that do not come through a trusted proxy are keyed by their own address, and a
-spoofed forwarded header from an untrusted peer is ignored. Cached user lookups live in process
-memory or in Redis (`CACHE_STORAGE=redis`); a failed lookup is never cached.
+Rate limiting applies only to the API routes. Its fixed-window counters live in the `rate_limits`
+database table by default, or in Redis when `REDIS_ENABLE=true`, which lets several instances share
+the limit. A store that cannot be read answers `503` instead of letting the request through
+unthrottled. `TRUST_PROXY` controls which reverse proxies may set the client address through
+`X-Forwarded-For` or `X-Real-IP`; requests that do not come through a trusted proxy are keyed by their
+own address, and a spoofed forwarded header from an untrusted peer is ignored. Cached user lookups
+live in process memory by default, or in Redis when `REDIS_ENABLE=true`; a failed lookup is never
+cached.
+
+## Redis
+
+| Variable       | Default                                   | Meaning                                                   |
+| -------------- | ----------------------------------------- | --------------------------------------------------------- |
+| `REDIS_ENABLE` | `false`                                   | Use Redis for the rate-limit and cache stores.            |
+| `REDIS_URL`    | `redis://default:securedb@localhost:6379` | Redis connection URL; each feature uses its own database. |
+
+One connection serves every feature that needs Redis. Features are separated by database index
+rather than by URL: the cache uses database `1` and the rate limiter database `2`, so keys never
+collide and a deployment configures a single server. `REDIS_URL` accepts `redis://` and `rediss://`
+URLs; a database index written in the URL is replaced by the feature's own index. Set
+`REDIS_ENABLE=true` only when Redis is reachable — the process connects at startup, and an
+unreachable server fails the layers that depend on it.
 
 ## CORS
 

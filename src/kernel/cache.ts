@@ -1,9 +1,10 @@
 import { NodeRedis } from '@effect/platform-node'
-import { Cache, Context, Effect, Layer, Option, Redacted, Schema, type Scope } from 'effect'
+import { Cache, Context, Effect, Layer, Option, Schema, type Scope } from 'effect'
 import { Persistable, PersistedCache, Persistence } from 'effect/persistence'
 import type { PersistenceError } from 'effect/persistence/Persistence'
 import type { SchemaError } from 'effect/Schema'
 import { AppConfig } from './config/config.ts'
+import { redisUrlForDatabase } from './config/redis.ts'
 
 /**
  * The surface a `Cacheable.Class` tag carries: a keyed lookup with failure
@@ -73,7 +74,7 @@ const buildService = <A, E, R>(
       } satisfies CacheableService<A, E>
     }
     let backing: CacheableBacking<A, E, R>
-    if (config.cache.storage !== 'redis') {
+    if (!config.redis.enabled) {
       const cache = yield* Cache.make<string, A, E, R>({
         capacity: config.cache.maxEntries,
         timeToLive: config.cache.ttl,
@@ -108,7 +109,11 @@ const buildService = <A, E, R>(
       const context = yield* Effect.orDie(
         Layer.build(
           Persistence.layerRedis.pipe(
-            Layer.provide(NodeRedis.layer({ url: Redacted.value(config.cache.redisUrl) }))
+            Layer.provide(
+              NodeRedis.layer({
+                url: redisUrlForDatabase(config.redis.url, 'cache')
+              })
+            )
           )
         )
       )

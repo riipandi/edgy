@@ -26,12 +26,11 @@ the process.
 
 ## Runtime configuration
 
-Set `HOST` and `PORT` for the listener. Use `DATABASE_AUTO_MIGRATE=true` to apply migrations at
-startup, or run `vpr app migrate:up` as a release step. For multi-instance deployments, use a
-shared SQLite-compatible storage arrangement only if its locking semantics support concurrent
-writers. Rate-limit windows and cached lookups can be shared between instances through Redis
-(`RATE_LIMIT_STORE=redis`, `CACHE_STORAGE=redis`); without Redis each instance keeps its own
-counters and cache.
+Set `SERVER_HOST` and `SERVER_PORT` for the listener. Use `DATABASE_AUTO_MIGRATE=true` to apply
+migrations at startup, or run `vpr app migrate:up` as a release step. For multi-instance deployments,
+use a shared SQLite-compatible storage arrangement only if its locking semantics support concurrent
+writers. Rate-limit windows and cached lookups can be shared between instances through Redis when
+`REDIS_ENABLE=true`; without Redis each instance keeps its own counters and cache.
 
 Set `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_HEADERS` for your collector. The server
 exports traces and metrics when `OTEL_SDK_DISABLED` is false; add `otlp` to `LOG_TRANSPORT` to export

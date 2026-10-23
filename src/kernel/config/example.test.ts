@@ -2,10 +2,10 @@ import { it } from '@effect/vitest'
 import { expect } from 'vite-plus/test'
 import { renderExample } from './example.ts'
 
-it('renders grouped config values without exposing secret defaults', () => {
+it('renders grouped config values with usable defaults', () => {
   const result = renderExample([
     {
-      name: 'HOST',
+      name: 'SERVER_HOST',
       description: 'HTTP listener address',
       kind: 'string',
       default: '0.0.0.0',
@@ -15,7 +15,7 @@ it('renders grouped config values without exposing secret defaults', () => {
       name: 'OTEL_EXPORTER_OTLP_HEADERS',
       description: 'OTLP request headers',
       kind: 'secret',
-      default: '<redacted>',
+      default: 'authorization=edgy-dev-ingestion-key',
       section: 'Observability'
     },
     {
@@ -28,8 +28,23 @@ it('renders grouped config values without exposing secret defaults', () => {
     }
   ])
 
-  expect(result).toContain('# --- Server ---\n# HTTP listener address (string)\nHOST=0.0.0.0')
-  expect(result).toContain('OTEL_EXPORTER_OTLP_HEADERS=<redacted>')
+  expect(result).toContain(
+    '# --- Server ---\n# HTTP listener address (string)\nSERVER_HOST=0.0.0.0'
+  )
+  expect(result).toContain('OTEL_EXPORTER_OTLP_HEADERS=authorization=edgy-dev-ingestion-key')
   expect(result).toContain('# Console output format (enum: pretty | json)\nLOG_FORMAT=pretty')
-  expect(result).not.toContain('authorization=')
+})
+
+it('never renders a placeholder in place of a default', () => {
+  const result = renderExample([
+    {
+      name: 'REDIS_URL',
+      description: 'Redis connection URL',
+      kind: 'string',
+      default: 'redis://default:securedb@localhost:6379',
+      section: 'Redis'
+    }
+  ])
+  expect(result).not.toContain('<redacted>')
+  expect(result).toContain('REDIS_URL=redis://default:securedb@localhost:6379')
 })

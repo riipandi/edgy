@@ -72,15 +72,15 @@ ENV NODE_OPTIONS=$NODE_OPTIONS NODE_ENV=production
 # Define the host and port to listen on.
 # Prevent load certs from system (/etc/ssl/certs/ca-certificates.crt)
 ENV PATH="/usr/bin:/usr/local/bin:/busybox:/nodejs/bin:$PATH"
-ARG HOST=0.0.0.0 PORT=3000 TZ=UTC
-ENV HOST=$HOST PORT=$PORT TZ=$TZ
+ARG SERVER_HOST=0.0.0.0 SERVER_PORT=3000 TZ=UTC
+ENV SERVER_HOST=$SERVER_HOST SERVER_PORT=$SERVER_PORT TZ=$TZ
 ENV SSL_CERT_FILE= SSL_CERT_DIR=
 ENV TINI_SUBREAPER=true
 
 WORKDIR /app
 VOLUME /app/storage
 USER nonroot:nonroot
-EXPOSE $PORT/tcp
+EXPOSE $SERVER_PORT/tcp
 
 # Healthcheck to monitor application status
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \

@@ -48,8 +48,8 @@ export default defineConfig({
           timeout: 120_000,
           env: {
             ...serverEnv,
-            HOST: address.hostname,
-            PORT: address.port
+            SERVER_HOST: address.hostname,
+            SERVER_PORT: address.port
           }
         }
       ]

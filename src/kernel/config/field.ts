@@ -33,7 +33,7 @@ export const text = (name: string, fallback: string, description: string) =>
 
 export const secret = (name: string, fallback: string, description: string) =>
   field(
-    { name, description, kind: 'secret', default: '<redacted>' },
+    { name, description, kind: 'secret', default: fallback },
     Config.Redacted(name).pipe(Config.withDefault(Redacted.make(fallback)))
   )
 

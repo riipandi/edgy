@@ -3,7 +3,7 @@
 # Development services. The application itself runs on the host (`vpr dev`);
 # this file only supplies what it talks to:
 #   - ClickStack (HyperDX + ClickHouse + an OpenTelemetry collector) to receive traces, metrics and logs
-#   - Redis, for RATE_LIMIT_STORE=redis
+#   - Redis, for REDIS_ENABLE=true
 #
 #   vpr compose:up        start both, in the background
 #   vpr compose:down      stop them (data is kept in ./.storage)

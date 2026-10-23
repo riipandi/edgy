@@ -6,6 +6,7 @@ import { docsConfig } from './docs.ts'
 import { group, type ValueOf } from './field.ts'
 import { loggingConfig } from './logging.ts'
 import { observabilityConfig, telemetryEnabled } from './observability.ts'
+import { redisConfig } from './redis.ts'
 import { securityConfig } from './security.ts'
 import { serverConfig } from './server.ts'
 
@@ -16,6 +17,7 @@ export const appConfig = group({
   logging: loggingConfig,
   security: securityConfig,
   cache: cacheConfig,
+  redis: redisConfig,
   observability: observabilityConfig,
   docs: docsConfig
 })
