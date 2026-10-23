@@ -34,6 +34,10 @@ export const openDatabase = (filename: string, log?: (event: LogEvent) => void):
   // node:sqlite defaults the busy timeout to 0: a concurrent writer gets
   // SQLITE_BUSY immediately instead of waiting out the lock.
   const sqlite = new DatabaseSync(location, { timeout: 5_000 })
+  // The file is created with the process umask (0644), so on a shared host any
+  // local user could read the whole database. Narrow it to the owner. The -wal
+  // and -shm sidecars inherit the mode of the file they attach to.
+  if (location !== ':memory:') chmodSync(location, 0o600)
   sqlite.exec('pragma foreign_keys = on')
   sqlite.exec('pragma journal_mode = wal')
   return new Kysely<DB>({
