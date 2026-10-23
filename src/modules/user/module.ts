@@ -7,7 +7,7 @@ import * as HttpApiSchema from 'effect/http-api/HttpApiSchema'
 import * as HttpServerRequest from 'effect/http/HttpServerRequest'
 import { CacheHeader } from '#/kernel/cache.ts'
 import type { api } from '#/kernel/http/api.ts'
-import { parseUserId, UserSchema, UserIdParams } from './user_schema.ts'
+import { parseUserId, PublicUserSchema, toPublicUser, UserIdParams } from './user_schema.ts'
 import { UserService } from './user_service.ts'
 
 // `?nocache=1` skips the cache for that request: no read, no fill.
@@ -16,12 +16,12 @@ const nocacheRequested = (request: HttpServerRequest.HttpServerRequest) =>
 
 export class UsersApi extends HttpApiGroup.make('users').add(
   HttpApiEndpoint.get('listUsers', '/users', {
-    success: Schema.Array(UserSchema),
+    success: Schema.Array(PublicUserSchema),
     error: HttpApiError.ServiceUnavailable
   }),
   HttpApiEndpoint.get('getUser', '/users/:id', {
     params: UserIdParams,
-    success: HttpApiSchema.WithHeaders(UserSchema, CacheHeader),
+    success: HttpApiSchema.WithHeaders(PublicUserSchema, CacheHeader),
     error: [HttpApiError.NotFound, HttpApiError.ServiceUnavailable]
   })
 ) {}
@@ -31,13 +31,12 @@ export const usersHandlers = (httpApi: typeof api) =>
     handlers
       .handle('listUsers', () =>
         Effect.flatMap(UserService, (service) =>
-          service
-            .list()
-            .pipe(
-              Effect.catchTag('UserRepositoryError', () =>
-                Effect.fail(new HttpApiError.ServiceUnavailable())
-              )
+          service.list().pipe(
+            Effect.map((users) => users.map(toPublicUser)),
+            Effect.catchTag('UserRepositoryError', () =>
+              Effect.fail(new HttpApiError.ServiceUnavailable())
             )
+          )
         )
       )
       .handle('getUser', ({ params }) =>
@@ -49,7 +48,7 @@ export const usersHandlers = (httpApi: typeof api) =>
                   ? Effect.fail(new HttpApiError.NotFound())
                   : Effect.succeed(
                       HttpApiSchema.withHeaders({
-                        body: result.user,
+                        body: toPublicUser(result.user),
                         headers: { 'x-cache': result.cache }
                       })
                     )

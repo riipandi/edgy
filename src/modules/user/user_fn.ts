@@ -1,6 +1,6 @@
-import type { User } from './user_schema.ts'
+import type { PublicUser } from './user_schema.ts'
 
-export const listUsers = async (): Promise<readonly User[]> => {
+export const listUsers = async (): Promise<readonly PublicUser[]> => {
   if (import.meta.env.SSR) {
     const { listUsersFromService } = await import('./user_ssr.ts')
     return listUsersFromService()
@@ -8,7 +8,7 @@ export const listUsers = async (): Promise<readonly User[]> => {
   return fromResponse(await fetch('/api/users'))
 }
 
-export const getUser = async (id: string): Promise<User | undefined> => {
+export const getUser = async (id: string): Promise<PublicUser | undefined> => {
   if (import.meta.env.SSR) {
     const { getUserFromService } = await import('./user_ssr.ts')
     return getUserFromService(id)

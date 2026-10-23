@@ -17,6 +17,18 @@ export const UserSchema = Schema.Struct({
   updated_at: Schema.String
 })
 
+// The API contract. `data`, `email_verified`, `disabled`, and `updated_at` are
+// storage columns: the list endpoint would otherwise publish every internal
+// field of every user, so the responses carry this projection instead.
+export const PublicUserSchema = Schema.Struct({
+  id: Schema.String,
+  email: Schema.String,
+  name: Schema.NullOr(Schema.String),
+  avatar_url: Schema.NullOr(Schema.String),
+  role: Schema.Number,
+  created_at: Schema.String
+})
+
 export const UserIdParams = Schema.Struct({
   id: Schema.String.check(
     Schema.isPattern(/^user_[0-9a-hjkmnp-tv-z]{26}$/),
@@ -45,6 +57,16 @@ export type IUser = typeof UserSchema.Type
 // Kysely types for operations
 export type User = Selectable<IUser>
 export type UserInsert = Insertable<IUser>
+export type PublicUser = typeof PublicUserSchema.Type
+
+export const toPublicUser = (user: User): PublicUser => ({
+  id: user.id,
+  email: user.email,
+  name: user.name,
+  avatar_url: user.avatar_url,
+  role: user.role,
+  created_at: user.created_at
+})
 
 declare module '#/database/schema.ts' {
   interface DB {

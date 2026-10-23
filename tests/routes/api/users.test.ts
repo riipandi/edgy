@@ -24,6 +24,19 @@ describe('GET /api/users', () => {
     ])
   })
 
+  it('publishes the public projection only', async () => {
+    const response = await handler(new Request('http://localhost/api/users'))
+    const [first] = await response.json()
+    expect(Object.keys(first).sort()).toEqual([
+      'avatar_url',
+      'created_at',
+      'email',
+      'id',
+      'name',
+      'role'
+    ])
+  })
+
   it('maps repository failures to a sanitized 503 response', async () => {
     const response = await unavailableUsersHandler(new Request('http://localhost/api/users'))
     expect(response.status).toBe(503)
@@ -36,6 +49,15 @@ describe('GET /api/users/:id', () => {
     const response = await handler(new Request(`http://localhost/api/users/${users[0]!.id}`))
     expect(response.status).toBe(200)
     expect(await response.json()).toMatchObject({ name: 'Ada Lovelace' })
+  })
+
+  it('keeps the storage columns out of the detail response', async () => {
+    const response = await handler(new Request(`http://localhost/api/users/${users[0]!.id}`))
+    const body = await response.json()
+    expect(body).not.toHaveProperty('data')
+    expect(body).not.toHaveProperty('email_verified')
+    expect(body).not.toHaveProperty('disabled')
+    expect(body).not.toHaveProperty('updated_at')
   })
 
   it('reports the cache status in the x-cache header', async () => {
