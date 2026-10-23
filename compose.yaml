@@ -1,33 +1,15 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/compose-spec/compose-spec/master/schema/compose-spec.json
 
-# Development services. The application itself runs on the host (`vpr dev`);
-# this file only supplies what it talks to:
-#   - ClickStack (HyperDX + ClickHouse + an OpenTelemetry collector) to receive traces, metrics and logs
-#   - Redis, for REDIS_ENABLE=true, with a Prometheus exporter so its metrics reach the dashboards
-#
-#   vpr compose:up          start everything, in the background
-#   vpr compose:down        stop them (data is kept in ./.storage)
-#   vpr compose:cleanup     stop them and delete their data
-#   vpr compose:dashboards  run every provisioned dashboard tile against ClickHouse
-#
-# HyperDX UI: http://localhost:8080, signed in with the development account below.
-#   email    admin@example.com    (HYPERDX_EMAIL)
-#   password @Password123!        (HYPERDX_PASSWORD)
-#
-# Dashboards live in ./container/clickstack/dashboards as JSON and are provisioned by the
-# clickstack-dashboards service on `vpr compose:up`. They are machine-managed: edit the JSON
-# files, not the copies in the UI, and re-run the service to apply a change.
+###
+# - ClickStack (gRPC is not published on purpose)
+#   -> address  : http://localhost:8080
+#   -> email    : admin@example.com
+#   -> password : @Password123!
 #
 # The collector accepts the ingestion key `edgy-dev-ingestion-key` (CLICKSTACK_INGESTION_KEY):
 #   OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 #   OTEL_EXPORTER_OTLP_HEADERS=authorization=edgy-dev-ingestion-key
-#
-# OTLP/HTTP:  http://localhost:4318 (OTEL_EXPORTER_OTLP_ENDPOINT); gRPC is not published on purpose
-#
-# Host ports are variables (CLICKSTACK_UI_PORT, OTLP_HTTP_PORT, REDIS_PORT) for machines where
-# 8080, 4318 or 6379 are taken by another stack. They are published on 127.0.0.1 only: the
-# development accounts and keys below are defaults, not secrets, so they must not be reachable
-# from the network.
+### 
 
 name: edgy
 
@@ -37,8 +19,11 @@ x-common: &common
     - 'host.docker.internal:host-gateway'
   restart: unless-stopped
   security_opt: ['no-new-privileges:true']
+  shm_size: 32m # set shared memory limit
+  mem_limit: 64m # set memory limit
+  cpus: 1.0 # set CPUs limit
   healthcheck:
-    start_period: 20s
+    start_period: 15s
     interval: 30s
     timeout: 10s
     retries: 5
@@ -48,11 +33,11 @@ services:
     <<: *common
     # All-in-one: HyperDX app + API, ClickHouse, MongoDB and the OpenTelemetry collector
     # in one container. Fine for development; production runs them as separate services.
-    image: docker.hyperdx.io/hyperdx/hyperdx-all-in-one:${CLICKSTACK_VERSION:-latest}
+    image: docker.io/hyperdx/hyperdx-all-in-one:${CLICKSTACK_VERSION:-2}
     hostname: clickstack
     ports:
       - '127.0.0.1:${CLICKSTACK_UI_PORT:-8080}:8080' # HyperDX UI
-      - '127.0.0.1:${OTLP_HTTP_PORT:-4318}:4318' # OTLP over HTTP (the application's exporter)
+      - '127.0.0.1:${OTLP_HTTP_PORT:-4318}:4318' # OTLP over HTTP
     volumes:
       - './.storage/clickstack/db:/data/db:rw'
       - './.storage/clickstack/ch_data:/var/lib/clickhouse:rw'
@@ -60,31 +45,28 @@ services:
       - './container/clickstack/dashboards:/dashboards:ro'
       - './container/clickstack/resolve-dashboard-refs.mjs:/clickstack/resolve-dashboard-refs.mjs:ro'
       - './container/clickstack/render-tiles.mjs:/clickstack/render-tiles.mjs:ro'
-      - './container/clickstack/otel-extra.yaml:/etc/otel/extra-config.yaml:ro'
+      - './container/clickstack/otel-collector.yaml:/etc/otel/extra-config.yaml:ro'
     environment:
+      CLICKHOUSE_PASSWORD: securedb
+      CLICKHOUSE_USER: default
       CUSTOM_OTELCOL_CONFIG_FILE: /etc/otel/extra-config.yaml
-      FRONTEND_URL: http://localhost:8080
-      HYPERDX_LOG_LEVEL: ${HYPERDX_LOG_LEVEL:-info}
+      FRONTEND_URL: http://localhost:${HYPERDX_PORT:-8080}
+      HYPERDX_LOG_LEVEL: ${HYPERDX_LOG_LEVEL:-debug}
       INGESTION_API_KEY: ${CLICKSTACK_INGESTION_KEY:-edgy-dev-ingestion-key}
-      USAGE_STATS_ENABLED: 'false'
       DASHBOARD_PROVISIONER_DIR: /dashboards
-      DASHBOARD_PROVISIONER_ALL_TEAMS: 'true'
+      DASHBOARD_PROVISIONER_ALL_TEAMS: true
+      USAGE_STATS_ENABLED: false
     shm_size: 512m # set shared memory limit
-    mem_limit: 4g # set memory limit
+    mem_limit: 2g # set memory limit
     cpus: 2.0 # set CPUs limit
     healthcheck:
       test: ['CMD-SHELL', 'curl -sf http://localhost:8080/api/health || exit 1']
-      start_period: 60s
+      start_period: 30s
 
-  # One-shot: ClickStack has no collector pipelines until a team exists, and a team exists only
-  # after someone registers. This registers the development account (idempotent: an existing
-  # account answers 409) so telemetry works from the first `vpr compose:up`, with no clicking.
   clickstack-init:
     <<: *common
-    image: docker.io/curlimages/curl:${CURL_VERSION:-8.14.1}
-    restart: 'no'
-    healthcheck:
-      disable: true
+    image: docker.io/curlimages/curl:${CURL_VERSION:-latest}
+    restart: no
     entrypoint: ['/bin/sh', '-c']
     command:
       - |
@@ -94,10 +76,8 @@ services:
           [ "$$i" -ge 90 ] && { echo "HyperDX did not become ready"; exit 1; }
           sleep 2
         done
-        body=$$(printf '{"email":"%s","password":"%s","confirmPassword":"%s"}' \
-          "$$HYPERDX_EMAIL" "$$HYPERDX_PASSWORD" "$$HYPERDX_PASSWORD")
-        status=$$(curl -s -o /dev/null -w '%{http_code}' -X POST http://clickstack:8080/api/register/password \
-          -H 'content-type: application/json' -d "$$body")
+        body=$$(printf '{"email":"%s","password":"%s","confirmPassword":"%s"}' "$$HYPERDX_EMAIL" "$$HYPERDX_PASSWORD" "$$HYPERDX_PASSWORD")
+        status=$$(curl -s -o /dev/null -w '%{http_code}' -X POST http://clickstack:8080/api/register/password -H 'Content-Type: application/json' -d "$$body")
         case "$$status" in
           200) echo "HyperDX: registered $${HYPERDX_EMAIL}" ;;
           409) echo "HyperDX: account already exists" ;;
@@ -106,46 +86,15 @@ services:
     environment:
       HYPERDX_EMAIL: ${HYPERDX_EMAIL:-admin@example.com}
       HYPERDX_PASSWORD: ${HYPERDX_PASSWORD:-@Password123!}
-    mem_limit: 32m # set memory limit
-    cpus: 0.5 # set CPUs limit
+    healthcheck:
+      disable: true
     depends_on:
       clickstack: { condition: service_started }
 
-  # Redis metrics for the HyperDX dashboards: the collector scrapes this
-  # exporter over the compose network, so the values never leave the host.
-  redis-exporter:
+  clickstack-dashboard:
     <<: *common
-    image: docker.io/oliver006/redis_exporter:${REDIS_EXPORTER_VERSION:-v1.67.0}
-    hostname: redis-exporter
-    environment:
-      REDIS_ADDR: redis://redis:6379
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-securedb}
-      REDIS_EXPORTER_LOG_FORMAT: json
-    shm_size: 16m # set shared memory limit
-    mem_limit: 64m # set memory limit
-    cpus: 0.25 # set CPUs limit
-    healthcheck:
-      # The exporter image ships no shell, so probe it with its own binary.
-      test: ['CMD', '/redis_exporter', '--version']
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-    depends_on:
-      redis: { condition: service_started }
-
-  # One-shot: the all-in-one entrypoint starts only the check-alerts task, so the
-  # dashboard provisioner never runs on its own — and its MongoDB listens on that
-  # container's loopback, which a sibling container cannot reach. This runs the
-  # task inside the ClickStack container over the mounted directory instead.
-  # Idempotent: it upserts the dashboards it owns (`provisioned: true`) and never
-  # touches user-created ones.
-  clickstack-dashboards:
-    <<: *common
-    image: docker.io/docker:${DOCKER_CLI_VERSION:-27-cli}
-    restart: 'no'
-    healthcheck:
-      disable: true
+    image: docker.io/docker:${DOCKER_CLI_VERSION:-29-cli}
+    restart: no
     entrypoint: ['/bin/sh', '-c']
     command:
       - |
@@ -158,19 +107,32 @@ services:
         # The files name their sources and connections; HyperDX compares those
         # fields against _id, so resolve the names to ids first. The ids are
         # regenerated whenever the stack is recreated, so they cannot be committed.
-        docker exec edgy-clickstack-1 \
-          node /clickstack/resolve-dashboard-refs.mjs \
-          --src /dashboards --out /tmp/dashboards
+        docker exec edgy-clickstack-1 node /clickstack/resolve-dashboard-refs.mjs --src /dashboards --out /tmp/dashboards
         docker exec -e RUN_SCHEDULED_TASKS_EXTERNALLY=true \
           -e MONGO_URI=mongodb://127.0.0.1:27017/hyperdx \
           -e DASHBOARD_PROVISIONER_DIR=/tmp/dashboards \
           -e DASHBOARD_PROVISIONER_ALL_TEAMS=true \
           edgy-clickstack-1 sh -c 'cd /app/packages/api && ./bin/hyperdx task provision-dashboards'
     volumes: ['/var/run/docker.sock:/var/run/docker.sock:ro']
-    mem_limit: 64m # set memory limit
-    cpus: 0.25 # set CPUs limit
+    healthcheck:
+      disable: true
     depends_on:
       clickstack: { condition: service_started }
+
+  redis-exporter:
+    <<: *common
+    image: docker.io/oliver006/redis_exporter:${REDIS_EXPORTER_VERSION:-v1.95.0}
+    hostname: redis-exporter
+    expose: ['9121']
+    environment:
+      REDIS_ADDR: redis://redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-securedb}
+      REDIS_EXPORTER_LOG_FORMAT: json
+    cpus: 0.5 # set CPUs limit
+    healthcheck:
+      test: ['CMD', '/redis_exporter', '--version']
+    depends_on:
+      redis: { condition: service_started }
 
   redis:
     <<: *common
@@ -179,13 +141,32 @@ services:
     ports: ['127.0.0.1:${REDIS_PORT:-6379}:6379']
     volumes: ['./.storage/redis:/data:rw']
     command: '--appendonly yes --appendfsync everysec --requirepass ${REDIS_PASSWORD:-securedb}'
-    shm_size: 32m # set shared memory limit
-    mem_limit: 128m # set memory limit
-    cpus: 1.0 # set CPUs limit
+    cpus: 0.5 # set CPUs limit
     healthcheck:
       test: ['CMD-SHELL', 'redis-cli --no-auth-warning -a $${REDIS_PASSWORD:-securedb} ping | grep PONG']
-      start_period: 5s
-      interval: 15s
+
+  mailpit:
+    <<: *common
+    image: docker.io/axllent/mailpit:${MAILPIT_VERSION:-latest}
+    hostname: mailpit
+    ports:
+      - '127.0.0.1:${MAILPIT_POP3_PORT:-1110}:1110'
+      - '127.0.0.1:${MAILPIT_SMTP_PORT:-1025}:1025'
+      - '127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025'
+    volumes: ["./.storage/mailpit:/data:rw"]
+    environment:
+      TZ: Asia/Jakarta
+      MP_TAGS_USERNAME: true
+      MP_DISABLE_VERSION_CHECK: true
+      MP_ALLOW_UNTRUSTED_TLS: true
+      MP_POP3_BIND_ADDR: 0.0.0.0:1110
+      MP_SMTP_BIND_ADDR: 0.0.0.0:1025
+      MP_UI_BIND_ADDR: 0.0.0.0:8025
+      MP_SMTP_AUTH_ALLOW_INSECURE: true
+      MP_SMTP_AUTH: "maileruser1:mailerpass1 maileruser2:mailerpass2"
+    cpus: 0.5 # set CPUs limit
+    healthcheck:
+      test: ["CMD-SHELL", "nc -vz 127.0.0.1 8025 || exit 1"]
 
 networks:
   intranet:

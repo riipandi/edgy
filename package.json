@@ -25,7 +25,7 @@
         "compose:up": "docker compose up --detach --remove-orphans",
         "compose:down": "docker compose down --remove-orphans",
         "compose:restart": "vpr compose:down && vpr compose:up",
-        "compose:dashboards": "docker exec edgy-clickstack-1 node /clickstack/render-tiles.mjs",
+        "compose:dashboard": "docker exec edgy-clickstack-1 node /clickstack/render-tiles.mjs",
         "update-deps": "npm-check-updates --configFileName .ncurc.json",
         "storybook": "storybook dev -p 6006 --no-open",
         "storybook:build": "storybook build -o .output/storybook",

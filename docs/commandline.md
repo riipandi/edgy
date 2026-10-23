@@ -32,25 +32,25 @@ silent. The Docker image runs this command as its container healthcheck.
 ## Database migrations
 
 ```sh
-migrate:up       Run database migrations
-  --to <name>    Apply migrations only up to this migration name
-  --dry-run      List the pending migrations without applying them
+migrate:up         Run database migrations
+    --to <name>    Apply migrations only up to this migration name
+    --dry-run      List the pending migrations without applying them
 
-migrate:down     Rollback database migrations
-   --count int   Number of migrations to roll back (default: 1)
-   --dry-run     List the migrations that would be rolled back without changing anything
-   --force       Skip the confirmation prompt
+migrate:down       Rollback database migrations
+    --count int    Number of migrations to roll back (default: 1)
+    --dry-run      List the migrations that would be rolled back without changing anything
+    --force        Skip the confirmation prompt
 
-migrate:status   Check database migration status
+migrate:status     Check database migration status
 
-migrate:reset   Rollback all migrations
-   --up         Re-apply all migrations after the rollback (fresh schema)
-   --seed       Run the seeders after the re-apply (requires --up)
-   --dry-run    Print what would be rolled back without changing anything
-   --force      Skip the confirmation prompt
+migrate:reset      Rollback all migrations
+    --up           Re-apply all migrations after the rollback (fresh schema)
+    --seed         Run the seeders after the re-apply (requires --up)
+    --dry-run      Print what would be rolled back without changing anything
+    --force        Skip the confirmation prompt
 
-migrate:seed    Seed the database with initial data
-   --dry-run    Report what would be seeded without changing anything
+migrate:seed       Seed the database with initial data
+    --dry-run      Report what would be seeded without changing anything
 ```
 
 Destructive commands (`migrate:down`, `migrate:reset`) ask for confirmation; `--force`
@@ -60,11 +60,11 @@ skips the prompt, and non-interactive sessions must pass `--force` explicitly.
 
 ```sh
 generate:config      Generate .env.example from the application configuration
-   --output, -o      File to write (default: .env.example; never a real .env file)
-   --overwrite       Replace an existing file whose content differs (asks for confirmation)
-   --check           Do not write; exit with an error if the file is missing or out of date
-   --stdout          Print the generated file instead of writing it
-   --force           Skip the confirmation prompt of --overwrite
+    --output, -o     File to write (default: .env.example; never a real .env file)
+    --overwrite      Replace an existing file whose content differs (asks for confirmation)
+    --check          Do not write; exit with an error if the file is missing or out of date
+    --stdout         Print the generated file instead of writing it
+    --force          Skip the confirmation prompt of --overwrite
 ```
 
 The command refuses real `.env` files, including through symlinks. It does not replace an existing

@@ -7,8 +7,8 @@ vpr dev                # run the Node.js server and pages with Vite
 vpr build              # build the server and browser assets
 vpr preview            # run the production build locally
 vpr start              # run the built server
-vpr build:standalone   # create a Node.js single executable
-vpr compose:up         # start the local telemetry collector and UI
+vpr build:standalone   # build the application with bundled vendors
+vpr compose:up         # start the local development stack
 vpr compose:down       # stop the telemetry stack
 vpr test               # run unit and integration tests
 vpr typecheck          # check TypeScript
@@ -108,12 +108,12 @@ copies in the UI — the provisioner owns them and overwrites them on every star
 
 A tile names its source and connection; `resolve-dashboard-refs.mjs` turns those names into the
 ids HyperDX stores before provisioning, because the ids are regenerated whenever the stack is
-recreated. Run `vpr compose:dashboards` to render every tile through HyperDX's own
+recreated. Run `vpr compose:dashboard` to render every tile through HyperDX's own
 `renderChartConfig` and report which ones come back empty or fail — it is the check that catches
 a tile whose source, connection, or query is wrong.
 
 Redis metrics arrive through a `redis_exporter` sidecar. The all-in-one image generates its own
-collector configuration, so `container/clickstack/otel-extra.yaml` is merged over it to add that
+collector configuration, so `container/clickstack/otel-collector.yaml` is merged over it to add that
 scrape target.
 
 The application exports `http_requests` (counter), `http_request_duration_seconds`
