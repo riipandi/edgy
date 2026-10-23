@@ -3,6 +3,10 @@
  * CORS_ALLOWED_ORIGINS narrows it to absolute origins. Global middleware: the
  * serve command's composition (HttpRouter.serve) has no route scope for a
  * route-scoped middleware layer to attach to.
+ *
+ * The any-origin default is only safe while the API carries no authentication.
+ * Once it does, an empty list must stop meaning "echo every origin", or any
+ * site a signed-in user visits can read the API with that user's credentials.
  */
 
 import { Effect, Types } from 'effect'

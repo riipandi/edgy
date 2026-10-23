@@ -53,6 +53,8 @@ configuration parsing.
 | `RATE_LIMIT_MAX`       | `100`                    | Requests allowed for a client during one window; must be at least `1`.                 |
 | `RATE_LIMIT_WINDOW`    | `60000`                  | Rate-limit window in milliseconds.                                                     |
 | `TRUST_PROXY`          | `false`                  | Proxies that may set `X-Forwarded-For`: `true`, `false`, or comma-separated IPs/CIDRs. |
+| `CORS_ENABLED`         | `true`                   | Answer cross-origin requests.                                                          |
+| `CORS_ALLOWED_ORIGINS` | empty                    | Comma-separated absolute origins. Empty allows any origin.                             |
 | `CACHE_ENABLED`        | `true`                   | Cache user lookups.                                                                    |
 | `CACHE_STORAGE`        | `memory`                 | Where cache entries live: in process memory, or shared Redis.                          |
 | `CACHE_REDIS_URL`      | `redis://localhost:6379` | Redis connection URL for the redis cache storage. Treat this as a secret.              |
@@ -61,10 +63,20 @@ configuration parsing.
 
 Rate limiting applies only to the API routes. Its fixed-window counters live in the configured store:
 the `rate_limits` database table, or Redis for deployments with several instances sharing the limit.
+A store that cannot be read answers `503` instead of letting the request through unthrottled.
 `TRUST_PROXY` controls which reverse proxies may set the client address through `X-Forwarded-For` or
 `X-Real-IP`; requests that do not come through a trusted proxy are keyed by their own address, and a
 spoofed forwarded header from an untrusted peer is ignored. Cached user lookups live in process
 memory or in Redis (`CACHE_STORAGE=redis`); a failed lookup is never cached.
+
+## CORS
+
+`CORS_ENABLED` defaults to `true` and `CORS_ALLOWED_ORIGINS` defaults to empty, which allows any
+origin. The server echoes the caller's origin and allows credentials on that origin. This is safe
+only while the API carries no authentication: with no cookie or session token to steal, a cross-site
+caller reads the same public data as any other client. Set `CORS_ALLOWED_ORIGINS` to the origins you
+serve before the API gains an auth cookie, otherwise any site a signed-in user visits can read the
+API with that user's credentials.
 
 ## Docs
 
