@@ -15,7 +15,7 @@
 - User repository failures return a sanitized `503` response. The underlying database cause must not be included in the HTTP body.
 - The API wire contract is defined once in Effect HttpApi: endpoint schemas live in the feature module's group contract (`src/modules/<name>/module.ts`), handler factories receive the composed `HttpApi`, and every failure a handler can produce must be declared in the endpoint's `error` set — an undeclared failure becomes a 500 defect. Path-params validation belongs in the endpoint's `params` schema (a decode failure is an automatic 400).
 - `/api-docs` (Scalar reference) and `/api/openapi.json` exist only when `API_DOCS_ENABLED=true`; the paths are constants in `src/kernel/http/api.ts`.
-- API routes are rate-limited through the configured store (`RATE_LIMIT_STORE`): fixed-window counters in the database, or shared counters in Redis. The process-local memory mode no longer exists.
+- API routes are rate-limited through the configured store: fixed-window counters in the database, or shared counters in Redis when `REDIS_ENABLE=true`. The process-local memory mode no longer exists. The limiter middleware wraps every API route — including the probes — so a store it cannot read answers `503` for the whole API, `/api/live` included; see the issue ledger before relying on liveness under a database outage.
 - Database and runtime resources must be closed with Effect scopes or `ManagedRuntime.dispose()`.
 
 ## How to change it
