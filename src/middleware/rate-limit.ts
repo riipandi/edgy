@@ -152,8 +152,8 @@ export const RateLimitCounterLayer: Layer.Layer<RateLimitCounter, never, AppConf
 
 // Standard rate limit headers (draft IETF: RateLimit-*). Route-scoped: only
 // the route layers this is provided to are limited, so pages and static
-// assets stay unlimited. A store failure fails the request instead of
-// silently letting it through.
+// assets stay unlimited. A store failure answers 503 instead of letting the
+// request through unthrottled.
 export const rateLimitMiddleware = Layer.unwrap(
   Effect.gen(function* () {
     const config = yield* AppConfig
@@ -164,7 +164,11 @@ export const rateLimitMiddleware = Layer.unwrap(
       Effect.gen(function* () {
         const request = yield* HttpServerRequest.HttpServerRequest
         const key = Option.getOrUndefined(request.remoteAddress) ?? 'local'
-        const verdict = yield* counter.consume(key, rateLimitMax, rateLimitWindow)
+        const verdict = yield* counter
+          .consume(key, rateLimitMax, rateLimitWindow)
+          .pipe(Effect.catchTag('RateLimitError', () => Effect.succeed('unavailable' as const)))
+        if (verdict === 'unavailable')
+          return HttpServerResponse.setStatus(503)(HttpServerResponse.text('Service Unavailable'))
         const headers = {
           'ratelimit-limit': String(verdict.limit),
           'ratelimit-reset': String(verdict.resetSeconds),

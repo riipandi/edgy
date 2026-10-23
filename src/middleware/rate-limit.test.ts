@@ -1,11 +1,19 @@
 import { it } from '@effect/vitest'
 import { Duration, Effect, Layer } from 'effect'
+import * as HttpRouter from 'effect/http/HttpRouter'
+import * as HttpServer from 'effect/http/HttpServer'
+import * as HttpServerResponse from 'effect/http/HttpServerResponse'
 import { TestClock } from 'effect/testing'
 import { expect } from 'vite-plus/test'
-import { Database, makeDatabaseService } from '#/database/adapter.ts'
+import { Database, DatabaseError, makeDatabaseService } from '#/database/adapter.ts'
 import { openDatabase } from '#/database/dialect/sqlite.ts'
 import { migrateToLatest } from '#/database/migrator.ts'
-import { RateLimitCounter, RateLimitCounterLayerDatabase } from './rate-limit.ts'
+import { testConfig } from '../../tests/fixtures/config.ts'
+import {
+  RateLimitCounter,
+  RateLimitCounterLayerDatabase,
+  rateLimitMiddleware
+} from './rate-limit.ts'
 
 const database = Layer.effect(
   Database,
@@ -52,3 +60,31 @@ const program = Effect.gen(function* () {
 it.effect('fixed window over sqlite', () =>
   program.pipe(Effect.provide(counterLayer), Effect.provide(database))
 )
+
+// A store that cannot answer must not let traffic through unthrottled, and it
+// must not look like a generic server fault either: the middleware answers 503.
+const offlineDatabase = Layer.succeed(Database, {
+  db: undefined as never,
+  query: () => Effect.fail(new DatabaseError({ cause: new Error('store offline') })),
+  read: () => Effect.fail(new DatabaseError({ cause: new Error('store offline') })),
+  ping: Effect.void
+})
+
+const limited = HttpRouter.toWebHandler(
+  Layer.mergeAll(
+    HttpRouter.add('GET', '/limited', HttpServerResponse.text('ok')).pipe(
+      Layer.provide(rateLimitMiddleware)
+    )
+  ).pipe(
+    Layer.provide(HttpServer.layerServices),
+    Layer.provide(offlineDatabase),
+    Layer.provide(testConfig)
+  ),
+  { disableLogger: true }
+)
+
+it('answers 503 when the rate-limit store fails', async () => {
+  const response = await limited.handler(new Request('http://localhost/limited'))
+  expect(response.status).toBe(503)
+  expect(await response.text()).toBe('Service Unavailable')
+})
