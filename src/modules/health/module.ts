@@ -10,15 +10,20 @@ export class HealthApi extends HttpApiGroup.make('health').add(
   HttpApiEndpoint.get('health', '/health', {
     success: Schema.Struct({ status: Schema.Literal('ok') }),
     error: HttpApiError.ServiceUnavailable
+  }),
+  HttpApiEndpoint.get('live', '/live', {
+    success: Schema.Struct({ status: Schema.Literal('ok') })
   })
 ) {}
 
 export const healthHandlers = (httpApi: typeof api) =>
   HttpApiBuilder.group(httpApi, 'health', (handlers) =>
-    handlers.handle('health', () =>
-      Database.use(({ ping }) => ping).pipe(
-        Effect.as({ status: 'ok' as const }),
-        Effect.catchTag('DatabaseError', () => Effect.fail(new HttpApiError.ServiceUnavailable()))
+    handlers
+      .handle('health', () =>
+        Database.use(({ ping }) => ping).pipe(
+          Effect.as({ status: 'ok' as const }),
+          Effect.catchTag('DatabaseError', () => Effect.fail(new HttpApiError.ServiceUnavailable()))
+        )
       )
-    )
+      .handle('live', () => Effect.succeed({ status: 'ok' as const }))
   )

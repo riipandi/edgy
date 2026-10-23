@@ -3,6 +3,7 @@
 | Method | Path                | Behavior                                                  |
 | ------ | ------------------- | --------------------------------------------------------- |
 | `GET`  | `/api/health`       | Checks whether the database answers a readiness query.    |
+| `GET`  | `/api/live`         | Reports whether the process is alive; no database access. |
 | `GET`  | `/api/users`        | Returns the user records as a JSON array.                 |
 | `GET`  | `/api/users/:id`    | Returns one user, or a `400` or `404` response.           |
 | `GET`  | `/api-docs`         | Scalar API reference (behind `API_DOCS_ENABLED`).         |
@@ -18,9 +19,11 @@ entry was served from the cache, `miss` when it was read from the database, and 
 request skipped the cache. Add `?nocache=1` to any user read to force a `bypass` — the result is read
 from the database and the cached entry is replaced.
 
-## Readiness
+## Readiness and liveness
 
-`/api/health` returns `200` with `{"status":"ok"}` when the database responds. It returns `503` with `{"_tag":"ServiceUnavailable"}` when the database probe fails. This endpoint measures readiness; it does not report whether the process itself is alive.
+`/api/health` returns `200` with `{"status":"ok"}` when the database responds. It returns `503` with `{"_tag":"ServiceUnavailable"}` when the database probe fails. Point the load balancer's readiness check at it: it measures whether this instance can serve, not whether the process is alive.
+
+`/api/live` returns `200` with `{"status":"ok"}` whenever the process answers requests. It never touches the database, so it stays green while the readiness probe fails — point a supervisor's liveness check at it so a database outage does not restart a working process.
 
 ## Users
 

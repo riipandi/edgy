@@ -26,3 +26,17 @@ describe('GET /api/health', () => {
     expect(await response.json()).toEqual({ _tag: 'ServiceUnavailable' })
   })
 })
+
+describe('GET /api/live', () => {
+  it('responds 200 without touching the database', async () => {
+    const response = await handler(new Request('http://localhost/api/live'))
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ status: 'ok' })
+  })
+
+  it('still answers 200 when the database is down, unlike the readiness probe', async () => {
+    const response = await unavailableHandler(new Request('http://localhost/api/live'))
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ status: 'ok' })
+  })
+})

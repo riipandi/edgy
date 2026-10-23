@@ -158,7 +158,7 @@
                 "configType": "sql",
                 "source": "Traces",
                 "connection": "Local ClickHouse",
-                "sqlTemplate": "SELECT SpanName AS probe, StatusCode AS status, count() AS checks, round(quantile(0.95)(Duration / 1e6), 1) AS p95_ms, max(Timestamp) AS last_seen FROM $__sourceTable WHERE $__timeFilter(Timestamp) AND $__filters AND (SpanName ILIKE '%health%' OR SpanName ILIKE '%readiness%' OR SpanName ILIKE '%liveness%') GROUP BY probe, status ORDER BY checks DESC"
+                "sqlTemplate": "SELECT SpanAttributes['http.route'] AS probe, StatusCode AS status, count() AS checks, round(quantile(0.95)(Duration / 1e6), 1) AS p95_ms, max(Timestamp) AS last_seen FROM $__sourceTable WHERE $__timeFilter(Timestamp) AND $__filters AND (SpanAttributes['http.route'] = '/api/health' OR SpanAttributes['http.route'] = '/api/live') GROUP BY probe, status ORDER BY checks DESC"
             }
         },
         {
