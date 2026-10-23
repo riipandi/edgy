@@ -13,7 +13,9 @@ import { trustProxyMiddleware } from '#/middleware/trust-proxy.ts'
 import { disposeUserRuntimeEffect } from '#/modules/user/user_ssr.ts'
 import { apiRoutes } from './api.ts'
 
-const ssrRouter = HttpRouter.add('*', '*', renderPage)
+// GET only: the router falls back from HEAD to GET, so registering the catch-all
+// for every method would answer HEAD on an API path with this page.
+const ssrRouter = HttpRouter.add('GET', '*', renderPage)
 
 export const server = Layer.unwrap(
   Effect.gen(function* () {
