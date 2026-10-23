@@ -17,7 +17,6 @@ minimumReleaseAgeExclude:
   - storybook-solidjs-vite
 
 catalog:
-  "@vitest/browser-playwright": 5.0.5
   "@vitest/coverage-v8": 5.0.5
   typescript: 7.0.2
   vite-plus: 1.3.0
