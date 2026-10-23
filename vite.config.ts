@@ -12,6 +12,7 @@ const ignoredPatterns = [
   '.output',
   '.storage',
   '.wrangler',
+  '.llms/**', // the documentation ledger wraps at full width; not formatter-owned
   '**/*.yml',
   '**/*.yaml',
   '**/*.toml',

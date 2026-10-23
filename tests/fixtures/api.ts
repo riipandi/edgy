@@ -11,10 +11,17 @@ import { migratedDatabase } from './database.ts'
 export const toHandler = (
   services: Layer.Layer<any>,
   appConfig: Layer.Layer<AppConfig>,
-  databaseLayer: Layer.Layer<Database, DatabaseError, never> = migratedDatabase
+  databaseLayer: Layer.Layer<Database, DatabaseError, never> = migratedDatabase,
+  middleware: ReadonlyArray<Layer.Layer<any>> = []
 ) => {
+  // A middleware layer mutates the router service, so each one folds over the
+  // composed routes; the cast keeps the resolved web handler single-argument.
+  const routes =
+    middleware.length === 0
+      ? apiRoutes
+      : Layer.mergeAll(apiRoutes, ...middleware.map((m) => m as Layer.Layer<any>))
   const { handler, dispose } = HttpRouter.toWebHandler(
-    apiRoutes.pipe(
+    routes.pipe(
       HttpRouter.provideRequest(services),
       Layer.provide(RateLimitCounterLayer),
       Layer.provide(databaseLayer),

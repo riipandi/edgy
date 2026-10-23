@@ -12,8 +12,6 @@ export const httpRequestDuration = Metric.histogram('http_request_duration_secon
   boundaries: SECOND_BOUNDARIES
 })
 
-export const statusClass = (status: number): string => `${Math.floor(status / 100)}xx`
-
 const KNOWN_METHODS = new Set([
   'GET',
   'HEAD',
@@ -30,14 +28,28 @@ const KNOWN_METHODS = new Set([
 export const methodLabel = (method: string): string =>
   KNOWN_METHODS.has(method) ? method : 'OTHER'
 
-// Bounded attributes only (method, status class) so the series count stays flat
-// no matter how many routes exist.
-export const recordRequest = (method: string, status: string, durationMs: number) =>
+// Bounded attributes only, so the series count stays flat no matter the
+// traffic: the method collapses to the known set, the code is one numeric
+// response, and the route comes from the matched template (contract paths,
+// the SSR catch-all, `unmatched`) — never the raw request path.
+export const recordRequest = (
+  method: string,
+  statusCode: number,
+  route: string,
+  durationMs: number
+) =>
   Effect.gen(function* () {
     const boundedMethod = methodLabel(method)
-    yield* Metric.update(Metric.withAttributes(httpRequests, { method: boundedMethod, status }), 1)
     yield* Metric.update(
-      Metric.withAttributes(httpRequestDuration, { method: boundedMethod }),
+      Metric.withAttributes(httpRequests, {
+        method: boundedMethod,
+        status_code: String(statusCode),
+        route
+      }),
+      1
+    )
+    yield* Metric.update(
+      Metric.withAttributes(httpRequestDuration, { method: boundedMethod, route }),
       Math.max(0, durationMs) / 1000
     )
   })

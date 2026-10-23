@@ -6,7 +6,7 @@
 | [rules.md](./rules.md)               | Implemented contracts and change guidance.                     |
 | [architecture.md](./architecture.md) | Runtime composition and package boundaries.                    |
 | [effect-docs.md](./effect-docs.md)   | Effect v4 documentation links.                                 |
-| [plans/](./plans/)                   | Execution contracts; newest is plan-20261024_0105 (awaiting approval).         |
+| [plans/](./plans/)                   | Execution contracts; newest is plan-20261024_0105 (in progress). |
 | [issues/](./issues/)                 | Live findings; newest is issue-20261023_2135.                  |
 | [roadmap/](./roadmap/)               | Parked improvements with named unlocks.                        |
 | [handover/](./handover/)             | Session compactions; newest is handover-20261023_0745.         |

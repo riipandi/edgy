@@ -1,0 +1,25 @@
+import * as HttpApi from 'effect/http-api/HttpApi'
+import type { api } from '#/kernel/http/api.ts'
+
+export const pageRoute = 'page'
+export const unmatchedRoute = 'unmatched'
+
+// The route table derived from the contract itself: `.prefix('/api')` bakes the
+// prefix into every endpoint path, so these are the wire templates. A new
+// endpoint extends the label set automatically.
+export const apiRouteTemplates = (httpApi: typeof api): string[] => {
+  const templates: string[] = []
+  HttpApi.reflect(httpApi, {
+    onGroup: () => {},
+    onEndpoint: ({ endpoint }) => templates.push(endpoint.path)
+  })
+  return templates
+}
+
+// The SSR catch-all registers as `*` and serves every page path under one
+// label. An unmatched request carries no RouteContext, so the middleware
+// passes undefined and gets `unmatched` instead of a raw path.
+export const routeLabel = (routePath: string | undefined): string => {
+  if (routePath === undefined) return unmatchedRoute
+  return routePath === '*' || routePath === '/*' ? pageRoute : routePath
+}
