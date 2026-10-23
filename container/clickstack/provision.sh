@@ -1,7 +1,8 @@
 #!/bin/sh
-# Registers the ClickStack account, then creates or updates every dashboard in
-# /dashboards through the v2 REST API. Re-runnable: an existing dashboard is
-# updated in place, so a restart never leaves duplicates behind.
+# Registers the ClickStack account, reconciles the telemetry retention window,
+# then creates or updates every dashboard in /dashboards through the v2 REST
+# API. Re-runnable: an existing dashboard is updated in place, so a restart
+# never leaves duplicates behind.
 #
 # The API only answers with the user's personal access key, so the script logs
 # in with the same credentials it registers and reads the key from /api/me.
@@ -221,6 +222,48 @@ done </tmp/stale.txt
 # provisioning is opt-in: set CLICKSTACK_ALERT_WEBHOOK_URL and the webhook
 # channel plus every /alerts file are applied; unset, nothing is created. The
 # webhook updates in place by name, like the dashboards above.
+
+# Telemetry retention: the image creates every otel/hyperdx table with a
+# 30-day TTL and never revisits it. CLICKSTACK_RETENTION_DAYS (default 30,
+# from compose) rewrites each table's TTL when it differs, so a restart heals
+# both a changed setting and a table the image recreated with its own default.
+if [ -n "${CLICKSTACK_RETENTION_DAYS:-}" ]; then
+    case "$CLICKSTACK_RETENTION_DAYS" in
+        ''|*[!0-9]*|0)
+            echo "HyperDX: CLICKSTACK_RETENTION_DAYS must be a positive integer, got '$CLICKSTACK_RETENTION_DAYS'"
+            exit 1
+            ;;
+    esac
+    ch() {
+        curl -sf -u "${CLICKHOUSE_USER:-default}:${CLICKSTACK_DB_PASSWORD:-securedb}" \
+            --data-binary "$1" http://clickstack:8123/
+    }
+    ch "SELECT table,
+               extract(engine_full, 'TTL (.+) \\\\+ toIntervalDay\\\\(\\\\d+\\\\)') AS expr,
+               extract(engine_full, 'toIntervalDay\\\\((\\\\d+)\\\\)') AS days
+        FROM system.tables
+        WHERE database = 'default' AND (table LIKE 'otel_%' OR table LIKE 'hyperdx_%')
+          AND engine_full LIKE '%TTL %'
+        ORDER BY table FORMAT TSV" >/tmp/ttl.txt || {
+        echo 'HyperDX: retention check could not read the table TTLs'
+        exit 1
+    }
+    applied=0
+    while IFS='	' read -r table expr days; do
+        [ -n "$table" ] || continue
+        if [ "$days" = "$CLICKSTACK_RETENTION_DAYS" ]; then continue; fi
+        ch "ALTER TABLE \`default\`.\`$table\` MODIFY TTL $expr + toIntervalDay($CLICKSTACK_RETENTION_DAYS)" || {
+            echo "HyperDX: retention ALTER failed for $table"
+            exit 1
+        }
+        echo "HyperDX: applied retention ${CLICKSTACK_RETENTION_DAYS}d to $table"
+        applied=$((applied + 1))
+    done </tmp/ttl.txt
+    if [ "$applied" -eq 0 ]; then
+        echo "HyperDX: retention is ${CLICKSTACK_RETENTION_DAYS}d on every table"
+    fi
+fi
+
 if [ -z "${CLICKSTACK_ALERT_WEBHOOK_URL:-}" ]; then
     echo 'HyperDX: alerts not provisioned — CLICKSTACK_ALERT_WEBHOOK_URL is not set'
     exit 0

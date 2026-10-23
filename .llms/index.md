@@ -7,7 +7,7 @@
 | [architecture.md](./architecture.md) | Runtime composition and package boundaries.                    |
 | [effect-docs.md](./effect-docs.md)   | Effect v4 documentation links.                                 |
 | [plans/](./plans/)                   | Execution contracts; newest is plan-20261024_0105 (done).     |
-| [issues/](./issues/)                 | Live findings; newest is issue-20261023_2135 (O7 considering). |
+| [issues/](./issues/)                 | Live findings; none — every issue is archived.                 |
 | [roadmap/](./roadmap/)               | Parked improvements with named unlocks.                        |
 | [handover/](./handover/)             | Session compactions; newest is handover-20261024_0234.         |
 | [audit/](./audit/)                   | Full-surface audit records; newest is audit-20261023_0701.     |

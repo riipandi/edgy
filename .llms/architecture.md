@@ -27,8 +27,11 @@ Each feature declares its lookup cache as a `Cacheable.Class` service tag (schem
 The six findings of issue-20261023_2135 were closed under the plan's seven decisions, recorded here
 because each one shapes a contract another change can break:
 
-- **D1 — scope is O1–O6; O7 stays parked** with its `considering` status and its trigger; the
-  capacity tile is what detects when that trigger fires.
+- **D1 — scope was O1–O6; O7 followed on the owner's call (2026-10-24).** Retention is now the
+  provisioner's reconciliation too: `CLICKSTACK_RETENTION_DAYS` (default 30, from compose) rewrites
+  every `otel_*`/`hyperdx_*` table's TTL through the ClickHouse HTTP interface when it differs, so
+  a restart heals both a changed setting and a table the image recreated. The capacity tile detects
+  when the disk, not the retention, becomes the next thing to revisit.
 - **D2 — O1 is the full compose path.** A compose `app` service builds the project Dockerfile
   (`debug-nonroot` distroless tag — the plain `nonroot` variant has no `/usr/bin/env`, so the entry
   shebang cannot exec), carries a 256m memory limit, publishes its port on `127.0.0.1`, and exports

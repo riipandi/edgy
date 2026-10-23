@@ -64,7 +64,9 @@ are listed in [configuration](./configuration.md#compose-observability-stack).
 The UI answers at `http://localhost:8080` (first-run credentials in the
 configuration table). The OTLP endpoint `http://localhost:4318` is for
 processes running on the host; the compose application already points at the
-collector through the internal network address.
+collector through the internal network address. Telemetry retention defaults
+to 30 days and follows `CLICKSTACK_RETENTION_DAYS` (see
+[configuration](./configuration.md#compose-observability-stack)).
 
 ## Container resource metrics
 

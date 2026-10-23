@@ -140,6 +140,7 @@ generated application configuration:
 | `CLICKSTACK_DB_PASSWORD`             | `securedb`                            | ClickHouse password used by the stack and the app's Redis/ClickHouse wiring.                |
 | `CLICKSTACK_ACCESS_KEY`              | empty                                 | Access key for the provisioner's API calls; empty falls back to the password login flow.    |
 | `CLICKSTACK_ALERT_WEBHOOK_URL`       | empty                                 | Webhook URL that receives the two alert channels. Leave empty to skip alert provisioning.   |
+| `CLICKSTACK_RETENTION_DAYS`          | `30`                                  | Days of telemetry kept; the provisioner rewrites each table's TTL when it differs.          |
 | `HYPERDX_EMAIL` / `HYPERDX_PASSWORD` | `admin@example.com` / `@Password123!` | First-run ClickStack admin login the provisioner uses.                                      |
 | `APP_DISTROLESS_TAG`                 | `debug-nonroot`                       | Distroless variant for the compose app build (see the note below).                          |
 | `CADVISOR_VERSION`                   | `v0.52.1`                             | cAdvisor image tag.                                                                         |
@@ -153,3 +154,10 @@ alerting exists — a silent stack and a broken stack look the same, which is ex
 
 `APP_DISTROLESS_TAG` defaults to `debug-nonroot` because the plain `nonroot` distroless variant
 ships no `/usr/bin/env`, and the application entry's shebang cannot start without it.
+
+`CLICKSTACK_RETENTION_DAYS` (default `30`) is how long telemetry is kept. ClickHouse enforces it as
+a table TTL, and the provisioner rewrites every `otel_*` and `hyperdx_*` table's TTL at start when
+it differs from the configured value — so changing the variable and restarting applies it, and a
+table the image recreates with its own 30-day default is healed on the next start. When the
+configured window drops toward what the "Days of headroom" tile projects, the disk, not the
+retention, is the next thing to revisit.
