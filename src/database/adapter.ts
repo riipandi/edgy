@@ -2,6 +2,7 @@ import { Effect, Layer } from 'effect'
 import { Context, Data, LogLevel } from 'effect'
 import { sql, type Kysely, type LogEvent } from 'kysely'
 import { AppConfig } from '#/kernel/config/config.ts'
+import { withDependencyTelemetry, type DependencyStore } from '#/observer/dependencies.ts'
 import { openDatabase } from './dialect/sqlite.ts'
 import type { DB } from './schema.ts'
 
@@ -43,8 +44,8 @@ export const makeQueryLogger = Effect.gen(function* () {
   }
 })
 
-export const makeDatabaseService = (db: Kysely<DB>) => {
-  const query: Database['Service']['query'] = (run) =>
+export const makeDatabaseService = (db: Kysely<DB>, store: DependencyStore = 'sqlite') => {
+  const runQuery = <A>(run: (db: Kysely<DB>) => Promise<A>): Effect.Effect<A, DatabaseError> =>
     Effect.tryPromise({
       try: (signal) => db.connection().execute(run, { signal }),
       catch: (cause) => new DatabaseError({ cause })
@@ -52,9 +53,14 @@ export const makeDatabaseService = (db: Kysely<DB>) => {
 
   return Database.of({
     db,
-    query,
-    read: query,
-    ping: Effect.asVoid(query((connection) => sql`select 1`.execute(connection)))
+    query: (run) =>
+      runQuery(run).pipe(withDependencyTelemetry({ store, op: 'query', span: 'database.query' })),
+    read: (run) =>
+      runQuery(run).pipe(withDependencyTelemetry({ store, op: 'read', span: 'database.read' })),
+    ping: runQuery((connection) => sql`select 1`.execute(connection)).pipe(
+      withDependencyTelemetry({ store, op: 'ping', span: 'database.ping' }),
+      Effect.asVoid
+    )
   })
 }
 

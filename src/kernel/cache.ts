@@ -3,6 +3,7 @@ import { Cache, Context, Effect, Layer, Option, Schema, type Scope } from 'effec
 import { Persistable, PersistedCache, Persistence } from 'effect/persistence'
 import type { PersistenceError } from 'effect/persistence/Persistence'
 import type { SchemaError } from 'effect/Schema'
+import { annotateSpan, withDependencyTelemetry } from '#/observer/dependencies.ts'
 import { AppConfig } from './config/config.ts'
 import { redisUrlForDatabase } from './config/redis.ts'
 
@@ -65,8 +66,10 @@ const buildService = <A, E, R>(
       const direct = (key: string) =>
         options.lookup(key).pipe(
           Effect.provide(context),
-          Effect.map((value) => [value, 'disabled'] as const)
-        )
+          Effect.map((value) => [value, 'disabled'] as const),
+          Effect.tap((found) => annotateSpan({ 'cache.status': found[1] })),
+          Effect.withSpan('cache.get')
+        ) as Effect.Effect<readonly [A, CacheStatus], E>
       return {
         get: direct,
         bypass: direct,
@@ -127,8 +130,23 @@ const buildService = <A, E, R>(
       const persisted = persistedCache as unknown as PersistedLookup & PersistedPeek
       backing = {
         peek: (key) => Cache.getOption(persisted.inMemory, new Key({ id: key })),
-        get: (key) => persisted.get(new Key({ id: key })),
-        invalidate: (key) => persisted.invalidate(new Key({ id: key })).pipe(Effect.ignore)
+        get: (key) =>
+          persisted
+            .get(new Key({ id: key }))
+            .pipe(
+              withDependencyTelemetry({ store: 'redis', op: 'cache-get', span: 'cache.redis-get' })
+            ),
+        invalidate: (key) =>
+          persisted
+            .invalidate(new Key({ id: key }))
+            .pipe(Effect.ignore)
+            .pipe(
+              withDependencyTelemetry({
+                store: 'redis',
+                op: 'cache-invalidate',
+                span: 'cache.redis-invalidate'
+              })
+            )
       }
     }
     const lookupDirect = (key: string) =>
@@ -141,34 +159,36 @@ const buildService = <A, E, R>(
       )
     return {
       get: (key) =>
-        backing
-          .peek(key)
-          .pipe(
-            // Backend read failures degrade to a direct lookup: the cache is an
-            // optimization, not a dependency.
-            Effect.catch((error) =>
-              isBackendError(error) ? Effect.succeed(Option.none<A>()) : Effect.fail(error as E)
-            ),
-            Effect.flatMap((found): Effect.Effect<readonly [A, CacheStatus], E, R> => {
-              if (Option.isSome(found)) return Effect.succeed([found.value, 'hit'] as const)
-              return backing.get(key).pipe(
-                Effect.catch((error) =>
-                  isBackendError(error) ? options.lookup(key) : Effect.fail(error as E)
-                ),
-                Effect.catch((error) =>
-                  Effect.flatMap(backing.invalidate(key), () => Effect.fail(error))
-                ),
-                Effect.map((value) => [value, 'miss'] as const)
-              )
-            })
-          )
-          .pipe(Effect.provide(context)) as Effect.Effect<readonly [A, CacheStatus], E>,
+        backing.peek(key).pipe(
+          // Backend read failures degrade to a direct lookup: the cache is an
+          // optimization, not a dependency.
+          Effect.catch((error) =>
+            isBackendError(error) ? Effect.succeed(Option.none<A>()) : Effect.fail(error as E)
+          ),
+          Effect.flatMap((found): Effect.Effect<readonly [A, CacheStatus], E, R> => {
+            if (Option.isSome(found)) return Effect.succeed([found.value, 'hit'] as const)
+            return backing.get(key).pipe(
+              Effect.catch((error) =>
+                isBackendError(error) ? options.lookup(key) : Effect.fail(error as E)
+              ),
+              Effect.catch((error) =>
+                Effect.flatMap(backing.invalidate(key), () => Effect.fail(error))
+              ),
+              Effect.map((value) => [value, 'miss'] as const)
+            )
+          }),
+          Effect.tap((found) => annotateSpan({ 'cache.status': found[1] })),
+          Effect.withSpan('cache.get'),
+          Effect.provide(context)
+        ) as Effect.Effect<readonly [A, CacheStatus], E>,
       bypass: (key) =>
         lookupDirect(key).pipe(
           Effect.map((value) => [value, 'bypass'] as const),
+          Effect.tap((found) => annotateSpan({ 'cache.status': found[1] })),
+          Effect.withSpan('cache.bypass'),
           Effect.provide(context)
         ) as Effect.Effect<readonly [A, CacheStatus], E>,
-      invalidate: (key) => backing.invalidate(key)
+      invalidate: (key) => backing.invalidate(key).pipe(Effect.withSpan('cache.invalidate'))
     } satisfies CacheableService<A, E>
   })
 

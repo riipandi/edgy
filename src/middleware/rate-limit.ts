@@ -9,6 +9,7 @@ import { Database } from '#/database/adapter.ts'
 import type { DB } from '#/database/schema.ts'
 import { AppConfig } from '#/kernel/config/config.ts'
 import { redisUrlForDatabase } from '#/kernel/config/redis.ts'
+import { withDependencyTelemetry } from '#/observer/dependencies.ts'
 
 export class RateLimitError extends Data.TaggedError('RateLimitError')<{
   readonly cause: unknown
@@ -17,6 +18,9 @@ export class RateLimitError extends Data.TaggedError('RateLimitError')<{
     return this.cause instanceof Error ? this.cause.message : String(this.cause)
   }
 }
+
+const verdictLabel = (allowed: boolean): 'allowed' | 'rejected' =>
+  allowed ? 'allowed' : 'rejected'
 
 export interface ConsumeVerdict {
   readonly allowed: boolean
@@ -70,6 +74,18 @@ export const RateLimitCounterLayerDatabase = Layer.effect(
   RateLimitCounter,
   Effect.gen(function* () {
     const database = yield* Database
+    // The sqlite traffic the counter makes is already timed at the adapter,
+    // so this span carries the verdict only, without repeating the histogram.
+    const verdictSpan = withDependencyTelemetry({
+      store: 'sqlite',
+      op: 'rate-limit-consume',
+      span: 'rate-limit.consume',
+      metric: false,
+      outcome: (verdict: ConsumeVerdict) => ({
+        'limiter.verdict': verdictLabel(verdict.allowed)
+      }),
+      onFailure: { 'limiter.verdict': 'unavailable' }
+    })
     const consume = (key: string, max: number, window: Duration.Duration) =>
       Effect.gen(function* () {
         const windowMs = Duration.toMillis(window)
@@ -90,7 +106,7 @@ export const RateLimitCounterLayerDatabase = Layer.effect(
           remaining: Math.max(0, max - count),
           resetSeconds: Math.max(1, Math.ceil((bucketStart + windowMs - now) / 1000))
         } satisfies ConsumeVerdict
-      })
+      }).pipe(verdictSpan)
     return RateLimitCounter.of({ consume })
   })
 )
@@ -106,6 +122,15 @@ export const RateLimitCounterLayerRedis = (url: Redacted.Redacted) =>
       Effect.gen(function* () {
         const limiter = yield* RateLimiter.RateLimiter
         yield* Effect.addFinalizer(() => Effect.logInfo('closing redis rate-limit connection'))
+        const redisSpan = withDependencyTelemetry({
+          store: 'redis',
+          op: 'rate-limit-consume',
+          span: 'rate-limit.redis-consume',
+          outcome: (verdict: ConsumeVerdict) => ({
+            'limiter.verdict': verdictLabel(verdict.allowed)
+          }),
+          onFailure: { 'limiter.verdict': 'unavailable' }
+        })
         const consume = (key: string, max: number, window: Duration.Duration) =>
           limiter
             .consume({ key, limit: max, window, onExceeded: 'fail', algorithm: 'fixed-window' })
@@ -128,7 +153,8 @@ export const RateLimitCounterLayerRedis = (url: Redacted.Redacted) =>
                       )
                     } satisfies ConsumeVerdict)
                   : Effect.fail(new RateLimitError({ cause: error.reason }))
-              )
+              ),
+              redisSpan
             )
         return RateLimitCounter.of({ consume })
       })
