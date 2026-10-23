@@ -22,7 +22,8 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
     .ifNotExists()
     .execute()
 
-  await db.schema.createIndex('idx_users_email').on('users').column('email').ifNotExists().execute()
+  // email carries a UNIQUE constraint, which already creates a covering index;
+  // a second index on the same column would only add write cost.
   await db.schema
     .createIndex('idx_users_disabled')
     .on('users')
@@ -175,7 +176,6 @@ export const down = async (db: Kysely<DB>): Promise<void> => {
   await db.schema.dropIndex('idx_auth_tokens_email').ifExists().execute()
   await db.schema.dropIndex('idx_credentials_user').ifExists().execute()
   await db.schema.dropIndex('idx_users_disabled').ifExists().execute()
-  await db.schema.dropIndex('idx_users_email').ifExists().execute()
 
   // Drop tables in reverse order
   await db.schema.dropTable('auth_challenges').ifExists().execute()

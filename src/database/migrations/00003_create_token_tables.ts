@@ -24,13 +24,8 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
     .ifNotExists()
     .execute()
 
-  await db.schema
-    .createIndex('idx_api_tokens_token_hash')
-    .on('api_tokens')
-    .column('token_hash')
-    .ifNotExists()
-    .execute()
-
+  // token_hash carries a UNIQUE constraint, which already creates a covering
+  // index; a second index on the same column would only add write cost.
   await db.schema
     .createIndex('idx_api_tokens_user_id')
     .on('api_tokens')
@@ -130,7 +125,6 @@ export const down = async (db: Kysely<DB>): Promise<void> => {
   await db.schema.dropIndex('idx_oauth_tokens_expires').ifExists().execute()
   await db.schema.dropIndex('idx_oauth_tokens_user_id').ifExists().execute()
   await db.schema.dropIndex('idx_api_tokens_user_id').ifExists().execute()
-  await db.schema.dropIndex('idx_api_tokens_token_hash').ifExists().execute()
 
   // Drop tables in reverse order
   await db.schema.dropTable('authorization_codes').ifExists().execute()
