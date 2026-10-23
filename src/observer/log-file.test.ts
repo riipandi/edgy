@@ -5,7 +5,7 @@ import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { expect } from 'vite-plus/test'
-import { makeFileSink, rotationStamp } from './log_file.ts'
+import { makeFileSink, rotationStamp } from './log-file.ts'
 
 it.effect('writes structured records and flushes them before the scope closes', () => {
   const directory = mkdtempSync(path.join(tmpdir(), 'edgy-log-'))

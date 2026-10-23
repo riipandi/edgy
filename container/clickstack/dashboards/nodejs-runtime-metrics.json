@@ -1,7 +1,7 @@
 {
     "version": "0.1.0",
     "name": "Node.js Runtime Metrics",
-    "tags": ["OTel Runtime Metrics"],
+    "tags": ["otel", "runtime-metrics", "nodejs"],
     "tiles": [
         {
             "id": "55ef66",
@@ -11,7 +11,7 @@
             "h": 4,
             "config": {
                 "name": "EL Delay p99 (ms)",
-                "source": "6ad9d65d4bf6302ba08b0743",
+                "source": "Metrics",
                 "displayType": "number",
                 "numberFormat": {
                     "output": "number",
@@ -23,7 +23,7 @@
                 "select": [
                     {
                         "aggFn": "avg",
-                        "valueExpression": "",
+                        "valueExpression": "Value",
                         "metricType": "gauge",
                         "metricName": "nodejs.eventloop.delay.p99"
                     }
@@ -40,7 +40,7 @@
             "h": 4,
             "config": {
                 "name": "Event Loop Util",
-                "source": "6ad9d65d4bf6302ba08b0743",
+                "source": "Metrics",
                 "displayType": "number",
                 "numberFormat": {
                     "output": "percent",
@@ -51,7 +51,7 @@
                 "select": [
                     {
                         "aggFn": "avg",
-                        "valueExpression": "",
+                        "valueExpression": "Value",
                         "metricType": "gauge",
                         "metricName": "nodejs.eventloop.utilization"
                     }
@@ -68,7 +68,7 @@
             "h": 4,
             "config": {
                 "name": "Heap Used",
-                "source": "6ad9d65d4bf6302ba08b0743",
+                "source": "Metrics",
                 "displayType": "number",
                 "numberFormat": {
                     "output": "byte",
@@ -79,7 +79,7 @@
                 "select": [
                     {
                         "aggFn": "avg",
-                        "valueExpression": "",
+                        "valueExpression": "Value",
                         "metricType": "gauge",
                         "metricName": "v8js.memory.heap.used"
                     }
@@ -96,7 +96,7 @@
             "h": 4,
             "config": {
                 "name": "CPU Utilization",
-                "source": "6ad9d65d4bf6302ba08b0743",
+                "source": "Metrics",
                 "displayType": "number",
                 "numberFormat": {
                     "output": "percent",
@@ -107,7 +107,7 @@
                 "select": [
                     {
                         "aggFn": "avg",
-                        "valueExpression": "",
+                        "valueExpression": "Value",
                         "metricType": "gauge",
                         "metricName": "process.cpu.utilization"
                     }
@@ -124,7 +124,7 @@
             "h": 7,
             "config": {
                 "name": "Event Loop Delay Percentiles (ms)",
-                "source": "6ad9d65d4bf6302ba08b0743",
+                "source": "Metrics",
                 "displayType": "line",
                 "numberFormat": {
                     "output": "number",
@@ -136,21 +136,21 @@
                 "select": [
                     {
                         "aggFn": "avg",
-                        "valueExpression": "",
+                        "valueExpression": "Value",
                         "metricType": "gauge",
                         "alias": "p50",
                         "metricName": "nodejs.eventloop.delay.p50"
                     },
                     {
                         "aggFn": "avg",
-                        "valueExpression": "",
+                        "valueExpression": "Value",
                         "metricType": "gauge",
                         "alias": "p90",
                         "metricName": "nodejs.eventloop.delay.p90"
                     },
                     {
                         "aggFn": "avg",
-                        "valueExpression": "",
+                        "valueExpression": "Value",
                         "metricType": "gauge",
                         "alias": "p99",
                         "metricName": "nodejs.eventloop.delay.p99"
@@ -168,7 +168,7 @@
             "h": 7,
             "config": {
                 "name": "Event Loop Utilization",
-                "source": "6ad9d65d4bf6302ba08b0743",
+                "source": "Metrics",
                 "displayType": "line",
                 "numberFormat": {
                     "output": "percent",
@@ -179,7 +179,7 @@
                 "select": [
                     {
                         "aggFn": "avg",
-                        "valueExpression": "",
+                        "valueExpression": "Value",
                         "metricType": "gauge",
                         "metricName": "nodejs.eventloop.utilization"
                     }
@@ -196,7 +196,7 @@
             "h": 7,
             "config": {
                 "name": "V8 Heap: Used vs Limit",
-                "source": "6ad9d65d4bf6302ba08b0743",
+                "source": "Metrics",
                 "displayType": "line",
                 "numberFormat": {
                     "output": "byte",
@@ -207,14 +207,14 @@
                 "select": [
                     {
                         "aggFn": "avg",
-                        "valueExpression": "",
+                        "valueExpression": "Value",
                         "metricType": "gauge",
                         "alias": "used",
                         "metricName": "v8js.memory.heap.used"
                     },
                     {
                         "aggFn": "avg",
-                        "valueExpression": "",
+                        "valueExpression": "Value",
                         "metricType": "gauge",
                         "alias": "limit",
                         "metricName": "v8js.memory.heap.limit"
@@ -232,7 +232,7 @@
             "h": 7,
             "config": {
                 "name": "V8 Heap Spaces (physical size)",
-                "source": "6ad9d65d4bf6302ba08b0743",
+                "source": "Metrics",
                 "displayType": "line",
                 "numberFormat": {
                     "output": "byte",
@@ -243,14 +243,14 @@
                 "select": [
                     {
                         "aggFn": "avg",
-                        "valueExpression": "",
+                        "valueExpression": "Value",
                         "metricType": "gauge",
                         "metricName": "v8js.memory.heap.space.physical_size"
                     }
                 ],
                 "where": "",
                 "whereLanguage": "sql",
-                "groupBy": "Attributes['v8js.heap.space.name']"
+                "groupBy": ""
             }
         },
         {
@@ -261,7 +261,7 @@
             "h": 7,
             "config": {
                 "name": "CPU Utilization",
-                "source": "6ad9d65d4bf6302ba08b0743",
+                "source": "Metrics",
                 "displayType": "line",
                 "numberFormat": {
                     "output": "percent",
@@ -272,7 +272,7 @@
                 "select": [
                     {
                         "aggFn": "avg",
-                        "valueExpression": "",
+                        "valueExpression": "Value",
                         "metricType": "gauge",
                         "metricName": "process.cpu.utilization"
                     }
@@ -289,14 +289,14 @@
             "h": 7,
             "config": {
                 "name": "Event Loop Busy Time",
-                "source": "6ad9d65d4bf6302ba08b0743",
+                "source": "Metrics",
                 "displayType": "line",
                 "granularity": "auto",
                 "alignDateRangeToGranularity": true,
                 "select": [
                     {
                         "aggFn": "sum",
-                        "valueExpression": "",
+                        "valueExpression": "Value",
                         "metricType": "sum",
                         "metricName": "nodejs.eventloop.time"
                     }

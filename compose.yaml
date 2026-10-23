@@ -58,6 +58,8 @@ services:
       - './.storage/clickstack/ch_data:/var/lib/clickhouse:rw'
       - './.storage/clickstack/ch_logs:/var/log/clickhouse-server:rw'
       - './container/clickstack/dashboards:/dashboards:ro'
+      - './container/clickstack/resolve-dashboard-refs.mjs:/clickstack/resolve-dashboard-refs.mjs:ro'
+      - './container/clickstack/render-tiles.mjs:/clickstack/render-tiles.mjs:ro'
       - './container/clickstack/otel-extra.yaml:/etc/otel/extra-config.yaml:ro'
     environment:
       CUSTOM_OTELCOL_CONFIG_FILE: /etc/otel/extra-config.yaml
@@ -153,9 +155,15 @@ services:
           [ "$$i" -ge 90 ] && { echo "HyperDX did not become ready"; exit 1; }
           sleep 2
         done
+        # The files name their sources and connections; HyperDX compares those
+        # fields against _id, so resolve the names to ids first. The ids are
+        # regenerated whenever the stack is recreated, so they cannot be committed.
+        docker exec edgy-clickstack-1 \
+          node /clickstack/resolve-dashboard-refs.mjs \
+          --src /dashboards --out /tmp/dashboards
         docker exec -e RUN_SCHEDULED_TASKS_EXTERNALLY=true \
           -e MONGO_URI=mongodb://127.0.0.1:27017/hyperdx \
-          -e DASHBOARD_PROVISIONER_DIR=/dashboards \
+          -e DASHBOARD_PROVISIONER_DIR=/tmp/dashboards \
           -e DASHBOARD_PROVISIONER_ALL_TEAMS=true \
           edgy-clickstack-1 sh -c 'cd /app/packages/api && ./bin/hyperdx task provision-dashboards'
     volumes: ['/var/run/docker.sock:/var/run/docker.sock:ro']

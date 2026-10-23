@@ -17,7 +17,7 @@
                 "displayType": "number",
                 "name": "Availability (2xx+3xx share, %)",
                 "connection": "Local ClickHouse",
-                "source": "6ad9d65d4bf6302ba08b0741",
+                "source": "Traces",
                 "sqlTemplate": "SELECT round(100 * countIf(StatusCode != 'Error') / greatest(count(), 1), 2) AS availability_pct FROM default.otel_traces WHERE ServiceName = 'edgy'"
             }
         },
@@ -32,7 +32,7 @@
                 "displayType": "number",
                 "name": "5xx responses in range",
                 "connection": "Local ClickHouse",
-                "source": "6ad9d65d4bf6302ba08b0741",
+                "source": "Traces",
                 "sqlTemplate": "SELECT count() AS server_errors FROM default.otel_traces WHERE ServiceName = 'edgy' AND StatusCode = 'Error'"
             }
         },
@@ -47,7 +47,7 @@
                 "displayType": "stacked_bar",
                 "name": "Error spans by route",
                 "connection": "Local ClickHouse",
-                "source": "6ad9d65d4bf6302ba08b0741",
+                "source": "Traces",
                 "sqlTemplate": "SELECT $__timeInterval(Timestamp) AS ts, SpanName AS route, count() AS errors FROM default.otel_traces WHERE ServiceName = 'edgy' AND StatusCode = 'Error' GROUP BY ts, route ORDER BY ts"
             }
         },
@@ -62,7 +62,7 @@
                 "displayType": "line",
                 "name": "Spans over 1s",
                 "connection": "Local ClickHouse",
-                "source": "6ad9d65d4bf6302ba08b0741",
+                "source": "Traces",
                 "sqlTemplate": "SELECT $__timeInterval(Timestamp) AS ts, count() AS slow_spans FROM default.otel_traces WHERE ServiceName = 'edgy' AND Duration > 1e9 GROUP BY ts ORDER BY ts"
             }
         },
@@ -77,7 +77,7 @@
                 "displayType": "table",
                 "name": "Logs needing attention",
                 "connection": "Local ClickHouse",
-                "source": "6ad9d65d4bf6302ba08b073f",
+                "source": "Logs",
                 "sqlTemplate": "SELECT Timestamp, ServiceName, SeverityText, Body, TraceId FROM default.otel_logs WHERE ServiceName = 'edgy' AND SeverityText NOT IN ('info', 'INFO', 'debug', 'DEBUG', 'trace', 'TRACE') ORDER BY Timestamp DESC LIMIT 100"
             }
         },
@@ -92,7 +92,7 @@
                 "displayType": "line",
                 "name": "Dropped telemetry (refused minus accepted)",
                 "connection": "Local ClickHouse",
-                "source": "6ad9d65d4bf6302ba08b0743",
+                "source": "Metrics",
                 "sqlTemplate": "SELECT $__timeInterval(TimeUnix) AS ts, sumIf(Value, MetricName LIKE '%refused%') AS refused, sumIf(Value, MetricName LIKE '%accepted%') AS accepted FROM default.otel_metrics_sum WHERE MetricName LIKE 'otelcol_receiver_%' GROUP BY ts ORDER BY ts"
             }
         },
@@ -107,7 +107,7 @@
                 "displayType": "line",
                 "name": "Collector CPU seconds (rate)",
                 "connection": "Local ClickHouse",
-                "source": "6ad9d65d4bf6302ba08b0743",
+                "source": "Metrics",
                 "sqlTemplate": "SELECT $__timeInterval(TimeUnix) AS ts, round(max(Value), 2) AS cpu_seconds FROM default.otel_metrics_sum WHERE MetricName = 'otelcol_process_cpu_seconds' GROUP BY ts ORDER BY ts"
             }
         }

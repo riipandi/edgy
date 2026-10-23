@@ -14,7 +14,7 @@
             "h": 4,
             "config": {
                 "name": "Requests (last hour)",
-                "source": "6ad9d65d4bf6302ba08b0741",
+                "source": "Traces",
                 "displayType": "number",
                 "numberFormat": {
                     "output": "number",
@@ -41,7 +41,7 @@
             "h": 4,
             "config": {
                 "name": "Error rate",
-                "source": "6ad9d65d4bf6302ba08b0741",
+                "source": "Traces",
                 "displayType": "number",
                 "numberFormat": {
                     "output": "percent",
@@ -69,7 +69,7 @@
             "h": 4,
             "config": {
                 "name": "Latency p95 (ms)",
-                "source": "6ad9d65d4bf6302ba08b0741",
+                "source": "Traces",
                 "displayType": "number",
                 "numberFormat": {
                     "output": "number",
@@ -97,7 +97,7 @@
             "h": 4,
             "config": {
                 "name": "Log lines (last hour)",
-                "source": "6ad9d65d4bf6302ba08b073f",
+                "source": "Logs",
                 "displayType": "number",
                 "numberFormat": {
                     "output": "number",
@@ -124,7 +124,7 @@
             "h": 7,
             "config": {
                 "name": "Requests over time",
-                "source": "6ad9d65d4bf6302ba08b0741",
+                "source": "Traces",
                 "displayType": "line",
                 "numberFormat": {
                     "output": "number",
@@ -151,7 +151,7 @@
             "h": 7,
             "config": {
                 "name": "Latency percentiles (ms)",
-                "source": "6ad9d65d4bf6302ba08b0741",
+                "source": "Traces",
                 "displayType": "line",
                 "numberFormat": {
                     "output": "number",
@@ -192,7 +192,7 @@
             "h": 7,
             "config": {
                 "name": "Error spans over time",
-                "source": "6ad9d65d4bf6302ba08b0741",
+                "source": "Traces",
                 "displayType": "stacked_bar",
                 "numberFormat": {
                     "output": "number",
@@ -221,7 +221,7 @@
             "h": 7,
             "config": {
                 "name": "http_requests by status (metric)",
-                "source": "6ad9d65d4bf6302ba08b0743",
+                "source": "Metrics",
                 "displayType": "stacked_bar",
                 "numberFormat": {
                     "output": "number",
@@ -251,7 +251,7 @@
             "h": 8,
             "config": {
                 "name": "Requests by route",
-                "source": "6ad9d65d4bf6302ba08b0741",
+                "source": "Traces",
                 "displayType": "table",
                 "numberFormat": {
                     "output": "number",
@@ -279,13 +279,13 @@
             "h": 8,
             "config": {
                 "name": "Recent error logs",
-                "source": "6ad9d65d4bf6302ba08b073f",
+                "source": "Logs",
                 "displayType": "search",
                 "granularity": "auto",
                 "alignDateRangeToGranularity": true,
-                "select": "",
                 "where": "SeverityText IN ('error', 'ERROR', 'fatal', 'FATAL')",
-                "whereLanguage": "sql"
+                "whereLanguage": "sql",
+                "select": ""
             }
         }
     ]
