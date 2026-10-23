@@ -74,6 +74,13 @@ let staticHandlerMemo:
     >
   | undefined
 
+// Vite writes every bundled asset under `assets/` with a content hash in its
+// name, so a cached copy can never go stale. Files at the client root
+// (favicon) carry no hash and keep the default revalidation.
+const isHashedAsset = (pathname: string): boolean => pathname.startsWith('/assets/')
+
+const immutable = 'public, max-age=31536000, immutable'
+
 // Built once and reused: constructing the static handler per request would
 // rebuild its mime map and closures on every miss. The build reads no files,
 // so its failure channel is a defect, not a request error.
@@ -96,6 +103,11 @@ export const renderPage = Effect.gen(function* () {
   const { pathname } = new URL(request.originalUrl, 'http://localhost')
   if ((request.method === 'GET' || request.method === 'HEAD') && pathname !== '/') {
     return yield* staticHandler.pipe(
+      Effect.map((response) =>
+        isHashedAsset(pathname)
+          ? HttpServerResponse.setHeader(response, 'cache-control', immutable)
+          : response
+      ),
       Effect.catch(
         (
           error
