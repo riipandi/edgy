@@ -9,6 +9,7 @@ import { parseUserId } from './user_schema.ts'
 import { UserCache, UserService, UserServiceLayer } from './user_service.ts'
 
 const config: AppConfigShape = {
+  app: { baseUrl: 'http://localhost:3000' },
   server: { host: '127.0.0.1', port: 0 },
   database: { driver: 'sqlite', path: ':memory:', autoMigrate: false },
   logging: {

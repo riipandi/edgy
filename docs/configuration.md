@@ -1,12 +1,22 @@
 # Application configuration
 
 The application reads optional environment variables through Effect `Config`. Values are grouped by
-server, database, logging, security, cache, observability, and docs. Invalid values fail during startup
-rather than surfacing on the first request. Durations use whole milliseconds.
+app, server, database, logging, security, cache, observability, and docs. Invalid values fail during
+startup rather than surfacing on the first request. Durations use whole milliseconds.
 
 Run `vpr app config:generate` to render `.env.example` from the same declarations. The generator
 redacts secret defaults, refuses real `.env` files, and requires confirmation before replacing a
 different existing output file.
+
+## App
+
+| Variable       | Default                 | Meaning                                                       |
+| -------------- | ----------------------- | ------------------------------------------------------------- |
+| `APP_BASE_URL` | `http://localhost:3000` | Public origin; relative request URLs are resolved against it. |
+
+Set `APP_BASE_URL` to the origin users reach the application on. It must be an absolute `http` or
+`https` URL; only the origin is kept, so a trailing path is dropped and an invalid value fails
+startup. Behind a reverse proxy, use the public origin rather than the bind address.
 
 ## Server
 

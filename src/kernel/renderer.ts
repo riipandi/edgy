@@ -9,6 +9,7 @@ import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { typeid } from 'typeid-js'
+import { AppConfig } from '#/kernel/config/config.ts'
 import { cspFor } from '#/middleware/security-headers.ts'
 import { UserService } from '#/modules/user/user_service.ts'
 import { withUserService } from '#/modules/user/user_ssr.ts'
@@ -100,7 +101,8 @@ const staticHandler = Effect.suspend(() => {
 
 export const renderPage = Effect.gen(function* () {
   const request = yield* HttpServerRequest.HttpServerRequest
-  const { pathname } = new URL(request.originalUrl, 'http://localhost')
+  const baseUrl = (yield* AppConfig).app.baseUrl
+  const { pathname } = new URL(request.originalUrl, baseUrl)
   if ((request.method === 'GET' || request.method === 'HEAD') && pathname !== '/') {
     return yield* staticHandler.pipe(
       Effect.map((response) =>

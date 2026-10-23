@@ -6,13 +6,14 @@ import * as HttpApiGroup from 'effect/http-api/HttpApiGroup'
 import * as HttpApiSchema from 'effect/http-api/HttpApiSchema'
 import * as HttpServerRequest from 'effect/http/HttpServerRequest'
 import { CacheHeader } from '#/kernel/cache.ts'
+import { AppConfig } from '#/kernel/config/config.ts'
 import type { api } from '#/kernel/http/api.ts'
 import { parseUserId, PublicUserSchema, toPublicUser, UserIdParams } from './user_schema.ts'
 import { UserService } from './user_service.ts'
 
 // `?nocache=1` skips the cache for that request: no read, no fill.
-const nocacheRequested = (request: HttpServerRequest.HttpServerRequest) =>
-  new URL(request.url, 'http://localhost').searchParams.get('nocache') === '1'
+const nocacheRequested = (request: HttpServerRequest.HttpServerRequest, baseUrl: string) =>
+  new URL(request.url, baseUrl).searchParams.get('nocache') === '1'
 
 export class UsersApi extends HttpApiGroup.make('users').add(
   HttpApiEndpoint.get('listUsers', '/users', {
@@ -40,22 +41,26 @@ export const usersHandlers = (httpApi: typeof api) =>
         )
       )
       .handle('getUser', ({ params }) =>
-        Effect.flatMap(HttpServerRequest.HttpServerRequest, (request) =>
-          Effect.flatMap(UserService, (service) =>
-            service.find(parseUserId(params.id), nocacheRequested(request)).pipe(
-              Effect.flatMap((result) =>
-                result.user === undefined
-                  ? Effect.fail(new HttpApiError.NotFound())
-                  : Effect.succeed(
-                      HttpApiSchema.withHeaders({
-                        body: toPublicUser(result.user),
-                        headers: { 'x-cache': result.cache }
-                      })
-                    )
-              ),
-              Effect.catchTag('UserRepositoryError', () =>
-                Effect.fail(new HttpApiError.ServiceUnavailable())
-              )
+        Effect.flatMap(AppConfig, (config) =>
+          Effect.flatMap(HttpServerRequest.HttpServerRequest, (request) =>
+            Effect.flatMap(UserService, (service) =>
+              service
+                .find(parseUserId(params.id), nocacheRequested(request, config.app.baseUrl))
+                .pipe(
+                  Effect.flatMap((result) =>
+                    result.user === undefined
+                      ? Effect.fail(new HttpApiError.NotFound())
+                      : Effect.succeed(
+                          HttpApiSchema.withHeaders({
+                            body: toPublicUser(result.user),
+                            headers: { 'x-cache': result.cache }
+                          })
+                        )
+                  ),
+                  Effect.catchTag('UserRepositoryError', () =>
+                    Effect.fail(new HttpApiError.ServiceUnavailable())
+                  )
+                )
             )
           )
         )

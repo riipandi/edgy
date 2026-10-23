@@ -1,4 +1,5 @@
 import { Config, ConfigProvider, Context, Effect, Layer } from 'effect'
+import { appUrlConfig } from './app.ts'
 import { cacheConfig } from './cache.ts'
 import { databaseConfig } from './database.ts'
 import { docsConfig } from './docs.ts'
@@ -9,6 +10,7 @@ import { securityConfig } from './security.ts'
 import { serverConfig } from './server.ts'
 
 export const appConfig = group({
+  app: appUrlConfig,
   server: serverConfig,
   database: databaseConfig,
   logging: loggingConfig,

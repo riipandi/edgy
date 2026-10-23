@@ -3,6 +3,7 @@ import { BlockList } from 'node:net'
 import { AppConfig, type AppConfigShape } from '#/kernel/config/config.ts'
 
 export const config: AppConfigShape = {
+  app: { baseUrl: 'http://localhost:3000' },
   server: { host: '127.0.0.1', port: 0 },
   database: { driver: 'sqlite', path: ':memory:', autoMigrate: false },
   logging: {
