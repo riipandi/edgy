@@ -273,7 +273,8 @@
             "expression": "ServiceName",
             "where": "ResourceAttributes.telemetry.sdk.language:\"nodejs\"",
             "whereLanguage": "lucene",
-            "source": "Metrics"
+            "source": "Metrics",
+            "sourceMetricType": "gauge"
         }
     ]
 }

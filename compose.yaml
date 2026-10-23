@@ -28,6 +28,17 @@ x-common: &common
     timeout: 10s
     retries: 5
 
+# ClickHouse connection and four sources HyperDX creates on first start.
+# Explicit settings avoid image defaults that break dashboard queries.
+# Provisioning also applies them to existing stacks on restart.
+x-clickstack-connection: &clickstack-connection >-
+  [{"name":"Local ClickHouse","host":"http://localhost:8123","username":"${CLICKHOUSE_USER:-default}","password":"${CLICKSTACK_DB_PASSWORD:-securedb}"}]
+x-clickstack-sources: &clickstack-sources >-
+  [{"from":{"databaseName":"default","tableName":"otel_logs"},"kind":"log","timestampValueExpression":"Timestamp","name":"Logs","displayedTimestampValueExpression":"Timestamp","implicitColumnExpression":"Body","serviceNameExpression":"ServiceName","bodyExpression":"Body","eventAttributesExpression":"LogAttributes","resourceAttributesExpression":"ResourceAttributes","defaultTableSelectExpression":"Timestamp,ServiceName,SeverityText,Body","severityTextExpression":"SeverityText","traceIdExpression":"TraceId","spanIdExpression":"SpanId","metadataMaterializedViews":{"kvRollupTable":"otel_logs_kv_rollup_15m","granularity":"15 minute"},"connection":"Local ClickHouse","traceSourceId":"Traces","metricSourceId":"Metrics"},
+  {"from":{"databaseName":"default","tableName":"otel_traces"},"kind":"trace","timestampValueExpression":"Timestamp","name":"Traces","displayedTimestampValueExpression":"Timestamp","implicitColumnExpression":"SpanName","serviceNameExpression":"ServiceName","eventAttributesExpression":"SpanAttributes","resourceAttributesExpression":"ResourceAttributes","defaultTableSelectExpression":"Timestamp,ServiceName,StatusCode,round(Duration/1e6),SpanName","traceIdExpression":"TraceId","spanIdExpression":"SpanId","durationExpression":"Duration","durationPrecision":9,"parentSpanIdExpression":"ParentSpanId","spanNameExpression":"SpanName","spanKindExpression":"SpanKind","statusCodeExpression":"StatusCode","statusMessageExpression":"StatusMessage","metadataMaterializedViews":{"kvRollupTable":"otel_traces_kv_rollup_15m","granularity":"15 minute"},"connection":"Local ClickHouse","logSourceId":"Logs","sessionSourceId":"Sessions","metricSourceId":"Metrics"},
+  {"from":{"databaseName":"default","tableName":""},"kind":"metric","timestampValueExpression":"TimeUnix","name":"Metrics","resourceAttributesExpression":"ResourceAttributes","metricTables":{"gauge":"otel_metrics_gauge","histogram":"otel_metrics_histogram","sum":"otel_metrics_sum","summary":"otel_metrics_summary"},"connection":"Local ClickHouse","logSourceId":"Logs"},
+  {"from":{"databaseName":"default","tableName":"hyperdx_sessions"},"kind":"session","timestampValueExpression":"TimestampTime","name":"Sessions","displayedTimestampValueExpression":"Timestamp","implicitColumnExpression":"Body","serviceNameExpression":"ServiceName","bodyExpression":"Body","eventAttributesExpression":"LogAttributes","resourceAttributesExpression":"ResourceAttributes","defaultTableSelectExpression":"Timestamp,ServiceName,SeverityText,Body","severityTextExpression":"SeverityText","traceIdExpression":"TraceId","spanIdExpression":"SpanId","connection":"Local ClickHouse","traceSourceId":"Traces"}]
+
 services:
   clickstack:
     <<: *common
@@ -45,9 +56,11 @@ services:
       - './.storage/clickstack/ch_logs:/var/log/clickhouse-server:rw'
       - './container/clickstack/otel-collector.yaml:/etc/otel/extra-config.yaml:ro'
     environment:
-      CLICKHOUSE_PASSWORD: securedb
-      CLICKHOUSE_USER: default
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
+      CLICKHOUSE_PASSWORD: ${CLICKSTACK_DB_PASSWORD:-securedb}
       CUSTOM_OTELCOL_CONFIG_FILE: /etc/otel/extra-config.yaml
+      DEFAULT_CONNECTIONS: *clickstack-connection
+      DEFAULT_SOURCES: *clickstack-sources
       FRONTEND_URL: http://localhost:${HYPERDX_PORT:-8080}
       HYPERDX_API_KEY: ${CLICKSTACK_INGESTION_KEY:-edgy-dev-ingestion-key}
       HYPERDX_LOG_LEVEL: ${HYPERDX_LOG_LEVEL:-debug}
@@ -70,9 +83,12 @@ services:
       - './container/clickstack/provision.sh:/clickstack/provision.sh:ro'
       - './container/clickstack/dashboards:/dashboards:ro'
     environment:
+      CLICKSTACK_ACCESS_KEY: ${CLICKSTACK_ACCESS_KEY:-}
+      CLICKHOUSE_PASSWORD: ${CLICKSTACK_DB_PASSWORD:-securedb}
+      DEFAULT_CONNECTIONS: *clickstack-connection
+      DEFAULT_SOURCES: *clickstack-sources
       HYPERDX_EMAIL: ${HYPERDX_EMAIL:-admin@example.com}
       HYPERDX_PASSWORD: ${HYPERDX_PASSWORD:-@Password123!}
-      CLICKSTACK_ACCESS_KEY: ${CLICKSTACK_ACCESS_KEY:-}
     healthcheck:
       disable: true
     depends_on:

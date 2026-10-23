@@ -61,6 +61,68 @@ sources=$(api_curl "$api/sources" | named_ids)
 connections=$(api_curl "$api/connections" | named_ids)
 dashboards=$(api_curl "$api/dashboards" | named_ids)
 
+# The image writes its own defaults the first time a team is created and never
+# revisits them, so a stack that already has them keeps whatever it was given.
+# Both lists are applied here instead, which is what makes a restart heal a
+# connection whose password no longer matches, or a source pointing at a table
+# the schema does not create.
+send() {
+    status=$(printf '%s' "$3" | curl -s -o /tmp/answer -w '%{http_code}' -X "$1" \
+        -H "$auth" -H 'Content-Type: application/json' --data-binary @- "$api/$2")
+    if [ "$status" != '200' ]; then
+        echo "HyperDX: $2 answered $status: $(jq -c '.message // .' /tmp/answer)"
+        exit 1
+    fi
+}
+
+if [ -n "${DEFAULT_CONNECTIONS:-}" ]; then
+    connection=$(printf '%s' "$DEFAULT_CONNECTIONS" | jq -c '.[0]')
+    name=$(printf '%s' "$connection" | jq -r '.name')
+    id=$(printf '%s' "$connections" | jq -r --arg name "$name" '.[$name] // empty')
+    if [ -n "$id" ]; then
+        # The API never returns a stored password, so the value is written on
+        # every start rather than compared.
+        send PUT "connections/$id" "$connection"
+        echo "HyperDX: applied connection $name"
+    fi
+fi
+
+if [ -n "${DEFAULT_SOURCES:-}" ]; then
+    printf '%s' "$DEFAULT_SOURCES" | jq -c '.[]' >/tmp/sources.jsonl
+
+    # The environment names its references, the API wants ids. A reference that
+    # does not resolve yet is dropped here and written by the second pass, once
+    # every source exists.
+    resolve='(if .connection then .connection = ($connections[.connection] // .connection) else . end)
+        | (if .logSourceId then .logSourceId = ($sources[.logSourceId] // empty) else . end)
+        | (if .traceSourceId then .traceSourceId = ($sources[.traceSourceId] // empty) else . end)
+        | (if .sessionSourceId then .sessionSourceId = ($sources[.sessionSourceId] // empty) else . end)
+        | (if .metricSourceId then .metricSourceId = ($sources[.metricSourceId] // empty) else . end)
+        | with_entries(select(.value != null and .value != ""))'
+
+    # A source the stack lost is created first, so the ids below can name it.
+    while read -r source; do
+        name=$(printf '%s' "$source" | jq -r '.name')
+        id=$(printf '%s' "$sources" | jq -r --arg name "$name" '.[$name] // empty')
+        if [ -z "$id" ]; then
+            send POST 'sources' "$(printf '%s' "$source" | jq -c \
+                --argjson connections "$connections" --argjson sources "$sources" "$resolve")"
+            echo "HyperDX: created source $name"
+        fi
+    done </tmp/sources.jsonl
+
+    sources=$(api_curl "$api/sources" | named_ids)
+    while read -r source; do
+        name=$(printf '%s' "$source" | jq -r '.name')
+        id=$(printf '%s' "$sources" | jq -r --arg name "$name" '.[$name] // empty')
+        body=$(printf '%s' "$source" | jq -c \
+            --argjson connections "$connections" --argjson sources "$sources" "$resolve")
+        stored=$(api_curl "$api/sources/$id" | jq -c '.data')
+        send PUT "sources/$id" "$(printf '%s' "$stored" | jq -c --argjson body "$body" '. + $body | del(.id)')"
+        echo "HyperDX: applied source $name"
+    done </tmp/sources.jsonl
+fi
+
 # The files name their source and connection, because the ids HyperDX assigns
 # are regenerated whenever the stack is recreated. The API compares those
 # fields against `_id`, so the names are resolved here, and an unknown name

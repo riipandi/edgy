@@ -112,6 +112,13 @@ source and connection; the provisioner resolves those names to the ids HyperDX a
 the ids are regenerated whenever the stack is recreated. A dashboard that already exists is
 updated in place, so a restart never leaves duplicates behind.
 
+The ClickHouse connection and the four sources are declared in `compose.yaml` as
+`DEFAULT_CONNECTIONS` and `DEFAULT_SOURCES` instead of relying on the image defaults, which carry
+an empty ClickHouse password and point the log and trace sources at a key-rollup table the current
+schema no longer creates — either one makes every dashboard query fail. `provision.sh` applies both
+lists on every start, so a stack created before a value changed is brought in line instead of
+keeping the old record.
+
 Redis metrics arrive through a `redis_exporter` sidecar. The all-in-one image generates its own
 collector configuration, so `container/clickstack/otel-collector.yaml` is merged over it to add that
 scrape target.
