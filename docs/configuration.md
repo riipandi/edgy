@@ -123,3 +123,33 @@ shutdown. Set `OTEL_SDK_DISABLED=false` explicitly if a one-shot command should 
 The `/metrics` endpoint is unauthenticated by design: it is meant to be scraped from inside the
 network, and access control belongs to the reverse proxy or the scrape configuration. Keep
 `METRICS_ENABLED` off on deployments that expose the port directly.
+
+## Compose observability stack
+
+The compose stack (`docker compose up --detach`) runs the application next to its observability
+and support services: ClickStack (telemetry UI, ClickHouse, collector), the app, cAdvisor, Redis,
+the Redis exporter, and Mailpit. These variables configure the stack and are not part of the
+generated application configuration:
+
+| Variable                       | Default                  | Meaning                                                                                     |
+| ------------------------------ | ------------------------ | ------------------------------------------------------------------------------------------- |
+| `SERVER_PORT`                  | `3000`                   | Host port the compose app publishes on `127.0.0.1`.                                         |
+| `CLICKSTACK_UI_PORT`           | `8080`                   | Host port for the ClickStack UI.                                                            |
+| `OTLP_HTTP_PORT`               | `4318`                   | Host port for OTLP/HTTP ingestion (host-run processes only; the app uses the internal URL). |
+| `CLICKSTACK_INGESTION_KEY`     | `edgy-dev-ingestion-key` | OTLP ingestion key the collector accepts.                                                   |
+| `CLICKSTACK_DB_PASSWORD`       | `securedb`               | ClickHouse password used by the stack and the app's Redis/ClickHouse wiring.                |
+| `CLICKSTACK_ACCESS_KEY`        | empty                    | Access key for the provisioner's API calls; empty falls back to the password login flow.    |
+| `CLICKSTACK_ALERT_WEBHOOK_URL` | empty                    | Webhook URL that receives the two alert channels. Leave empty to skip alert provisioning.   |
+| `HYPERDX_EMAIL` / `HYPERDX_PASSWORD` | `admin@example.com` / `@Password123!` | First-run ClickStack admin login the provisioner uses.                        |
+| `APP_DISTROLESS_TAG`           | `debug-nonroot`          | Distroless variant for the compose app build (see the note below).                          |
+| `CADVISOR_VERSION`             | `v0.52.1`                | cAdvisor image tag.                                                                         |
+
+Set `CLICKSTACK_ALERT_WEBHOOK_URL` to a webhook endpoint to have the provisioner create the
+`edgy alerts` channel and apply the two alerts shipped in `container/clickstack/alerts`: a
+no-spans alert (telemetry from the application has stopped for 10 minutes) and a collector alert
+(refused or failed exports above zero). With the key unset, dashboards still provision but no
+alerting exists — a silent stack and a broken stack look the same, which is exactly what the
+`Telemetry freshness` tile in the Application SLI dashboard is for.
+
+`APP_DISTROLESS_TAG` defaults to `debug-nonroot` because the plain `nonroot` distroless variant
+ships no `/usr/bin/env`, and the application entry's shebang cannot start without it.
