@@ -1,0 +1,34 @@
+{
+    "name": "edgy collector refused",
+    "displayName": "Collector refused or failed exports (5m)",
+    "message": "The collector refused or failed export calls in a 5-minute window: ingestion is rejecting traffic.",
+    "tags": ["edgy", "telemetry"],
+    "interval": "5m",
+    "threshold": 0,
+    "thresholdType": "above",
+    "source": "inline",
+    "signal": "Metrics",
+    "query": "",
+    "filters": {
+        "operator": "AND",
+        "items": []
+    },
+    "limit": 100,
+    "skipForward": true,
+    "windowSize": "5m",
+    "chartConfig": {
+        "displayType": "number",
+        "sourceId": "Metrics",
+        "select": [
+            {
+                "aggFn": "count",
+                "alias": "refused",
+                "key": "",
+                "value": []
+            }
+        ]
+    },
+    "emailsRecipients": [],
+    "flagged": false,
+    "note": "Fires when any refusal or failure counter moves off zero; refuses come from fast-fail queueing, failures from ClickHouse insert errors."
+}

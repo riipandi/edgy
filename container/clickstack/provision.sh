@@ -216,3 +216,66 @@ while read -r id name; do
     fi
     echo "HyperDX: removed $name"
 done </tmp/stale.txt
+
+# An alert without a reachable webhook target is noise instead of a signal, so
+# provisioning is opt-in: set CLICKSTACK_ALERT_WEBHOOK_URL and the webhook
+# channel plus every /alerts file are applied; unset, nothing is created. The
+# webhook updates in place by name, like the dashboards above.
+if [ -z "${CLICKSTACK_ALERT_WEBHOOK_URL:-}" ]; then
+    echo 'HyperDX: alerts not provisioned — CLICKSTACK_ALERT_WEBHOOK_URL is not set'
+    exit 0
+fi
+
+hooks=$(api_curl "$api/webhooks" | named_ids)
+hook=$(printf '%s' "$hooks" | jq -r --arg name 'edgy alerts' '.[$name] // empty')
+hook_body=$(jq -cn --arg url "$CLICKSTACK_ALERT_WEBHOOK_URL" --arg body '{
+    "alert": {"state": "{{state}}", "title": {{json title}}, "value": {{json value}},
+              "threshold": {{threshold}}, "message": {{json body}}},
+    "link": "{{link}}"
+}' '{name: "edgy alerts", service: "generic", url: $url, body: $body}')
+if [ -n "$hook" ]; then
+    send PUT "webhooks/$hook" "$hook_body"
+    echo "HyperDX: applied webhook channel edgy alerts"
+else
+    send POST 'webhooks' "$hook_body"
+    hook=$(api_curl "$api/webhooks" | named_ids | jq -r --arg name 'edgy alerts' '.[$name]')
+    echo "HyperDX: created webhook channel edgy alerts"
+fi
+
+alert_dir=/alerts
+apply_alert() {
+    file=$1
+    name=$(jq -r '.name' "$file")
+    stored=$(api_curl "$api/alerts" | jq -c --arg name "$name" '[.data[] | select(.name == $name)][0] // empty')
+    signal=$(jq -r '.signal' "$file")
+    body=$(jq -c --arg hook "$hook" '
+        {name, displayName: (.displayName // .name), message, note, tags,
+         interval, numConsecutiveWindows, threshold, thresholdType,
+         source: "inline", signal, query: "", filters: {operator: "AND", items: []},
+         limit: 100, skipForward: true, windowSize: .interval,
+         chartConfig: {displayType: "number", sourceId: .sourceId,
+                       select: [{aggFn: "count", alias: "count", key: "", value: []}]},
+         emailsRecipients: [], flagged: false,
+         channels: [{type: "webhook", webhookId: $hook}]}' "$file")
+    source_id=$(api_curl "$api/saved-searches" | named_ids | jq -r --arg name "$signal" '.[$name] // empty')
+    if [ -z "$source_id" ]; then
+        source_id=$(api_curl "$api/sources" | named_ids | jq -r --arg name "$signal" '.[$name] // empty')
+    fi
+    if [ -z "$source_id" ]; then
+        echo "HyperDX: $name could not resolve signal $signal to a source"
+        exit 1
+    fi
+    body=$(printf '%s' "$body" | jq -c --arg source_id "$source_id" '.chartConfig.sourceId = $source_id')
+    if [ -n "$stored" ]; then
+        alert_id=$(printf '%s' "$stored" | jq -r '._id // .id')
+        send PUT "alerts/$alert_id" "$body"
+        echo "HyperDX: applied alert $name"
+    else
+        send POST 'alerts' "$body"
+        echo "HyperDX: created alert $name"
+    fi
+}
+
+for file in "$alert_dir"/*.json; do
+    apply_alert "$file"
+done

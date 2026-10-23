@@ -180,7 +180,7 @@
             }
         },
         {
-            "name": "Silent signal check",
+            "name": "Telemetry freshness",
             "x": 12,
             "y": 18,
             "w": 12,
@@ -190,7 +190,7 @@
                 "configType": "sql",
                 "source": "Metrics",
                 "connection": "Local ClickHouse",
-                "sqlTemplate": "SELECT 'http_requests' AS metric, max(TimeUnix) AS last_sample, count() AS samples FROM $__sourceTable(sum) WHERE $__timeFilter(TimeUnix) AND MetricName = 'http_requests' UNION ALL SELECT 'http_request_duration_seconds' AS metric, max(TimeUnix) AS last_sample, count() AS samples FROM $__sourceTable(histogram) WHERE $__timeFilter(TimeUnix) AND MetricName = 'http_request_duration_seconds'"
+                "sqlTemplate": "SELECT signal, verdict, round(age, 0) AS age_seconds, toDateTime(now()) AS checked_at FROM (SELECT 'http_request_duration_seconds' AS signal, dateDiff('second', max(TimeUnix), now()) AS age, multiIf(age <= 120, 'fresh', age <= 600, 'stale', 'silent') AS verdict FROM $__sourceTable(histogram) WHERE TimeUnix >= now() - INTERVAL 6 HOUR AND MetricName = 'http_request_duration_seconds' UNION ALL SELECT 'http_requests' AS signal, dateDiff('second', max(TimeUnix), now()) AS age, multiIf(age <= 120, 'fresh', age <= 600, 'stale', 'silent') AS verdict FROM $__sourceTable(sum) WHERE TimeUnix >= now() - INTERVAL 6 HOUR AND MetricName = 'http_requests' UNION ALL SELECT 'otel_traces' AS signal, dateDiff('second', max(Timestamp), now()) AS age, multiIf(age <= 120, 'fresh', age <= 600, 'stale', 'silent') AS verdict FROM otel_traces WHERE Timestamp > toDateTime64(0, 9, 'UTC') AND Timestamp >= now() - INTERVAL 6 HOUR UNION ALL SELECT 'otel_logs' AS signal, dateDiff('second', max(Timestamp), now()) AS age, multiIf(age <= 120, 'fresh', age <= 600, 'stale', 'silent') AS verdict FROM otel_logs WHERE Timestamp > toDateTime64(0, 9, 'UTC') AND Timestamp >= now() - INTERVAL 6 HOUR) ORDER BY age_seconds ASC"
             }
         }
     ]

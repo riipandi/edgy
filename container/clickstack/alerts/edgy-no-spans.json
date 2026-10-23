@@ -1,0 +1,35 @@
+{
+    "name": "edgy no spans",
+    "displayName": "No spans received (10m)",
+    "message": "Edgy has sent no trace spans in 10 minutes: the application or its OTLP path is down.",
+    "tags": ["edgy", "telemetry"],
+    "interval": "5m",
+    "numConsecutiveWindows": 2,
+    "threshold": 1,
+    "thresholdType": "below",
+    "source": "inline",
+    "signal": "Traces",
+    "query": "",
+    "filters": {
+        "operator": "AND",
+        "items": []
+    },
+    "limit": 100,
+    "skipForward": true,
+    "windowSize": "5m",
+    "chartConfig": {
+        "displayType": "number",
+        "sourceId": "Traces",
+        "select": [
+            {
+                "aggFn": "count",
+                "alias": "spans",
+                "key": "",
+                "value": []
+            }
+        ]
+    },
+    "emailsRecipients": [],
+    "flagged": false,
+    "note": "Fires when fewer than one span arrives for two consecutive 5m windows (10 minutes of silence); the Telemetry freshness tile in Application SLI shows the same verdict continuously."
+}

@@ -82,9 +82,11 @@ services:
     volumes:
       - './container/clickstack/provision.sh:/clickstack/provision.sh:ro'
       - './container/clickstack/dashboards:/dashboards:ro'
+      - './container/clickstack/alerts:/alerts:ro'
     environment:
       CLICKSTACK_ACCESS_KEY: ${CLICKSTACK_ACCESS_KEY:-}
       CLICKHOUSE_PASSWORD: ${CLICKSTACK_DB_PASSWORD:-securedb}
+      CLICKSTACK_ALERT_WEBHOOK_URL: ${CLICKSTACK_ALERT_WEBHOOK_URL:-}
       DEFAULT_CONNECTIONS: *clickstack-connection
       DEFAULT_SOURCES: *clickstack-sources
       HYPERDX_EMAIL: ${HYPERDX_EMAIL:-admin@example.com}
