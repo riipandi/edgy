@@ -28,3 +28,16 @@ export const unavailableService = Layer.effect(
     })
   )
 )
+
+// Ping answers, queries fail: the rate-limit store is unreadable while the
+// process itself is healthy — the composition that must keep /api/live green.
+export const unwritableStoreService = Layer.effect(
+  Database,
+  Effect.map(migratedService, (service) =>
+    Database.of({
+      ...service,
+      query: () => Effect.fail(new DatabaseError({ cause: new Error('store unavailable') })),
+      read: () => Effect.fail(new DatabaseError({ cause: new Error('store unavailable') }))
+    })
+  )
+)

@@ -9,6 +9,7 @@ import { Database } from '#/database/adapter.ts'
 import type { DB } from '#/database/schema.ts'
 import { AppConfig } from '#/kernel/config/config.ts'
 import { redisUrlForDatabase } from '#/kernel/config/redis.ts'
+import { livenessPath } from '#/modules/health/module.ts'
 import { withDependencyTelemetry } from '#/observer/dependencies.ts'
 
 export class RateLimitError extends Data.TaggedError('RateLimitError')<{
@@ -191,6 +192,12 @@ export const rateLimitMiddleware = Layer.unwrap(
     const { rateLimitMax, rateLimitWindow } = config.security
     return HttpRouter.middleware((httpEffect) =>
       Effect.gen(function* () {
+        const matched = yield* Effect.serviceOption(HttpRouter.RouteContext)
+        // The liveness probe must answer while the store cannot: the
+        // fail-closed 503 below must never be what a supervisor's restart
+        // check sees.
+        if (Option.isSome(matched) && matched.value.route.path === livenessPath)
+          return yield* httpEffect
         const request = yield* HttpServerRequest.HttpServerRequest
         const key = Option.getOrUndefined(request.remoteAddress) ?? 'local'
         const verdict = yield* counter

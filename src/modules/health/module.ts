@@ -6,6 +6,10 @@ import * as HttpApiGroup from 'effect/http-api/HttpApiGroup'
 import { Database } from '#/database/adapter.ts'
 import type { api } from '#/kernel/http/api.ts'
 
+// The wire path of the liveness probe. The rate-limit middleware bypasses
+// this route so a supervisor's restart check survives an unreadable store.
+export const livenessPath = '/api/live'
+
 export class HealthApi extends HttpApiGroup.make('health').add(
   HttpApiEndpoint.get('health', '/health', {
     success: Schema.Struct({ status: Schema.Literal('ok') }),
