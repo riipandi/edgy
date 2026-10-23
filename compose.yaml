@@ -3,15 +3,20 @@
 # Development services. The application itself runs on the host (`vpr dev`);
 # this file only supplies what it talks to:
 #   - ClickStack (HyperDX + ClickHouse + an OpenTelemetry collector) to receive traces, metrics and logs
-#   - Redis, for REDIS_ENABLE=true
+#   - Redis, for REDIS_ENABLE=true, with a Prometheus exporter so its metrics reach the dashboards
 #
-#   vpr compose:up        start both, in the background
-#   vpr compose:down      stop them (data is kept in ./.storage)
-#   vpr compose:cleanup   stop them and delete their data
+#   vpr compose:up          start everything, in the background
+#   vpr compose:down        stop them (data is kept in ./.storage)
+#   vpr compose:cleanup     stop them and delete their data
+#   vpr compose:dashboards  run every provisioned dashboard tile against ClickHouse
 #
 # HyperDX UI: http://localhost:8080, signed in with the development account below.
 #   email    admin@example.com    (HYPERDX_EMAIL)
 #   password @Password123!        (HYPERDX_PASSWORD)
+#
+# Dashboards live in ./container/clickstack/dashboards as JSON and are provisioned by the
+# clickstack-dashboards service on `vpr compose:up`. They are machine-managed: edit the JSON
+# files, not the copies in the UI, and re-run the service to apply a change.
 #
 # The collector accepts the ingestion key `edgy-dev-ingestion-key` (CLICKSTACK_INGESTION_KEY):
 #   OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
@@ -48,17 +53,20 @@ services:
     ports:
       - '127.0.0.1:${CLICKSTACK_UI_PORT:-8080}:8080' # HyperDX UI
       - '127.0.0.1:${OTLP_HTTP_PORT:-4318}:4318' # OTLP over HTTP (the application's exporter)
-    environment:
-      FRONTEND_URL: http://localhost:8080
-      HYPERDX_LOG_LEVEL: ${HYPERDX_LOG_LEVEL:-info}
-      USAGE_STATS_ENABLED: 'false'
-      # A fixed key the collector accepts as `authorization`, so the application needs no
-      # key copied out of the UI. Honoured by this image only; never use one in production.
-      INGESTION_API_KEY: ${CLICKSTACK_INGESTION_KEY:-edgy-dev-ingestion-key}
     volumes:
       - './.storage/clickstack/db:/data/db:rw'
       - './.storage/clickstack/ch_data:/var/lib/clickhouse:rw'
       - './.storage/clickstack/ch_logs:/var/log/clickhouse-server:rw'
+      - './container/clickstack/dashboards:/dashboards:ro'
+      - './container/clickstack/otel-extra.yaml:/etc/otel/extra-config.yaml:ro'
+    environment:
+      CUSTOM_OTELCOL_CONFIG_FILE: /etc/otel/extra-config.yaml
+      FRONTEND_URL: http://localhost:8080
+      HYPERDX_LOG_LEVEL: ${HYPERDX_LOG_LEVEL:-info}
+      INGESTION_API_KEY: ${CLICKSTACK_INGESTION_KEY:-edgy-dev-ingestion-key}
+      USAGE_STATS_ENABLED: 'false'
+      DASHBOARD_PROVISIONER_DIR: /dashboards
+      DASHBOARD_PROVISIONER_ALL_TEAMS: 'true'
     shm_size: 512m # set shared memory limit
     mem_limit: 4g # set memory limit
     cpus: 2.0 # set CPUs limit
@@ -101,6 +109,61 @@ services:
     depends_on:
       clickstack: { condition: service_started }
 
+  # Redis metrics for the HyperDX dashboards: the collector scrapes this
+  # exporter over the compose network, so the values never leave the host.
+  redis-exporter:
+    <<: *common
+    image: docker.io/oliver006/redis_exporter:${REDIS_EXPORTER_VERSION:-v1.67.0}
+    hostname: redis-exporter
+    environment:
+      REDIS_ADDR: redis://redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-securedb}
+      REDIS_EXPORTER_LOG_FORMAT: json
+    shm_size: 16m # set shared memory limit
+    mem_limit: 64m # set memory limit
+    cpus: 0.25 # set CPUs limit
+    healthcheck:
+      # The exporter image ships no shell, so probe it with its own binary.
+      test: ['CMD', '/redis_exporter', '--version']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      redis: { condition: service_started }
+
+  # One-shot: the all-in-one entrypoint starts only the check-alerts task, so the
+  # dashboard provisioner never runs on its own — and its MongoDB listens on that
+  # container's loopback, which a sibling container cannot reach. This runs the
+  # task inside the ClickStack container over the mounted directory instead.
+  # Idempotent: it upserts the dashboards it owns (`provisioned: true`) and never
+  # touches user-created ones.
+  clickstack-dashboards:
+    <<: *common
+    image: docker.io/docker:${DOCKER_CLI_VERSION:-27-cli}
+    restart: 'no'
+    healthcheck:
+      disable: true
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        i=0
+        until docker exec edgy-clickstack-1 curl -sf http://localhost:8080/api/health >/dev/null 2>&1; do
+          i=$$((i + 1))
+          [ "$$i" -ge 90 ] && { echo "HyperDX did not become ready"; exit 1; }
+          sleep 2
+        done
+        docker exec -e RUN_SCHEDULED_TASKS_EXTERNALLY=true \
+          -e MONGO_URI=mongodb://127.0.0.1:27017/hyperdx \
+          -e DASHBOARD_PROVISIONER_DIR=/dashboards \
+          -e DASHBOARD_PROVISIONER_ALL_TEAMS=true \
+          edgy-clickstack-1 sh -c 'cd /app/packages/api && ./bin/hyperdx task provision-dashboards'
+    volumes: ['/var/run/docker.sock:/var/run/docker.sock:ro']
+    mem_limit: 64m # set memory limit
+    cpus: 0.25 # set CPUs limit
+    depends_on:
+      clickstack: { condition: service_started }
+
   redis:
     <<: *common
     image: docker.io/library/redis:${REDIS_VERSION:-8-alpine}
@@ -112,11 +175,7 @@ services:
     mem_limit: 128m # set memory limit
     cpus: 1.0 # set CPUs limit
     healthcheck:
-      test:
-        [
-          'CMD-SHELL',
-          'redis-cli --no-auth-warning -a $${REDIS_PASSWORD:-securedb} ping | grep PONG',
-        ]
+      test: ['CMD-SHELL', 'redis-cli --no-auth-warning -a $${REDIS_PASSWORD:-securedb} ping | grep PONG']
       start_period: 5s
       interval: 15s
 

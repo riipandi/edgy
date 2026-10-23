@@ -1,0 +1,30 @@
+# Extra collector config, merged over the one the all-in-one generates from its
+# team and sources (CUSTOM_OTELCOL_CONFIG_FILE in the supervisor template).
+#
+# The generated config scrapes the collector itself and ClickHouse into its own
+# metrics pipeline; this adds a second receiver for the Redis exporter and its
+# own pipeline, so naming that scrape `redis` cannot relabel anything else.
+receivers:
+  prometheus/redis:
+    config:
+      scrape_configs:
+        - job_name: redis
+          scrape_interval: 30s
+          static_configs:
+            - targets: ['redis-exporter:9121']
+
+processors:
+  # Dashboards group by ServiceName; without this every Redis series would land
+  # under the collector's own service name.
+  resource/redis:
+    attributes:
+      - key: service.name
+        value: redis
+        action: upsert
+
+service:
+  pipelines:
+    metrics/redis:
+      receivers: [prometheus/redis]
+      processors: [memory_limiter, resource/redis, batch]
+      exporters: [clickhouse]

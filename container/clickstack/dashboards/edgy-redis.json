@@ -1,0 +1,115 @@
+{
+    "name": "Edgy Redis",
+    "tags": ["edgy", "infrastructure", "redis"],
+    "savedDateRange": {
+        "type": "relative",
+        "value": 3600000
+    },
+    "tiles": [
+        {
+            "id": "redis-keys",
+            "x": 0,
+            "y": 0,
+            "w": 8,
+            "h": 6,
+            "config": {
+                "configType": "sql",
+                "displayType": "line",
+                "name": "Keys in use (all databases)",
+                "connection": "Local ClickHouse",
+                "source": "6ad9d65d4bf6302ba08b0743",
+                "sqlTemplate": "SELECT $__timeInterval(TimeUnix) AS ts, max(Value) AS keys FROM default.otel_metrics_gauge WHERE MetricName = 'redis_db_keys' GROUP BY ts ORDER BY ts"
+            }
+        },
+        {
+            "id": "redis-memory",
+            "x": 8,
+            "y": 0,
+            "w": 8,
+            "h": 6,
+            "config": {
+                "configType": "sql",
+                "displayType": "line",
+                "name": "Memory used (MB)",
+                "connection": "Local ClickHouse",
+                "source": "6ad9d65d4bf6302ba08b0743",
+                "sqlTemplate": "SELECT $__timeInterval(TimeUnix) AS ts, round(max(Value) / 1024 / 1024, 2) AS used_mb FROM default.otel_metrics_gauge WHERE MetricName = 'redis_memory_used_bytes' GROUP BY ts ORDER BY ts"
+            }
+        },
+        {
+            "id": "redis-ops",
+            "x": 16,
+            "y": 0,
+            "w": 8,
+            "h": 6,
+            "config": {
+                "configType": "sql",
+                "displayType": "line",
+                "name": "Commands per minute",
+                "connection": "Local ClickHouse",
+                "source": "6ad9d65d4bf6302ba08b0743",
+                "sqlTemplate": "SELECT $__timeInterval(TimeUnix) AS ts, round(max(Value) - min(Value), 0) AS commands FROM default.otel_metrics_sum WHERE MetricName = 'redis_commands_processed_total' GROUP BY ts ORDER BY ts"
+            }
+        },
+        {
+            "id": "redis-hitrate",
+            "x": 0,
+            "y": 6,
+            "w": 12,
+            "h": 6,
+            "config": {
+                "configType": "sql",
+                "displayType": "line",
+                "name": "Cache hit rate (%)",
+                "connection": "Local ClickHouse",
+                "source": "6ad9d65d4bf6302ba08b0743",
+                "sqlTemplate": "SELECT $__timeInterval(TimeUnix) AS ts, round(100 * maxIf(Value, MetricName = 'redis_keyspace_hits_total') / greatest(maxIf(Value, MetricName = 'redis_keyspace_hits_total') + maxIf(Value, MetricName = 'redis_keyspace_misses_total'), 1), 2) AS hit_pct FROM default.otel_metrics_sum WHERE MetricName IN ('redis_keyspace_hits_total', 'redis_keyspace_misses_total') GROUP BY ts ORDER BY ts"
+            }
+        },
+        {
+            "id": "redis-clients",
+            "x": 12,
+            "y": 6,
+            "w": 12,
+            "h": 6,
+            "config": {
+                "configType": "sql",
+                "displayType": "line",
+                "name": "Connected and blocked clients",
+                "connection": "Local ClickHouse",
+                "source": "6ad9d65d4bf6302ba08b0743",
+                "sqlTemplate": "SELECT $__timeInterval(TimeUnix) AS ts, MetricName AS gauge, max(Value) AS clients FROM default.otel_metrics_gauge WHERE MetricName IN ('redis_connected_clients', 'redis_blocked_clients') GROUP BY ts, gauge ORDER BY ts"
+            }
+        },
+        {
+            "id": "redis-evictions",
+            "x": 0,
+            "y": 12,
+            "w": 12,
+            "h": 6,
+            "config": {
+                "configType": "sql",
+                "displayType": "line",
+                "name": "Evicted and expired keys",
+                "connection": "Local ClickHouse",
+                "source": "6ad9d65d4bf6302ba08b0743",
+                "sqlTemplate": "SELECT $__timeInterval(TimeUnix) AS ts, MetricName AS counter, max(Value) AS total FROM default.otel_metrics_sum WHERE MetricName IN ('redis_evicted_keys_total', 'redis_expired_keys_total', 'redis_rejected_connections_total') GROUP BY ts, counter ORDER BY ts"
+            }
+        },
+        {
+            "id": "redis-errors",
+            "x": 12,
+            "y": 12,
+            "w": 12,
+            "h": 6,
+            "config": {
+                "configType": "sql",
+                "displayType": "table",
+                "name": "Persistence and error state",
+                "connection": "Local ClickHouse",
+                "source": "6ad9d65d4bf6302ba08b0743",
+                "sqlTemplate": "SELECT MetricName AS metric, max(Value) AS value FROM default.otel_metrics_gauge WHERE MetricName IN ('redis_rdb_last_bgsave_status', 'redis_aof_last_write_status', 'redis_aof_enabled', 'redis_uptime_in_seconds') AND ServiceName = 'redis' GROUP BY metric ORDER BY metric"
+            }
+        }
+    ]
+}

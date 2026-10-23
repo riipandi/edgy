@@ -1,0 +1,292 @@
+{
+    "name": "Edgy Application",
+    "tags": ["edgy", "application"],
+    "savedDateRange": {
+        "type": "relative",
+        "value": 3600000
+    },
+    "tiles": [
+        {
+            "id": "app-throughput",
+            "x": 0,
+            "y": 0,
+            "w": 6,
+            "h": 4,
+            "config": {
+                "name": "Requests (last hour)",
+                "source": "6ad9d65d4bf6302ba08b0741",
+                "displayType": "number",
+                "numberFormat": {
+                    "output": "number",
+                    "mantissa": 0,
+                    "thousandSeparated": true
+                },
+                "granularity": "auto",
+                "alignDateRangeToGranularity": true,
+                "select": [
+                    {
+                        "aggFn": "count",
+                        "valueExpression": ""
+                    }
+                ],
+                "where": "",
+                "whereLanguage": "sql"
+            }
+        },
+        {
+            "id": "app-error-rate",
+            "x": 6,
+            "y": 0,
+            "w": 6,
+            "h": 4,
+            "config": {
+                "name": "Error rate",
+                "source": "6ad9d65d4bf6302ba08b0741",
+                "displayType": "number",
+                "numberFormat": {
+                    "output": "percent",
+                    "mantissa": 2
+                },
+                "granularity": "auto",
+                "alignDateRangeToGranularity": true,
+                "select": [
+                    {
+                        "aggFn": "count",
+                        "valueExpression": "",
+                        "aggCondition": "StatusCode = 'Error'",
+                        "aggConditionLanguage": "sql"
+                    }
+                ],
+                "where": "",
+                "whereLanguage": "sql"
+            }
+        },
+        {
+            "id": "app-latency",
+            "x": 12,
+            "y": 0,
+            "w": 6,
+            "h": 4,
+            "config": {
+                "name": "Latency p95 (ms)",
+                "source": "6ad9d65d4bf6302ba08b0741",
+                "displayType": "number",
+                "numberFormat": {
+                    "output": "number",
+                    "mantissa": 2,
+                    "thousandSeparated": true
+                },
+                "granularity": "auto",
+                "alignDateRangeToGranularity": true,
+                "select": [
+                    {
+                        "aggFn": "quantile",
+                        "level": 0.95,
+                        "valueExpression": "Duration / 1e6"
+                    }
+                ],
+                "where": "",
+                "whereLanguage": "sql"
+            }
+        },
+        {
+            "id": "app-log-volume",
+            "x": 18,
+            "y": 0,
+            "w": 6,
+            "h": 4,
+            "config": {
+                "name": "Log lines (last hour)",
+                "source": "6ad9d65d4bf6302ba08b073f",
+                "displayType": "number",
+                "numberFormat": {
+                    "output": "number",
+                    "mantissa": 0,
+                    "thousandSeparated": true
+                },
+                "granularity": "auto",
+                "alignDateRangeToGranularity": true,
+                "select": [
+                    {
+                        "aggFn": "count",
+                        "valueExpression": ""
+                    }
+                ],
+                "where": "",
+                "whereLanguage": "sql"
+            }
+        },
+        {
+            "id": "app-requests-over-time",
+            "x": 0,
+            "y": 4,
+            "w": 12,
+            "h": 7,
+            "config": {
+                "name": "Requests over time",
+                "source": "6ad9d65d4bf6302ba08b0741",
+                "displayType": "line",
+                "numberFormat": {
+                    "output": "number",
+                    "mantissa": 0,
+                    "thousandSeparated": true
+                },
+                "granularity": "auto",
+                "alignDateRangeToGranularity": true,
+                "select": [
+                    {
+                        "aggFn": "count",
+                        "valueExpression": ""
+                    }
+                ],
+                "where": "",
+                "whereLanguage": "sql"
+            }
+        },
+        {
+            "id": "app-latency-over-time",
+            "x": 12,
+            "y": 4,
+            "w": 12,
+            "h": 7,
+            "config": {
+                "name": "Latency percentiles (ms)",
+                "source": "6ad9d65d4bf6302ba08b0741",
+                "displayType": "line",
+                "numberFormat": {
+                    "output": "number",
+                    "mantissa": 2,
+                    "thousandSeparated": true
+                },
+                "granularity": "auto",
+                "alignDateRangeToGranularity": true,
+                "select": [
+                    {
+                        "aggFn": "quantile",
+                        "level": 0.5,
+                        "valueExpression": "Duration / 1e6",
+                        "alias": "p50"
+                    },
+                    {
+                        "aggFn": "quantile",
+                        "level": 0.95,
+                        "valueExpression": "Duration / 1e6",
+                        "alias": "p95"
+                    },
+                    {
+                        "aggFn": "quantile",
+                        "level": 0.99,
+                        "valueExpression": "Duration / 1e6",
+                        "alias": "p99"
+                    }
+                ],
+                "where": "",
+                "whereLanguage": "sql"
+            }
+        },
+        {
+            "id": "app-errors-over-time",
+            "x": 0,
+            "y": 11,
+            "w": 12,
+            "h": 7,
+            "config": {
+                "name": "Error spans over time",
+                "source": "6ad9d65d4bf6302ba08b0741",
+                "displayType": "stacked_bar",
+                "numberFormat": {
+                    "output": "number",
+                    "mantissa": 0,
+                    "thousandSeparated": true
+                },
+                "granularity": "auto",
+                "alignDateRangeToGranularity": true,
+                "select": [
+                    {
+                        "aggFn": "count",
+                        "valueExpression": "",
+                        "aggCondition": "StatusCode = 'Error'",
+                        "aggConditionLanguage": "sql"
+                    }
+                ],
+                "where": "",
+                "whereLanguage": "sql"
+            }
+        },
+        {
+            "id": "app-http-metrics",
+            "x": 12,
+            "y": 11,
+            "w": 12,
+            "h": 7,
+            "config": {
+                "name": "http_requests by status (metric)",
+                "source": "6ad9d65d4bf6302ba08b0743",
+                "displayType": "stacked_bar",
+                "numberFormat": {
+                    "output": "number",
+                    "mantissa": 0,
+                    "thousandSeparated": true
+                },
+                "granularity": "auto",
+                "alignDateRangeToGranularity": true,
+                "select": [
+                    {
+                        "aggFn": "sum",
+                        "valueExpression": "Value",
+                        "metricType": "sum",
+                        "metricName": "http_requests"
+                    }
+                ],
+                "where": "MetricName = 'http_requests'",
+                "whereLanguage": "sql",
+                "groupBy": "Attributes['status']"
+            }
+        },
+        {
+            "id": "app-top-routes",
+            "x": 0,
+            "y": 18,
+            "w": 12,
+            "h": 8,
+            "config": {
+                "name": "Requests by route",
+                "source": "6ad9d65d4bf6302ba08b0741",
+                "displayType": "table",
+                "numberFormat": {
+                    "output": "number",
+                    "mantissa": 0,
+                    "thousandSeparated": true
+                },
+                "granularity": "auto",
+                "alignDateRangeToGranularity": true,
+                "select": [
+                    {
+                        "aggFn": "count",
+                        "valueExpression": ""
+                    }
+                ],
+                "where": "",
+                "whereLanguage": "sql",
+                "groupBy": "SpanName"
+            }
+        },
+        {
+            "id": "app-recent-errors",
+            "x": 12,
+            "y": 18,
+            "w": 12,
+            "h": 8,
+            "config": {
+                "name": "Recent error logs",
+                "source": "6ad9d65d4bf6302ba08b073f",
+                "displayType": "search",
+                "granularity": "auto",
+                "alignDateRangeToGranularity": true,
+                "select": "",
+                "where": "SeverityText IN ('error', 'ERROR', 'fatal', 'FATAL')",
+                "whereLanguage": "sql"
+            }
+        }
+    ]
+}

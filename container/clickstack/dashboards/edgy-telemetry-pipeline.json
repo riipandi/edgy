@@ -1,0 +1,115 @@
+{
+    "name": "Edgy Telemetry pipeline",
+    "tags": ["edgy", "infrastructure", "collector"],
+    "savedDateRange": {
+        "type": "relative",
+        "value": 3600000
+    },
+    "tiles": [
+        {
+            "id": "col-accepted",
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 6,
+            "config": {
+                "configType": "sql",
+                "displayType": "line",
+                "name": "Signals accepted by the collector",
+                "connection": "Local ClickHouse",
+                "source": "6ad9d65d4bf6302ba08b0743",
+                "sqlTemplate": "SELECT $__timeInterval(TimeUnix) AS ts, MetricName AS signal, sum(Value) AS accepted FROM default.otel_metrics_sum WHERE MetricName IN ('otelcol_receiver_accepted_spans', 'otelcol_receiver_accepted_log_records', 'otelcol_receiver_accepted_metric_points') GROUP BY ts, signal ORDER BY ts"
+            }
+        },
+        {
+            "id": "col-refused",
+            "x": 12,
+            "y": 0,
+            "w": 12,
+            "h": 6,
+            "config": {
+                "configType": "sql",
+                "displayType": "line",
+                "name": "Signals refused or failed",
+                "connection": "Local ClickHouse",
+                "source": "6ad9d65d4bf6302ba08b0743",
+                "sqlTemplate": "SELECT $__timeInterval(TimeUnix) AS ts, MetricName AS signal, sum(Value) AS failed FROM default.otel_metrics_sum WHERE MetricName IN ('otelcol_receiver_refused_spans', 'otelcol_receiver_failed_spans', 'otelcol_receiver_refused_log_records', 'otelcol_receiver_failed_log_records', 'otelcol_receiver_refused_metric_points', 'otelcol_receiver_failed_metric_points') GROUP BY ts, signal ORDER BY ts"
+            }
+        },
+        {
+            "id": "col-exported",
+            "x": 0,
+            "y": 6,
+            "w": 12,
+            "h": 6,
+            "config": {
+                "configType": "sql",
+                "displayType": "line",
+                "name": "Signals written to ClickHouse",
+                "connection": "Local ClickHouse",
+                "source": "6ad9d65d4bf6302ba08b0743",
+                "sqlTemplate": "SELECT $__timeInterval(TimeUnix) AS ts, MetricName AS signal, sum(Value) AS exported FROM default.otel_metrics_sum WHERE MetricName IN ('otelcol_exporter_sent_spans', 'otelcol_exporter_sent_log_records', 'otelcol_exporter_sent_metric_points') GROUP BY ts, signal ORDER BY ts"
+            }
+        },
+        {
+            "id": "col-queue",
+            "x": 12,
+            "y": 6,
+            "w": 12,
+            "h": 6,
+            "config": {
+                "configType": "sql",
+                "displayType": "line",
+                "name": "Exporter queue depth vs capacity",
+                "connection": "Local ClickHouse",
+                "source": "6ad9d65d4bf6302ba08b0743",
+                "sqlTemplate": "SELECT $__timeInterval(TimeUnix) AS ts, MetricName AS gauge, max(Value) AS value FROM default.otel_metrics_gauge WHERE MetricName IN ('otelcol_exporter_queue_size', 'otelcol_exporter_queue_capacity', 'otelcol_exporter_in_flight_requests') GROUP BY ts, gauge ORDER BY ts"
+            }
+        },
+        {
+            "id": "col-memory",
+            "x": 0,
+            "y": 12,
+            "w": 12,
+            "h": 6,
+            "config": {
+                "configType": "sql",
+                "displayType": "line",
+                "name": "Collector memory (RSS)",
+                "connection": "Local ClickHouse",
+                "source": "6ad9d65d4bf6302ba08b0743",
+                "sqlTemplate": "SELECT $__timeInterval(TimeUnix) AS ts, round(max(Value) / 1024 / 1024, 1) AS rss_mb FROM default.otel_metrics_gauge WHERE MetricName = 'otelcol_process_memory_rss' GROUP BY ts ORDER BY ts"
+            }
+        },
+        {
+            "id": "col-batch",
+            "x": 12,
+            "y": 12,
+            "w": 12,
+            "h": 6,
+            "config": {
+                "configType": "sql",
+                "displayType": "line",
+                "name": "Batch trigger mix",
+                "connection": "Local ClickHouse",
+                "source": "6ad9d65d4bf6302ba08b0743",
+                "sqlTemplate": "SELECT $__timeInterval(TimeUnix) AS ts, MetricName AS trigger, sum(Value) AS batches FROM default.otel_metrics_sum WHERE MetricName IN ('otelcol_processor_batch_batch_size_trigger_send', 'otelcol_processor_batch_timeout_trigger_send') GROUP BY ts, trigger ORDER BY ts"
+            }
+        },
+        {
+            "id": "col-scrape",
+            "x": 0,
+            "y": 18,
+            "w": 24,
+            "h": 6,
+            "config": {
+                "configType": "sql",
+                "displayType": "line",
+                "name": "Prometheus scrape health",
+                "connection": "Local ClickHouse",
+                "source": "6ad9d65d4bf6302ba08b0743",
+                "sqlTemplate": "SELECT $__timeInterval(TimeUnix) AS ts, MetricName AS metric, round(avg(Value), 3) AS value FROM default.otel_metrics_gauge WHERE MetricName IN ('up', 'scrape_duration_seconds') GROUP BY ts, metric ORDER BY ts"
+            }
+        }
+    ]
+}

@@ -41,3 +41,14 @@ With `DATABASE_PATH=:memory:`, startup migrations and requests use the same data
 Tracing and metrics export over OTLP by default; set `OTEL_SDK_DISABLED=true` to disable them.
 Select the `otlp` value in `LOG_TRANSPORT` to export logs as well. See
 [Configuration](./configuration.md) for the full list of options.
+
+The stack ships six dashboards, provisioned from `container/clickstack/dashboards` on
+`vpr compose:up`: the application (throughput, latency, errors, logs), reliability, storage,
+the telemetry pipeline, Redis, and Node.js runtime metrics. Edit those JSON files rather than the
+copies in the UI — the provisioner owns them and overwrites them on every start. Run
+`vpr compose:dashboards` to execute every tile against ClickHouse and report which ones come back
+empty; it is the check that catches a tile whose source or query is wrong.
+
+Redis metrics arrive through a `redis_exporter` sidecar. The all-in-one image generates its own
+collector configuration, so `container/clickstack/otel-extra.yaml` is merged over it to add that
+scrape target.
