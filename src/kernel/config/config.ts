@@ -46,5 +46,3 @@ export const ConfigLayer: Layer.Layer<AppConfig, Config.ConfigError> = Layer.eff
 )
 
 export type { LogFormat } from './logging.ts'
-export type { ObservabilityConfig } from './observability.ts'
-export { telemetryEnabled } from './observability.ts'

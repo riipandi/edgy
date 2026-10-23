@@ -1,4 +1,4 @@
-import { flag, group, int, milliseconds, type ValueOf } from './field.ts'
+import { flag, group, int, milliseconds } from './field.ts'
 
 export const cacheConfig = group(
   {
@@ -8,5 +8,3 @@ export const cacheConfig = group(
   },
   'Cache'
 )
-
-export type CacheConfig = ValueOf<typeof cacheConfig>

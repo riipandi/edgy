@@ -1,4 +1,4 @@
-import { group, port, text, type ValueOf } from './field.ts'
+import { group, port, text } from './field.ts'
 
 export const serverConfig = group(
   {
@@ -7,5 +7,3 @@ export const serverConfig = group(
   },
   'Server'
 )
-
-export type ServerConfig = ValueOf<typeof serverConfig>

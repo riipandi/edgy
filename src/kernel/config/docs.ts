@@ -1,4 +1,4 @@
-import { flag, group, type ValueOf } from './field.ts'
+import { flag, group } from './field.ts'
 
 export const docsConfig = group(
   {
@@ -10,5 +10,3 @@ export const docsConfig = group(
   },
   'Docs'
 )
-
-export type DocsConfig = ValueOf<typeof docsConfig>

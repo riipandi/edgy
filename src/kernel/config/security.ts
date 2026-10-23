@@ -1,7 +1,6 @@
 import { Config, Effect } from 'effect'
 import { BlockList, isIP } from 'node:net'
 import { custom, flag, group, int, invalid, milliseconds } from './field.ts'
-import type { ValueOf } from './field.ts'
 
 /**
  * The TRUST_PROXY setting, following the pocket-id concept: `false` trusts no
@@ -107,5 +106,3 @@ export const securityConfig = group(
   },
   'Security'
 )
-
-export type SecurityConfig = ValueOf<typeof securityConfig>

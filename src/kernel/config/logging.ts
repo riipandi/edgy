@@ -27,5 +27,4 @@ export const loggingConfig = group(
   'Logging'
 )
 
-export type LoggingConfig = ValueOf<typeof loggingConfig>
-export type LogFormat = LoggingConfig['format']
+export type LogFormat = ValueOf<typeof loggingConfig>['format']

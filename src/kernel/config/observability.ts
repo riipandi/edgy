@@ -24,7 +24,5 @@ export const observabilityConfig = group(
   'Observability'
 )
 
-export const telemetryEnabled = (config: ObservabilityConfig): boolean =>
+export const telemetryEnabled = (config: ValueOf<typeof observabilityConfig>): boolean =>
   !config.sdkDisabled && config.endpoint !== ''
-
-export type ObservabilityConfig = ValueOf<typeof observabilityConfig>

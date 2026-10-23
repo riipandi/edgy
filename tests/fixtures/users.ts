@@ -21,7 +21,7 @@ export const users = [
   user('01890a5d-ac96-774b-bcce-b302099a8058', 'Grace Hopper')
 ]
 
-export const testService = Layer.succeed(
+export const testServices = Layer.succeed(
   UserService,
   UserService.of({
     list: () => Effect.succeed(users),
@@ -40,5 +40,3 @@ export const unavailableUserService = Layer.succeed(
     find: () => Effect.fail(new UserRepositoryError({ cause: new Error('offline') }))
   })
 )
-
-export const testServices = testService
