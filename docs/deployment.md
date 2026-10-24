@@ -14,7 +14,10 @@ vpr build:standalone
 assets together when copying the build. `vpr build:standalone` bundles server
 dependencies — the SSR bundle included — into one executable JavaScript entry;
 it is not a native binary. The build fails if any external package import
-remains in the output, so the bundle always runs without `node_modules`.
+remains in the output, so the bundle runs without a resolved `node_modules`
+tree. The one exception is a compiled addon: the SQLite engine loads its
+native binding from `node_modules/@tursodatabase/database-<platform>` at
+runtime, so ship that directory beside the entry (the Dockerfile does).
 
 Run the bundled server with:
 
@@ -22,16 +25,20 @@ Run the bundled server with:
 vpr start
 ```
 
-The application requires Node.js 24.22 or newer for `node:sqlite`. It does
-not need a native SQLite addon or a database service. Set `DATABASE_PATH`
-to a writable persistent location before starting the process.
+The application requires Node.js 24.22 or newer. It needs no database service: the default
+`DATABASE_URL` points at a local SQLite file through Turso's engine, whose native binding ships with
+the bundle's `node_modules/@tursodatabase` directory. Point `DATABASE_URL` at a writable persistent
+location before starting the process, or at a remote Turso database (`libsql://`/`turso://` plus
+`DATABASE_TOKEN`) to keep no local state.
 
 ## Runtime configuration
 
 Set `SERVER_HOST` and `SERVER_PORT` for the listener. Use `DATABASE_AUTO_MIGRATE=true`
 to apply migrations at startup, or run `vpr app migrate:up` as a release step.
-For multi-instance deployments, use a shared SQLite-compatible storage arrangement
-only if its locking semantics support concurrent writers. Rate-limit windows
+A local database file serves one host: the engine's multi-process WAL mode lets
+several processes on that host share it, and a network filesystem does not carry
+the locking it relies on. Deploy a remote Turso database (`DATABASE_URL` plus
+`DATABASE_TOKEN`) to run several instances against one store. Rate-limit windows
 and cached lookups can be shared between instances through Redis when
 `REDIS_ENABLE=true`; without Redis each instance keeps its own counters and cache.
 

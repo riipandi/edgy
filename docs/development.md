@@ -21,8 +21,9 @@ restarts when it changes.
 
 ## Database workflow
 
-The app uses SQLite via Node's built-in `node:sqlite`. Set `DATABASE_PATH` to select the database
-file. Apply migrations and seed sample data with:
+The app uses SQLite through Turso's local engine (`@tursodatabase/database`). Set `DATABASE_URL` to a
+`file:` URI to choose the database file; a remote Turso database is reached with a `libsql://` or
+`turso://` URL plus `DATABASE_TOKEN`. Apply migrations and seed sample data with:
 
 ```bash
 vpr app migrate:status
@@ -32,7 +33,8 @@ vpr app migrate:seed
 
 To migrate before serving, use `vpr app serve --auto-migrate` or set
 `DATABASE_AUTO_MIGRATE=true`. See [Command line](./commandline.md) for migration commands.
-With `DATABASE_PATH=:memory:`, startup migrations and requests use the same database for the lifetime of the server.
+An in-memory database is not supported: the healthcheck probe and a migration run open the same file
+from their own process, and `:memory:` would give each of them a private one.
 
 ## Frontend
 

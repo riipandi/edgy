@@ -43,14 +43,33 @@ document at `/api/openapi.json`. Keep it off unless the API is meant to be publi
 
 | Variable                | Default                                   | Meaning                                                                                       |
 | ----------------------- | ----------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `DATABASE_DRIVER`       | `sqlite`                                  | SQLite is the supported driver.                                                               |
-| `DATABASE_PATH`         | `storage/data/app.db`                     | SQLite file path; use `:memory:` for an in-memory database.                                   |
+| `DATABASE_URL`          | `file:./storage/data/app.db`              | Local database file, or the URL of a remote Turso database.                                   |
+| `DATABASE_TOKEN`        | empty                                     | Turso auth token; required by a remote URL and ignored by a local one.                        |
 | `DATABASE_AUTO_MIGRATE` | `false`                                   | Apply migrations before the server starts. The `--auto-migrate` serve flag also enables this. |
 | `REDIS_ENABLE`          | `false`                                   | Use Redis for the rate-limit and cache stores.                                                |
 | `REDIS_URL`             | `redis://default:securedb@localhost:6379` | Redis connection URL; each feature uses its own database.                                     |
 
+`DATABASE_URL` is one variable for both transports. A `file:` URI is a local database, and its path
+is read the way RFC 8089 defines it: `file:/data/app.db`, `file:///data/app.db` and
+`file://localhost/data/app.db` name the same file, `file:./storage/app.db` is relative to the
+working directory, and a percent-encoded path is decoded. A bare path such as `./storage/app.db`
+works as a convenience. `file://otherhost/data/app.db` is refused, because a local engine cannot
+open another machine's file, and `:memory:` is refused too — an in-memory database cannot be shared
+with the healthcheck probe or a migration run. A remote database is named by `libsql://`,
+`turso://`, `https://` or `http://` and requires `DATABASE_TOKEN`; a remote URL without a token
+fails at startup, naming the variable, rather than at the first query. Setting `DATABASE_TOKEN`
+next to a local URL logs one warning and ignores it.
+
+The local file is created next to its directory (mode `0775`) and narrowed to `0600`, as are its
+`-wal` and `-shm` sidecars, which hold uncommitted rows. Foreign keys are enforced and the journal
+mode is WAL. Every process of the application opens the file in multi-process WAL mode, so the
+healthcheck probe and a migration run can read and write while the server holds the same database;
+a tool outside this application (`sqlite3`, the `turso` CLI) opening that file without the same
+option conflicts with it.
+
 Database access is exposed through an Effect service. It owns the Kysely connection lifecycle and
-returns typed `DatabaseError` failures. Migrations and seeders use the same SQLite-backed service.
+returns typed `DatabaseError` failures. Migrations and seeders use the same service, over either
+transport.
 
 One connection serves every feature that needs Redis. Features are separated by database index
 rather than by URL: the cache uses database `1` and the rate limiter database `2`, so keys never
@@ -154,8 +173,11 @@ no-spans alert (telemetry from the application has stopped for 10 minutes) and a
 alerting exists — a silent stack and a broken stack look the same, which is exactly what the
 `Telemetry freshness` tile in the Application SLI dashboard is for.
 
-`APP_DISTROLESS_TAG` defaults to `debug-nonroot` because the plain `nonroot` distroless variant
-ships no `/usr/bin/env`, and the application entry's shebang cannot start without it.
+`APP_DISTROLESS_TAG` defaults to `debug-nonroot` because the container build bakes the entry's shebang
+as `#!/busybox/env node` (`ENV_BINARY_PATH` in the Dockerfile), and only the `debug` distroless variants
+ship `/busybox`. The plain `nonroot` tag ships neither `/busybox` nor `/usr/bin/env`, so an image built
+from it starts with `exec /app/entry.js failed: No such file or directory`. Use `debug-nonroot` for
+every local and development container build.
 
 `CLICKSTACK_RETENTION_DAYS` (default `30`) is how long telemetry is kept. ClickHouse enforces it as
 a table TTL, and the provisioner rewrites every `otel_*` and `hyperdx_*` table's TTL at start when

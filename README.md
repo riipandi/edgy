@@ -6,7 +6,8 @@
 
 A small, opinionated reference server built with [Effect](https://effect.website) for typed errors,
 dependency injection, HTTP routing, middleware, structured logging, and telemetry. [Kysely](https://kysely.dev)
-provides the query builder over SQLite through Node's built-in `node:sqlite` driver.
+provides the query builder over SQLite through Turso's engine — a local file, or a remote database over
+HTTP.
 
 It also serves HTML pages: server-rendered [Solid](https://v2.solidjs.com) components with a
 file-based router, styled with [StyleX](https://stylexjs.com/), interactive where they need to be.
@@ -22,14 +23,14 @@ dependencies into one JavaScript entry.
 - **Observable** — Effect exports OpenTelemetry traces, metrics, and optional logs over OTLP.
 - **Configurable** — grouped, validated environment configuration controls the server, SQLite, cache, rate limit, logging, and telemetry.
 - **Resilient** — typed database errors, bounded in-memory caching and rate limiting, graceful shutdown.
-- **Zero native dependencies** — SQLite via `node:sqlite`, so the bundle needs no compiled addon.
+- **One database, two transports** — a local SQLite file through Turso's native engine, or a remote Turso database over HTTP, chosen by `DATABASE_URL`.
 - **Server-rendered pages** — streamed Solid pages with a file-based router, hydrated where they are interactive, with typed, build-time styles.
 - **Standalone build** — Vite builds the Node.js server and browser assets; `--minify` reduces the server bundle.
 - **Standalone bundle** — `vpr build:standalone` produces one executable JavaScript entry.
 
 ## Requirements
 
-- **Node.js >= 24.22** — required for the stable `node:sqlite` and native TypeScript stripping.
+- **Node.js >= 24.22** — required for native TypeScript stripping.
 - **pnpm 12** — declared via `devEngines`; `npx` is intentionally rejected.
 
 ## Getting started
@@ -74,7 +75,8 @@ The full documentation index lives in [docs/index.md](./docs/index.md):
 - Effect HTTP — [HTTP APIs](https://effect.website/docs/v4/platform/http)
 - Kysely — [documentation](https://kysely.dev)
 - Frontend — [Solid](https://v2.solidjs.com) · [Solid Router](https://v2.solidjs.com/routing/solid-router) · [Vite](https://vite.dev/guide/) · [StyleX](https://stylexjs.com/)
-- Node.js — [`node:sqlite`](https://nodejs.org/api/sqlite.html) · [single executable applications](https://nodejs.org/api/single-executable-applications.html)
+- Database — [Turso](https://turso.tech) · [Kysely dialect](https://github.com/tursodatabase/kysely-libsql)
+- Node.js — [single executable applications](https://nodejs.org/api/single-executable-applications.html)
 
 ## License
 
