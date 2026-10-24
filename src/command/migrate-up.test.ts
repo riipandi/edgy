@@ -1,5 +1,6 @@
 import { it } from '@effect/vitest'
 import { Effect, Exit } from 'effect'
+import { join } from 'node:path'
 import { expect } from 'vite-plus/test'
 import { MIGRATION_NAMES } from '#/database/migrations/index.ts'
 import { databaseEnv, failureOf, runCli, tempDirectory } from './harness.ts'
@@ -27,6 +28,8 @@ it.effect('--to applies the migrations up to the named one only', () =>
 
     const dryRun = yield* runCli(['migrate:up', '--to', target, '--dry-run'], env)
     expect(dryRun.logs).toEqual([
+      `connecting database local ${join(directory, 'edgy.db')}`,
+      'database connected',
       `pending ${MIGRATION_NAMES[0]}`,
       `pending ${target}`,
       'closing database connection',

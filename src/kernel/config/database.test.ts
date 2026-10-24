@@ -1,6 +1,6 @@
-import { Effect, Redacted } from 'effect'
+import { ConfigProvider, Effect, Logger, Redacted } from 'effect'
 import { describe, expect, it } from 'vite-plus/test'
-import { resolveDatabaseTarget, type DatabaseTarget } from './database.ts'
+import { databaseConfig, resolveDatabaseTarget, type DatabaseTarget } from './database.ts'
 
 const resolve = (url: string, token = ''): Promise<DatabaseTarget> =>
   Effect.runPromise(resolveDatabaseTarget(url, Redacted.make(token)))
@@ -107,5 +107,43 @@ describe('DATABASE_URL remote forms', () => {
       url: 'turso://probe.turso.io',
       token: 'secret'
     })
+  })
+})
+
+describe('DATABASE_URL warnings', () => {
+  const warningsFor = (url: string, token: string): Promise<ReadonlyArray<string>> => {
+    const lines: Array<string> = []
+    const logger = Logger.layer([
+      Logger.make(({ logLevel, message }) => {
+        if (logLevel === 'Warn') lines.push(String(message))
+      })
+    ])
+    return Effect.runPromise(
+      databaseConfig.config.pipe(
+        Effect.asVoid,
+        Effect.provide(logger),
+        Effect.provide(
+          ConfigProvider.layer(
+            ConfigProvider.fromEnvRecord({ DATABASE_URL: url, DATABASE_TOKEN: token })
+          )
+        )
+      )
+    ).then(() => lines)
+  }
+
+  it('warns when the token would travel over plain http', async () => {
+    const warnings = await warningsFor('http://probe.turso.io', 'a-token')
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0]).toContain('DATABASE_TOKEN travels unencrypted')
+  })
+
+  it('stays silent for every encrypted remote scheme', async () => {
+    for (const scheme of ['libsql://', 'turso://', 'https://'])
+      expect(await warningsFor(`${scheme}probe.turso.io`, 'a-token')).toEqual([])
+  })
+
+  it('warns that a token is ignored next to a local database', async () => {
+    const warnings = await warningsFor('file:/tmp/ignored-token.db', 'a-token')
+    expect(warnings).toEqual(['DATABASE_TOKEN is ignored: DATABASE_URL points at a local database'])
   })
 })

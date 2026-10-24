@@ -110,6 +110,10 @@ const fields = group(
   'Database'
 )
 
+/** A remote URL whose token would travel unencrypted. */
+const isCleartext = (target: DatabaseTarget): boolean =>
+  target.kind === 'remote' && target.url.toLowerCase().startsWith('http://')
+
 export const databaseConfig: Node<ValueOf<typeof fields> & { readonly target: DatabaseTarget }> = {
   config: fields.config.pipe(
     Config.mapEffect((value) =>
@@ -118,6 +122,15 @@ export const databaseConfig: Node<ValueOf<typeof fields> & { readonly target: Da
           target.kind === 'local' && Redacted.value(value.token).trim() !== ''
             ? Effect.logWarning(
                 'DATABASE_TOKEN is ignored: DATABASE_URL points at a local database'
+              )
+            : Effect.void
+        ),
+        // Plain http sends the bearer token in the clear, and the operator
+        // cannot see that from the URL alone once it is in a compose file.
+        Effect.tap((target) =>
+          isCleartext(target)
+            ? Effect.logWarning(
+                'DATABASE_URL uses http://, so DATABASE_TOKEN travels unencrypted; use https:// or libsql:// outside a loopback host'
               )
             : Effect.void
         ),

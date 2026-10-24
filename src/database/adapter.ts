@@ -67,10 +67,22 @@ export const DatabaseLayer = Layer.effect(
   Effect.gen(function* () {
     const config = yield* AppConfig
     const log = yield* makeQueryLogger
+    // Which transport the process actually uses is the first thing an operator
+    // needs after a deploy, and it is not visible from the environment alone:
+    // a bare path, a file: URI and a remote URL all arrive in DATABASE_URL.
+    const describe = (target: typeof config.database.target): string =>
+      target.kind === 'local'
+        ? `connecting database local ${target.path}`
+        : `connecting database remote ${target.url}`
     return yield* Effect.acquireRelease(
-      Effect.tryPromise({
-        try: () => openTursoDatabase(config.database.target, log),
-        catch: (cause) => new DatabaseError({ cause })
+      Effect.gen(function* () {
+        yield* Effect.logInfo(describe(config.database.target))
+        const database = yield* Effect.tryPromise({
+          try: () => openTursoDatabase(config.database.target, log),
+          catch: (cause) => new DatabaseError({ cause })
+        })
+        yield* Effect.logInfo('database connected')
+        return database
       }),
       (database) =>
         Effect.logInfo('closing database connection').pipe(

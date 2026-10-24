@@ -1,9 +1,11 @@
 import { it } from '@effect/vitest'
-import { Effect, Metric } from 'effect'
+import { Effect, Layer, Logger, Metric } from 'effect'
 import { expect } from 'vite-plus/test'
+import { AppConfig } from '#/kernel/config/config.ts'
 import { dependencyDuration } from '#/observer/dependencies.ts'
+import { config } from '../../tests/fixtures/config.ts'
 import { testDatabasePath } from '../../tests/fixtures/database-url.ts'
-import { makeDatabaseService } from './adapter.ts'
+import { DatabaseLayer, makeDatabaseService } from './adapter.ts'
 import { openTursoDatabase } from './dialect.ts'
 
 it.effect('every database op flows through the dependency series', () =>
@@ -29,5 +31,37 @@ it.effect('every database op flows through the dependency series', () =>
       Metric.withAttributes(dependencyDuration, { store: 'sqlite', op: 'read' })
     )
     expect(read.count).toBe(1)
+  })
+)
+
+it.effect('announces the transport it connects to', () =>
+  Effect.gen(function* () {
+    const path = testDatabasePath('adapter-announce.db')
+    const lines: Array<string> = []
+    const logger = Logger.layer([
+      Logger.make(({ message }) => {
+        lines.push(String(message))
+      })
+    ])
+
+    yield* Effect.void.pipe(
+      Effect.provide(
+        DatabaseLayer.pipe(
+          Layer.provide(
+            Layer.succeed(AppConfig, {
+              ...config,
+              database: { ...config.database, target: { kind: 'local', path } }
+            })
+          )
+        )
+      ),
+      Effect.provide(logger),
+      Effect.scoped
+    )
+
+    // The operator needs to know which transport a deploy actually reached; a
+    // bare path, a file: URI and a remote URL all arrive in DATABASE_URL.
+    expect(lines).toContain(`connecting database local ${path}`)
+    expect(lines).toContain('database connected')
   })
 )
