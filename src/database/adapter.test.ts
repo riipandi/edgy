@@ -61,7 +61,7 @@ it.effect('announces the transport it connects to', () =>
 
     // The operator needs to know which transport a deploy actually reached; a
     // bare path, a file: URI and a remote URL all arrive in DATABASE_URL.
-    expect(lines).toContain(`connecting database local ${path}`)
-    expect(lines).toContain('database connected')
+    expect(lines).toContain(`Connecting database local ${path}`)
+    expect(lines).toContain('Database connected')
   })
 )

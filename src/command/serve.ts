@@ -52,8 +52,8 @@ export const serveCmd = Command.make(
       // telemetry flush — runs and is awaited before the process exits.
       yield* Effect.gen(function* () {
         const signal = yield* awaitShutdownSignal
-        yield* Effect.logInfo(`shutting down (received ${signal})`)
+        yield* Effect.logInfo(`Shutting down (received ${signal})`)
       }).pipe(Effect.provide(server.pipe(Layer.provideMerge(application))))
-      yield* Effect.logInfo('application terminated')
+      yield* Effect.logInfo('Application terminated')
     })
 ).pipe(Command.withDescription('Start the application server'))

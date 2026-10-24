@@ -72,8 +72,8 @@ export const DatabaseLayer = Layer.effect(
     // a bare path, a file: URI and a remote URL all arrive in DATABASE_URL.
     const describe = (target: typeof config.database.target): string =>
       target.kind === 'local'
-        ? `connecting database local ${target.path}`
-        : `connecting database remote ${target.url}`
+        ? `Connecting database local ${target.path}`
+        : `Connecting database remote ${target.url}`
     return yield* Effect.acquireRelease(
       Effect.gen(function* () {
         yield* Effect.logInfo(describe(config.database.target))
@@ -81,18 +81,18 @@ export const DatabaseLayer = Layer.effect(
           try: () => openTursoDatabase(config.database.target, log),
           catch: (cause) => new DatabaseError({ cause })
         })
-        yield* Effect.logInfo('database connected')
+        yield* Effect.logInfo('Database connected')
         return database
       }),
       (database) =>
-        Effect.logInfo('closing database connection').pipe(
+        Effect.logInfo('Closing database connection').pipe(
           Effect.andThen(
             Effect.tryPromise({
               try: () => database.destroy(),
               catch: (cause) => new DatabaseError({ cause })
             }).pipe(
-              Effect.tap(() => Effect.logInfo('database connection closed')),
-              Effect.catch((error) => Effect.logError(`database destroy failed: ${error.message}`))
+              Effect.tap(() => Effect.logInfo('Database connection closed')),
+              Effect.catch((error) => Effect.logError(`Database destroy failed: ${error.message}`))
             )
           )
         )

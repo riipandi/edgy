@@ -28,12 +28,12 @@ it.effect('--to applies the migrations up to the named one only', () =>
 
     const dryRun = yield* runCli(['migrate:up', '--to', target, '--dry-run'], env)
     expect(dryRun.logs).toEqual([
-      `connecting database local ${join(directory, 'edgy.db')}`,
-      'database connected',
-      `pending ${MIGRATION_NAMES[0]}`,
-      `pending ${target}`,
-      'closing database connection',
-      'database connection closed'
+      `Connecting database local ${join(directory, 'app-test.db')}`,
+      'Database connected',
+      `Pending ${MIGRATION_NAMES[0]}`,
+      `Pending ${target}`,
+      'Closing database connection',
+      'Database connection closed'
     ])
 
     const applied = yield* runCli(['migrate:up', '--to', target], env)

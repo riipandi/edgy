@@ -60,5 +60,5 @@ export const tempDirectory = Effect.acquireRelease(
 
 /** Configuration pointing the database at a file inside the given temp directory. */
 export const databaseEnv = (directory: string): Record<string, string> => ({
-  DATABASE_URL: `file:${join(directory, 'edgy.db')}`
+  DATABASE_URL: `file:${join(directory, 'app-test.db')}`
 })
