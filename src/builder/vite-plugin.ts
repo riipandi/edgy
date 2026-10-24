@@ -101,6 +101,18 @@ export const effectVite = (opts: EffectDevPluginOptions): Plugin => {
       // without node_modules; `--minify` opts in to oxc minification
       // for a smaller bundle.
       const standalone = env.mode === 'standalone'
+      // The SSR bundle lives in the built-in `ssr` environment (the Solid
+      // plugin owns its build options); standalone must inline its externals
+      // the same way `effect` does, or the distroless container cannot
+      // resolve them.
+      const standaloneResolve = standalone
+        ? {
+            resolve: {
+              conditions: ['node', 'import', 'default'],
+              noExternal: true
+            } as { conditions: string[]; noExternal: true }
+          }
+        : {}
       return {
         environments: {
           client: {
@@ -119,14 +131,7 @@ export const effectVite = (opts: EffectDevPluginOptions): Plugin => {
           },
           effect: {
             consumer: 'server',
-            ...(standalone
-              ? {
-                  resolve: {
-                    conditions: ['node', 'import', 'default'],
-                    noExternal: true
-                  }
-                }
-              : {}),
+            ...standaloneResolve,
             build: {
               outDir: 'dist',
               emptyOutDir: false,
@@ -157,7 +162,8 @@ export const effectVite = (opts: EffectDevPluginOptions): Plugin => {
                 }
               }
             }
-          }
+          },
+          ssr: standaloneResolve
         }
       }
     },
