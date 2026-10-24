@@ -14,6 +14,10 @@ it.effect('rejects a count below one', () =>
   })
 )
 
+/** The status lines: one per migration, each carrying its ISO execution time. */
+const statusLines = (logs: ReadonlyArray<string>): ReadonlyArray<string> =>
+  logs.filter((line) => /\d{4}-\d{2}-\d{2}T/.test(line))
+
 it.effect('lists what a rollback would remove without changing the schema', () =>
   Effect.gen(function* () {
     const directory = yield* tempDirectory
@@ -22,11 +26,11 @@ it.effect('lists what a rollback would remove without changing the schema', () =
 
     const result = yield* runCli(['migrate:down', '--count', '2', '--dry-run'], env)
 
-    expect(result.logs).toContain(`would rollback ${MIGRATION_NAMES[3]}`)
-    expect(result.logs).toContain(`would rollback ${MIGRATION_NAMES[2]}`)
+    expect(result.logs).toContain(`Would rollback ${MIGRATION_NAMES[3]}`)
+    expect(result.logs).toContain(`Would rollback ${MIGRATION_NAMES[2]}`)
 
     const status = yield* runCli(['migrate:status'], env)
-    expect(status.logs.filter((line) => line.includes('Z'))).toHaveLength(MIGRATION_NAMES.length)
+    expect(statusLines(status.logs)).toHaveLength(MIGRATION_NAMES.length)
   })
 )
 
@@ -42,7 +46,7 @@ it.effect('refuses to roll back non-interactively without --force', () =>
     expect(failureOf(result)).toContain('non-interactive session: pass --force')
 
     const status = yield* runCli(['migrate:status'], env)
-    expect(status.logs.filter((line) => line.includes('Z'))).toHaveLength(MIGRATION_NAMES.length)
+    expect(statusLines(status.logs)).toHaveLength(MIGRATION_NAMES.length)
   })
 )
 
@@ -57,9 +61,7 @@ it.effect('rolls back the requested number of migrations with --force', () =>
     expect(result.logs).toContain(`Success ${MIGRATION_NAMES[3]}`)
 
     const status = yield* runCli(['migrate:status'], env)
-    expect(status.logs.filter((line) => line.includes('Z'))).toHaveLength(
-      MIGRATION_NAMES.length - 1
-    )
+    expect(statusLines(status.logs)).toHaveLength(MIGRATION_NAMES.length - 1)
     expect(status.logs).toContain(`${MIGRATION_NAMES[3]} pending`)
   })
 )
@@ -70,6 +72,6 @@ it.effect('reports an empty schema instead of failing', () =>
     const result = yield* runCli(['migrate:down', '--force'], databaseEnv(directory))
 
     expect(Exit.isSuccess(result.exit)).toBe(true)
-    expect(result.logs).toContain('no executed migrations to roll back')
+    expect(result.logs).toContain('No executed migrations to roll back')
   })
 )

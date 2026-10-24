@@ -20,7 +20,7 @@ it.effect('writes structured records and flushes them before the scope closes', 
           maxFiles: 2,
           window: '1 hour'
         })
-        yield* Effect.logInfo('file record').pipe(
+        yield* Effect.logInfo('File record').pipe(
           Effect.annotateLogs({ requestId: 'req_1' }),
           Effect.provide(Logger.layer([sink]))
         )
@@ -33,7 +33,7 @@ it.effect('writes structured records and flushes them before the scope closes', 
     expect(
       JSON.parse(readFileSync(path.join(path.dirname(basePath), filename), 'utf8'))
     ).toMatchObject({
-      message: 'file record',
+      message: 'File record',
       annotations: { requestId: 'req_1' }
     })
   }).pipe(Effect.ensuring(Effect.sync(() => rmSync(directory, { recursive: true, force: true }))))

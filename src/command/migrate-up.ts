@@ -39,13 +39,13 @@ export const migrateUpCmd = Command.make(
         return yield* userError(`migration '${target}' is already applied`)
 
       if (config.dryRun) {
-        if (pending.length === 0) yield* Effect.logInfo('no pending migrations')
-        for (const migration of pending) yield* Effect.logInfo(`pending ${migration.name}`)
+        if (pending.length === 0) yield* Effect.logInfo('No pending migrations')
+        for (const migration of pending) yield* Effect.logInfo(`Pending ${migration.name}`)
         return
       }
 
       const results = yield* target === undefined ? migrateToLatest : migrateTo(target)
-      if (results.length === 0) yield* Effect.logInfo('database is up to date')
+      if (results.length === 0) yield* Effect.logInfo('Database is up to date')
       for (const item of results) yield* Effect.logInfo(`${item.status} ${item.migrationName}`)
     }).pipe(Effect.provide(DatabaseLayer))
 ).pipe(Command.withDescription('Run database migrations'))

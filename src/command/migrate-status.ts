@@ -9,7 +9,7 @@ export const migrateStatusCmd = Command.make('migrate:status').pipe(
     Effect.gen(function* () {
       const migrations = yield* migrationStatus
       if (migrations.length === 0) {
-        yield* Effect.logInfo('no migrations')
+        yield* Effect.logInfo('No migrations')
         return
       }
       for (const migration of migrations) {

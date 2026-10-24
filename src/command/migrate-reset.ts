@@ -36,13 +36,13 @@ export const migrateResetCmd = Command.make(
         .reverse()
 
       if (config.dryRun) {
-        if (executed.length === 0) yield* Effect.logInfo('no executed migrations to roll back')
-        for (const migration of executed) yield* Effect.logInfo(`would rollback ${migration.name}`)
-        if (config.up) yield* Effect.logInfo(`would re-apply ${MIGRATION_COUNT} migrations`)
+        if (executed.length === 0) yield* Effect.logInfo('No executed migrations to roll back')
+        for (const migration of executed) yield* Effect.logInfo(`Would rollback ${migration.name}`)
+        if (config.up) yield* Effect.logInfo(`Would re-apply ${MIGRATION_COUNT} migrations`)
         return
       }
 
-      if (executed.length === 0) yield* Effect.logInfo('no executed migrations to roll back')
+      if (executed.length === 0) yield* Effect.logInfo('No executed migrations to roll back')
       if (!config.up && executed.length === 0) return
 
       if (executed.length > 0) {

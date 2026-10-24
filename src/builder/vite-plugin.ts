@@ -18,7 +18,7 @@ const ENTRYPOINT = 'entry.js'
 
 const prepare = Effect.gen(function* () {
   yield* migrateAndSeed
-  yield* Effect.logInfo('dev database migrated')
+  yield* Effect.logInfo('Dev database migrated')
 }).pipe(Effect.provide(DatabaseLayer.pipe(Layer.provideMerge(CoreLayer))))
 
 const toRequest = (req: IncomingMessage): Request => {

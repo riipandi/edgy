@@ -36,13 +36,13 @@ export const migrateDownCmd = Command.make(
           const rollback = executed.slice(-config.count).reverse()
 
           if (rollback.length === 0) {
-            yield* Effect.logInfo('no executed migrations to roll back')
+            yield* Effect.logInfo('No executed migrations to roll back')
             return
           }
 
           if (config.dryRun) {
             for (const migration of rollback)
-              yield* Effect.logInfo(`would rollback ${migration.name}`)
+              yield* Effect.logInfo(`Would rollback ${migration.name}`)
             return
           }
 
@@ -58,7 +58,7 @@ export const migrateDownCmd = Command.make(
             config.count
           )
           if (results.length === 0) {
-            yield* Effect.logInfo('no executed migrations left to roll back')
+            yield* Effect.logInfo('No executed migrations left to roll back')
             return
           }
           for (const item of results) yield* Effect.logInfo(`${item.status} ${item.migrationName}`)

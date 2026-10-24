@@ -10,7 +10,7 @@ import { ApplicationLayer } from '#/kernel/layers.ts'
 const migrateBeforeStart = (seed: boolean) =>
   Effect.gen(function* () {
     const results = yield* migrateToLatest
-    if (results.length === 0) yield* Effect.logInfo('database is up to date')
+    if (results.length === 0) yield* Effect.logInfo('Database is up to date')
     for (const item of results) yield* Effect.logInfo(`${item.status} ${item.migrationName}`)
     if (seed) {
       yield* runSeeders

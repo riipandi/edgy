@@ -131,9 +131,9 @@ const buildService = <A, E, R>(
         inMemoryTTL: () => config.cache.ttl
       }).pipe(Effect.provide(context), Effect.orDie)
       yield* Effect.addFinalizer(() =>
-        Effect.logInfo('closing redis cache connection').pipe(
+        Effect.logInfo('Closing redis cache connection').pipe(
           Effect.andThen(Scope.close(redisScope, Exit.void)),
-          Effect.andThen(Effect.logInfo('redis cache connection closed'))
+          Effect.andThen(Effect.logInfo('Redis cache connection closed'))
         )
       )
       const persisted = persistedCache as unknown as PersistedLookup & PersistedPeek

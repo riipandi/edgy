@@ -29,7 +29,7 @@ export const disposeUserRuntime = () => runtime.dispose()
 export const disposeUserRuntimeEffect = Effect.tryPromise({
   try: () => runtime.dispose(),
   catch: (cause) => new DisposeError({ cause })
-}).pipe(Effect.catch((error) => Effect.logError(`runtime disposal failed: ${error.message}`)))
+}).pipe(Effect.catch((error) => Effect.logError(`Runtime disposal failed: ${error.message}`)))
 
 export const withUserService = <A>(service: UserService['Service'], run: () => Promise<A>) =>
   requestService.run(service, run)

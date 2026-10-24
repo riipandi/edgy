@@ -15,11 +15,11 @@ export const migrateSeedCmd = Command.make(
     Effect.gen(function* () {
       if (config.dryRun) {
         for (const seeder of SEEDERS)
-          yield* Effect.logInfo(`would seed ${seeder.name} (${seeder.records} records)`)
+          yield* Effect.logInfo(`Would seed ${seeder.name} (${seeder.records} records)`)
         return
       }
 
       yield* runSeeders
-      for (const seeder of SEEDERS) yield* Effect.logInfo(`seeded ${seeder.name}`)
+      for (const seeder of SEEDERS) yield* Effect.logInfo(`Seeded ${seeder.name}`)
     }).pipe(Effect.provide(DatabaseLayer))
 ).pipe(Command.withDescription('Seed the database with initial data'))

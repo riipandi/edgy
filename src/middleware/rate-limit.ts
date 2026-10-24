@@ -135,9 +135,9 @@ export const RateLimitCounterLayerRedis = (url: Redacted.Redacted) =>
           )
         ).pipe(Effect.provideService(Scope.Scope, redisScope), Effect.orDie)
         yield* Effect.addFinalizer(() =>
-          Effect.logInfo('closing redis rate-limit connection').pipe(
+          Effect.logInfo('Closing redis rate-limit connection').pipe(
             Effect.andThen(Scope.close(redisScope, Exit.void)),
-            Effect.andThen(Effect.logInfo('redis rate-limit connection closed'))
+            Effect.andThen(Effect.logInfo('Redis rate-limit connection closed'))
           )
         )
         const limiter = yield* RateLimiter.RateLimiter.pipe(Effect.provide(context))

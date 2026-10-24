@@ -10,7 +10,7 @@ export const healthcheckCmd = Command.make('healthcheck').pipe(
         // Bounded below the container probe timeout so a hung database
         // cannot keep the probe past its own budget.
         Effect.timeout(Duration.seconds(2)),
-        Effect.tap(() => Effect.logInfo('healthy'))
+        Effect.tap(() => Effect.logInfo('Healthy'))
       )
       .pipe(Effect.provide(DatabaseLayer))
   )

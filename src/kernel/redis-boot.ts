@@ -6,6 +6,6 @@ import { Effect, Schedule } from 'effect'
 // exactly as before.
 export const awaitRedis = <A, E, R>(acquire: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
   acquire.pipe(
-    Effect.tapError(() => Effect.logWarning('redis unreachable at boot; retrying')),
+    Effect.tapError(() => Effect.logWarning('Redis unreachable at boot; retrying')),
     Effect.retry({ times: 30, schedule: Schedule.spaced('1 second') })
   )

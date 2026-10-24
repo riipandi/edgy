@@ -5,8 +5,9 @@ import { expect } from 'vite-plus/test'
 import { MIGRATION_NAMES } from '#/database/migrations/index.ts'
 import { databaseEnv, failureOf, runCli, tempDirectory } from './harness.ts'
 
-const applied = (logs: ReadonlyArray<string>): ReadonlyArray<string> =>
-  logs.filter((line) => line.includes('T') && line.includes('Z'))
+/** The status lines: one per migration, each carrying its ISO execution time. */
+const statusLines = (logs: ReadonlyArray<string>): ReadonlyArray<string> =>
+  logs.filter((line) => /\d{4}-\d{2}-\d{2}T/.test(line))
 
 it.effect('applies every pending migration', () =>
   Effect.gen(function* () {
@@ -42,7 +43,7 @@ it.effect('--to applies the migrations up to the named one only', () =>
     expect(applied.logs).not.toContain(`Success ${MIGRATION_NAMES[2]}`)
 
     const status = yield* runCli(['migrate:status'], env)
-    expect(status.logs.filter((line) => line.includes('Z'))).toHaveLength(2)
+    expect(statusLines(status.logs)).toHaveLength(2)
   })
 )
 
@@ -64,7 +65,7 @@ it.effect('refuses an applied target instead of rolling the schema back', () =>
 
     // The schema still holds every migration: nothing was rolled back.
     const status = yield* runCli(['migrate:status'], env)
-    expect(applied(status.logs)).toHaveLength(MIGRATION_NAMES.length)
+    expect(statusLines(status.logs)).toHaveLength(MIGRATION_NAMES.length)
   })
 )
 
@@ -89,6 +90,6 @@ it.effect('reports a fully applied schema as up to date', () =>
     const again = yield* runCli(['migrate:up'], env)
 
     expect(Exit.isSuccess(again.exit)).toBe(true)
-    expect(again.logs).toContain('database is up to date')
+    expect(again.logs).toContain('Database is up to date')
   })
 )
