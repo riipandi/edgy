@@ -4,8 +4,8 @@ import { Session } from '@tursodatabase/serverless'
 import { Kysely, SqliteAdapter, SqliteIntrospector, SqliteQueryCompiler } from 'kysely'
 import type { DatabaseConnection, Dialect, Driver, LogEvent } from 'kysely'
 import type { CompiledQuery, QueryResult, TransactionSettings } from 'kysely'
-import { chmodSync, existsSync, mkdirSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
+import { chmodSync, existsSync, mkdirSync, readdirSync } from 'node:fs'
+import { basename, dirname, join, resolve } from 'node:path'
 import type { DB } from '#/database/schema.ts'
 import type { DatabaseTarget } from '#/kernel/config/database.ts'
 
@@ -116,13 +116,16 @@ const openLocal = async (path: string): Promise<TursoExecutor> => {
   const database = await connect(location, LOCAL_CONNECT_OPTIONS)
   // The file is created with the process umask (0644), so on a shared host any
   // local user could read the whole database. Narrow it to the owner, and to
-  // the sidecars, which the engine creates with the same umask and which hold
-  // the uncommitted rows.
+  // every sidecar the engine writes beside it — this engine names its
+  // shared-memory file `<db>-tshm`, not `-shm` — because those hold the
+  // uncommitted rows. Matching the basename prefix rather than a suffix list
+  // keeps a future rename from reopening the gap.
   chmodSync(location, 0o600)
   await database.exec('pragma foreign_keys = on')
   await database.exec('pragma journal_mode = wal')
-  for (const suffix of ['-wal', '-shm']) {
-    if (existsSync(`${location}${suffix}`)) chmodSync(`${location}${suffix}`, 0o600)
+  const base = basename(location)
+  for (const name of readdirSync(directory)) {
+    if (name.startsWith(`${base}-`)) chmodSync(join(directory, name), 0o600)
   }
   return localExecutor(database)
 }
@@ -164,8 +167,12 @@ class TursoConnection implements DatabaseConnection {
       compiled.sql,
       compiled.parameters
     )) as QueryResult<R>
-    for (let index = 0; index < rows.length; index += chunkSize) {
-      yield { rows: rows.slice(index, index + chunkSize) }
+    // Kysely forwards the caller's number verbatim, and a step of zero never
+    // advances: the loop would yield empty chunks forever without ever awaiting,
+    // pinning a core and starving every timer in the process.
+    const size = Math.max(1, Math.trunc(chunkSize))
+    for (let index = 0; index < rows.length; index += size) {
+      yield { rows: rows.slice(index, index + size) }
     }
   }
 

@@ -1,4 +1,6 @@
 import { spawn } from 'node:child_process'
+import { readdirSync, statSync } from 'node:fs'
+import { basename, dirname, join } from 'node:path'
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vite-plus/test'
 import { testDatabasePath } from '../../tests/fixtures/database-url.ts'
 import { LOCAL_CONNECT_OPTIONS, openTursoDatabase } from './dialect.ts'
@@ -129,14 +131,62 @@ describe('turso dialect over a local database', () => {
       ] as never)
       .execute()
 
-    const chunks: Row[][] = []
-    for await (const chunk of db
+    // Kysely's `stream()` flattens the driver's chunks into single rows, so the
+    // boundaries are only observable one layer down, at the executor.
+    const compiled = db
       .selectFrom('probe' as never)
       .selectAll()
-      .stream(2) as AsyncIterable<Row>) {
-      chunks.push([chunk])
+      .compile()
+    const chunks: number[][] = []
+    for await (const chunk of db.getExecutor().stream(compiled, 2)) {
+      chunks.push((chunk.rows as Row[]).map((row) => row.id))
     }
-    expect(chunks.flat().map((row) => row.id)).toEqual([1, 2, 3])
+    expect(chunks).toEqual([[1, 2], [3]])
+  })
+
+  it('treats a non-positive chunk size as one row', async () => {
+    const db = await open('dialect-stream-zero.db')
+    await db
+      .insertInto('probe' as never)
+      .values([
+        { id: 1, name: 'a' },
+        { id: 2, name: 'b' }
+      ] as never)
+      .execute()
+
+    const compiled = db
+      .selectFrom('probe' as never)
+      .selectAll()
+      .compile()
+    const chunks: number[][] = []
+    for await (const chunk of db.getExecutor().stream(compiled, 0)) {
+      chunks.push((chunk.rows as Row[]).map((row) => row.id))
+    }
+    // A step of zero never advances, so the loop would yield forever without
+    // awaiting — pinning a core and starving every timer in the process.
+    expect(chunks).toEqual([[1], [2]])
+  })
+
+  it('narrows every file the engine writes beside the database', async () => {
+    const path = testDatabasePath('dialect-sidecars.db')
+    const db = await openTursoDatabase({ kind: 'local', path })
+    opened.push(db)
+    await db.schema
+      .createTable('probe')
+      .addColumn('id', 'integer', (col) => col.primaryKey())
+      .execute()
+    await db
+      .insertInto('probe' as never)
+      .values({ id: 1 } as never)
+      .execute()
+
+    // This engine names its shared-memory file `<db>-tshm`; a fixed suffix list
+    // of `-wal`/`-shm` left it at the process umask.
+    const files = readdirSync(dirname(path)).filter((name) => name.startsWith(`${basename(path)}-`))
+    expect(files.length).toBeGreaterThan(0)
+    for (const name of [basename(path), ...files]) {
+      expect(statSync(join(dirname(path), name)).mode & 0o777).toBe(0o600)
+    }
   })
 })
 
@@ -174,7 +224,7 @@ describe('turso dialect over a remote database', () => {
           type: 'step_end',
           step: 0,
           affected_row_count: 1,
-          last_insert_rowid: '1'
+          last_insert_rowid: '42'
         }
       )
     }
@@ -288,7 +338,7 @@ describe('turso dialect over a remote database', () => {
       .executeTakeFirst()
     await db.destroy()
     expect(result.numInsertedOrUpdatedRows).toBe(1n)
-    expect(result.insertId).toBe(1n)
+    expect(result.insertId).toBe(42n)
   })
 
   it('keeps the connection usable after a failed commit', async () => {
