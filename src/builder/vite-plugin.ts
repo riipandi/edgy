@@ -1,6 +1,6 @@
 import { Effect, Layer } from 'effect'
 import { resolveModuleURL } from 'exsolve'
-import { chmodSync, existsSync, rmSync } from 'node:fs'
+import { chmodSync, existsSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import path from 'node:path'
 import { Readable } from 'node:stream'
@@ -67,6 +67,42 @@ const writeResponse = async (req: IncomingMessage, res: ServerResponse, response
 
 const entry = fileURLToPath(new URL('../main.ts', import.meta.url))
 
+// A bare-package import left in the standalone output would fail to resolve
+// in the distroless container; the build fails here instead of shipping it.
+const assertNoExternalImports = (dir: string): void => {
+  const offenders: string[] = []
+  const visit = (target: string): void => {
+    if (statSync(target).isDirectory()) {
+      for (const name of readdirSync(target)) visit(path.join(target, name))
+      return
+    }
+    if (!target.endsWith('.js')) return
+    const code = readFileSync(target, 'utf8')
+    const specifiers: string[] = []
+    for (const m of code.matchAll(
+      /(?:^|[;\s])(?:import|export)\s*[^;'"]{0,400}?from\s*['"]([^'"]+)['"]/g
+    )) {
+      if (m[1]) specifiers.push(m[1])
+    }
+    for (const m of code.matchAll(/\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g)) {
+      if (m[1]) specifiers.push(m[1])
+    }
+    for (const spec of specifiers) {
+      if (/^(?:\.|\/|#|node:|bun:)/.test(spec)) continue
+      // A bare specifier always starts with a name character; minified string
+      // artifacts (embedded keyword tables and the like) rarely do.
+      if (!/^[A-Za-z@]/.test(spec)) continue
+      offenders.push(`${spec} (${path.relative(dir, target)})`)
+    }
+  }
+  visit(dir)
+  if (offenders.length > 0) {
+    throw new Error(
+      `standalone build leaked external imports:\n  ${[...new Set(offenders)].join('\n  ')}`
+    )
+  }
+}
+
 // Standalone code splitting: one chunk per top-level package. The group
 // `name()` skips pnpm's virtual-store segment and derives the package name
 // from the module path; exsolve verifies the package resolves so chunk names
@@ -90,6 +126,7 @@ export const effectVite = (opts: EffectDevPluginOptions): Plugin => {
   // Resolved in configResolved; used by closeBundle
   // to post-process the emitted entry bundle.
   let distDir = ''
+  let standaloneMode = false
   return {
     name: 'effect-server',
     configResolved(config) {
@@ -101,6 +138,7 @@ export const effectVite = (opts: EffectDevPluginOptions): Plugin => {
       // without node_modules; `--minify` opts in to oxc minification
       // for a smaller bundle.
       const standalone = env.mode === 'standalone'
+      standaloneMode = standalone
       // The SSR bundle lives in the built-in `ssr` environment (the Solid
       // plugin owns its build options); standalone must inline its externals
       // the same way `effect` does, or the distroless container cannot
@@ -179,6 +217,9 @@ export const effectVite = (opts: EffectDevPluginOptions): Plugin => {
     closeBundle() {
       const entryFile = path.join(distDir, ENTRYPOINT)
       if (existsSync(entryFile)) chmodSync(entryFile, 0o755)
+      if (standaloneMode && this.environment?.name === 'effect') {
+        assertNoExternalImports(distDir)
+      }
       // Dedupe stylex <outDir>/assets/stylex.css for bundles. Its styles already
       // ship inside the client's entry stylesheet, so drop the duplicate.
       const stylexFile = path.join(distDir, 'assets', 'stylex.css')
