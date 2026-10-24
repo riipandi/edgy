@@ -44,6 +44,57 @@ x-clickstack-sources: &clickstack-sources >-
   {"from":{"databaseName":"default","tableName":"hyperdx_sessions"},"kind":"session","timestampValueExpression":"TimestampTime","name":"Sessions","displayedTimestampValueExpression":"Timestamp","implicitColumnExpression":"Body","serviceNameExpression":"ServiceName","bodyExpression":"Body","eventAttributesExpression":"LogAttributes","resourceAttributesExpression":"ResourceAttributes","defaultTableSelectExpression":"Timestamp,ServiceName,SeverityText,Body","severityTextExpression":"SeverityText","traceIdExpression":"TraceId","spanIdExpression":"SpanId","connection":"Local ClickHouse","traceSourceId":"Traces"}]
 
 services:
+  # app:
+  #   <<: *common
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #     args:
+  #       DISTROLESS_TAG: ${APP_DISTROLESS_TAG:-debug-nonroot}
+  #   platform: linux/amd64
+  #   hostname: app
+  #   ports: ['127.0.0.1:${SERVER_PORT:-3000}:3000']
+  #   volumes: ['./.storage/app:/app/storage:rw']
+  #   environment:
+  #     SERVER_PORT: 3000
+  #     DATABASE_PATH: /app/storage/data/app.db
+  #     DATABASE_AUTO_MIGRATE: 'true'
+  #     REDIS_ENABLE: 'true'
+  #     REDIS_URL: redis://default:securedb@redis:6379
+  #     OTEL_EXPORTER_OTLP_ENDPOINT: http://clickstack:4318
+  #     OTEL_EXPORTER_OTLP_HEADERS: authorization=${CLICKSTACK_INGESTION_KEY:-edgy-dev-ingestion-key}
+  #     OTEL_SERVICE_NAME: edgy
+  #     OTEL_EXPORT_INTERVAL: '5000'
+  #     # The container memory limit is 256m; keep the V8 heap under it.
+  #     # @ref: https://www.akamas.io/resources/tuning-nodejs-v8-performance-efficiency
+  #     NODE_OPTIONS: --max-old-space-size=192
+  #   mem_limit: 256m # set memory limit
+  #   cpus: 1.0 # set CPUs limit
+  #   healthcheck:
+  #     test: ['CMD', '/app/entry.js', 'healthcheck']
+  #     start_period: 30s
+  #   depends_on:
+  #     clickstack: { condition: service_started }
+  #     redis: { condition: service_healthy }
+
+  cadvisor:
+    <<: *common
+    image: ghcr.io/google/cadvisor:${CADVISOR_VERSION:-0.60}
+    hostname: cadvisor
+    expose: ['8080']
+    devices: ['/dev/kmsg']
+    volumes:
+      - '/:/rootfs:ro'
+      - '/sys:/sys:ro'
+      - '/var/run:/var/run:ro'
+      - '/var/lib/docker:/var/lib/docker:ro'
+    command: ['--housekeeping_interval=30s', '--docker_only=true']
+    mem_limit: 128m # set memory limit
+    cpus: 0.5 # set CPUs limit
+    privileged: true
+    healthcheck:
+      test: ["CMD-SHELL", "nc -vz 127.0.0.1 8080 || exit 1"]
+
   clickstack:
     <<: *common
     # All-in-one: HyperDX app + API, ClickHouse, MongoDB and the OpenTelemetry collector
@@ -149,60 +200,6 @@ services:
     cpus: 0.5 # set CPUs limit
     healthcheck:
       test: ["CMD-SHELL", "nc -vz 127.0.0.1 8025 || exit 1"]
-
-  app:
-    <<: *common
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        # debug-nonroot: the nonroot distroless variant has no /usr/bin/env, so
-        # the entry.js shebang cannot exec; the project's docker:build uses this
-        # variant for the same reason.
-        DISTROLESS_TAG: ${APP_DISTROLESS_TAG:-debug-nonroot}
-    hostname: app
-    ports:
-      - '127.0.0.1:${SERVER_PORT:-3000}:3000'
-    volumes:
-      - './.storage/app:/app/storage:rw'
-    environment:
-      SERVER_PORT: 3000
-      DATABASE_PATH: /app/storage/data/app.db
-      DATABASE_AUTO_MIGRATE: 'true'
-      REDIS_ENABLE: 'true'
-      REDIS_URL: redis://default:securedb@redis:6379
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://clickstack:4318
-      OTEL_EXPORTER_OTLP_HEADERS: authorization=${CLICKSTACK_INGESTION_KEY:-edgy-dev-ingestion-key}
-      OTEL_SERVICE_NAME: edgy
-      OTEL_EXPORT_INTERVAL: '5000'
-      # The container memory limit is 256m; keep the V8 heap under it.
-      NODE_OPTIONS: --max-old-space-size=192
-    mem_limit: 256m # set memory limit
-    cpus: 1.0 # set CPUs limit
-    healthcheck:
-      test: ['CMD', '/app/entry.js', 'healthcheck']
-      start_period: 30s
-    depends_on:
-      clickstack: { condition: service_started }
-      redis: { condition: service_healthy }
-
-  cadvisor:
-    <<: *common
-    image: gcr.io/cadvisor/cadvisor:${CADVISOR_VERSION:-v0.52.1}
-    hostname: cadvisor
-    privileged: true
-    devices: ['/dev/kmsg']
-    volumes:
-      - '/:/rootfs:ro'
-      - '/var/run:/var/run:ro'
-      - '/sys:/sys:ro'
-      - '/var/lib/docker:/var/lib/docker:ro'
-    command: ['--housekeeping_interval=30s', '--docker_only=true']
-    expose: ['8080']
-    mem_limit: 256m # set memory limit
-    cpus: 0.5 # set CPUs limit
-    healthcheck:
-      disable: true
 
 networks:
   intranet:

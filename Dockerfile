@@ -65,16 +65,13 @@ FROM --platform=${PLATFORM} gcr.io/distroless/nodejs${NODE_VERSION}-debian13:${D
 COPY --chown=nonroot:nonroot --from=pruner /app /app
 COPY --from=base /tmp/tini /usr/bin/tini
 
-# @ref: https://www.akamas.io/resources/tuning-nodejs-v8-performance-efficiency
-ENV NODE_OPTIONS="--max-old-space-size=2048" NODE_ENV=production
-
 # Define the host and port to listen on.
 # Prevent load certs from system (/etc/ssl/certs/ca-certificates.crt)
 ENV PATH="/usr/bin:/usr/local/bin:/busybox:/nodejs/bin:$PATH"
 ARG SERVER_HOST=0.0.0.0 SERVER_PORT=3000 TZ=UTC
 ENV SERVER_HOST=$SERVER_HOST SERVER_PORT=$SERVER_PORT TZ=$TZ
+ENV TINI_SUBREAPER=true NODE_ENV=production
 ENV SSL_CERT_FILE= SSL_CERT_DIR=
-ENV TINI_SUBREAPER=true
 
 WORKDIR /app
 VOLUME /app/storage
@@ -82,8 +79,8 @@ USER nonroot:nonroot
 EXPOSE $SERVER_PORT/tcp
 
 # Healthcheck to monitor application status
-HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-  CMD /app/entry.js healthcheck
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s \
+    --retries=3 CMD /app/entry.js healthcheck
 
 # SHELL: /busybox/sh
 ENTRYPOINT ["/usr/bin/tini", "--"]
