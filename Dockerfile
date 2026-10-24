@@ -66,8 +66,7 @@ COPY --chown=nonroot:nonroot --from=pruner /app /app
 COPY --from=base /tmp/tini /usr/bin/tini
 
 # @ref: https://www.akamas.io/resources/tuning-nodejs-v8-performance-efficiency
-ENV NODE_OPTIONS="--max-old-space-size=2048"
-ENV NODE_OPTIONS=$NODE_OPTIONS NODE_ENV=production
+ENV NODE_OPTIONS="--max-old-space-size=2048" NODE_ENV=production
 
 # Define the host and port to listen on.
 # Prevent load certs from system (/etc/ssl/certs/ca-certificates.crt)

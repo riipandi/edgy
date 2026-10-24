@@ -1,7 +1,7 @@
 ---
 status: living
-updated: 2026-10-23T07:45:00+07:00
-references: plan-20261023_0105
+updated: 2026-10-24T08:11:00+07:00
+references: plan-20261023_0105, audit-20261024_0636
 ---
 
 # Parked unlocks from the Effect adoption plan
@@ -45,3 +45,13 @@ references: plan-20261023_0105
   statement cache keyed by SQL text inside `src/database/dialect/sqlite.ts`.
 - First move: profile a request under load before paying that complexity; at 5.7 µs per query the
   database round trip is not yet the bottleneck.
+
+## `/api/users` publishes every user's email unauthenticated
+
+- status: parked (unlock: the first authenticated endpoint or the first real user data) · updated
+  2026-10-24
+- `src/modules/user/module.ts`'s `listUsers` maps the full row through `toPublicUser`, which keeps
+  `email`; with no auth on the API yet this is by design for seed data, but it becomes account
+  enumeration plus a PII leak the moment real users exist (audit-20261024_0636, F-06).
+- First move: when auth lands, either drop `email` from the public projection or gate the list
+  endpoint — and revisit the CORS any-origin default in `src/middleware/cors.ts` in the same pass.

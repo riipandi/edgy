@@ -32,7 +32,9 @@ cp .env.example .env.local            # then change only what you need
 
 Set `APP_BASE_URL` to the origin users reach the application on. It must be an absolute `http` or
 `https` URL; only the origin is kept, so a trailing path is dropped and an invalid value fails
-startup. Behind a reverse proxy, use the public origin rather than the bind address.
+startup — empty and whitespace-only values fail the same way. (Setting the variable to an empty
+string in the process environment counts as unset, so the default applies there.) Behind a reverse
+proxy, use the public origin rather than the bind address.
 
 When `API_DOCS_ENABLED` enabled, the server serves the Scalar API reference at `/api-docs` and the OpenAPI
 document at `/api/openapi.json`. Keep it off unless the API is meant to be public.
@@ -106,15 +108,15 @@ API with that user's credentials.
 
 ## Observability
 
-| Variable                         | Default                 | Meaning                                                              |
-| -------------------------------- | ----------------------- | -------------------------------------------------------------------- |
-| `METRICS_ENABLED`                | `false`                 | Register the Effect Prometheus endpoint at `/metrics`.               |
-| `OTEL_SDK_DISABLED`              | `false`                 | Disable OTLP trace and metric export.                                |
-| `OTEL_EXPORTER_OTLP_ENDPOINT`    | `http://localhost:4318` | OTLP/HTTP collector base URL.                                        |
-| `OTEL_EXPORTER_OTLP_HEADERS`     | development header      | Comma-separated `key=value` request headers. Treat this as a secret. |
-| `OTEL_SERVICE_NAME`              | `edgy`                  | Service name attached to telemetry.                                  |
-| `OTEL_EXPORT_INTERVAL`           | `5000`                  | Export interval in milliseconds.                                     |
-| `OTEL_EXPORTER_OTLP_COMPRESSION` | `gzip`                  | OTLP compression: `gzip` or `none`.                                  |
+| Variable                         | Default                 | Meaning                                                                                                  |
+| -------------------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------- |
+| `METRICS_ENABLED`                | `false`                 | Register the Effect Prometheus endpoint at `/metrics` and run the runtime metrics sampler that feeds it. |
+| `OTEL_SDK_DISABLED`              | `false`                 | Disable OTLP trace and metric export.                                                                    |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`    | `http://localhost:4318` | OTLP/HTTP collector base URL.                                                                            |
+| `OTEL_EXPORTER_OTLP_HEADERS`     | development header      | Comma-separated `key=value` request headers. Treat this as a secret.                                     |
+| `OTEL_SERVICE_NAME`              | `edgy`                  | Service name attached to telemetry.                                                                      |
+| `OTEL_EXPORT_INTERVAL`           | `5000`                  | Export interval in milliseconds.                                                                         |
+| `OTEL_EXPORTER_OTLP_COMPRESSION` | `gzip`                  | OTLP compression: `gzip` or `none`.                                                                      |
 
 Traces and metrics use Effect's OTLP exporters. Logs use OTLP when `LOG_TRANSPORT` includes `otlp`.
 One-shot CLI commands disable OTLP export by default so they do not wait on a collector during

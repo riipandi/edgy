@@ -12,7 +12,9 @@ vpr build:standalone
 
 `vpr build` creates the server entry and browser assets in `dist/`. Keep the
 assets together when copying the build. `vpr build:standalone` bundles server
-dependencies into one executable JavaScript entry; it is not a native binary.
+dependencies — the SSR bundle included — into one executable JavaScript entry;
+it is not a native binary. The build fails if any external package import
+remains in the output, so the bundle always runs without `node_modules`.
 
 Run the bundled server with:
 

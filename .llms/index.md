@@ -9,8 +9,8 @@
 | [plans/](./plans/)                   | Execution contracts; newest is plan-20261024_0728 (awaiting approval). |
 | [issues/](./issues/)                 | Live findings; none — every issue is archived.                 |
 | [roadmap/](./roadmap/)               | Parked improvements with named unlocks.                        |
-| [handover/](./handover/)             | Session compactions; newest is handover-20261024_0234.         |
-| [audit/](./audit/)                   | Full-surface audit records; newest is audit-20261023_0701.     |
+| [handover/](./handover/)             | Session compactions; newest is handover-20261024_0815.         |
+| [audit/](./audit/)                   | Full-surface audit records; newest is audit-20261024_0636 (completed; fixes landed via plan-20261024_0728). |
 | [archive/](./archive/)               | Closed ledger documents, flat under their original names.      |
 | [docs/](../docs/index.md)            | Human-facing setup, API, configuration, and operations guides. |
 

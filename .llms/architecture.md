@@ -22,6 +22,29 @@ Kysely runs over SQLite through Node's built-in `node:sqlite` adapter. `database
 
 Each feature declares its lookup cache as a `Cacheable.Class` service tag (schemas for serialization, the repository lookup, and a layer that resolves the cache configuration). The cache defaults to process memory; `REDIS_ENABLE=true` shares entries through Redis (`PersistedCache` over the compose Redis) and degrades to direct lookups when the backend is unreachable. A failed lookup is never pinned: the entry is invalidated so the next request retries. `CacheableService.get` pairs the value with a `CacheStatus` (`hit` | `miss` | `bypass` | `disabled`) — hit detection peeks the in-memory layer without populating; `bypass` skips read and fill. HTTP surfaces expose the status in the `x-cache` response header (the users API via a `WithHeaders` success schema, the SSR user page via `httpHeader` before the shell flush), and `?nocache=1` on either surface requests the bypass. Rate-limit windows live in the configured store: fixed-window counters in the database, or shared counters in Redis (`REDIS_ENABLE=true` over the compose Redis). The configured database driver currently permits SQLite only; PostgreSQL helper functions do not imply a PostgreSQL adapter is implemented.
 
+## Build and boot decisions (plan-20261024_0728, 2026-10-24)
+
+The whole-system audit's fixes (audit-20261024_0636) landed under these decisions:
+
+- **D1 — standalone inlining covers the built-in `ssr` environment.** The SolidStart plugin emits the
+  SSR bundle from Vite's built-in `ssr` environment, which keeps Vite's default SSR externalization
+  unless told otherwise; the standalone branch now spreads the same `resolve.noExternal` inlining it
+  already gave the `effect` environment onto `ssr`. The build-time leak guard (static and dynamic
+  bare-specifier scan over `dist/**/*.js`, run in the effect environment's `closeBundle` — the last
+  to emit) turns a recurrence into a red build. Vendor-scanning minified output needed two
+  exclusions: clauses containing quote characters and specifiers not starting with a name
+  character (embedded string tables like `"import export from"` are not import statements).
+- **D3 — Redis boot waits within a bounded window; the compose gate closes the cold start.** A
+  shared `awaitRedis` helper (30 attempts, 1 s apart, warning per failed attempt) wraps both Redis
+  layer builds; the app's compose dependency on redis is `service_healthy`. Lazy/degraded boot was
+  rejected — it would silently switch the rate limiter to fail-closed-forever when Redis never
+  comes up.
+- **D4/D5 — the metrics sampler joins the `METRICS_ENABLED` gate; `APP_BASE_URL` rejects empty.**
+  The sampler layer reads `AppConfig` (`Layer.unwrap`) and yields `Layer.empty` when the flag is
+  off; the base-URL parser fails with the variable's config error on empty values, while the OS-env
+  provider treats an empty environment variable as unset (the documented default applies).
+- **F-06 (unauthenticated user emails) is parked, not fixed** — see the roadmap's parked unlocks.
+
 ## Observability decisions (plan-20261024_0105, 2026-10-24)
 
 The six findings of issue-20261023_2135 were closed under the plan's seven decisions, recorded here
