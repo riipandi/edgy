@@ -1,5 +1,5 @@
 import { Effect } from 'effect'
-import { CliConfig, Command, Flag, GlobalFlag } from 'effect/cli'
+import { CliConfig, Command, GlobalFlag } from 'effect/cli'
 import pkg from '../../package.json' with { type: 'json' }
 import { configGenerateCmd } from './generate-config.ts'
 import { healthcheckCmd } from './healthcheck.ts'
@@ -24,20 +24,42 @@ const rootCmd = Command.make(pkg.name).pipe(
   ])
 )
 
-const builtIns = GlobalFlag.BuiltIns.map((builtIn) => {
-  if (
-    builtIn === GlobalFlag.Wizard ||
-    builtIn === GlobalFlag.Completions ||
-    builtIn === GlobalFlag.LogLevel
-  ) {
-    return Object.assign({}, builtIn, {
-      flag: Flag.withHidden(builtIn.flag as never)
-    }) as GlobalFlag.BuiltIn
+const LOG_LEVEL_FLAG = '--log-level'
+
+/**
+ * Lowercases the `--log-level` value, so `--log-level Debug` matches the
+ * lowercase choices the flag declares. `LOG_LEVEL` accepts the same vocabulary
+ * capitalized, so the two entry points agree.
+ */
+export const normalizeArgs = (args: ReadonlyArray<string>): ReadonlyArray<string> => {
+  const normalized: Array<string> = []
+  let expectsValue = false
+  for (const arg of args) {
+    if (expectsValue) {
+      normalized.push(arg.toLowerCase())
+      expectsValue = false
+    } else if (arg === LOG_LEVEL_FLAG) {
+      normalized.push(arg)
+      expectsValue = true
+    } else if (arg.startsWith(`${LOG_LEVEL_FLAG}=`)) {
+      normalized.push(`${LOG_LEVEL_FLAG}=${arg.slice(LOG_LEVEL_FLAG.length + 1).toLowerCase()}`)
+    } else {
+      normalized.push(arg)
+    }
   }
-  return builtIn
+  return normalized
+}
+
+// The built-ins stay the canonical objects: `Command.run` installs the parsed
+// level by comparing against `GlobalFlag.LogLevel` itself, so a copy parses the
+// flag and then drops it. `--wizard` and `--completions` are left out: they are
+// not part of the documented surface.
+const cliConfig = CliConfig.layer({
+  builtIns: [GlobalFlag.Help, GlobalFlag.Version, GlobalFlag.LogLevel]
 })
 
-const cliConfig = CliConfig.layer({ builtIns })
-
 /** Root CLI program. Without a subcommand it prints help. The version comes from `package.json`. */
-export const run = Command.run(rootCmd, { version: pkg.version }).pipe(Effect.provide(cliConfig))
+export const run = (args: ReadonlyArray<string> = process.argv.slice(2)) =>
+  Command.runWith(rootCmd, { version: pkg.version })(normalizeArgs(args)).pipe(
+    Effect.provide(cliConfig)
+  )

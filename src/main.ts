@@ -9,12 +9,12 @@ import { CoreLayer } from '#/kernel/layers.ts'
 const isServe = process.argv[2] === 'serve'
 if (!isServe) {
   process.env['OTEL_SDK_DISABLED'] ??= 'true'
-  NodeRuntime.runMain(run.pipe(Effect.provide(CoreLayer)))
+  NodeRuntime.runMain(run().pipe(Effect.provide(CoreLayer)))
 } else {
   // The serve command owns the shutdown sequence: it completes its scope on
   // SIGINT/SIGTERM with every finalizer awaited. runMain's interrupt-based
   // exit detaches async finalizers, so the server runs without it.
-  void Effect.runPromise(run.pipe(Effect.provide(CoreLayer))).then(
+  void Effect.runPromise(run().pipe(Effect.provide(CoreLayer))).then(
     () => process.exit(0),
     (cause) => {
       console.error(cause instanceof Error ? (cause.stack ?? cause.message) : cause)
