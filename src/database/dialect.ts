@@ -66,13 +66,21 @@ const remoteExecutor = (url: string, token: string): TursoExecutor => {
     begin: async () => {
       transaction = await client.transaction()
     },
+    // The client closes the session before it rethrows a failed COMMIT, so the
+    // slot must be empty before the await: a handle left behind is a closed one,
+    // and every later statement would fail with "Transaction is closed" — one
+    // network blip ending all database access for the process.
     commit: async () => {
-      await transaction?.commit()
+      const current = transaction
       transaction = undefined
+      await current?.commit()
     },
     rollback: async () => {
-      await transaction?.rollback()
+      const current = transaction
       transaction = undefined
+      // The session may already be closed by a failed COMMIT; swallowing that
+      // keeps the original failure the one the caller sees.
+      await current?.rollback().catch(() => undefined)
     },
     close: async () => {
       client.close()

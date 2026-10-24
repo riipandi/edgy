@@ -155,6 +155,9 @@ describe('turso dialect over a remote database', () => {
   // cursor response and whose remaining lines are statement entries.
   const captured: Array<{ url: string; init: RequestInit }> = []
   const original = globalThis.fetch
+  // A sequence statement (BEGIN/COMMIT/ROLLBACK) listed here answers with a
+  // server error, which is what one network blip at the worst moment looks like.
+  const failingSequences = new Set<string>()
 
   const entries = (sql: string): string => {
     const lines: unknown[] = [{ baton: null, base_url: null }]
@@ -178,14 +181,35 @@ describe('turso dialect over a remote database', () => {
     return lines.map((line) => `${JSON.stringify(line)}\n`).join('')
   }
 
+  const pipeline = (): Response =>
+    new Response(
+      JSON.stringify({
+        baton: null,
+        base_url: null,
+        results: [
+          { type: 'ok', response: { type: 'sequence' } },
+          { type: 'ok', response: { type: 'get_autocommit', is_autocommit: true } }
+        ]
+      }),
+      { status: 200, headers: { 'content-type': 'application/json' } }
+    )
+
   beforeEach(() => {
     captured.length = 0
+    failingSequences.clear()
     globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
       const requestUrl = input instanceof Request ? input.url : input.toString()
       captured.push({ url: requestUrl, init: init ?? {} })
       const rawBody = typeof init?.body === 'string' ? init.body : '{}'
       const body = JSON.parse(rawBody) as {
         batch?: { steps?: Array<{ stmt?: { sql?: string } }> }
+        requests?: Array<{ type: string; sql?: string }>
+      }
+      if (requestUrl.includes('/v3/pipeline')) {
+        const sequence = body.requests?.find((request) => request.type === 'sequence')?.sql ?? ''
+        if (failingSequences.has(sequence.trim().toUpperCase()))
+          return new Response(JSON.stringify({ error: 'connection reset' }), { status: 500 })
+        return pipeline()
       }
       const sql = body.batch?.steps?.[0]?.stmt?.sql ?? ''
       return new Response(entries(sql), {
@@ -264,6 +288,59 @@ describe('turso dialect over a remote database', () => {
     await db.destroy()
     expect(result.numInsertedOrUpdatedRows).toBe(1n)
     expect(result.insertId).toBe(1n)
+  })
+
+  it('keeps the connection usable after a failed commit', async () => {
+    const db = await remote('libsql://probe.turso.io')
+    failingSequences.add('COMMIT')
+
+    // The client closes the transaction session before it rethrows, so a slot
+    // that is only cleared after the await keeps a closed handle — and every
+    // later statement would fail with "Transaction is closed" instead of the
+    // network error that actually happened.
+    const failure = await db
+      .transaction()
+      .execute((trx) =>
+        trx
+          .insertInto('probe' as never)
+          .values({ id: 1 } as never)
+          .execute()
+      )
+      .then(() => undefined)
+      .catch((error: Error) => error)
+    expect(failure?.message).not.toContain('Transaction is closed')
+
+    const rows = await db
+      .selectFrom('probe' as never)
+      .selectAll()
+      .execute()
+    expect(rows).toHaveLength(1)
+    await db.destroy()
+  })
+
+  it('does not mask the cause when the rollback fails too', async () => {
+    const db = await remote('libsql://probe.turso.io')
+    failingSequences.add('ROLLBACK')
+
+    const failure = await db
+      .transaction()
+      .execute(async (trx) => {
+        await trx
+          .insertInto('probe' as never)
+          .values({ id: 1 } as never)
+          .execute()
+        throw new Error('the transaction body failed')
+      })
+      .then(() => undefined)
+      .catch((error: Error) => error)
+    expect(failure?.message).toBe('the transaction body failed')
+
+    const rows = await db
+      .selectFrom('probe' as never)
+      .selectAll()
+      .execute()
+    expect(rows).toHaveLength(1)
+    await db.destroy()
   })
 })
 
