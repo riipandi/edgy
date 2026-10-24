@@ -80,6 +80,12 @@ const remoteExecutor = (url: string, token: string): TursoExecutor => {
   }
 }
 
+/** Options every local connection uses; exported so the multi-process test can match them. */
+export const LOCAL_CONNECT_OPTIONS = {
+  timeout: 5_000,
+  experimental: ['multiprocess_wal' as const]
+}
+
 const openLocal = async (path: string): Promise<TursoExecutor> => {
   // The resolver strips the scheme before this point; a `file:` string reaching
   // here would silently create a directory named `file:`.
@@ -93,7 +99,12 @@ const openLocal = async (path: string): Promise<TursoExecutor> => {
   }
   // The engine's busy timeout defaults to 0: a concurrent writer gets
   // "database is locked" immediately instead of waiting out the lock.
-  const database = await connect(location, { timeout: 5_000 })
+  // `multiprocess_wal` is what lets a second process open the file at all — the
+  // default takes an exclusive lock for the lifetime of the connection, which
+  // breaks the healthcheck probe and any migration run while the server holds
+  // the database. Every process of this application passes it, so the mode
+  // agrees; a plain `sqlite3` shell opening the file would not.
+  const database = await connect(location, LOCAL_CONNECT_OPTIONS)
   // The file is created with the process umask (0644), so on a shared host any
   // local user could read the whole database. Narrow it to the owner, and to
   // the sidecars, which the engine creates with the same umask and which hold

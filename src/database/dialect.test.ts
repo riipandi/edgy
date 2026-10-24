@@ -1,6 +1,7 @@
+import { spawn } from 'node:child_process'
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vite-plus/test'
 import { testDatabasePath } from '../../tests/fixtures/database-url.ts'
-import { openTursoDatabase } from './dialect.ts'
+import { LOCAL_CONNECT_OPTIONS, openTursoDatabase } from './dialect.ts'
 
 interface Row {
   readonly id: number
@@ -263,5 +264,41 @@ describe('turso dialect over a remote database', () => {
     await db.destroy()
     expect(result.numInsertedOrUpdatedRows).toBe(1n)
     expect(result.insertId).toBe(1n)
+  })
+})
+
+describe('turso dialect multi-process access', () => {
+  it('lets a second process open the file while the first holds it', async () => {
+    const path = testDatabasePath('dialect-multiprocess.db')
+    const first = await openTursoDatabase({ kind: 'local', path })
+    await first.schema
+      .createTable('probe')
+      .addColumn('id', 'integer', (col) => col.primaryKey())
+      .execute()
+    await first
+      .insertInto('probe' as never)
+      .values({ id: 1 } as never)
+      .execute()
+
+    // A second *process* is what the container healthcheck and a concurrent
+    // migration run are; the engine's default exclusive lock refuses it, and
+    // `multiprocess_wal` is the mode both sides must agree on.
+    const script = `
+      const { connect } = await import('@tursodatabase/database')
+      const db = await connect(${JSON.stringify(path)}, ${JSON.stringify(LOCAL_CONNECT_OPTIONS)})
+      const rows = await db.all('select count(*) as n from probe')
+      await db.close()
+      console.log(JSON.stringify(rows))
+    `
+    const child = spawn(process.execPath, ['--input-type=module', '-e', script], {
+      cwd: process.cwd()
+    })
+    let output = ''
+    child.stdout.on('data', (chunk) => (output += String(chunk)))
+    const code = await new Promise((resolve) => child.on('exit', resolve))
+
+    await first.destroy()
+    expect(code).toBe(0)
+    expect(output.trim()).toBe('[{"n":1}]')
   })
 })

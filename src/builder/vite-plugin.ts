@@ -69,6 +69,9 @@ const entry = fileURLToPath(new URL('../main.ts', import.meta.url))
 
 // A bare-package import left in the standalone output would fail to resolve
 // in the distroless container; the build fails here instead of shipping it.
+// Only a statement at a line start or after a `;` counts: the bundles carry
+// JSDoc examples and template literals that spell imports inside prose, and
+// those are strings, not imports.
 const assertNoExternalImports = (dir: string): void => {
   const offenders: string[] = []
   const visit = (target: string): void => {
@@ -80,7 +83,7 @@ const assertNoExternalImports = (dir: string): void => {
     const code = readFileSync(target, 'utf8')
     const specifiers: string[] = []
     for (const m of code.matchAll(
-      /(?:^|[;\s])(?:import|export)\s*[^;'"]{0,400}?from\s*['"]([^'"]+)['"]/g
+      /(?:^|;)[ \t]*(?:import|export)(?=[\s{*])[^;'"]{0,400}?from\s*['"]([^'"]+)['"]/gm
     )) {
       if (m[1]) specifiers.push(m[1])
     }
@@ -142,7 +145,9 @@ export const effectVite = (opts: EffectDevPluginOptions): Plugin => {
       // The SSR bundle lives in the built-in `ssr` environment (the Solid
       // plugin owns its build options); standalone must inline its externals
       // the same way `effect` does, or the distroless container cannot
-      // resolve them.
+      // resolve them. The Turso engine is a native addon and cannot be
+      // inlined, so rolldown keeps it external and the image ships it beside
+      // entry.js.
       const standaloneResolve = standalone
         ? {
             resolve: {

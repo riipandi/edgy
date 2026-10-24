@@ -42,6 +42,17 @@ COPY --chown=vp:vp . .
 ENV ENV_BINARY_PATH=/busybox/env NODE_ENV=production
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store vpr build --mode standalone --minify
 
+# The Turso engine's JavaScript is bundled, but its native addon is loaded at
+# runtime from `@tursodatabase/database-<platform>`, which no bundler can
+# inline. Collect the one that matches this image's platform, flattened out of
+# pnpm's store so the copy below is a plain directory tree.
+RUN set -eux; \
+    mkdir -p /app/native/node_modules/@tursodatabase; \
+    for dir in /app/node_modules/.pnpm/@tursodatabase+database-linux-*/node_modules/@tursodatabase/database-linux-*; do \
+      cp -RL "$dir" /app/native/node_modules/@tursodatabase/; \
+    done; \
+    test -n "$(ls -A /app/native/node_modules/@tursodatabase)"
+
 # ------------------------------------------------------------------------------
 # Cleanup the builder stage and create data directory.
 # ------------------------------------------------------------------------------
@@ -49,6 +60,8 @@ FROM base AS pruner
 
 # Copy only necessary files from builder stage
 COPY --from=builder /app/dist /app
+# The native database binding the standalone bundle requires at runtime.
+COPY --from=builder /app/native /app
 
 # Create necessary directories and set permissions the entry.js file.
 RUN mkdir -p /app/storage/{backup,certs,data,logs,uploads} \
