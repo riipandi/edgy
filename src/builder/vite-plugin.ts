@@ -1,7 +1,8 @@
 import { Effect, Layer } from 'effect'
 import { resolveModuleURL } from 'exsolve'
-import { chmodSync, existsSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs'
+import { chmodSync, cpSync, existsSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs'
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import { createRequire } from 'node:module'
 import path from 'node:path'
 import { Readable } from 'node:stream'
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web'
@@ -67,6 +68,49 @@ const writeResponse = async (req: IncomingMessage, res: ServerResponse, response
 
 const entry = fileURLToPath(new URL('../main.ts', import.meta.url))
 
+// The Turso engine's JavaScript inlines like any dependency, but the compiled
+// addon is `require`d at runtime and no bundler can carry it. The package name
+// is platform-specific; a platform with no binding here cannot run the bundle.
+const NATIVE_BINDINGS: Record<string, string> = {
+  'darwin-arm64': '@tursodatabase/database-darwin-arm64',
+  'linux-arm64': '@tursodatabase/database-linux-arm64-gnu',
+  'linux-x64': '@tursodatabase/database-linux-x64-gnu',
+  'win32-x64': '@tursodatabase/database-win32-x64-msvc'
+}
+
+// Resolved beside the engine package, which is where pnpm links an optional
+// dependency; a hoisting layout puts it in the parent node_modules instead.
+const nativeBinding = (): { readonly name: string; readonly dir: string } => {
+  const name = NATIVE_BINDINGS[`${process.platform}-${process.arch}`]
+  if (name === undefined)
+    throw new Error(
+      `standalone build: the turso engine has no native binding for ${process.platform}-${process.arch}`
+    )
+  const engineDir = path.dirname(
+    path.dirname(createRequire(import.meta.url).resolve('@tursodatabase/database'))
+  )
+  const beside = path.join(path.dirname(engineDir), name.slice(name.indexOf('/') + 1))
+  if (existsSync(beside)) return { name, dir: beside }
+  return {
+    name,
+    dir: path.dirname(
+      path.dirname(createRequire(path.join(engineDir, 'package.json')).resolve(name))
+    )
+  }
+}
+
+// `dist/` has to run on its own: `vpr start` and a copied `dist/` would both
+// fail with "Cannot find native binding" without this.
+const copyNativeBinding = (distDir: string): void => {
+  const binding = nativeBinding()
+  // Dereference: pnpm links the package out of its store, and a copied `dist/`
+  // must not depend on that store staying in place.
+  cpSync(binding.dir, path.join(distDir, 'node_modules', ...binding.name.split('/')), {
+    recursive: true,
+    dereference: true
+  })
+}
+
 // A bare-package import left in the standalone output would fail to resolve
 // in the distroless container; the build fails here instead of shipping it.
 // Only a statement at a line start or after a `;` counts: the bundles carry
@@ -76,6 +120,9 @@ const assertNoExternalImports = (dir: string): void => {
   const offenders: string[] = []
   const visit = (target: string): void => {
     if (statSync(target).isDirectory()) {
+      // The native binding copied beside the bundle is a compiled addon, not
+      // code this build emitted.
+      if (target === path.join(dir, 'node_modules')) return
       for (const name of readdirSync(target)) visit(path.join(target, name))
       return
     }
@@ -138,8 +185,9 @@ export const effectVite = (opts: EffectDevPluginOptions): Plugin => {
     config(_config, env) {
       if (env.command !== 'build' || !opts.enabled) return
       // `--mode standalone` inlines every dependency so dist/ deploys
-      // without node_modules; `--minify` opts in to oxc minification
-      // for a smaller bundle.
+      // without a resolved node_modules tree — the SQLite engine's native
+      // binding is the one file that must still ship beside the entry.
+      // `--minify` opts in to oxc minification for a smaller bundle.
       const standalone = env.mode === 'standalone'
       standaloneMode = standalone
       // The SSR bundle lives in the built-in `ssr` environment (the Solid
@@ -217,6 +265,7 @@ export const effectVite = (opts: EffectDevPluginOptions): Plugin => {
     buildStart() {
       rmSync(path.join(distDir, 'assets'), { recursive: true, force: true })
       rmSync(path.join(distDir, 'chunks'), { recursive: true, force: true })
+      rmSync(path.join(distDir, 'node_modules'), { recursive: true, force: true })
       rmSync(path.join(distDir, ENTRYPOINT), { force: true })
     },
     closeBundle() {
@@ -224,6 +273,7 @@ export const effectVite = (opts: EffectDevPluginOptions): Plugin => {
       if (existsSync(entryFile)) chmodSync(entryFile, 0o755)
       if (standaloneMode && this.environment?.name === 'effect') {
         assertNoExternalImports(distDir)
+        copyNativeBinding(distDir)
       }
       // Dedupe stylex <outDir>/assets/stylex.css for bundles. Its styles already
       // ship inside the client's entry stylesheet, so drop the duplicate.

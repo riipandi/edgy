@@ -16,8 +16,9 @@ dependencies — the SSR bundle included — into one executable JavaScript entr
 it is not a native binary. The build fails if any external package import
 remains in the output, so the bundle runs without a resolved `node_modules`
 tree. The one exception is a compiled addon: the SQLite engine loads its
-native binding from `node_modules/@tursodatabase/database-<platform>` at
-runtime, so ship that directory beside the entry (the Dockerfile does).
+native binding at runtime, so the standalone build writes that package into
+`dist/node_modules/@tursodatabase/` for the platform it built on. Copy `dist/`
+whole and the entry runs anywhere that platform runs.
 
 Run the bundled server with:
 
