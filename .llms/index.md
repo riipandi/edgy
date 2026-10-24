@@ -6,7 +6,7 @@
 | [rules.md](./rules.md)               | Implemented contracts and change guidance.                     |
 | [architecture.md](./architecture.md) | Runtime composition and package boundaries.                    |
 | [effect-docs.md](./effect-docs.md)   | Effect v4 documentation links.                                 |
-| [plans/](./plans/)                   | Execution contracts; newest is plan-20261025_0600 (Turso driver hardening, awaiting approval). |
+| [plans/](./plans/)                   | Execution contracts; newest is plan-20261025_0600 (Turso driver hardening, done). |
 | [issues/](./issues/)                 | Live findings; none — every issue is archived.                 |
 | [roadmap/](./roadmap/)               | Parked improvements with named unlocks.                        |
 | [handover/](./handover/)             | Session compactions; newest is handover-20261025_0700.         |
