@@ -6,9 +6,8 @@ import { styles as rootLayout } from '#/resources/styles/element/root-layout.sty
 import { sx } from '#/resources/styles/props.ts'
 import { Router } from '#/router.ts'
 
-// Router and providers only: the theme wrapper (darkColors)
-// and the Loading boundary live here; the app shell (nav)
-// is the (app) group layout route.
+// Router and providers only; the `routes/(app)` layout
+// owns the shell, theme, and loading boundary.
 export default function App() {
   return (
     <div {...sx(rootLayout.root, darkColors)}>

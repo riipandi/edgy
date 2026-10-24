@@ -15,7 +15,7 @@ import type { ParentProps } from 'solid-js'
 import { Show } from 'solid-js'
 import { styles as rootLayout } from '#/resources/styles/element/root-layout.stylex.ts'
 import { sx } from '#/resources/styles/props.ts'
-import '#/assets/globals.css'
+import './assets/globals.css'
 
 export default function Document(props: ParentProps) {
   return (

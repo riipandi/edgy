@@ -10,10 +10,8 @@ import { corsMiddleware } from '#/middleware/cors.ts'
 import { rateLimitMiddleware } from '#/middleware/rate-limit.ts'
 import { requestIdMiddleware } from '#/middleware/request-id.ts'
 import { requestLogMiddleware } from '#/middleware/request-log.ts'
-import {
-  docsSecurityHeadersMiddleware,
-  securityHeadersMiddleware
-} from '#/middleware/security-headers.ts'
+import { docsSecurityHeadersMiddleware } from '#/middleware/security-headers.ts'
+import { securityHeadersMiddleware } from '#/middleware/security-headers.ts'
 import { requestTracerMiddleware } from '#/middleware/tracer.ts'
 import { trustProxyMiddleware } from '#/middleware/trust-proxy.ts'
 import { HealthApi, healthHandlers } from '#/modules/health/module.ts'

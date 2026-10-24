@@ -1,12 +1,7 @@
 import { Duration, Effect, Layer, Redacted } from 'effect'
 import { FetchHttpClient } from 'effect/http'
-import {
-  OtlpExporter,
-  OtlpLogger,
-  OtlpMetrics,
-  OtlpSerialization,
-  OtlpTracer
-} from 'effect/observability'
+import { OtlpLogger, OtlpMetrics, OtlpExporter } from 'effect/observability'
+import { OtlpTracer, OtlpSerialization } from 'effect/observability'
 import { AppConfig } from '#/kernel/config/config.ts'
 
 const headersFrom = (raw: string): Record<string, string> => {
