@@ -3,7 +3,7 @@ import { Context, Data, LogLevel } from 'effect'
 import { sql, type Kysely, type LogEvent } from 'kysely'
 import { AppConfig } from '#/kernel/config/config.ts'
 import { withDependencyTelemetry, type DependencyStore } from '#/observer/dependencies.ts'
-import { openTursoDatabase } from './dialect/turso.ts'
+import { openTursoDatabase } from './dialect.ts'
 import type { DB } from './schema.ts'
 
 export class DatabaseError extends Data.TaggedError('DatabaseError')<{

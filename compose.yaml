@@ -57,7 +57,7 @@ services:
   #   volumes: ['./.storage/app:/app/storage:rw']
   #   environment:
   #     SERVER_PORT: 3000
-  #     DATABASE_PATH: /app/storage/data/app.db
+  #     DATABASE_URL: file:/app/storage/data/app.db
   #     DATABASE_AUTO_MIGRATE: 'true'
   #     REDIS_ENABLE: 'true'
   #     REDIS_URL: redis://default:securedb@redis:6379

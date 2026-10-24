@@ -4,7 +4,7 @@ import { flag, group, invalid, secret, text, type Node, type ValueOf } from './f
 
 /** A URL Kysely is pointed at: a local engine file, or a Turso database over HTTP. */
 export type DatabaseTarget =
-  | { readonly kind: 'embedded'; readonly path: string }
+  | { readonly kind: 'local'; readonly path: string }
   | { readonly kind: 'remote'; readonly url: string; readonly token: string }
 
 const REMOTE_SCHEMES = ['libsql:', 'turso:', 'https:', 'http:'] as const
@@ -77,12 +77,12 @@ export const resolveDatabaseTarget = (
       )
 
     if (url.startsWith(FILE_SCHEME))
-      return Effect.map(parseFileUrl(url), (path): DatabaseTarget => ({ kind: 'embedded', path }))
+      return Effect.map(parseFileUrl(url), (path): DatabaseTarget => ({ kind: 'local', path }))
 
     const remote = url.includes('://')
     // A bare path is the one convenience form: `file:` stays the documented
     // shape, but a path without a scheme can only mean a local file.
-    if (!remote) return Effect.succeed({ kind: 'embedded', path: url })
+    if (!remote) return Effect.succeed({ kind: 'local', path: url })
 
     const scheme = `${url.slice(0, url.indexOf(':') + 1)}` as (typeof REMOTE_SCHEMES)[number]
     if (!REMOTE_SCHEMES.some((candidate) => candidate === scheme))
@@ -115,7 +115,7 @@ export const databaseConfig: Node<ValueOf<typeof fields> & { readonly target: Da
     Config.mapEffect((value) =>
       resolveDatabaseTarget(value.url, value.token).pipe(
         Effect.tap((target) =>
-          target.kind === 'embedded' && Redacted.value(value.token).trim() !== ''
+          target.kind === 'local' && Redacted.value(value.token).trim() !== ''
             ? Effect.logWarning(
                 'DATABASE_TOKEN is ignored: DATABASE_URL points at a local database'
               )

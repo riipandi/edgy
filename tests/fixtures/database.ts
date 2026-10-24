@@ -1,6 +1,6 @@
 import { Effect, Layer } from 'effect'
 import { Database, DatabaseError, makeDatabaseService } from '#/database/adapter.ts'
-import { openTursoDatabase } from '#/database/dialect/turso.ts'
+import { openTursoDatabase } from '#/database/dialect.ts'
 import { migrateToLatest } from '#/database/migrator.ts'
 import { testDatabasePath } from './database-url.ts'
 
@@ -8,7 +8,7 @@ import { testDatabasePath } from './database-url.ts'
 // rate-limit counter keeps its real query path.
 const migratedService = Effect.gen(function* () {
   const db = yield* Effect.tryPromise({
-    try: () => openTursoDatabase({ kind: 'embedded', path: testDatabasePath('fixtures.db') }),
+    try: () => openTursoDatabase({ kind: 'local', path: testDatabasePath('fixtures.db') }),
     catch: (cause) => new DatabaseError({ cause })
   })
   const service = makeDatabaseService(db)

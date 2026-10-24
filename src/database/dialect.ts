@@ -1,5 +1,5 @@
 import { connect } from '@tursodatabase/database'
-import type { Database as EmbeddedDatabase } from '@tursodatabase/database'
+import type { Database as TursoDatabase } from '@tursodatabase/database'
 import { createClient } from '@tursodatabase/serverless/compat'
 import type { InValue, Transaction } from '@tursodatabase/serverless/compat'
 import { Kysely, SqliteAdapter, SqliteIntrospector, SqliteQueryCompiler } from 'kysely'
@@ -11,7 +11,7 @@ import type { DB } from '#/database/schema.ts'
 import type { DatabaseTarget } from '#/kernel/config/database.ts'
 
 /**
- * The statement surface both transports expose. The embedded engine and the
+ * The statement surface both transports expose. The local engine and the
  * HTTP client differ in how they are opened and how a transaction is held, not
  * in what a compiled Kysely query needs from them.
  */
@@ -23,7 +23,7 @@ interface TursoExecutor {
   close(): Promise<void>
 }
 
-const embeddedExecutor = (database: EmbeddedDatabase): TursoExecutor => ({
+const localExecutor = (database: TursoDatabase): TursoExecutor => ({
   execute: async (sql, parameters) => {
     const statement = await database.prepare(sql)
     if (statement.reader) return { rows: await statement.all(parameters) }
@@ -73,7 +73,7 @@ const remoteExecutor = (url: string, token: string): TursoExecutor => {
   }
 }
 
-const openEmbedded = async (path: string): Promise<TursoExecutor> => {
+const openLocal = async (path: string): Promise<TursoExecutor> => {
   // The resolver strips the scheme before this point; a `file:` string reaching
   // here would silently create a directory named `file:`.
   if (path.startsWith('file:'))
@@ -97,11 +97,11 @@ const openEmbedded = async (path: string): Promise<TursoExecutor> => {
   for (const suffix of ['-wal', '-shm']) {
     if (existsSync(`${location}${suffix}`)) chmodSync(`${location}${suffix}`, 0o600)
   }
-  return embeddedExecutor(database)
+  return localExecutor(database)
 }
 
 const openExecutor = async (target: DatabaseTarget): Promise<TursoExecutor> =>
-  target.kind === 'remote' ? remoteExecutor(target.url, target.token) : openEmbedded(target.path)
+  target.kind === 'remote' ? remoteExecutor(target.url, target.token) : openLocal(target.path)
 
 class TursoConnection implements DatabaseConnection {
   readonly #executor: TursoExecutor

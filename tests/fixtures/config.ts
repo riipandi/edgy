@@ -12,7 +12,7 @@ export const config: AppConfigShape = {
     url: testDatabaseUrl('config.db'),
     token: Redacted.make(''),
     autoMigrate: false,
-    target: { kind: 'embedded', path: databasePath }
+    target: { kind: 'local', path: databasePath }
   },
   logging: {
     level: 'Info',
