@@ -45,6 +45,38 @@ The whole-system audit's fixes (audit-20261024_0636) landed under these decision
   provider treats an empty environment variable as unset (the documented default applies).
 - **F-06 (unauthenticated user emails) is parked, not fixed** — see the roadmap's parked unlocks.
 
+## CLI decisions (plan-20261025_0002, 2026-10-25)
+
+The CLI-conformance audit's ten findings (audit-20261024_2346) landed under these decisions:
+
+- **D1 — the global flags stay the canonical `GlobalFlag` objects.** `Command.run` decides two things by
+  object identity: whether the parsed `--log-level` becomes `References.MinimumLogLevel`
+  (`cli/Command.ts`, `activeFlags.includes(GlobalFlag.LogLevel)`) and whether `--wizard` takes the
+  wizard path (`flag === GlobalFlag.Wizard`). The previous code cloned every built-in through
+  `Object.assign({}, builtIn, { flag: Flag.withHidden(...) })`, so the level was parsed and dropped and
+  `--wizard` exited `0` doing nothing. `cli.ts` now provides `CliConfig.layer({ builtIns: [Help,
+  Version, LogLevel] })` — no clone, no hiding — and `--wizard`/`--completions` disappear, which the
+  document never named. Rebuilding the setting instead of cloning was rejected too: `GlobalFlag.Setting`
+  mints a fresh service key per construction, so the level would be dropped again.
+- **D2 — the level's value is normalized in argv.** `normalizeArgs` lowercases the token after
+  `--log-level` (and the `--log-level=…` form) and the program runs through
+  `Command.runWith(rootCmd, { version })(args)`; `LOG_LEVEL` already accepts the capitalized spelling,
+  so the two entry points now agree. Rejected: a case-insensitive replacement flag — `Command.run` reads
+  the level from `GlobalFlag.LogLevel.flag`, so the swap means mutating a library object.
+- **D3 — `serve` is chosen by the first positional token.** `subcommandOf(args)` skips global flags and
+  the value `--log-level` consumes, and `src/main.ts` branches on it. The previous `process.argv[2]`
+  check meant `vpr app --log-level info serve` took the `runMain` path: exit `130`, no
+  `shutting down (received SIGINT)`, no `application terminated`. Rejected: `argv.includes('serve')`
+  (a flag value equal to `serve` would flip the process into server mode) and an env marker set by the
+  handler (the branch has to be decided before the program runs).
+- **D6 — the shutdown path owns the second signal and the Redis scopes.** `awaitShutdownSignal` keeps
+  both listeners installed past the first signal and exits `128 + signum` on any later one, so
+  `SIGINT` then `SIGTERM` no longer waits out the drain. Both Redis stores build their stack into a
+  scope they own (`Scope.make` + `provideService`, closed from the finalizer between the two log lines)
+  — `NodeRedis.layer` closes the client from its own scope finalizer, and finalizers run LIFO, so no
+  consumer-side finalizer could ever run after the client's. The resource order across the shutdown is
+  unchanged; only the `… closed` line is new.
+
 ## Observability decisions (plan-20261024_0105, 2026-10-24)
 
 The six findings of issue-20261023_2135 were closed under the plan's seven decisions, recorded here
