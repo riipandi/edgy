@@ -1,6 +1,7 @@
 import { Duration, Effect, Layer, Metric, Schedule } from 'effect'
 import { monitorEventLoopDelay, performance, PerformanceObserver } from 'node:perf_hooks'
 import { getHeapSpaceStatistics, getHeapStatistics } from 'node:v8'
+import { AppConfig } from '#/kernel/config/config.ts'
 
 // Node runtime gauges, named to match the semantic conventions the Node.js
 // OpenTelemetry instrumentation uses, so a collector or dashboard written
@@ -113,7 +114,7 @@ export const sampleRuntime = Effect.gen(function* () {
 // Samples on a fixed interval for as long as the layer is alive. The histogram
 // and the GC observer are enabled and disabled with the layer so nothing is
 // measured once the server has stopped.
-export const RuntimeMetricsLayer = Layer.effectDiscard(
+const samplingLayer = Layer.effectDiscard(
   Effect.gen(function* () {
     yield* Effect.acquireRelease(
       Effect.sync(() => {
@@ -131,4 +132,12 @@ export const RuntimeMetricsLayer = Layer.effectDiscard(
       Effect.forkScoped
     )
   })
+)
+
+// The sampler shares the METRICS_ENABLED gate with the /metrics endpoint:
+// gauges nobody scrapes are pure overhead.
+export const RuntimeMetricsLayer: Layer.Layer<never, never, AppConfig> = Layer.unwrap(
+  Effect.map(AppConfig, (config) =>
+    config.observability.metricsEnabled ? samplingLayer : Layer.empty
+  )
 )
