@@ -16,11 +16,54 @@ The API wire contract is owned by Effect HttpApi: the group contracts (`modules/
 
 ## Persistence
 
-Kysely runs over SQLite through Node's built-in `node:sqlite` adapter. `database/schema.ts` exports an empty `Database` interface that feature schemas augment with their table types. The user feature derives its Kysely row type from its Effect entity schema in `modules/user/user_schema.ts`. `DatabaseLayer` acquires the Kysely instance and destroys it when its Effect scope closes. Migrations and seeders run through the same database service: `database/migrator.ts` wraps the Kysely `Migrator` (static in-bundle migration registry, `app_migration` tables) so every migration method is an Effect requiring `Database` and failing with `DatabaseError` — Kysely's resolve-with-`.error` convention is folded into the error channel at the boundary.
+Kysely runs over SQLite through a dialect in `database/dialect.ts` built on Turso's SDKs, not Node's `node:sqlite`. One URL resolves to one transport: a `file:` URI (or a bare path) opens the local engine from `@tursodatabase/database`, and `libsql://`/`turso://`/`https://`/`http://` opens a remote database through `@tursodatabase/serverless` over HTTP. `resolveDatabaseTarget` (`kernel/config/database.ts`) is the only place that decision is made, so an unknown scheme is an error rather than a silent local file. `database/schema.ts` exports an empty `Database` interface that feature schemas augment with their table types. The user feature derives its Kysely row type from its Effect entity schema in `modules/user/user_schema.ts`. `DatabaseLayer` acquires the Kysely instance and destroys it when its Effect scope closes. Migrations and seeders run through the same database service: `database/migrator.ts` wraps the Kysely `Migrator` (static in-bundle migration registry, `app_migration` tables) so every migration method is an Effect requiring `Database` and failing with `DatabaseError` — Kysely's resolve-with-`.error` convention is folded into the error channel at the boundary.
+
+## Persistence decisions (plan-20261025_0055, 2026-10-25)
+
+The `node:sqlite` driver left the tree; these decisions shape what replaced it, and each one is a
+contract another change can break:
+
+- **D1 — two transports, both Turso, never `@libsql/client`.** A single package cannot reach both a
+  local file and a remote database: `@tursodatabase/database` is a native embedded engine that takes
+  a path, `@tursodatabase/serverless` is pure JavaScript over `fetch` that takes a URL and a token.
+  Both sit behind one Kysely dialect, so the feature code cannot tell which one it is talking to.
+- **D2 — a local database is a `file:` URI.** `file:/path`, `file:///path` and
+  `file://localhost/path` name this host, `file:./rel` is relative to the working directory, and the
+  path is percent-decoded. `file://otherhost/path` and `file://path` are refused by name, because a
+  local engine cannot open another machine's file and the scheme has no path in the second form. A
+  bare path is accepted as a convenience; `:memory:` is refused, because the healthcheck probe and a
+  migration run open the database from their own process and would each get a private one.
+- **D3 — the dialect keeps `kysely-libsql`'s shape.** `SqliteAdapter`, `SqliteIntrospector`,
+  `SqliteQueryCompiler` and a driver whose connection executes a compiled query, over a
+  `TursoExecutor` (`execute`/`begin`/`commit`/`rollback`/`close`) that the two transports implement.
+  The local executor awaits `prepare` and branches on `Statement.reader`; the remote one uses the
+  compat client's `execute({ sql, args })`, which is libsql's own contract without the dependency.
+  Remote rows arrive as arrays with non-enumerable named properties, so the executor maps each row
+  through `result.columns` — reading them straight into JSON yields `[7,"seven"]`.
+- **D4 — no custom lock.** `SqliteAdapter.supportsMultipleConnections = false` makes `RuntimeDriver`
+  install a `ConnectionMutex`, and `Kysely.transaction` holds the one connection across the whole
+  `BEGIN … COMMIT`. A statement issued during a transaction waits for it; verified by a concurrent
+  read that waited out a 200 ms transaction and then saw the committed row.
+- **D6 — the native binding stays outside the bundle.** The Turso JavaScript is inlined like any
+  other dependency; only the compiled addon is `require`d at runtime from
+  `node_modules/@tursodatabase/database-<platform>`, so `dist/` alone is no longer self-contained.
+  The standalone build copies that package into `dist/node_modules` for the platform it built on
+  (dereferenced out of pnpm's store, so a copied `dist/` does not depend on the store), which is
+  also how the container image gets it: the Dockerfile copies `dist/` and nothing else. This
+  retires the "single file, zero native dependencies" claim at a cost of roughly 16 MB of image. The leak guard needed no allowlist: its regex was matching import
+  statements spelled inside JSDoc examples and template literals, which made a non-minified
+  standalone build fail for reasons that had nothing to do with the new packages.
+- **D13 — every local connection opens in multi-process WAL mode.** The engine takes an exclusive
+  lock on the file for the connection's lifetime by default, which would have broken the container
+  `HEALTHCHECK` and any `migrate:up` run while `serve` holds the database — `node:sqlite` never did
+  that, so the swap would have been a silent operational regression. `LOCAL_CONNECT_OPTIONS` carries
+  `experimental: ['multiprocess_wal']` and every process of this application passes it. Rejected:
+  turning the container healthcheck into an HTTP probe, which weakens the documented readiness
+  contract and still leaves migrations unusable during a server run.
 
 ## Operational limits
 
-Each feature declares its lookup cache as a `Cacheable.Class` service tag (schemas for serialization, the repository lookup, and a layer that resolves the cache configuration). The cache defaults to process memory; `REDIS_ENABLE=true` shares entries through Redis (`PersistedCache` over the compose Redis) and degrades to direct lookups when the backend is unreachable. A failed lookup is never pinned: the entry is invalidated so the next request retries. `CacheableService.get` pairs the value with a `CacheStatus` (`hit` | `miss` | `bypass` | `disabled`) — hit detection peeks the in-memory layer without populating; `bypass` skips read and fill. HTTP surfaces expose the status in the `x-cache` response header (the users API via a `WithHeaders` success schema, the SSR user page via `httpHeader` before the shell flush), and `?nocache=1` on either surface requests the bypass. Rate-limit windows live in the configured store: fixed-window counters in the database, or shared counters in Redis (`REDIS_ENABLE=true` over the compose Redis). The configured database driver currently permits SQLite only; PostgreSQL helper functions do not imply a PostgreSQL adapter is implemented.
+Each feature declares its lookup cache as a `Cacheable.Class` service tag (schemas for serialization, the repository lookup, and a layer that resolves the cache configuration). The cache defaults to process memory; `REDIS_ENABLE=true` shares entries through Redis (`PersistedCache` over the compose Redis) and degrades to direct lookups when the backend is unreachable. A failed lookup is never pinned: the entry is invalidated so the next request retries. `CacheableService.get` pairs the value with a `CacheStatus` (`hit` | `miss` | `bypass` | `disabled`) — hit detection peeks the in-memory layer without populating; `bypass` skips read and fill. HTTP surfaces expose the status in the `x-cache` response header (the users API via a `WithHeaders` success schema, the SSR user page via `httpHeader` before the shell flush), and `?nocache=1` on either surface requests the bypass. Rate-limit windows live in the configured store: fixed-window counters in the database, or shared counters in Redis (`REDIS_ENABLE=true` over the compose Redis). SQLite is the only engine: the local file and the remote Turso database are two transports of the same dialect, and no PostgreSQL adapter exists.
 
 ## Build and boot decisions (plan-20261024_0728, 2026-10-24)
 
@@ -31,9 +74,11 @@ The whole-system audit's fixes (audit-20261024_0636) landed under these decision
   unless told otherwise; the standalone branch now spreads the same `resolve.noExternal` inlining it
   already gave the `effect` environment onto `ssr`. The build-time leak guard (static and dynamic
   bare-specifier scan over `dist/**/*.js`, run in the effect environment's `closeBundle` — the last
-  to emit) turns a recurrence into a red build. Vendor-scanning minified output needed two
-  exclusions: clauses containing quote characters and specifiers not starting with a name
-  character (embedded string tables like `"import export from"` are not import statements).
+  to emit) turns a recurrence into a red build. The scan reads a statement only at a line start or
+  after a `;` and requires `import`/`export` to be followed by whitespace, `{` or `*`, because the
+  looser form matched import syntax spelled inside JSDoc examples and template literals — which made
+  a non-minified build fail on comments. Specifiers not starting with a name character are still
+  skipped: embedded string tables like `"import export from"` are not import statements.
 - **D3 — Redis boot waits within a bounded window; the compose gate closes the cold start.** A
   shared `awaitRedis` helper (30 attempts, 1 s apart, warning per failed attempt) wraps both Redis
   layer builds; the app's compose dependency on redis is `service_healthy`. Lazy/degraded boot was

@@ -35,14 +35,16 @@ references: plan-20261023_0105, audit-20261024_0636
 - First move: measure the same three commands in the container image, and only split the entry point
   if a budget appears that 120 ms misses.
 
-## Kysely statement cache over `node:sqlite`
+## Kysely statement cache over the Turso engine
 
-- status: parked (unlock: a profile shows SQL compile in a hot path) · updated 2026-10-23
-- Measured 2026-10-23: `prepare` + `all` costs 7.22 µs/op against 1.48 µs/op when the statement is
-  reused — the prepare step is ~5.7 µs, roughly 4.9x the execution cost of a trivial indexed read.
-- Kysely's SQLite driver prepares per `executeQuery` (`kysely/dist/dialect/sqlite/sqlite-driver.js`),
-  so the cost is the driver's, not this tree's. Fixing it means replacing the driver or adding a
-  statement cache keyed by SQL text inside `src/database/dialect/sqlite.ts`.
+- status: parked (unlock: a profile shows SQL compile in a hot path) · updated 2026-10-25
+- Measured 2026-10-23 on `node:sqlite`: `prepare` + `all` costs 7.22 µs/op against 1.48 µs/op when the
+  statement is reused — the prepare step is ~5.7 µs, roughly 4.9x the execution cost of a trivial
+  indexed read. Measured 2026-10-25 on `@tursodatabase/database`: prepare is ~8 µs, so the swap did
+  not change the picture.
+- Kysely's driver prepares per `executeQuery`, and `src/database/dialect.ts` keeps that behavior on
+  purpose (plan-20261025_0055, D8): a cache would have to live in `TursoExecutor`, keyed by SQL text,
+  and every connection in a transaction window would share it. Nothing measured yet pays for it.
 - First move: profile a request under load before paying that complexity; at 5.7 µs per query the
   database round trip is not yet the bottleneck.
 
