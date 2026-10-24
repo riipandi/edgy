@@ -1,4 +1,4 @@
-import { Console, Effect, FileSystem, Path } from 'effect'
+import { Console, Effect, FileSystem, Option, Path } from 'effect'
 import { Command } from 'effect/cli'
 import { CliError, Flag, Prompt } from 'effect/cli'
 import { appConfig } from '#/kernel/config/config.ts'
@@ -7,15 +7,36 @@ import { renderExample } from '#/kernel/config/example.ts'
 const isRealDotenv = (name: string): boolean =>
   /^\.env(\..+)?$/i.test(name) && name.toLowerCase() !== '.env.example'
 
+/** How many links a path may traverse before the chain is treated as a loop. */
+const MAX_LINK_DEPTH = 32
+
+/**
+ * Follows the symbolic links starting at `target` and returns the path the chain
+ * ends at — a dangling link included, since writing through it creates the file
+ * it names.
+ */
+const resolveLinkChain = (target: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem
+    const path = yield* Path.Path
+    let current = target
+    for (let depth = 0; depth < MAX_LINK_DEPTH; depth++) {
+      const link = yield* fs.readLink(current).pipe(Effect.option)
+      if (Option.isNone(link)) return current
+      current = path.resolve(path.dirname(current), link.value)
+    }
+    return current
+  })
+
 const generatedFileFlags = (defaultOutput: string, what: string) => ({
   output: Flag.String('output').pipe(
     Flag.withAlias('o'),
     Flag.withDefault(defaultOutput),
-    Flag.withDescription(`File to write${what === '' ? '' : ` (${what})`}`)
+    Flag.withDescription(`File to write (default: ${defaultOutput}; ${what})`)
   ),
   check: Flag.Boolean('check').pipe(
     Flag.withDefault(false),
-    Flag.withDescription('Do not write; exit with an error if the file is missing or stale')
+    Flag.withDescription('Do not write; exit with an error if the file is missing or out of date')
   ),
   overwrite: Flag.Boolean('overwrite').pipe(
     Flag.withDefault(false),
@@ -68,26 +89,18 @@ const writeGenerated = (file: GeneratedFile) =>
     const fs = yield* FileSystem.FileSystem
     const path = yield* Path.Path
 
+    yield* ensure(!(file.stdout && file.check), '--stdout cannot be combined with --check')
+
     if (file.stdout) {
       yield* Console.log(file.content.trimEnd())
       return
     }
 
-    yield* ensure(!file.force || file.overwrite, '--force only applies together with --overwrite')
-
     const target = path.resolve(file.output)
-    const refusal = file.refuse?.(path.basename(target))
+    const refusal = file.refuse?.(path.basename(yield* resolveLinkChain(target)))
     yield* ensure(refusal === undefined, `Refusing to write ${file.output}: ${refusal}`)
 
     const exists = yield* fs.exists(target)
-    if (exists) {
-      const canonical = yield* fs.realPath(target)
-      const canonicalRefusal = file.refuse?.(path.basename(canonical))
-      yield* ensure(
-        canonicalRefusal === undefined,
-        `Refusing to write ${file.output}: ${canonicalRefusal}`
-      )
-    }
     const existing = exists ? yield* fs.readFileString(target) : undefined
     const upToDate = existing === file.content
 
@@ -108,7 +121,7 @@ const writeGenerated = (file: GeneratedFile) =>
     if (existing !== undefined) {
       yield* ensure(
         file.overwrite,
-        `${file.output} already exists and differs; pass --overwrite to replace it (or --check to see whether it is stale)`
+        `${file.output} already exists and differs; pass --overwrite to replace it (or --check to see whether it is out of date)`
       )
       const confirmed = yield* confirmOverwrite(file.force, `Overwrite ${file.output}?`)
       if (!confirmed) return
