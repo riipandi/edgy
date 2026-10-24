@@ -43,15 +43,6 @@ compose.env*
 .*.vars
 wrangler.remote-*.tmp.json
 
-# Output directory
-build/
-dist/
-release/
-.vitest/
-.cache
-.output
-.wrangler
-
 # Vite & Vitest config
 vite.config.*
 !vite.config.ts
@@ -75,9 +66,17 @@ vitest.workspace.*
 *storybook.log
 storybook-static/
 
-# Application data
+# Output and data
 /.storage/
 /storage/
+/scratch/
+build/
+dist/
+release/
+.vitest/
+.cache
+.output
+.wrangler
 
 # Miscellaneous
 cloudflare-env.d.ts
