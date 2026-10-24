@@ -50,6 +50,29 @@ export const normalizeArgs = (args: ReadonlyArray<string>): ReadonlyArray<string
   return normalized
 }
 
+/**
+ * First positional token of `args` — the subcommand. Global flags and the value
+ * `--log-level` consumes are skipped, so a flag value equal to a command name is
+ * never mistaken for the command. The process entry reads it before the program
+ * starts, because the answer selects the runtime.
+ */
+export const subcommandOf = (args: ReadonlyArray<string>): string | undefined => {
+  let expectsValue = false
+  for (const arg of args) {
+    if (expectsValue) {
+      expectsValue = false
+      continue
+    }
+    if (arg === LOG_LEVEL_FLAG) {
+      expectsValue = true
+      continue
+    }
+    if (arg.startsWith('-')) continue
+    return arg
+  }
+  return undefined
+}
+
 // The built-ins stay the canonical objects: `Command.run` installs the parsed
 // level by comparing against `GlobalFlag.LogLevel` itself, so a copy parses the
 // flag and then drops it. `--wizard` and `--completions` are left out: they are
