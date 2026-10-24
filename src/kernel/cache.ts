@@ -3,6 +3,7 @@ import { Cache, Context, Effect, Layer, Option, Schema, type Scope } from 'effec
 import { Persistable, PersistedCache, Persistence } from 'effect/persistence'
 import type { PersistenceError } from 'effect/persistence/Persistence'
 import type { SchemaError } from 'effect/Schema'
+import { awaitRedis } from '#/kernel/redis-boot.ts'
 import { annotateSpan, withDependencyTelemetry } from '#/observer/dependencies.ts'
 import { AppConfig } from './config/config.ts'
 import { redisUrlForDatabase } from './config/redis.ts'
@@ -110,12 +111,14 @@ const buildService = <A, E, R>(
       // Effect.provide would close the Redis client as soon as the cache is
       // constructed.
       const context = yield* Effect.orDie(
-        Layer.build(
-          Persistence.layerRedis.pipe(
-            Layer.provide(
-              NodeRedis.layer({
-                url: redisUrlForDatabase(config.redis.url, 'cache')
-              })
+        awaitRedis(
+          Layer.build(
+            Persistence.layerRedis.pipe(
+              Layer.provide(
+                NodeRedis.layer({
+                  url: redisUrlForDatabase(config.redis.url, 'cache')
+                })
+              )
             )
           )
         )

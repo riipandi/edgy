@@ -9,6 +9,7 @@ import { Database } from '#/database/adapter.ts'
 import type { DB } from '#/database/schema.ts'
 import { AppConfig } from '#/kernel/config/config.ts'
 import { redisUrlForDatabase } from '#/kernel/config/redis.ts'
+import { awaitRedis } from '#/kernel/redis-boot.ts'
 import { livenessPath } from '#/modules/health/module.ts'
 import { withDependencyTelemetry } from '#/observer/dependencies.ts'
 
@@ -121,7 +122,7 @@ export const RateLimitCounterLayerRedis = (url: Redacted.Redacted) =>
     Layer.effect(
       RateLimitCounter,
       Effect.gen(function* () {
-        const limiter = yield* RateLimiter.RateLimiter
+        const limiter = yield* awaitRedis(RateLimiter.RateLimiter)
         yield* Effect.addFinalizer(() => Effect.logInfo('closing redis rate-limit connection'))
         const redisSpan = withDependencyTelemetry({
           store: 'redis',
