@@ -1,22 +1,26 @@
-import { defineConfig, devices } from '@playwright/test'
+import { defineConfig, devices, type HtmlReporterOptions } from '@playwright/test'
 import { ENV } from './e2e/config.ts'
 
 const address = new URL(ENV.baseURL)
 
 const serverEnv = {
-  DATABASE_DRIVER: 'sqlite',
-  DATABASE_PATH: '.output/e2e/e2e.db',
+  DATABASE_URL: 'file:.output/e2e/e2e.db',
   DATABASE_AUTO_MIGRATE: 'true',
-  LOG_LEVEL: 'Warn',
+  LOG_LEVEL: 'Debug',
   OTEL_SDK_DISABLED: 'true',
   RATE_LIMIT_MAX: '100000'
 }
+
+const htmlReporterOpts = {
+  outputFolder: '.output/e2e-result',
+  open: 'never'
+} satisfies HtmlReporterOptions
 
 export default defineConfig({
   testDir: 'e2e/screens',
   testMatch: '**/*.spec.ts',
   outputDir: '.output/e2e',
-  reporter: [['list'], ['html', { outputFolder: '.output/e2e-result', open: 'never' }]],
+  reporter: [['list'], ['html', htmlReporterOpts]],
   fullyParallel: true,
   forbidOnly: !!process.env['CI'],
   retries: process.env['CI'] ? 1 : 0,
