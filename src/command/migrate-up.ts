@@ -1,8 +1,11 @@
 import { Effect, Option } from 'effect'
-import { Command, Flag } from 'effect/cli'
+import { CliError, Command, Flag } from 'effect/cli'
 import { DatabaseLayer } from '#/database/adapter.ts'
 import { MIGRATION_NAMES } from '#/database/migrations/index.ts'
 import { migrateTo, migrateToLatest, migrationStatus } from '#/database/migrator.ts'
+
+const userError = (message: string) =>
+  Effect.fail(new CliError.UserError({ cause: message, userMessage: message }))
 
 export const migrateUpCmd = Command.make(
   'migrate:up',
@@ -20,16 +23,24 @@ export const migrateUpCmd = Command.make(
     Effect.gen(function* () {
       const target = Option.getOrUndefined(config.to)
       if (target !== undefined && !MIGRATION_NAMES.includes(target))
-        return yield* Effect.fail(new Error(`unknown migration '${target}'`))
+        return yield* userError(`unknown migration '${target}'`)
+
+      const migrations = yield* migrationStatus
+      const limit =
+        target === undefined ? MIGRATION_NAMES.length : MIGRATION_NAMES.indexOf(target) + 1
+      const pending = migrations.filter(
+        (migration) =>
+          migration.executedAt === undefined && MIGRATION_NAMES.indexOf(migration.name) < limit
+      )
+
+      // Kysely's `migrateTo` also walks backwards, so an applied target would
+      // roll the schema down. This command only ever moves forward.
+      if (target !== undefined && !pending.some((migration) => migration.name === target))
+        return yield* userError(`migration '${target}' is already applied`)
 
       if (config.dryRun) {
-        const migrations = yield* migrationStatus
-        const pending = migrations.filter((migration) => migration.executedAt === undefined)
-        const limit =
-          target === undefined ? MIGRATION_NAMES.length : MIGRATION_NAMES.indexOf(target) + 1
-        const list = pending.filter((migration) => MIGRATION_NAMES.indexOf(migration.name) < limit)
-        if (list.length === 0) yield* Effect.logInfo('no pending migrations')
-        for (const migration of list) yield* Effect.logInfo(`pending ${migration.name}`)
+        if (pending.length === 0) yield* Effect.logInfo('no pending migrations')
+        for (const migration of pending) yield* Effect.logInfo(`pending ${migration.name}`)
         return
       }
 
