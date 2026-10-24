@@ -50,8 +50,15 @@ const remoteExecutor = (url: string, token: string): TursoExecutor => {
     execute: async (sql, parameters) => {
       const target = transaction ?? client
       const result = await target.execute({ sql, args: parameters as InValue[] })
+      // The client hands back arrays that also carry the column names as
+      // non-enumerable properties. Kysely and every caller expect plain row
+      // objects — a row that JSON-serializes as `[7,"seven"]` would leak the
+      // transport into every API response — so the columns are mapped here.
+      const rows = result.rows.map((row) =>
+        Object.fromEntries(result.columns.map((column, index) => [column, row[index]]))
+      )
       return {
-        rows: result.rows as unknown[],
+        rows,
         ...(result.lastInsertRowid === undefined ? {} : { insertId: result.lastInsertRowid }),
         numAffectedRows: BigInt(result.rowsAffected)
       }
