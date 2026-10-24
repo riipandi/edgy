@@ -1,9 +1,10 @@
 import { Effect } from 'effect'
-import { Command, Flag, Prompt } from 'effect/cli'
+import { Command, Flag } from 'effect/cli'
 import { DatabaseLayer } from '#/database/adapter.ts'
 import { MIGRATION_COUNT } from '#/database/migrations/index.ts'
 import { migrationStatus, migrateToLatest, migrateToNoMigrations } from '#/database/migrator.ts'
 import { runSeeders } from '#/database/seeder.ts'
+import { confirmDestructive } from './confirm.ts'
 
 export const migrateResetCmd = Command.make(
   'migrate:reset',
@@ -45,17 +46,15 @@ export const migrateResetCmd = Command.make(
       if (!config.up && executed.length === 0) return
 
       if (executed.length > 0) {
-        if (!config.force) {
-          if (!process.stdin.isTTY)
-            return yield* Effect.fail(
-              new Error('non-interactive session: pass --force to skip the confirmation prompt')
-            )
-          const message = config.up
-            ? `Roll back ${executed.length} migration(s) and re-apply the full schema?`
-            : `Roll back all ${executed.length} migration(s)?`
-          const confirmed = yield* Prompt.Confirm({ message, initial: false })
-          if (!confirmed) return
-        }
+        const message = config.up
+          ? `Roll back ${executed.length} migration(s) and re-apply the full schema?`
+          : `Roll back all ${executed.length} migration(s)?`
+        const confirmed = yield* confirmDestructive(
+          config.force,
+          message,
+          'non-interactive session: pass --force to skip the confirmation prompt'
+        )
+        if (!confirmed) return
 
         const downResults = yield* migrateToNoMigrations
         for (const item of downResults)

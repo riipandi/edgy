@@ -1,7 +1,8 @@
 import { Effect } from 'effect'
-import { CliError, Command, Flag, Prompt } from 'effect/cli'
+import { CliError, Command, Flag } from 'effect/cli'
 import { DatabaseLayer } from '#/database/adapter.ts'
 import { migrateDown, migrationStatus } from '#/database/migrator.ts'
+import { confirmDestructive } from './confirm.ts'
 
 export const migrateDownCmd = Command.make(
   'migrate:down',
@@ -45,19 +46,17 @@ export const migrateDownCmd = Command.make(
             return
           }
 
-          if (!config.force) {
-            if (!process.stdin.isTTY)
-              return yield* Effect.fail(
-                new Error('non-interactive session: pass --force to skip the confirmation prompt')
-              )
-            const confirmed = yield* Prompt.Confirm({
-              message: `Roll back ${rollback.length} migration(s)?`,
-              initial: false
-            })
-            if (!confirmed) return
-          }
+          const confirmed = yield* confirmDestructive(
+            config.force,
+            `Roll back ${rollback.length} migration(s)?`,
+            'non-interactive session: pass --force to skip the confirmation prompt'
+          )
+          if (!confirmed) return
 
-          const results = yield* migrateDown(config.count)
+          const results = yield* migrateDown(
+            executed.map((migration) => migration.name),
+            config.count
+          )
           if (results.length === 0) {
             yield* Effect.logInfo('no executed migrations left to roll back')
             return

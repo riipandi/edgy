@@ -57,35 +57,20 @@ export const migrateTo = (
 export const migrateToNoMigrations = migrateTo(NO_MIGRATIONS)
 
 /**
- * Rolls back the given number of executed migrations. Kysely's `migrateDown`
- * moves one step only, so the target is resolved from the executed list and
- * passed to `migrateTo`.
+ * Rolls back `steps` of the `executed` migrations — the caller already read the
+ * status, so this never queries it again. `NO_MIGRATIONS` when the steps cover
+ * every migration.
  */
 export const migrateDown = (
+  executed: ReadonlyArray<string>,
   steps: number
 ): Effect.Effect<ReadonlyArray<MigrationResult>, DatabaseError, Database> =>
   Effect.gen(function* () {
-    const infos = yield* migrationStatus
-    const target = rollbackTarget(
-      infos.filter((info) => info.executedAt !== undefined).map((info) => info.name),
-      steps
-    )
-    return target === undefined ? [] : yield* migrateTo(target)
+    if (executed.length === 0 || steps <= 0) return []
+    const target =
+      executed.length <= steps ? NO_MIGRATIONS : (executed[executed.length - steps - 1] as string)
+    return yield* migrateTo(target)
   })
-
-/**
- * Target to stop at when rolling back `steps` of the `executed` migrations: the
- * one before the last `steps`, or `NO_MIGRATIONS` when they cover all.
- * `undefined` when nothing is rolled back.
- */
-export const rollbackTarget = (
-  executed: ReadonlyArray<string>,
-  steps: number
-): string | NoMigrations | undefined => {
-  if (executed.length === 0 || steps <= 0) return undefined
-  if (executed.length <= steps) return NO_MIGRATIONS
-  return executed[executed.length - steps - 1]
-}
 
 /** Runs pending migrations, then the seeders. */
 export const migrateAndSeed: Effect.Effect<

@@ -49,7 +49,7 @@ export const failureOf = (result: CliResult): string => {
   }
   if (value._tag === 'UserError') return value.userMessage ?? String(value.cause)
   const errors = (value as { readonly errors?: ReadonlyArray<unknown> }).errors
-  return errors === undefined ? String(value) : JSON.stringify(errors)
+  return errors === undefined ? JSON.stringify(value) : JSON.stringify(errors)
 }
 
 /** A fresh directory under the system temp directory, removed when the scope closes. */
