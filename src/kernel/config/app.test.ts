@@ -20,4 +20,9 @@ describe('APP_BASE_URL', () => {
     await expect(resolved('/relative')).rejects.toThrow(/not an absolute URL/)
     await expect(resolved('ftp://example.com')).rejects.toThrow(/must use http or https/)
   })
+
+  it('rejects an empty value', async () => {
+    await expect(resolved('')).rejects.toThrow(/absolute http\(s\) URL/)
+    await expect(resolved('   ')).rejects.toThrow(/absolute http\(s\) URL/)
+  })
 })

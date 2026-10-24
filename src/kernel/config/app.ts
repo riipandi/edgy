@@ -10,7 +10,8 @@ import { custom, group, invalid, type ValueOf } from './field.ts'
 export const parseBaseUrl = (raw: string): Effect.Effect<string, ConfigError> =>
   Effect.suspend(() => {
     const value = raw.trim()
-    if (value === '') return Effect.succeed('')
+    if (value === '')
+      return Effect.fail(invalid('APP_BASE_URL', 'must be set to an absolute http(s) URL'))
     try {
       const url = new URL(value)
       return url.protocol === 'http:' || url.protocol === 'https:'
