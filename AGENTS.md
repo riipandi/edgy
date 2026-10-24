@@ -10,11 +10,14 @@ This file holds the workflow rules, always in force; the detail — the reposito
 
 ## Working rules
 
+- Keep things in one function unless composable or reusable.
 - Do not document, test, or treat a stub as working — implemented surfaces are listed in `.llms/index.md` and `.llms/architecture.md`; the rest is a scaffold.
 - Do not add, remove, or rename a top-level directory unless asked; extend an existing package.
+- Do not extract single-use helpers preemptively. Inline the logic at the call site unless the helper is reused, hides a genuinely complex boundary, or has a clear independent name that improves the caller.
 - Porting a plan into code means implementing it. A doc may describe a larger surface than the code has.
 - Comments are short and rare. Write one only for what the code cannot say (a why, a contract, a trap), in plain words, with no filler. Never restate the code, and never mention a decision, plan, issue, audit, session, or another file in a code comment. The full rule is in `.llms/rules.md` ("Code comments").
 - When working with Effect, check `.llms/effect-docs.md` first — every Effect implementation starts there (it links the v4 docs and names the modules this repository reaches for) — then read the pinned module docs in `node_modules/@effect/**/ai-docs` and `node_modules/effect/ai-docs`; the module cache is the truth, the website is the guide.
+- Before adding complexity for a speculative or vanishingly unlikely race or security edge case, explain the concrete failure mode, likelihood, and complexity cost to the user and get their buy-in. Do not silently expand scope for theoretical robustness.
 
 ## Tooling (vite-plus)
 
