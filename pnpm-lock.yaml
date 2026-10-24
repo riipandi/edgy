@@ -204,6 +204,12 @@ importers:
       '@stylexjs/stylex':
         specifier: ^0.19.1
         version: 0.19.1
+      '@tursodatabase/database':
+        specifier: 0.8.3
+        version: 0.8.3
+      '@tursodatabase/serverless':
+        specifier: 1.4.1
+        version: 1.4.1
       effect:
         specifier: ^4.0.6
         version: 4.0.6
@@ -1632,6 +1638,37 @@ packages:
     engines: {node: '>=12', npm: '>=6'}
     peerDependencies:
       '@testing-library/dom': '>=7.21.4'
+
+  '@tursodatabase/database-common@0.8.3':
+    resolution: {integrity: sha512-T8sMfSnRjgGzKMDVkSg0lh1Jh6dDtTWzjYFK0ZJHtKzr+zs69a7Igo4Z+sxfh+rk9gEqn2njLgRYfpMEghMVMw==}
+
+  '@tursodatabase/database-darwin-arm64@0.8.3':
+    resolution: {integrity: sha512-ZqXF8BUqED5mmSIRM5V13xiowc3CAekfpB26Opb4kbix5/9Q6AKgoxyZ1TkgMgjpih1FXAxD5UKdJ6b8D3IElw==}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@tursodatabase/database-linux-arm64-gnu@0.8.3':
+    resolution: {integrity: sha512-4m9EqKDhL0gwqg6r4KHqX1+2PjMx0xS8CQ61hpoGmWPaCYygePo6O0Zv7EADcf8JJwSBhe7MHyt76gcaEuZDTA==}
+    cpu: [arm64]
+    os: [linux]
+    libc: [glibc]
+
+  '@tursodatabase/database-linux-x64-gnu@0.8.3':
+    resolution: {integrity: sha512-CrwYN45/zCSS+qPOqdOw7wI+MKE6ZHWehxwqJJwatW8CAI/tcEWxz3t+gc1v+p8jgGuNGqTJL3QUu2AnQYVC0Q==}
+    cpu: [x64]
+    os: [linux]
+    libc: [glibc]
+
+  '@tursodatabase/database-win32-x64-msvc@0.8.3':
+    resolution: {integrity: sha512-N19zq+nM9RSeYn4t0FOkfHPMkeWpgHLI2IM3L6dT8KH+bhvdAAAzp2E+cKjl8NQm6RaBSP8f5yqZqV3tp3ET0A==}
+    cpu: [x64]
+    os: [win32]
+
+  '@tursodatabase/database@0.8.3':
+    resolution: {integrity: sha512-pYkADI524URbtreTz+JX7lKtNnfIZU5Pm0n8d6ENnLka3/l1sIexdDmPDWQea4M7CMURv7FxL44oJFYoMQLmOQ==}
+
+  '@tursodatabase/serverless@1.4.1':
+    resolution: {integrity: sha512-kcbGx0zb0Js4WnIrIF4AlsK3gzryRdTyUQev/9UbxtcH/iyk7u0Rk+l7dWdPC/5Ymu1WlbSyn4oUb02eNbn6Mw==}
 
   '@tybys/wasm-util@0.10.4':
     resolution: {integrity: sha512-W3c4gRigFS0T/Ma4qIYF3GDAc5AQdHb1yL5znJT1Zv1YaD9Kitx656wBjvr19qbiosmZT8lWDM5BEMynUqX65A==}
@@ -4322,6 +4359,31 @@ snapshots:
   '@testing-library/user-event@14.6.8(@testing-library/dom@10.4.2)':
     dependencies:
       '@testing-library/dom': 10.4.2
+
+  '@tursodatabase/database-common@0.8.3': {}
+
+  '@tursodatabase/database-darwin-arm64@0.8.3':
+    optional: true
+
+  '@tursodatabase/database-linux-arm64-gnu@0.8.3':
+    optional: true
+
+  '@tursodatabase/database-linux-x64-gnu@0.8.3':
+    optional: true
+
+  '@tursodatabase/database-win32-x64-msvc@0.8.3':
+    optional: true
+
+  '@tursodatabase/database@0.8.3':
+    dependencies:
+      '@tursodatabase/database-common': 0.8.3
+    optionalDependencies:
+      '@tursodatabase/database-darwin-arm64': 0.8.3
+      '@tursodatabase/database-linux-arm64-gnu': 0.8.3
+      '@tursodatabase/database-linux-x64-gnu': 0.8.3
+      '@tursodatabase/database-win32-x64-msvc': 0.8.3
+
+  '@tursodatabase/serverless@1.4.1': {}
 
   '@tybys/wasm-util@0.10.4':
     dependencies:

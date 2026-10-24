@@ -55,6 +55,8 @@
         "@solidjs/router": "^2.0.0-next.38",
         "@solidjs/web": "^2.0.0-rc.14",
         "@stylexjs/stylex": "^0.19.1",
+        "@tursodatabase/database": "0.8.3",
+        "@tursodatabase/serverless": "1.4.1",
         "effect": "^4.0.6",
         "kysely": "^0.29.7",
         "redis": "^6.3.0",
