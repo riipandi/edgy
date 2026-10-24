@@ -1,3 +1,4 @@
+import { sql } from 'kysely'
 import { spawn } from 'node:child_process'
 import { readdirSync, statSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
@@ -65,6 +66,23 @@ describe('turso dialect over a local database', () => {
       .where('id' as never, '>', 0 as never)
       .executeTakeFirst()
     expect(result.numUpdatedRows).toBe(2n)
+  })
+
+  it('reports insertId only for the statement that created the row', async () => {
+    const db = await open('dialect-insertid.db')
+    // Kysely's typed results carry no `insertId`, so the field is only reachable
+    // through the raw result — which is what the next caller will read.
+    const inserted = await sql`insert into probe (id, name) values (42, 'answer')`.execute(db)
+    expect(inserted.insertId).toBe(42n)
+
+    const updated = await sql`update probe set name = 'changed' where id = 42`.execute(db)
+    expect(updated.numAffectedRows).toBe(1n)
+    // The engine keeps the connection's previous rowid, so without the guard an
+    // update reports the id of an earlier insert as if it had created a row.
+    expect(updated.insertId).toBeUndefined()
+
+    const deleted = await sql`delete from probe where id = 42`.execute(db)
+    expect(deleted.insertId).toBeUndefined()
   })
 
   it('keeps a committed transaction and discards a rolled-back one', async () => {
@@ -339,6 +357,18 @@ describe('turso dialect over a remote database', () => {
     await db.destroy()
     expect(result.numInsertedOrUpdatedRows).toBe(1n)
     expect(result.insertId).toBe(42n)
+  })
+
+  it('reports insertId only for the statement that created the row', async () => {
+    const db = await remote('libsql://probe.turso.io')
+    const inserted = await sql`insert into probe (id) values (42)`.execute(db)
+    expect(inserted.insertId).toBe(42n)
+
+    // The server sends the connection's last rowid for any write; reporting it
+    // as `insertId` would name a row the statement never touched.
+    const updated = await sql`update probe set id = 43 where id = 42`.execute(db)
+    expect(updated.insertId).toBeUndefined()
+    await db.destroy()
   })
 
   it('keeps the connection usable after a failed commit', async () => {

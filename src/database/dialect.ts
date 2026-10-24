@@ -25,6 +25,9 @@ interface TursoExecutor {
   close(): Promise<void>
 }
 
+/** The statement opens with INSERT; anything else cannot have created a row. */
+const isInsert = (sql: string): boolean => /^\s*insert\b/i.test(sql)
+
 const localExecutor = (database: TursoDatabase): TursoExecutor => ({
   execute: async (sql, parameters) => {
     const statement = await database.prepare(sql)
@@ -33,7 +36,10 @@ const localExecutor = (database: TursoDatabase): TursoExecutor => ({
     return {
       rows: [],
       numAffectedRows: BigInt(changes),
-      insertId: BigInt(lastInsertRowid)
+      // SQLite keeps the connection's previous rowid, so an UPDATE would report
+      // the id of some earlier insert. The field only means something for the
+      // statement that created the row.
+      ...(isInsert(sql) ? { insertId: BigInt(lastInsertRowid) } : {})
     }
   },
   begin: () => database.exec('begin'),
@@ -68,10 +74,12 @@ const remoteExecutor = (url: string, token: string): TursoExecutor => {
       return {
         rows,
         // The session reports the rowid as a number; Kysely's result type wants
-        // a bigint, and a number silently loses precision past 2^53.
-        ...(result.lastInsertRowid === undefined
-          ? {}
-          : { insertId: BigInt(result.lastInsertRowid) }),
+        // a bigint, and a number silently loses precision past 2^53. Only an
+        // insert has one to report — the field means the row the statement
+        // created, not the connection's last rowid.
+        ...(isInsert(sql) && result.lastInsertRowid !== undefined
+          ? { insertId: BigInt(result.lastInsertRowid) }
+          : {}),
         numAffectedRows: BigInt(result.rowsAffected)
       }
     },
