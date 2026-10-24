@@ -1,5 +1,4 @@
-import type { Kysely } from 'kysely'
-import { currentTimestamp, modifyEndQuery } from '#/database/dialect-helpers.ts'
+import { sql, type Kysely } from 'kysely'
 import type { DB } from '#/database/schema.ts'
 
 export const up = async (db: Kysely<DB>): Promise<void> => {
@@ -16,11 +15,11 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
     .addColumn('scopes', 'text', (col) => col.notNull()) // JSON array
     .addColumn('expires_at', 'text') // null = no expiry
     .addColumn('last_used_at', 'text')
-    .addColumn('created_at', 'text', (col) => col.defaultTo(currentTimestamp(db)))
+    .addColumn('created_at', 'text', (col) => col.defaultTo(sql`(datetime('now'))`))
     .addForeignKeyConstraint('api_tokens_user_fk', ['user_id'], 'users', ['id'], (cb) =>
       cb.onDelete('cascade')
     )
-    .modifyEnd(modifyEndQuery(db))
+    .modifyEnd(sql`STRICT`)
     .ifNotExists()
     .execute()
 
@@ -46,11 +45,11 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
     .addColumn('client_id', 'text')
     .addColumn('expires_at', 'text', (col) => col.notNull())
     .addColumn('refresh_token_hash', 'text') // links access → refresh
-    .addColumn('created_at', 'text', (col) => col.defaultTo(currentTimestamp(db)))
+    .addColumn('created_at', 'text', (col) => col.defaultTo(sql`(datetime('now'))`))
     .addForeignKeyConstraint('oauth_tokens_user_fk', ['user_id'], 'users', ['id'], (cb) =>
       cb.onDelete('cascade')
     )
-    .modifyEnd(modifyEndQuery(db))
+    .modifyEnd(sql`STRICT`)
     .ifNotExists()
     .execute()
 
@@ -80,9 +79,9 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
     .addColumn('status', 'text', (col) => col.notNull().defaultTo('pending'))
     .addColumn('expires_at', 'text', (col) => col.notNull())
     .addColumn('interval', 'integer', (col) => col.notNull().defaultTo(5))
-    .addColumn('created_at', 'text', (col) => col.defaultTo(currentTimestamp(db)))
+    .addColumn('created_at', 'text', (col) => col.defaultTo(sql`(datetime('now'))`))
     .addColumn('last_polled_at', 'text')
-    .modifyEnd(modifyEndQuery(db))
+    .modifyEnd(sql`STRICT`)
     .ifNotExists()
     .execute()
 
@@ -103,11 +102,11 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
     .addColumn('code_challenge_method', 'text', (col) => col.notNull().defaultTo('S256'))
     .addColumn('resource', 'text') // RFC 8707 resource indicator
     .addColumn('expires_at', 'text', (col) => col.notNull())
-    .addColumn('created_at', 'text', (col) => col.defaultTo(currentTimestamp(db)))
+    .addColumn('created_at', 'text', (col) => col.defaultTo(sql`(datetime('now'))`))
     .addForeignKeyConstraint('auth_codes_user_fk', ['user_id'], 'users', ['id'], (cb) =>
       cb.onDelete('cascade')
     )
-    .modifyEnd(modifyEndQuery(db))
+    .modifyEnd(sql`STRICT`)
     .ifNotExists()
     .execute()
 

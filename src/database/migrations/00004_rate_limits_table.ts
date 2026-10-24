@@ -1,5 +1,4 @@
-import type { Kysely } from 'kysely'
-import { modifyEndQuery } from '#/database/dialect-helpers.ts'
+import { sql, type Kysely } from 'kysely'
 import type { DB } from '#/database/schema.ts'
 
 export const up = async (db: Kysely<DB>): Promise<void> => {
@@ -12,7 +11,7 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
     .addColumn('window', 'text', (col) => col.notNull())
     .addColumn('count', 'integer', (col) => col.notNull().defaultTo(1))
     .addPrimaryKeyConstraint('pk_rate_limits', ['key', 'window'])
-    .modifyEnd(modifyEndQuery(db))
+    .modifyEnd(sql`STRICT`)
     .ifNotExists()
     .execute()
 

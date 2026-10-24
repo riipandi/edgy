@@ -1,6 +1,6 @@
 import { Effect, Exit, Metric, Option, Tracer } from 'effect'
 
-export type DependencyStore = 'sqlite' | 'postgres' | 'redis'
+export type DependencyStore = 'sqlite' | 'redis'
 
 export type DependencyOp =
   | 'query'

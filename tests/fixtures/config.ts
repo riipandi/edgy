@@ -1,11 +1,19 @@
 import { Duration, Layer, Redacted } from 'effect'
 import { BlockList } from 'node:net'
 import { AppConfig, type AppConfigShape } from '#/kernel/config/config.ts'
+import { testDatabasePath, testDatabaseUrl } from './database-url.ts'
+
+const databasePath = testDatabasePath('config.db')
 
 export const config: AppConfigShape = {
   app: { baseUrl: 'http://localhost:3000' },
   server: { host: '127.0.0.1', port: 0 },
-  database: { driver: 'sqlite', path: ':memory:', autoMigrate: false },
+  database: {
+    url: testDatabaseUrl('config.db'),
+    token: Redacted.make(''),
+    autoMigrate: false,
+    target: { kind: 'embedded', path: databasePath }
+  },
   logging: {
     level: 'Info',
     transport: ['console'],

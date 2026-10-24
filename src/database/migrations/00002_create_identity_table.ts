@@ -1,5 +1,4 @@
-import type { Kysely } from 'kysely'
-import { binaryType, currentTimestamp, modifyEndQuery } from '#/database/dialect-helpers.ts'
+import { sql, type Kysely } from 'kysely'
 import type { DB } from '#/database/schema.ts'
 
 export const up = async (db: Kysely<DB>): Promise<void> => {
@@ -16,9 +15,9 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
     .addColumn('email_verified', 'integer', (col) => col.notNull().defaultTo(0))
     .addColumn('data', 'text')
     .addColumn('disabled', 'integer', (col) => col.notNull().defaultTo(0))
-    .addColumn('created_at', 'text', (col) => col.defaultTo(currentTimestamp(db)))
-    .addColumn('updated_at', 'text', (col) => col.defaultTo(currentTimestamp(db)))
-    .modifyEnd(modifyEndQuery(db))
+    .addColumn('created_at', 'text', (col) => col.defaultTo(sql`(datetime('now'))`))
+    .addColumn('updated_at', 'text', (col) => col.defaultTo(sql`(datetime('now'))`))
+    .modifyEnd(sql`STRICT`)
     .ifNotExists()
     .execute()
 
@@ -38,19 +37,19 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
     .createTable('credentials')
     .addColumn('id', 'text', (col) => col.primaryKey()) // Base64url credential ID
     .addColumn('user_id', 'text', (col) => col.notNull())
-    .addColumn('public_key', binaryType(db), (col) => col.notNull()) // COSE public key
+    .addColumn('public_key', 'blob', (col) => col.notNull()) // COSE public key
     .addColumn('counter', 'integer', (col) => col.notNull().defaultTo(0))
     .addColumn('device_type', 'text', (col) => col.notNull()) // 'singleDevice' | 'multiDevice'
     .addColumn('backed_up', 'integer', (col) => col.notNull().defaultTo(0))
     .addColumn('transports', 'text') // JSON array
     .addColumn('name', 'text') // User-friendly name
     .addColumn('algorithm', 'integer', (col) => col.notNull().defaultTo(-7))
-    .addColumn('created_at', 'text', (col) => col.defaultTo(currentTimestamp(db)))
-    .addColumn('last_used_at', 'text', (col) => col.defaultTo(currentTimestamp(db)))
+    .addColumn('created_at', 'text', (col) => col.defaultTo(sql`(datetime('now'))`))
+    .addColumn('last_used_at', 'text', (col) => col.defaultTo(sql`(datetime('now'))`))
     .addForeignKeyConstraint('credentials_user_fk', ['user_id'], 'users', ['id'], (cb) =>
       cb.onDelete('cascade')
     )
-    .modifyEnd(modifyEndQuery(db))
+    .modifyEnd(sql`STRICT`)
     .ifNotExists()
     .execute()
 
@@ -74,14 +73,14 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
     .addColumn('role', 'integer') // For invites
     .addColumn('invited_by', 'text')
     .addColumn('expires_at', 'text', (col) => col.notNull())
-    .addColumn('created_at', 'text', (col) => col.defaultTo(currentTimestamp(db)))
+    .addColumn('created_at', 'text', (col) => col.defaultTo(sql`(datetime('now'))`))
     .addForeignKeyConstraint('auth_tokens_user_fk', ['user_id'], 'users', ['id'], (cb) =>
       cb.onDelete('cascade')
     )
     .addForeignKeyConstraint('auth_tokens_invited_by_fk', ['invited_by'], 'users', ['id'], (cb) =>
       cb.onDelete('set null')
     )
-    .modifyEnd(modifyEndQuery(db))
+    .modifyEnd(sql`STRICT`)
     .ifNotExists()
     .execute()
 
@@ -100,12 +99,12 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
     .addColumn('provider', 'text', (col) => col.notNull())
     .addColumn('provider_account_id', 'text', (col) => col.notNull())
     .addColumn('user_id', 'text', (col) => col.notNull())
-    .addColumn('created_at', 'text', (col) => col.defaultTo(currentTimestamp(db)))
+    .addColumn('created_at', 'text', (col) => col.defaultTo(sql`(datetime('now'))`))
     .addPrimaryKeyConstraint('oauth_accounts_pk', ['provider', 'provider_account_id'])
     .addForeignKeyConstraint('oauth_accounts_user_fk', ['user_id'], 'users', ['id'], (cb) =>
       cb.onDelete('cascade')
     )
-    .modifyEnd(modifyEndQuery(db))
+    .modifyEnd(sql`STRICT`)
     .ifNotExists()
     .execute()
 
@@ -127,9 +126,9 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
     .addColumn('name', 'text', (col) => col.notNull()) // Human-readable name
     .addColumn('redirect_uris', 'text', (col) => col.notNull()) // JSON array of allowed redirect URIs
     .addColumn('scopes', 'text') // JSON array of allowed scopes (null = all)
-    .addColumn('created_at', 'text', (col) => col.defaultTo(currentTimestamp(db)))
-    .addColumn('updated_at', 'text', (col) => col.defaultTo(currentTimestamp(db)))
-    .modifyEnd(modifyEndQuery(db))
+    .addColumn('created_at', 'text', (col) => col.defaultTo(sql`(datetime('now'))`))
+    .addColumn('updated_at', 'text', (col) => col.defaultTo(sql`(datetime('now'))`))
+    .modifyEnd(sql`STRICT`)
     .ifNotExists()
     .execute()
 
@@ -141,7 +140,7 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
     .addColumn('domain', 'text', (col) => col.primaryKey())
     .addColumn('default_role', 'integer', (col) => col.notNull().defaultTo(20)) // CONTRIBUTOR
     .addColumn('enabled', 'integer', (col) => col.notNull().defaultTo(1))
-    .addColumn('created_at', 'text', (col) => col.defaultTo(currentTimestamp(db)))
+    .addColumn('created_at', 'text', (col) => col.defaultTo(sql`(datetime('now'))`))
     .ifNotExists()
     .execute()
 
@@ -155,8 +154,8 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
     .addColumn('user_id', 'text') // For registration, the user being registered
     .addColumn('data', 'text') // JSON for additional context
     .addColumn('expires_at', 'text', (col) => col.notNull())
-    .addColumn('created_at', 'text', (col) => col.defaultTo(currentTimestamp(db)))
-    .modifyEnd(modifyEndQuery(db))
+    .addColumn('created_at', 'text', (col) => col.defaultTo(sql`(datetime('now'))`))
+    .modifyEnd(sql`STRICT`)
     .ifNotExists()
     .execute()
 

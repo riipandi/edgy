@@ -39,9 +39,9 @@ export const serveCmd = Command.make(
           new Error('--seed requires --auto-migrate or DATABASE_AUTO_MIGRATE=true')
         )
       // Migrations and requests must share one layer build: a second build
-      // would open a second database, which with DATABASE_PATH=:memory: has no
-      // schema. Running the migration while the layer builds also keeps the
-      // listener closed until the schema is ready.
+      // would open a second connection, and the listener would start before the
+      // schema exists. Running the migration while the layer builds also keeps
+      // the listener closed until the schema is ready.
       const application = autoMigrate
         ? Layer.effectDiscard(migrateBeforeStart(config.seed)).pipe(
             Layer.provideMerge(ApplicationLayer)

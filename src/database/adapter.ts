@@ -3,10 +3,8 @@ import { Context, Data, LogLevel } from 'effect'
 import { sql, type Kysely, type LogEvent } from 'kysely'
 import { AppConfig } from '#/kernel/config/config.ts'
 import { withDependencyTelemetry, type DependencyStore } from '#/observer/dependencies.ts'
-import { openDatabase } from './dialect/sqlite.ts'
+import { openTursoDatabase } from './dialect/turso.ts'
 import type { DB } from './schema.ts'
-
-export type DatabaseDialectType = 'sqlite' | 'postgres'
 
 export class DatabaseError extends Data.TaggedError('DatabaseError')<{
   readonly cause: unknown
@@ -70,7 +68,10 @@ export const DatabaseLayer = Layer.effect(
     const config = yield* AppConfig
     const log = yield* makeQueryLogger
     return yield* Effect.acquireRelease(
-      Effect.sync(() => openDatabase(config.database.path, log)),
+      Effect.tryPromise({
+        try: () => openTursoDatabase(config.database.target, log),
+        catch: (cause) => new DatabaseError({ cause })
+      }),
       (database) =>
         Effect.logInfo('closing database connection').pipe(
           Effect.andThen(

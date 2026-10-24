@@ -2,13 +2,16 @@ import { it } from '@effect/vitest'
 import { Effect, Metric } from 'effect'
 import { expect } from 'vite-plus/test'
 import { dependencyDuration } from '#/observer/dependencies.ts'
+import { testDatabasePath } from '../../tests/fixtures/database-url.ts'
 import { makeDatabaseService } from './adapter.ts'
-import { openDatabase } from './dialect/sqlite.ts'
+import { openTursoDatabase } from './dialect/turso.ts'
 
 it.effect('every database op flows through the dependency series', () =>
   Effect.gen(function* () {
     const db = yield* Effect.acquireRelease(
-      Effect.sync(() => openDatabase(':memory:')),
+      Effect.tryPromise(() =>
+        openTursoDatabase({ kind: 'embedded', path: testDatabasePath('adapter.db') })
+      ),
       (database) => Effect.promise(() => database.destroy())
     )
     const service = makeDatabaseService(db)

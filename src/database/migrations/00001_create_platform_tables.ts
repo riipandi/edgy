@@ -1,5 +1,4 @@
-import type { Kysely } from 'kysely'
-import { currentTimestamp, modifyEndQuery } from '#/database/dialect-helpers.ts'
+import { sql, type Kysely } from 'kysely'
 import type { DB } from '#/database/schema.ts'
 
 export const up = async (db: Kysely<DB>): Promise<void> => {
@@ -10,8 +9,8 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
     .createTable('app_settings')
     .addColumn('name', 'text', (col) => col.primaryKey())
     .addColumn('value', 'text', (col) => col.notNull())
-    .addColumn('updated_at', 'text', (col) => col.defaultTo(currentTimestamp(db)))
-    .modifyEnd(modifyEndQuery(db))
+    .addColumn('updated_at', 'text', (col) => col.defaultTo(sql`(datetime('now'))`))
+    .modifyEnd(sql`STRICT`)
     .ifNotExists()
     .execute()
 
@@ -21,7 +20,7 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
   await db.schema
     .createTable('audit_logs')
     .addColumn('id', 'text', (col) => col.primaryKey())
-    .addColumn('timestamp', 'text', (col) => col.defaultTo(currentTimestamp(db)))
+    .addColumn('timestamp', 'text', (col) => col.defaultTo(sql`(datetime('now'))`))
     .addColumn('actor_id', 'text')
     .addColumn('actor_ip', 'text')
     .addColumn('action', 'text', (col) => col.notNull())
@@ -29,7 +28,7 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
     .addColumn('resource_id', 'text')
     .addColumn('details', 'text')
     .addColumn('status', 'text')
-    .modifyEnd(modifyEndQuery(db))
+    .modifyEnd(sql`STRICT`)
     .ifNotExists()
     .execute()
 
@@ -67,7 +66,7 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
     .addColumn('id', 'text', (col) => col.primaryKey())
     .addColumn('name', 'text', (col) => col.notNull())
     .addColumn('name_key', 'text', (col) => col.notNull().unique())
-    .modifyEnd(modifyEndQuery(db))
+    .modifyEnd(sql`STRICT`)
     .ifNotExists()
     .execute()
 
@@ -92,9 +91,9 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
     .addColumn('status', 'text', (col) => col.notNull().defaultTo('ready'))
     .addColumn('focal_x', 'real')
     .addColumn('focal_y', 'real')
-    .addColumn('created_at', 'text', (col) => col.defaultTo(currentTimestamp(db)))
+    .addColumn('created_at', 'text', (col) => col.defaultTo(sql`(datetime('now'))`))
     .addColumn('author_id', 'text')
-    .modifyEnd(modifyEndQuery(db))
+    .modifyEnd(sql`STRICT`)
     .ifNotExists()
     .execute()
 
@@ -143,9 +142,9 @@ export const up = async (db: Kysely<DB>): Promise<void> => {
     .addColumn('storage_key', 'text', (col) => col.primaryKey())
     .addColumn('media_id', 'text', (col) => col.notNull())
     .addColumn('status', 'text', (col) => col.notNull().defaultTo('active'))
-    .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(currentTimestamp(db)))
-    .addColumn('updated_at', 'text', (col) => col.notNull().defaultTo(currentTimestamp(db)))
-    .modifyEnd(modifyEndQuery(db))
+    .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
+    .addColumn('updated_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
+    .modifyEnd(sql`STRICT`)
     .ifNotExists()
     .execute()
 
