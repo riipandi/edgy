@@ -1,15 +1,23 @@
 import { NodeHttpServer } from '@effect/platform-node'
 import { Effect } from 'effect'
 import { createServer } from 'node:http'
+import { constants } from 'node:os'
 
 // Resolves with the signal name when a shutdown signal arrives. The scope then
 // closes normally, which awaits every finalizer; interruption would detach
-// them instead. A second signal falls back to Node's force-exit.
+// them instead. The handler stays installed past the first signal so a second
+// one can exit immediately: the drain has already been given its chance.
 export const awaitShutdownSignal: Effect.Effect<string> = Effect.callback<string>((resume) => {
-  const handler = (signal: NodeJS.Signals): void => resume(Effect.succeed(signal))
-  process.once('SIGINT', handler)
-  process.once('SIGTERM', handler)
+  let received = false
+  const handler = (signal: NodeJS.Signals): void => {
+    if (received) return process.exit(128 + (constants.signals[signal] ?? 0))
+    received = true
+    resume(Effect.succeed(signal))
+  }
+  process.on('SIGINT', handler)
+  process.on('SIGTERM', handler)
   return Effect.sync(() => {
+    if (received) return
     process.off('SIGINT', handler)
     process.off('SIGTERM', handler)
   })

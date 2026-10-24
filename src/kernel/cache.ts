@@ -1,5 +1,5 @@
 import { NodeRedis } from '@effect/platform-node'
-import { Cache, Context, Effect, Layer, Option, Schema, type Scope } from 'effect'
+import { Cache, Context, Effect, Exit, Layer, Option, Schema, Scope } from 'effect'
 import { Persistable, PersistedCache, Persistence } from 'effect/persistence'
 import type { PersistenceError } from 'effect/persistence/Persistence'
 import type { SchemaError } from 'effect/Schema'
@@ -107,9 +107,10 @@ const buildService = <A, E, R>(
       interface PersistedPeek {
         readonly inMemory: Cache.Cache<Key, A, E | PersistenceError | SchemaError, R>
       }
-      // The backing stack must live in the enclosing scope: building it inside
-      // Effect.provide would close the Redis client as soon as the cache is
-      // constructed.
+      // The backing stack lives in a scope this code owns: the Redis client's
+      // own finalizer sits inside it, so closing that scope is the only place
+      // the close can be logged on both sides.
+      const redisScope = yield* Scope.make()
       const context = yield* Effect.orDie(
         awaitRedis(
           Layer.build(
@@ -121,7 +122,7 @@ const buildService = <A, E, R>(
               )
             )
           )
-        )
+        ).pipe(Effect.provideService(Scope.Scope, redisScope))
       )
       const persistedCache = yield* PersistedCache.make((key: Key) => options.lookup(key.id), {
         storeId: identifier,
@@ -129,7 +130,12 @@ const buildService = <A, E, R>(
         inMemoryCapacity: config.cache.maxEntries,
         inMemoryTTL: () => config.cache.ttl
       }).pipe(Effect.provide(context), Effect.orDie)
-      yield* Effect.addFinalizer(() => Effect.logInfo('closing redis cache connection'))
+      yield* Effect.addFinalizer(() =>
+        Effect.logInfo('closing redis cache connection').pipe(
+          Effect.andThen(Scope.close(redisScope, Exit.void)),
+          Effect.andThen(Effect.logInfo('redis cache connection closed'))
+        )
+      )
       const persisted = persistedCache as unknown as PersistedLookup & PersistedPeek
       backing = {
         peek: (key) => Cache.getOption(persisted.inMemory, new Key({ id: key })),

@@ -1,5 +1,6 @@
 import { NodeRedis } from '@effect/platform-node'
-import { Clock, Context, Data, Duration, Effect, Layer, Option, Redacted, Schema } from 'effect'
+import { Clock, Context, Data, Duration, Effect, Exit, Layer } from 'effect'
+import { Option, Redacted, Schema, Scope } from 'effect'
 import * as HttpRouter from 'effect/http/HttpRouter'
 import * as HttpServerRequest from 'effect/http/HttpServerRequest'
 import * as HttpServerResponse from 'effect/http/HttpServerResponse'
@@ -122,8 +123,24 @@ export const RateLimitCounterLayerRedis = (url: Redacted.Redacted) =>
     Layer.effect(
       RateLimitCounter,
       Effect.gen(function* () {
-        const limiter = yield* awaitRedis(RateLimiter.RateLimiter)
-        yield* Effect.addFinalizer(() => Effect.logInfo('closing redis rate-limit connection'))
+        // The client's finalizer sits inside this scope, so closing it here is
+        // the only place the close can be logged on both sides.
+        const redisScope = yield* Scope.make()
+        const context = yield* awaitRedis(
+          Layer.build(
+            RateLimiter.layer.pipe(
+              Layer.provide(RateLimiter.layerStoreRedis({ prefix: 'rate-limit:' })),
+              Layer.provide(NodeRedis.layer({ url: Redacted.value(url) }))
+            )
+          )
+        ).pipe(Effect.provideService(Scope.Scope, redisScope), Effect.orDie)
+        yield* Effect.addFinalizer(() =>
+          Effect.logInfo('closing redis rate-limit connection').pipe(
+            Effect.andThen(Scope.close(redisScope, Exit.void)),
+            Effect.andThen(Effect.logInfo('redis rate-limit connection closed'))
+          )
+        )
+        const limiter = yield* RateLimiter.RateLimiter.pipe(Effect.provide(context))
         const redisSpan = withDependencyTelemetry({
           store: 'redis',
           op: 'rate-limit-consume',
@@ -160,10 +177,6 @@ export const RateLimitCounterLayerRedis = (url: Redacted.Redacted) =>
             )
         return RateLimitCounter.of({ consume })
       })
-    ).pipe(
-      Layer.provide(RateLimiter.layer),
-      Layer.provide(RateLimiter.layerStoreRedis({ prefix: 'rate-limit:' })),
-      Layer.provide(NodeRedis.layer({ url: Redacted.value(url) }))
     )
   )
 // ---------------------------------------------------------------------------
