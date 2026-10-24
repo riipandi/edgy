@@ -81,8 +81,9 @@ USER nonroot:nonroot
 EXPOSE $SERVER_PORT/tcp
 
 # Healthcheck to monitor application status
+# Exec form: distroless ships no /bin/sh, and only the debug variants ship /busybox.
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s \
-    --retries=3 CMD /app/entry.js healthcheck
+    --retries=3 CMD ["/app/entry.js", "healthcheck"]
 
 # SHELL: /busybox/sh
 ENTRYPOINT ["/usr/bin/tini", "--"]
