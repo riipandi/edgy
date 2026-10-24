@@ -32,8 +32,8 @@ const docs = HttpRouter.toWebHandler(
 )
 
 afterAll(() => {
-  dispose()
-  docs.dispose()
+  void dispose()
+  void docs.dispose()
 })
 
 it('sets the hardening headers on every response', async () => {
