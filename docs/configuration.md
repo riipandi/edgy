@@ -58,14 +58,21 @@ open another machine's file, and `:memory:` is refused too — an in-memory data
 with the healthcheck probe or a migration run. A remote database is named by `libsql://`,
 `turso://`, `https://` or `http://` and requires `DATABASE_TOKEN`; a remote URL without a token
 fails at startup, naming the variable, rather than at the first query. Setting `DATABASE_TOKEN`
-next to a local URL logs one warning and ignores it.
+next to a local URL logs one warning and ignores it. An `http://` URL works — a local `sqld` on
+loopback has no TLS — but one warning names the variable and the unencrypted token.
 
-The local file is created next to its directory (mode `0775`) and narrowed to `0600`, as are its
-`-wal` and `-shm` sidecars, which hold uncommitted rows. Foreign keys are enforced and the journal
-mode is WAL. Every process of the application opens the file in multi-process WAL mode, so the
-healthcheck probe and a migration run can read and write while the server holds the same database;
-a tool outside this application (`sqlite3`, the `turso` CLI) opening that file without the same
-option conflicts with it.
+The local file is created next to its directory (mode `0775`) and narrowed to `0600`, and so is
+every sidecar the engine writes beside it (`-wal` for the write-ahead log, `-tshm` for shared
+memory), which hold uncommitted rows. Foreign keys are enforced and the journal mode is WAL. Every
+process of the application opens the file in multi-process WAL mode, so the healthcheck probe and a
+migration run can read and write while the server holds the same database; a tool outside this
+application (`sqlite3`, the `turso` CLI) opening that file without the same option conflicts with
+it.
+
+A remote database is verified when it is acquired — one `select 1` bounded by a 5-second query
+timeout — so a wrong host or a revoked token fails the startup, naming the cause, instead of
+surfacing at the first request. Every remote request carries the same 5-second bound; a stalled
+connection cannot hold the process forever. A local URL is not probed.
 
 Database access is exposed through an Effect service. It owns the Kysely connection lifecycle and
 returns typed `DatabaseError` failures. Migrations and seeders use the same service, over either

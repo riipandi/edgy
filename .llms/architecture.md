@@ -36,8 +36,11 @@ contract another change can break:
 - **D3 — the dialect keeps `kysely-libsql`'s shape.** `SqliteAdapter`, `SqliteIntrospector`,
   `SqliteQueryCompiler` and a driver whose connection executes a compiled query, over a
   `TursoExecutor` (`execute`/`begin`/`commit`/`rollback`/`close`) that the two transports implement.
-  The local executor awaits `prepare` and branches on `Statement.reader`; the remote one uses the
-  compat client's `execute({ sql, args })`, which is libsql's own contract without the dependency.
+  The local executor awaits `prepare` and branches on
+  `Statement.reader`; the remote one drives `Session` from `@tursodatabase/serverless` directly —
+  the layer that honors the 5-second `REMOTE_QUERY_TIMEOUT_MS` (the `/compat` client builds its
+  session from `url`/`authToken`/`remoteEncryptionKey` only and silently drops
+  `defaultQueryTimeout`).
   Remote rows arrive as arrays with non-enumerable named properties, so the executor maps each row
   through `result.columns` — reading them straight into JSON yields `[7,"seven"]`.
 - **D4 — no custom lock.** `SqliteAdapter.supportsMultipleConnections = false` makes `RuntimeDriver`
@@ -60,6 +63,30 @@ contract another change can break:
   `experimental: ['multiprocess_wal']` and every process of this application passes it. Rejected:
   turning the container healthcheck into an HTTP probe, which weakens the documented readiness
   contract and still leaves migrations unusable during a server run.
+
+## Remote-transport hardening (plan-20261025_0600, 2026-10-25)
+
+The audit (audit-20261025_0551) found the driver's happy paths sound and its failure paths not; the
+fix is a set of contracts one change can break:
+
+- **H-D1 — a transaction slot is cleared before its await.** `commit`/`rollback` take the handle out
+  of the slot first, and a rollback on a closed session is swallowed. The remote path no longer
+  keeps a slot at all — `Session` owns the stream — so the poisoning F-01 found is structurally
+  impossible; the rule stands for any future handle.
+- **H-D2 — every remote request carries a 5-second abort signal** (`REMOTE_QUERY_TIMEOUT_MS`,
+  `Session` itself applies it). Same number as the local busy timeout; no new configuration key.
+- **H-D3 — the remote transport is verified at acquire** with one `select 1` through the executor
+  (so the timeout applies) and the session closed on failure. A wrong host or revoked token fails
+  the layer naming the cause; a local URL is not probed.
+- **H-D4 — `http://` stays accepted and logs one boot warning** naming `DATABASE_URL` and the
+  unencrypted token. Rejected: refusing the scheme (breaks a loopback `sqld`) and silence.
+- **H-D5 — the sidecar sweep matches `<basename>-*`** over the directory listing, so an engine
+  rename cannot leave a file at the process umask; the engine's `-tshm` was the gap.
+- **H-D6 — `streamQuery` clamps a non-positive chunk size to one row** — Kysely forwards the
+  caller's number verbatim, and a driver pinning the event loop is the worse failure.
+- **H-D7 — `insertId` is reported only for an insert**, on both transports: the local executor
+  inspects the statement's leading keyword, the remote driver omits what the server did not send.
+  Kysely's own `UpdateResult` carries no `insertId`, so callers cannot read a stale rowid.
 
 ## Operational limits
 
