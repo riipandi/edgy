@@ -111,7 +111,7 @@ The CLI-conformance audit's ten findings (audit-20261024_2346) landed under thes
 - **D3 — `serve` is chosen by the first positional token.** `subcommandOf(args)` skips global flags and
   the value `--log-level` consumes, and `src/main.ts` branches on it. The previous `process.argv[2]`
   check meant `vpr app --log-level info serve` took the `runMain` path: exit `130`, no
-  `shutting down (received SIGINT)`, no `application terminated`. Rejected: `argv.includes('serve')`
+  `Shutting down (received SIGINT)`, no `Application terminated`. Rejected: `argv.includes('serve')`
   (a flag value equal to `serve` would flip the process into server mode) and an env marker set by the
   handler (the branch has to be decided before the program runs).
 - **D6 — the shutdown path owns the second signal and the Redis scopes.** `awaitShutdownSignal` keeps

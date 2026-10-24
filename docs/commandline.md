@@ -4,6 +4,9 @@ Run application commands from source with `vpr app <command>`.
 
 Global flags: `--version`, `--log-level <level>`, `--help`.
 
+Log messages start with a capital letter; a record that leads with data keeps the data first
+(`GET /api/users 200 7ms`).
+
 ## Server
 
 ```sh
@@ -13,11 +16,11 @@ serve                  Start the application server
 ```
 
 The server shuts down gracefully: `SIGINT` and `SIGTERM` are awaited by the serve command itself.
-The log records `shutting down (received <signal>)` when the signal arrives, then each resource
+The log records `Shutting down (received <signal>)` when the signal arrives, then each resource
 reports its own teardown — the HTTP server drains in-flight requests (up to its 20-second shutdown
-timeout) and logs `server stopped accepting connections`, the database logs `closing database
-connection` and `database connection closed`, a Redis-backed rate-limit or cache store logs its
-close the same way, and `application terminated` lands after every finalizer has finished. The
+timeout) and logs `Server stopped accepting connections`, the database logs `Closing database
+connection` and `Database connection closed`, a Redis-backed rate-limit or cache store logs its
+close the same way, and `Application terminated` lands after every finalizer has finished. The
 process exits `0`; a second signal exits immediately.
 
 ## Health
