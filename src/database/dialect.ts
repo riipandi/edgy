@@ -1,7 +1,6 @@
 import { connect } from '@tursodatabase/database'
 import type { Database as TursoDatabase } from '@tursodatabase/database'
-import { createClient } from '@tursodatabase/serverless/compat'
-import type { InValue, Transaction } from '@tursodatabase/serverless/compat'
+import { Session } from '@tursodatabase/serverless'
 import { Kysely, SqliteAdapter, SqliteIntrospector, SqliteQueryCompiler } from 'kysely'
 import type { DatabaseConnection, Dialect, Driver, LogEvent } from 'kysely'
 import type { CompiledQuery, QueryResult, TransactionSettings } from 'kysely'
@@ -9,6 +8,9 @@ import { chmodSync, existsSync, mkdirSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import type { DB } from '#/database/schema.ts'
 import type { DatabaseTarget } from '#/kernel/config/database.ts'
+
+/** One bound for a remote statement; the local engine's busy timeout is the same. */
+const REMOTE_QUERY_TIMEOUT_MS = 5_000
 
 /**
  * The statement surface both transports expose. The local engine and the
@@ -41,50 +43,49 @@ const localExecutor = (database: TursoDatabase): TursoExecutor => ({
 })
 
 const remoteExecutor = (url: string, token: string): TursoExecutor => {
-  const client = createClient({ url, authToken: token })
-  // A transaction owns a dedicated session until it commits, so every
-  // statement inside the window must go through the handle.
-  let transaction: Transaction | undefined
+  // A `Session` is one server stream: statements and transaction control go
+  // through it in order. The `/compat` client wraps the same session but drops
+  // `defaultQueryTimeout` and the per-call options on its way in, so a remote
+  // query there could never be bounded — this is the layer that honors it.
+  const session = new Session({
+    url,
+    authToken: token,
+    defaultQueryTimeout: REMOTE_QUERY_TIMEOUT_MS
+  })
 
   return {
     execute: async (sql, parameters) => {
-      const target = transaction ?? client
-      const result = await target.execute({ sql, args: parameters as InValue[] })
-      // The client hands back arrays that also carry the column names as
+      const result = await session.execute(sql, parameters as unknown[])
+      // The session hands back arrays that also carry the column names as
       // non-enumerable properties. Kysely and every caller expect plain row
       // objects — a row that JSON-serializes as `[7,"seven"]` would leak the
       // transport into every API response — so the columns are mapped here.
-      const rows = result.rows.map((row) =>
-        Object.fromEntries(result.columns.map((column, index) => [column, row[index]]))
+      const rows = result.rows.map((row: unknown[]) =>
+        Object.fromEntries(
+          result.columns.map((column: string, index: number) => [column, row[index]])
+        )
       )
       return {
         rows,
-        ...(result.lastInsertRowid === undefined ? {} : { insertId: result.lastInsertRowid }),
+        // The session reports the rowid as a number; Kysely's result type wants
+        // a bigint, and a number silently loses precision past 2^53.
+        ...(result.lastInsertRowid === undefined
+          ? {}
+          : { insertId: BigInt(result.lastInsertRowid) }),
         numAffectedRows: BigInt(result.rowsAffected)
       }
     },
-    begin: async () => {
-      transaction = await client.transaction()
-    },
-    // The client closes the session before it rethrows a failed COMMIT, so the
-    // slot must be empty before the await: a handle left behind is a closed one,
-    // and every later statement would fail with "Transaction is closed" — one
-    // network blip ending all database access for the process.
-    commit: async () => {
-      const current = transaction
-      transaction = undefined
-      await current?.commit()
-    },
-    rollback: async () => {
-      const current = transaction
-      transaction = undefined
-      // The session may already be closed by a failed COMMIT; swallowing that
-      // keeps the original failure the one the caller sees.
-      await current?.rollback().catch(() => undefined)
-    },
-    close: async () => {
-      client.close()
-    }
+    begin: () => session.sequence('BEGIN'),
+    // A failed COMMIT or ROLLBACK leaves the stream in an unknown state, but the
+    // next statement opens a fresh one: the session drops its baton when a
+    // request fails, so one network blip cannot end database access.
+    commit: () => session.sequence('COMMIT'),
+    rollback: () =>
+      session.sequence('ROLLBACK').catch(() => {
+        // The session may already have rolled back; the original failure is
+        // the one the caller must see.
+      }),
+    close: () => session.close()
   }
 }
 
@@ -126,8 +127,21 @@ const openLocal = async (path: string): Promise<TursoExecutor> => {
   return localExecutor(database)
 }
 
-const openExecutor = async (target: DatabaseTarget): Promise<TursoExecutor> =>
-  target.kind === 'remote' ? remoteExecutor(target.url, target.token) : openLocal(target.path)
+const openExecutor = async (target: DatabaseTarget): Promise<TursoExecutor> => {
+  if (target.kind === 'local') return openLocal(target.path)
+  const executor = remoteExecutor(target.url, target.token)
+  // Verify the transport while the layer is still being built: a wrong host, a
+  // revoked token, or an endpoint behind a broken proxy must fail here rather
+  // than on the first request, which is the promise the local branch keeps by
+  // opening the file. Bounded by the same query timeout as any other statement.
+  try {
+    await executor.execute('select 1', [])
+  } catch (error) {
+    await executor.close().catch(() => undefined)
+    throw error
+  }
+  return executor
+}
 
 class TursoConnection implements DatabaseConnection {
   readonly #executor: TursoExecutor
@@ -248,8 +262,9 @@ export const openTursoDatabase = async (
   target: DatabaseTarget,
   log?: (event: LogEvent) => void
 ): Promise<Kysely<DB>> => {
-  // Open eagerly: a missing directory, an unwritable file, or a rejected remote
-  // URL must fail the layer that acquires the database, not the first request.
+  // Open eagerly: a missing directory, an unwritable file, or an unreachable
+  // remote database must fail the layer that acquires the database, not the
+  // first request.
   const executor = await openExecutor(target)
   return new Kysely<DB>({
     dialect: new TursoDialect({ open: async () => executor }),

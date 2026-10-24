@@ -252,8 +252,9 @@ describe('turso dialect over a remote database', () => {
       .execute()
     await db.destroy()
 
-    // `init.body` is already the NDJSON request payload, so it is read as text.
-    const rawBody = captured[0]?.init.body
+    // The open-time probe is the first request; the compiled statement is the
+    // last one. `init.body` is already the payload, so it is read as text.
+    const rawBody = captured.at(-1)?.init.body
     const body = typeof rawBody === 'string' ? rawBody : ''
     expect(body).toContain('probe')
     // The bound value travels as a typed parameter, not interpolated SQL.
@@ -341,6 +342,41 @@ describe('turso dialect over a remote database', () => {
       .execute()
     expect(rows).toHaveLength(1)
     await db.destroy()
+  })
+
+  it('bounds every remote request with an abort signal', async () => {
+    const db = await remote('libsql://probe.turso.io')
+    await db
+      .selectFrom('probe' as never)
+      .selectAll()
+      .execute()
+    await db.destroy()
+
+    // Without this the request can hang for as long as undici's own defaults
+    // allow, and `supportsMultipleConnections = false` means it holds the one
+    // connection the whole application shares.
+    expect(captured.length).toBeGreaterThan(0)
+    for (const request of captured) expect(request.init.signal).toBeInstanceOf(AbortSignal)
+  })
+
+  it('verifies the remote transport while the layer is acquired', async () => {
+    await remote('libsql://probe.turso.io')
+
+    // The first request is the probe, not the caller's query: a wrong host or a
+    // revoked token has to fail the layer, the way the local branch fails on a
+    // missing directory.
+    const rawBody = captured[0]?.init.body
+    const body = JSON.parse(typeof rawBody === 'string' ? rawBody : '{}') as {
+      batch?: { steps?: Array<{ stmt?: { sql?: string } }> }
+    }
+    expect(body.batch?.steps?.[0]?.stmt?.sql).toBe('select 1')
+  })
+
+  it('rejects an unreachable remote database instead of deferring the failure', async () => {
+    globalThis.fetch = (async () => {
+      throw new TypeError('fetch failed')
+    }) as typeof fetch
+    await expect(remote('libsql://probe.turso.io')).rejects.toThrow(/fetch failed/)
   })
 })
 
