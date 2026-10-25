@@ -68,7 +68,7 @@ it.effect('--help lists the global flags the document names', () =>
     expect(Exit.isSuccess(result.exit)).toBe(true)
     expect(help).toContain('--help, -h')
     expect(help).toContain('--version, -v')
-    expect(help).toContain('--log-level <all|trace|debug|info|warn|warning|error|fatal|none>')
+    expect(help).toContain('--log-level <level>')
   })
 )
 

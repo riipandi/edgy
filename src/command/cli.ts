@@ -1,5 +1,6 @@
-import { Effect } from 'effect'
-import { CliConfig, Command, GlobalFlag } from 'effect/cli'
+import { Effect, Layer, Option } from 'effect'
+import { GlobalFlag, HelpDoc, TerminalCapabilities } from 'effect/cli'
+import { Command, CliConfig, CliError, CliOutput } from 'effect/cli'
 import pkg from '../../package.json' with { type: 'json' }
 import { configGenerateCmd } from './generate-config.ts'
 import { healthcheckCmd } from './healthcheck.ts'
@@ -15,12 +16,12 @@ const rootCmd = Command.make(pkg.name).pipe(
   Command.withSubcommands([
     serveCmd,
     configGenerateCmd,
-    healthcheckCmd,
     migrateUpCmd,
     migrateDownCmd,
     migrateStatusCmd,
     migrateResetCmd,
-    migrateSeedCmd
+    migrateSeedCmd,
+    healthcheckCmd
   ])
 )
 
@@ -81,8 +82,41 @@ const cliConfig = CliConfig.layer({
   builtIns: [GlobalFlag.Help, GlobalFlag.Version, GlobalFlag.LogLevel]
 })
 
+// The built-in log-level help line states its choices twice: the metavar spells
+// them out and the help builder appends `(choices: …)`. The formatter rewrites
+// the doc before rendering; parsing and the level installation are untouched.
+const compactLogLevel = (flag: HelpDoc.FlagDoc): HelpDoc.FlagDoc =>
+  flag.name === 'log-level'
+    ? {
+        ...flag,
+        type: '<level>',
+        description: Option.map(flag.description, (text) => text.replace(/ \(choices: .+\)$/, ''))
+      }
+    : flag
+
+const compactHelpDoc = (doc: HelpDoc.HelpDoc): HelpDoc.HelpDoc => ({
+  ...doc,
+  flags: doc.flags.map(compactLogLevel),
+  ...(doc.globalFlags === undefined ? {} : { globalFlags: doc.globalFlags.map(compactLogLevel) })
+})
+
+const helpFormatterLayer = Layer.effect(
+  CliOutput.Formatter,
+  Effect.map(TerminalCapabilities.TerminalCapabilities, (capabilities) => {
+    const base = CliOutput.defaultFormatter({ colors: capabilities.canColor })
+    return {
+      formatHelpDoc: (doc: HelpDoc.HelpDoc) => base.formatHelpDoc(compactHelpDoc(doc)),
+      formatCliError: (error: CliError.CliError) => base.formatCliError(error),
+      formatError: (error: CliError.CliError) => base.formatError(error),
+      formatVersion: (name: string, version: string) => base.formatVersion(name, version),
+      formatErrors: (errors: ReadonlyArray<CliError.CliError>) => base.formatErrors(errors)
+    }
+  })
+)
+
 /** Root CLI program. Without a subcommand it prints help. The version comes from `package.json`. */
 export const run = (args: ReadonlyArray<string> = process.argv.slice(2)) =>
   Command.runWith(rootCmd, { version: pkg.version })(normalizeArgs(args)).pipe(
-    Effect.provide(cliConfig)
+    Effect.provide(cliConfig),
+    Effect.provide(helpFormatterLayer)
   )
