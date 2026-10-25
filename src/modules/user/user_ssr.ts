@@ -2,7 +2,7 @@ import { getRequestEvent, httpHeader } from '@solidjs/web'
 import { Data, Effect, Layer, ManagedRuntime } from 'effect'
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { ApplicationLayer, CoreLayer } from '#/kernel/layers.ts'
-import { parseUserId, toPublicUser, type UserIdType } from './user_schema.ts'
+import { parseUserId, toUserResult, type UserIdType } from './user_schema.ts'
 import { UserService } from './user_service.ts'
 
 export class DisposeError extends Data.TaggedError('DisposeError')<{
@@ -44,7 +44,7 @@ const runWithUserService = <A, E>(
 }
 
 export const listUsersFromService = () =>
-  runWithUserService((service) => Effect.map(service.list(), (users) => users.map(toPublicUser)))
+  runWithUserService((service) => Effect.map(service.list(), (users) => users.map(toUserResult)))
 
 // The cache status is read-scoped to the SSR request: the response head is
 // committed when the shell flushes, so the header write must happen before
@@ -66,7 +66,7 @@ export const getUserFromService = (id: string) => {
     Effect.flatMap(service.find(userId, bypass), (result) =>
       Effect.sync(() => {
         httpHeader('x-cache', result.cache)
-        return result.user === undefined ? undefined : toPublicUser(result.user)
+        return result.user === undefined ? undefined : toUserResult(result.user)
       })
     )
   )

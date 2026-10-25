@@ -52,7 +52,7 @@ references: plan-20261023_0105, audit-20261024_0636
 
 - status: parked (unlock: the first authenticated endpoint or the first real user data) · updated
   2026-10-24
-- `src/modules/user/module.ts`'s `listUsers` maps the full row through `toPublicUser`, which keeps
+- `src/modules/user/module.ts`'s `listUsers` maps the full row through `toUserResult`, which keeps
   `email`; with no auth on the API yet this is by design for seed data, but it becomes account
   enumeration plus a PII leak the moment real users exist (audit-20261024_0636, F-06).
 - First move: when auth lands, either drop `email` from the public projection or gate the list

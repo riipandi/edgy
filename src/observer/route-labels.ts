@@ -11,7 +11,9 @@ export const apiRouteTemplates = (httpApi: typeof api): string[] => {
   const templates: string[] = []
   HttpApi.reflect(httpApi, {
     onGroup: () => {},
-    onEndpoint: ({ endpoint }) => templates.push(endpoint.path)
+    onEndpoint: ({ endpoint }) => {
+      if (!templates.includes(endpoint.path)) templates.push(endpoint.path)
+    }
   })
   return templates
 }
