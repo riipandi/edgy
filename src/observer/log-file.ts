@@ -1,7 +1,7 @@
 import { Effect, Exit, FileSystem, Logger, Path, Scope } from 'effect'
 import type { Duration } from 'effect'
-import { withinBudget } from './flush.ts'
 import { jsonLogger } from './log-json.ts'
+import { withinBudget } from './log-utils.ts'
 
 export type LogRotation = 'hourly' | 'daily' | 'weekly' | 'monthly'
 

@@ -3,9 +3,9 @@ import type { Duration } from 'effect'
 import type { HttpClient } from 'effect/http'
 import type { OtlpExporter, OtlpSerialization } from 'effect/observability'
 import { AppConfig, type LogFormat } from '#/kernel/config/config.ts'
-import { withinBudget } from './flush.ts'
 import { makeFileSink } from './log-file.ts'
 import { jsonLogger } from './log-json.ts'
+import { withinBudget } from './log-utils.ts'
 import { makeOtlpLogSink } from './tracing.ts'
 
 type StructuredEntry =

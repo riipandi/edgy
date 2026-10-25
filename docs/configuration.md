@@ -90,7 +90,7 @@ unreachable server fails the layers that depend on it.
 | Variable             | Default                  | Meaning                                                       |
 | -------------------- | ------------------------ | ------------------------------------------------------------- |
 | `LOG_LEVEL`          | `Info`                   | Minimum log level.                                            |
-| `LOG_TRANSPORT`      | `console`                | Comma-separated sinks: `console`, `file`, and/or `otlp`.      |
+| `LOG_TRANSPORT`      | `console`, `file`        | Comma-separated sinks: `console`, `file`, and/or `otlp`.      |
 | `LOG_FILE`           | `storage/logs/app.jsonl` | File sink path; used when `file` is selected.                 |
 | `LOG_ROTATION`       | `daily`                  | File period: `hourly`, `daily`, `weekly`, or `monthly` (UTC). |
 | `LOG_FILE_MAX_FILES` | `14`                     | Rotated files to keep; `0` keeps all.                         |

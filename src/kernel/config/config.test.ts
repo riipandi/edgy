@@ -21,7 +21,7 @@ describe('appConfig', () => {
     expect(config.database.target).toMatchObject({ kind: 'local', path: './storage/data/app.db' })
     expect(config.logging).toMatchObject({
       level: 'Info',
-      transport: ['console'],
+      transport: ['console', 'file'],
       format: 'pretty'
     })
     expect(config.security).toMatchObject({ rateLimitEnabled: true, corsEnabled: true })

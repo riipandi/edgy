@@ -1,18 +1,16 @@
-import {
-  choice,
-  choiceList,
-  group,
-  int,
-  logLevel,
-  milliseconds,
-  text,
-  type ValueOf
-} from './field.ts'
+import { choice, choiceList, text, int } from './field.ts'
+import { group, logLevel, milliseconds } from './field.ts'
+import type { ValueOf } from './field.ts'
 
 export const loggingConfig = group(
   {
     level: logLevel('LOG_LEVEL', 'Info', 'Minimum log severity'),
-    transport: choiceList('LOG_TRANSPORT', ['console', 'file', 'otlp'], ['console'], 'Log sinks'),
+    transport: choiceList(
+      'LOG_TRANSPORT',
+      ['console', 'file', 'otlp'],
+      ['console', 'file'],
+      'Log sinks'
+    ),
     file: text('LOG_FILE', 'storage/logs/app.jsonl', 'Base path for JSON-lines logs'),
     rotation: choice(
       'LOG_ROTATION',
