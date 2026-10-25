@@ -21,7 +21,8 @@ const withFetch = (respond: (call: Call) => Response, run: () => Promise<void>):
   const calls: Array<Call> = []
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const body = typeof init?.body === 'string' ? JSON.parse(init.body) : undefined
-    const call: Call = { url: String(input), method: init?.method ?? 'GET', body }
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+    const call: Call = { url, method: init?.method ?? 'GET', body }
     calls.push(call)
     return respond(call)
   }) as typeof fetch

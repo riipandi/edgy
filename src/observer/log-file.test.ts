@@ -44,7 +44,7 @@ it.effect('writes structured records and flushes them before the scope closes', 
 })
 
 it.effect('stamps each rotation period from UTC time', () =>
-  Effect.gen(function* () {
+  Effect.sync(() => {
     expect(rotationStamp(AT, 'hourly')).toBe('20261021_15')
     expect(rotationStamp(AT, 'daily')).toBe('20261021')
     expect(rotationStamp(AT, 'weekly')).toBe('20261019')
