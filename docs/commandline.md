@@ -26,12 +26,13 @@ process exits `0`; a second signal exits immediately.
 ## Health
 
 ```sh
-healthcheck      Check application readiness (database ping)
+healthcheck      Check application readiness (the registered health checks)
 ```
 
-The command pings the configured database, prints `Healthy` or `Unhealthy`, and exits `0` or `1` to
-match. It narrates no connection lifecycle — the connect/close lines belong to `serve`. The Docker
-image runs this command as its container healthcheck.
+The command runs the same registered checks through the same health core as `GET /api/health`
+(database ping with a shared 2-second probe budget), prints `Healthy` or `Unhealthy`, and exits `0`
+or `1` to match. It narrates no connection lifecycle — the connect/close lines belong to `serve`.
+The Docker image runs this command as its container healthcheck.
 
 ## Database migrations
 

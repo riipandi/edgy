@@ -23,7 +23,15 @@ from the database and the cached entry is replaced.
 
 ## Readiness
 
-`/api/health` returns `200` with `{"status":"ok"}` when the database responds. It returns `503` with `{"status":"unhealthy"}` when the database probe fails. Point the load balancer's readiness check at it: it measures whether this instance can serve, not whether the process is alive.
+`/api/health` runs the registered checks (the database ping) through the health core in
+`src/kernel/healthcheck.ts` and aggregates them: all checks up answers `200` with
+`{"status":"ok","details":{...}}`; any check down answers `503` with
+`{"status":"unhealthy","details":{...}}`. Each entry in `details` carries the component's
+`status` (`up`/`down`), a `timestamp`, and an `error` message when it is down; a check that
+exceeds the shared 2-second probe budget reports as down with a timeout error. The healthcheck
+CLI runs the same core and prints `Healthy`/`Unhealthy`, exiting `0`/`1`. Point the load
+balancer's readiness check at the endpoint: it measures whether this instance can serve, not
+whether the process is alive.
 
 ## Users
 
