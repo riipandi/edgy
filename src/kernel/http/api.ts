@@ -17,6 +17,7 @@ import { requestTracerMiddleware } from '#/middleware/tracer.ts'
 import { trustProxyMiddleware } from '#/middleware/trust-proxy.ts'
 import { UsersApi, usersHandlers } from '#/modules/user/module.ts'
 import { applicationContext, disposeUserRuntime } from '#/modules/user/user_ssr.ts'
+import { LoggerLayer } from '#/observer/logger.ts'
 import pkg from '../../../package.json' with { type: 'json' }
 
 export const apiDocsPath = '/api-docs'
@@ -51,15 +52,21 @@ export const apiRoutes = Layer.unwrap(
 export const apiHandler = async () => {
   const context = await applicationContext()
   const handler = HttpRouter.toWebHandler(
+    // The composition's logger rides the outermost merge: fiber-level log
+    // references only reach the request fibers from an ambient layer around
+    // the whole program, the same rule the test compositions follow.
     Layer.mergeAll(
-      trustProxyMiddleware,
-      requestIdMiddleware,
-      requestLogMiddleware,
-      corsMiddleware,
-      securityHeadersMiddleware,
-      apiRoutes,
-      requestTracerMiddleware
-    ).pipe(Layer.provide(Layer.succeedContext(context)), Layer.provide(HttpServer.layerServices))
+      Layer.mergeAll(
+        trustProxyMiddleware,
+        requestIdMiddleware,
+        requestLogMiddleware,
+        corsMiddleware,
+        securityHeadersMiddleware,
+        apiRoutes,
+        requestTracerMiddleware
+      ).pipe(Layer.provide(Layer.succeedContext(context)), Layer.provide(HttpServer.layerServices)),
+      LoggerLayer.pipe(Layer.provide(Layer.succeedContext(context)))
+    )
   )
   return {
     ...handler,

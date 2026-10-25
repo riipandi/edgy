@@ -40,6 +40,16 @@ it.effect('previews an empty schema without changing anything', () =>
   })
 )
 
+it.effect('stops after reporting an empty schema without --up', () =>
+  Effect.gen(function* () {
+    const directory = yield* tempDirectory
+    const result = yield* runCli(['migrate:reset', '--force'], databaseEnv(directory))
+
+    expect(Exit.isSuccess(result.exit)).toBe(true)
+    expect(result.output).toEqual(['No executed migrations to roll back'])
+  })
+)
+
 it.effect('applies and seeds from an empty schema with --up', () =>
   Effect.gen(function* () {
     const directory = yield* tempDirectory

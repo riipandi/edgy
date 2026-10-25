@@ -112,7 +112,7 @@ export default defineConfig(({ mode }) => ({
       reportsDirectory: '.output/coverage',
       reporter: ['text-summary', 'html', 'json-summary'],
       include: ['src/**/*.ts', 'src/**/*.tsx'],
-      exclude: ['**/*.d.ts', '**/*.stories.tsx']
+      exclude: ['**/*.d.ts', '**/*.stories.tsx', 'src/resources/**', 'src/main.ts']
     },
     projects: [
       {

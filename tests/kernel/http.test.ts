@@ -72,4 +72,34 @@ describe('the serve composition root', () => {
     }
     expect(exit._tag).toBe('Success')
   })
+
+  it('serves the Prometheus scrape endpoint when metrics are enabled', async () => {
+    const port = await reservePort()
+    const bootConfig = Layer.succeed(AppConfig, {
+      ...config,
+      server: { ...config.server, host: '127.0.0.1', port },
+      observability: { ...config.observability, metricsEnabled: true }
+    })
+    const serveLayer = server.pipe(
+      Layer.provide(bootConfig),
+      Layer.provide(testServices),
+      Layer.provide(migratedDatabaseFor('serve-metrics.db'))
+    )
+
+    const exit = await Effect.runPromiseExit(
+      Effect.gen(function* () {
+        const response = yield* Effect.tryPromise(() => fetch(`http://127.0.0.1:${port}/metrics`))
+        expect(response.status).toBe(200)
+        const body = yield* Effect.tryPromise(() => response.text())
+        expect(body).toContain('http_requests')
+      })
+        .pipe(Effect.provide(serveLayer), Effect.scoped)
+        .pipe(Effect.provide(silentLogger))
+    )
+
+    if (exit._tag === 'Failure') {
+      console.log('METRICS BOOT CAUSE:', Cause.pretty(exit.cause).slice(0, 600))
+    }
+    expect(exit._tag).toBe('Success')
+  })
 })

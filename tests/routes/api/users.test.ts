@@ -213,6 +213,14 @@ describe('PATCH /api/users/:id', () => {
     expect((await response.json()).name).toBeNull()
   })
 
+  it('patches the avatar URL', async () => {
+    const response = await patch(`/api/users/${createdId}`, {
+      avatar_url: 'https://example.com/avatar.png'
+    })
+    expect(response.status).toBe(200)
+    expect((await response.json()).avatar_url).toBe('https://example.com/avatar.png')
+  })
+
   it('responds 409 when the email belongs to another user', async () => {
     await post('/api/users', { email: 'ada@example.com', name: 'Ada Lovelace' })
     const response = await patch(`/api/users/${createdId}`, { email: 'ada@example.com' })
