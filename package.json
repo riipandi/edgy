@@ -80,7 +80,7 @@
         "npm-check-updates": "^23.1.1",
         "storybook": "^10.6.3",
         "storybook-solidjs-vite": "^10.7.4",
-        "typescript": "catalog:",
+        "typescript": "^7.0.2",
         "vite-plugin-devtools-json": "^1.1.2",
         "vite-plugin-solid": "^2.11.14",
         "vite-plus": "catalog:"

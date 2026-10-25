@@ -5,10 +5,12 @@ import * as HttpApiScalar from 'effect/http-api/HttpApiScalar'
 import * as OpenApi from 'effect/http-api/OpenApi'
 import * as HttpRouter from 'effect/http/HttpRouter'
 import * as HttpServer from 'effect/http/HttpServer'
+import * as HttpServerResponse from 'effect/http/HttpServerResponse'
 import { PrometheusMetrics } from 'effect/observability'
 import { AppConfig } from '#/kernel/config/config.ts'
 import { healthHandlers, HealthApi } from '#/kernel/healthcheck.ts'
 import { corsMiddleware } from '#/middleware/cors.ts'
+import { errorResponseMiddleware } from '#/middleware/error-response.ts'
 import { rateLimitMiddleware } from '#/middleware/rate-limit.ts'
 import { requestIdMiddleware } from '#/middleware/request-id.ts'
 import { requestLogMiddleware } from '#/middleware/request-log.ts'
@@ -34,6 +36,20 @@ export const api = HttpApi.make(pkg.name)
   .annotate(OpenApi.Version, pkg.version)
   .prefix('/api')
 
+// The fallback answers every router-owned path the contract does not define —
+// including the wrong method on a known path — so an API typo is a JSON 404
+// in serve and in dev instead of the SSR page or an empty body. Static routes
+// keep find-my-way priority over the wildcard.
+const apiFallbacks = HttpRouter.use((router) =>
+  Effect.gen(function* () {
+    yield* router.add(
+      '*',
+      '/api/*',
+      Effect.succeed(HttpServerResponse.jsonUnsafe({ _tag: 'NotFound' }, { status: 404 }))
+    )
+  })
+)
+
 export const apiRoutes = Layer.unwrap(
   Effect.gen(function* () {
     const config = yield* AppConfig
@@ -43,14 +59,15 @@ export const apiRoutes = Layer.unwrap(
       Layer.provide(usersHandlers(api)),
       Layer.provide(rateLimitMiddleware({ excludePaths: [{ path: '/api/health', exact: true }] }))
     )
+    const withFallbacks = Layer.mergeAll(routes, apiFallbacks)
     return config.docs.enabled
       ? Layer.mergeAll(
-          routes,
+          withFallbacks,
           HttpApiScalar.layer(api, { path: apiDocsPath }).pipe(
             Layer.provide(docsSecurityHeadersMiddleware)
           )
         )
-      : routes
+      : withFallbacks
   })
 )
 
@@ -70,6 +87,7 @@ export const apiHandler = async () => {
       Layer.mergeAll(
         trustProxyMiddleware,
         requestIdMiddleware,
+        errorResponseMiddleware,
         requestLogMiddleware(),
         corsMiddleware,
         securityHeadersMiddleware,

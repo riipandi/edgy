@@ -41,6 +41,20 @@ If a user lookup fails because of a database error, the endpoint returns `503` w
 
 `POST /api/users` accepts `{ email, name?, avatar_url? }` and returns the created record with `201`; the role starts at `10` (SUBSCRIBER) and the storage columns (`email_verified`, `disabled`, `data`, timestamps) are server-owned. Requests are validated at the boundary: an email must look like an address and stay within 254 characters, a name must not be blank and stays within 200 characters, and an avatar URL must be an absolute `http(s)` URL within 2048 characters — a violation answers `400` before any query runs. A duplicate email — on create or on `PATCH /api/users/:id` — returns `409` with `{"_tag":"Conflict"}`; a user may keep their own email. `PATCH` accepts a partial `{ email?, name?, avatar_url? }`: absent fields stay unchanged, an explicit `null` clears the value, and the response carries the updated record. `DELETE /api/users/:id` removes the record and answers `204`; deleting an unknown id answers `404`. Writes invalidate the user's cached read, so the next `GET /api/users/:id` reports `miss`.
 
+## Error responses
+
+Every error under `/api/*` is a JSON document with `application/json` — nothing answers with an empty body or plain text:
+
+| Failure                             | Status | Body                                                                         |
+| ----------------------------------- | ------ | ---------------------------------------------------------------------------- |
+| Validation or malformed payload     | `400`  | `{"_tag":"HttpApiDecodeError","kind":"Payload"\|"Params"\|…","message":"…"}` |
+| Unknown path or unregistered method | `404`  | `{"_tag":"NotFound"}`                                                        |
+| Conflicting value (duplicate email) | `409`  | `{"_tag":"Conflict"}`                                                        |
+| Rate-limit store outage             | `503`  | `{"_tag":"ServiceUnavailable"}`                                              |
+| Server defect                       | `500`  | `{"_tag":"InternalServerError"}`                                             |
+
+The `message` on a decode error is the rendered issue tree (for example `must be a valid email address\n at ["email"]`); it names the failing field but never carries internal causes. A request that falls outside `/api/*` keeps its page behavior — the server-rendered application answers those paths, not the API.
+
 ## Rate limits and request IDs
 
 The user routes use the configured rate limit. A rejected request returns `429` with `Retry-After` and `RateLimit-*` headers. A store that cannot be read returns `503` rather than an unthrottled request. The fixed-window counter is stored in the `rate_limits` database table, so separate server instances share the same limit.

@@ -4,6 +4,7 @@ import * as HttpServer from 'effect/http/HttpServer'
 import { Database, type DatabaseError } from '#/database/adapter.ts'
 import type { AppConfig } from '#/kernel/config/config.ts'
 import { apiRoutes } from '#/kernel/http/api.ts'
+import { errorResponseMiddleware } from '#/middleware/error-response.ts'
 import { RateLimitCounterLayer } from '#/middleware/rate-limit.ts'
 import { migratedDatabase } from './database.ts'
 
@@ -16,10 +17,9 @@ export const toHandler = (
 ) => {
   // A middleware layer mutates the router service, so each one folds over the
   // composed routes; the cast keeps the resolved web handler single-argument.
-  const routes =
-    middleware.length === 0
-      ? apiRoutes
-      : Layer.mergeAll(apiRoutes, ...middleware.map((m) => m as Layer.Layer<any>))
+  // The error-body middleware rides the same merge as the serve composition,
+  // so every /api failure answers JSON here too.
+  const routes = Layer.mergeAll(apiRoutes, errorResponseMiddleware, ...middleware)
   const { handler, dispose } = HttpRouter.toWebHandler(
     Layer.mergeAll(
       routes.pipe(

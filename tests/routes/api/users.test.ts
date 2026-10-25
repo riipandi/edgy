@@ -83,9 +83,14 @@ describe('GET /api/users/:id', () => {
     expect(response.headers.get('x-cache')).toBe('bypass')
   })
 
-  it('responds 400 for a non-TypeID id', async () => {
+  it('responds 400 JSON for a non-TypeID id', async () => {
     const response = await handler(new Request('http://localhost/api/users/not-a-typeid'))
     expect(response.status).toBe(400)
+    expect(await response.json()).toMatchObject({
+      _tag: 'HttpApiDecodeError',
+      kind: 'Params',
+      message: expect.stringContaining('["id"]')
+    })
   })
 
   it('responds 404 for an unknown id', async () => {
@@ -97,9 +102,16 @@ describe('GET /api/users/:id', () => {
 })
 
 describe('unknown API path', () => {
-  it('responds 404', async () => {
+  it('responds 404 JSON for an unknown path', async () => {
     const response = await handler(new Request('http://localhost/api/nope'))
     expect(response.status).toBe(404)
+    expect(await response.json()).toEqual({ _tag: 'NotFound' })
+  })
+
+  it('responds 404 JSON for an unregistered method', async () => {
+    const response = await handler(new Request('http://localhost/api/users', { method: 'PUT' }))
+    expect(response.status).toBe(404)
+    expect(await response.json()).toEqual({ _tag: 'NotFound' })
   })
 })
 
@@ -109,6 +121,15 @@ const post = (path: string, body: unknown) =>
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body)
+    })
+  )
+
+const rawPost = (path: string, body: string) =>
+  writeHandler(
+    new Request(`http://localhost${path}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body
     })
   )
 
@@ -139,9 +160,24 @@ describe('POST /api/users', () => {
     expect(await response.json()).toEqual({ _tag: 'Conflict' })
   })
 
-  it('responds 400 for a blank email', async () => {
+  it('responds 400 JSON for a blank email', async () => {
     const response = await post('/api/users', { email: '   ' })
     expect(response.status).toBe(400)
+    expect(await response.json()).toMatchObject({
+      _tag: 'HttpApiDecodeError',
+      kind: 'Payload',
+      message: expect.stringContaining('["email"]')
+    })
+  })
+
+  it('responds 400 JSON for a body that is not JSON', async () => {
+    const response = await rawPost('/api/users', '{not json')
+    expect(response.status).toBe(400)
+    expect(await response.json()).toMatchObject({
+      _tag: 'HttpApiDecodeError',
+      kind: 'Payload',
+      message: expect.stringContaining('JSON')
+    })
   })
 
   it('responds 400 for a malformed email', async () => {

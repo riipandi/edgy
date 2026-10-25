@@ -51,6 +51,6 @@ describe('GET /api/health', () => {
     // The throttled routes keep failing closed on the same store.
     const limited = await unwritableStoreHandler(new Request('http://localhost/api/users'))
     expect(limited.status).toBe(503)
-    expect(limited.headers.get('content-type')).toContain('text/plain')
+    expect(await limited.json()).toEqual({ _tag: 'ServiceUnavailable' })
   })
 })

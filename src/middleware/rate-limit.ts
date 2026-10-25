@@ -235,7 +235,7 @@ export const rateLimitMiddleware = (options?: {
             .consume(key, rateLimitMax, rateLimitWindow)
             .pipe(Effect.catchTag('RateLimitError', () => Effect.succeed('unavailable' as const)))
           if (verdict === 'unavailable')
-            return HttpServerResponse.setStatus(503)(HttpServerResponse.text('Service Unavailable'))
+            return HttpServerResponse.jsonUnsafe({ _tag: 'ServiceUnavailable' }, { status: 503 })
           const headers = {
             'ratelimit-limit': String(verdict.limit),
             'ratelimit-reset': String(verdict.resetSeconds),

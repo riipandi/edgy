@@ -5,6 +5,7 @@ import { AppConfig } from '#/kernel/config/config.ts'
 import { gracefulServerLayer } from '#/kernel/graceful.ts'
 import { renderPage } from '#/kernel/renderer.ts'
 import { corsMiddleware } from '#/middleware/cors.ts'
+import { errorResponseMiddleware } from '#/middleware/error-response.ts'
 import { requestIdMiddleware } from '#/middleware/request-id.ts'
 import { requestLogMiddleware } from '#/middleware/request-log.ts'
 import { securityHeadersMiddleware } from '#/middleware/security-headers.ts'
@@ -29,6 +30,7 @@ export const server = Layer.unwrap(
       apiRoutes,
       ssrRouter,
       requestIdMiddleware,
+      errorResponseMiddleware,
       requestLogMiddleware(),
       securityHeadersMiddleware,
       Layer.effectDiscard(Effect.addFinalizer(() => disposeUserRuntimeEffect))

@@ -19,9 +19,11 @@ export const apiRouteTemplates = (httpApi: typeof api): string[] => {
 }
 
 // The SSR catch-all registers as `*` and serves every page path under one
-// label. An unmatched request carries no RouteContext, so the middleware
-// passes undefined and gets `unmatched` instead of a raw path.
+// label. The API fallback answers unmatched /api paths under one wildcard —
+// it is not a real resource, so it shares the `unmatched` label with requests
+// the router never matched at all.
 export const routeLabel = (routePath: string | undefined): string => {
   if (routePath === undefined) return unmatchedRoute
+  if (routePath === '/api/*') return unmatchedRoute
   return routePath === '*' || routePath === '/*' ? pageRoute : routePath
 }
