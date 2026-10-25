@@ -59,7 +59,7 @@ export const apiHandler = async () => {
       Layer.mergeAll(
         trustProxyMiddleware,
         requestIdMiddleware,
-        requestLogMiddleware,
+        requestLogMiddleware(),
         corsMiddleware,
         securityHeadersMiddleware,
         apiRoutes,

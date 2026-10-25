@@ -29,7 +29,7 @@ export const server = Layer.unwrap(
       apiRoutes,
       ssrRouter,
       requestIdMiddleware,
-      requestLogMiddleware,
+      requestLogMiddleware(),
       securityHeadersMiddleware,
       Layer.effectDiscard(Effect.addFinalizer(() => disposeUserRuntimeEffect))
     )
