@@ -18,19 +18,22 @@ it.effect('every database op flows through the dependency series', () =>
     )
     const service = makeDatabaseService(db)
 
+    // The metric registry is process-global and other suites (the healthcheck
+    // command) record into the same series, so only the delta is asserted.
+    const series = (op: string) =>
+      Metric.withAttributes(dependencyDuration, { store: 'sqlite', op })
+    const pingBefore = (yield* Metric.value(series('ping'))).count
+    const readBefore = (yield* Metric.value(series('read'))).count
+
     yield* service.ping
     yield* service.read(() => Promise.resolve(1))
     yield* service.ping
 
-    const ping = yield* Metric.value(
-      Metric.withAttributes(dependencyDuration, { store: 'sqlite', op: 'ping' })
-    )
-    expect(ping.count).toBe(2)
+    const ping = yield* Metric.value(series('ping'))
+    expect(ping.count).toBe(pingBefore + 2)
 
-    const read = yield* Metric.value(
-      Metric.withAttributes(dependencyDuration, { store: 'sqlite', op: 'read' })
-    )
-    expect(read.count).toBe(1)
+    const read = yield* Metric.value(series('read'))
+    expect(read.count).toBe(readBefore + 1)
   })
 )
 

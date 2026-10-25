@@ -1,9 +1,17 @@
 import { afterAll, describe, expect, it } from 'vite-plus/test'
 import { toHandler } from '../../fixtures/api.ts'
 import { limitedConfig } from '../../fixtures/config.ts'
+import { migratedDatabaseFor } from '../../fixtures/database.ts'
 import { testServices } from '../../fixtures/users.ts'
 
-const { handler: limitedHandler, dispose } = toHandler(testServices, limitedConfig)
+// A database of its own: the limiter's counters live in the shared fixtures
+// database, and requests from the other route suites would exhaust the window
+// before this file runs.
+const { handler: limitedHandler, dispose } = toHandler(
+  testServices,
+  limitedConfig,
+  migratedDatabaseFor('rate-limit.db')
+)
 
 afterAll(() => dispose())
 
