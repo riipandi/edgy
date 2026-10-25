@@ -2,11 +2,13 @@ import { Layer } from 'effect'
 import * as HttpRouter from 'effect/http/HttpRouter'
 import * as HttpServer from 'effect/http/HttpServer'
 import * as HttpServerResponse from 'effect/http/HttpServerResponse'
-import { describe, expect, it } from 'vite-plus/test'
+import { afterAll, describe, expect, it } from 'vite-plus/test'
 import { AppConfig, type AppConfigShape } from '#/kernel/config/config.ts'
 import { rateLimitMiddleware, type RateLimitExclusion } from '#/middleware/rate-limit.ts'
-import { config as baseAppConfig } from '../fixtures/config.ts'
+import { toHandler } from '../fixtures/api.ts'
+import { config as baseAppConfig, limitedConfig } from '../fixtures/config.ts'
 import { migratedDatabaseFor } from '../fixtures/database.ts'
+import { testServices } from '../fixtures/users.ts'
 
 // A database per serveWith: the limiter's 'local' counter would otherwise
 // leak across the tests in this file, since every request shares one key.
@@ -131,5 +133,39 @@ describe('rate limit middleware', () => {
     } finally {
       await dispose()
     }
+  })
+})
+
+// The composed API proves the limiter wiring end to end: a real config and
+// counter store around the real routes, with its own database so the counter
+// starts empty. The health probe stays unlimited by design.
+const { handler: limitedHandler, dispose: disposeLimitedHandler } = toHandler(
+  testServices,
+  limitedConfig,
+  migratedDatabaseFor('rate-limit.db')
+)
+
+afterAll(() => disposeLimitedHandler())
+
+describe('the composed api routes', () => {
+  const headers = { 'x-forwarded-for': '203.0.113.7' }
+
+  it('counts requests and exposes RateLimit headers while under the max', async () => {
+    const first = await limitedHandler(new Request('http://localhost/api/users', { headers }))
+    expect(first.status).toBe(200)
+    expect(first.headers.get('ratelimit-limit')).toBe('2')
+    expect(first.headers.get('ratelimit-remaining')).toBe('1')
+
+    const second = await limitedHandler(new Request('http://localhost/api/users', { headers }))
+    expect(second.status).toBe(200)
+    expect(second.headers.get('ratelimit-remaining')).toBe('0')
+  })
+
+  it('responds 429 once the max is exceeded', async () => {
+    const response = await limitedHandler(new Request('http://localhost/api/users', { headers }))
+    expect(response.status).toBe(429)
+    expect(await response.text()).toBe('Too Many Requests')
+    expect(response.headers.get('ratelimit-remaining')).toBe('0')
+    expect(Number(response.headers.get('retry-after'))).toBeGreaterThanOrEqual(1)
   })
 })
