@@ -3,12 +3,7 @@ import { api } from '#/kernel/http/api.ts'
 import { apiRouteTemplates, pageRoute, routeLabel, unmatchedRoute } from './route-labels.ts'
 
 it('derives the wire templates from the HttpApi contract', () => {
-  expect(apiRouteTemplates(api)).toEqual([
-    '/api/health',
-    '/api/live',
-    '/api/users',
-    '/api/users/:id'
-  ])
+  expect(apiRouteTemplates(api)).toEqual(['/api/health', '/api/users', '/api/users/:id'])
 })
 
 it('bounds the label set to contract templates and the fixed literals', () => {

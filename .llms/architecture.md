@@ -12,7 +12,7 @@ The Vite API adapter builds `ApplicationLayer` into a `ManagedRuntime` and gives
 
 The API wire contract is owned by Effect HttpApi: the group contracts (`modules/health/module.ts`, `modules/user/module.ts`) define endpoint schemas, statuses, and error sets once, the handler factories in the same files implement them, and `kernel/http/api.ts` composes `HttpApi.make(...).prefix('/api')` into `HttpApiBuilder.layer`. The rate-limit middleware stays a router-level layer provided into that composition. The OpenAPI document and the Scalar reference mount from the same contract behind `API_DOCS_ENABLED`; the document title and version come from `package.json` through the `OpenApi.Title`/`OpenApi.Version` annotations. `kernel/http/api.ts` exports the path constants (`apiDocsPath`, `openApiPath`) that the Vite dev plugin's forwarding guard also reads.
 
-`modules/health/module.ts` serves the readiness check directly from `Database.ping` — the health feature has no service of its own; the healthcheck CLI pings the same signal with a 2-second timeout. The same `HealthApi` group carries the liveness probe `GET /api/live`, which answers `200 { status: 'ok' }` without a `Database` dependency, so the supervisor's restart check and the load balancer's readiness check read different endpoints.
+`modules/health/module.ts` serves the health check directly from `Database.ping` — the health feature has no service of its own; the healthcheck CLI pings the same signal with a 2-second timeout. `GET /api/health` is the only health endpoint: readiness semantics, fail-closed on a database or rate-limit store outage (the liveness surface `GET /api/live` was removed on 2026-10-25, superseding the split below).
 
 ## Persistence
 
@@ -171,8 +171,9 @@ because each one shapes a contract another change can break:
   `route` is the template from the HttpApi contract (`/api` prefix baked into endpoint paths,
   bounded by the route table plus the `page`/`unmatched` literals); the class label was dropped,
   not kept beside it — the owner waived backward compatibility.
-- **D5 — the liveness surface is `GET /api/live`** inside the existing `HealthApi` group, with no
-  `Database` in the handler; readiness stays `/api/health`. See the contracts in rules.md.
+- **D5 — the liveness surface was `GET /api/live`** inside the existing `HealthApi` group, with no
+  `Database` in the handler; readiness stays `/api/health`. Superseded 2026-10-25: the endpoint and
+  its rate-limit bypass are removed; `/api/health` is the single, fail-closed health probe.
 - **D6 — dependency telemetry is one histogram plus bounded spans.** `dependency_duration_seconds
   {store, op}`; stores `{sqlite, postgres, redis}`; ops fixed to the six call shapes the adapters
   and middlewares make; the database-backed limiter consume span carries no metric because the

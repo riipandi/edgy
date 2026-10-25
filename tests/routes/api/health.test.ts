@@ -36,25 +36,11 @@ describe('GET /api/health', () => {
     expect(response.status).toBe(503)
     expect(await response.json()).toEqual({ _tag: 'ServiceUnavailable' })
   })
-})
 
-describe('GET /api/live', () => {
-  it('responds 200 without touching the database', async () => {
-    const response = await handler(new Request('http://localhost/api/live'))
-    expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ status: 'ok' })
-  })
-
-  it('still answers 200 when the database is down, unlike the readiness probe', async () => {
-    const response = await unavailableHandler(new Request('http://localhost/api/live'))
-    expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ status: 'ok' })
-  })
-
-  it('answers 200 while the rate-limit store is unreadable; other routes stay fail-closed', async () => {
-    const live = await unwritableStoreHandler(new Request('http://localhost/api/live'))
-    expect(live.status).toBe(200)
-    expect(await live.json()).toEqual({ status: 'ok' })
+  it('answers 503 while the rate-limit store is unreadable; the store failure stays fail-closed', async () => {
+    const health = await unwritableStoreHandler(new Request('http://localhost/api/health'))
+    expect(health.status).toBe(503)
+    expect(health.headers.get('content-type')).toContain('text/plain')
 
     const limited = await unwritableStoreHandler(new Request('http://localhost/api/users'))
     expect(limited.status).toBe(503)
