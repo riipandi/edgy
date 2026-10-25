@@ -35,7 +35,7 @@ export const apiRoutes = Layer.unwrap(
     const routes = HttpApiBuilder.layer(api, { openapiPath }).pipe(
       Layer.provide(healthHandlers(api)),
       Layer.provide(usersHandlers(api)),
-      Layer.provide(rateLimitMiddleware)
+      Layer.provide(rateLimitMiddleware({ excludePaths: [{ path: '/api/health', exact: true }] }))
     )
     return config.docs.enabled
       ? Layer.mergeAll(

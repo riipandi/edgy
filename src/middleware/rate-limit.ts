@@ -196,40 +196,65 @@ export const RateLimitCounterLayer: Layer.Layer<RateLimitCounter, never, AppConf
 // Standard rate limit headers (draft IETF: RateLimit-*). Route-scoped: only
 // the route layers this is provided to are limited, so pages and static
 // assets stay unlimited. A store failure answers 503 instead of letting the
-// request through unthrottled.
-export const rateLimitMiddleware = Layer.unwrap(
-  Effect.gen(function* () {
-    const config = yield* AppConfig
-    const counter = yield* RateLimitCounter
-    if (!config.security.rateLimitEnabled) return Layer.empty
-    const { rateLimitMax, rateLimitWindow } = config.security
-    return HttpRouter.middleware((httpEffect) =>
-      Effect.gen(function* () {
-        const request = yield* HttpServerRequest.HttpServerRequest
-        const key = Option.getOrUndefined(request.remoteAddress) ?? 'local'
-        const verdict = yield* counter
-          .consume(key, rateLimitMax, rateLimitWindow)
-          .pipe(Effect.catchTag('RateLimitError', () => Effect.succeed('unavailable' as const)))
-        if (verdict === 'unavailable')
-          return HttpServerResponse.setStatus(503)(HttpServerResponse.text('Service Unavailable'))
-        const headers = {
-          'ratelimit-limit': String(verdict.limit),
-          'ratelimit-reset': String(verdict.resetSeconds),
-          'ratelimit-remaining': String(verdict.remaining)
-        }
-        if (!verdict.allowed) {
-          return HttpServerResponse.setStatus(429)(
-            HttpServerResponse.text('Too Many Requests')
-          ).pipe(
-            HttpServerResponse.setHeaders({
-              ...headers,
-              'retry-after': String(verdict.resetSeconds)
-            })
-          )
-        }
-        const response = yield* httpEffect
-        return HttpServerResponse.setHeaders(headers)(response)
-      })
-    ).layer
-  })
-).pipe(Layer.provide(RateLimitCounterLayer))
+// request through unthrottled. `excludePaths` opts routes out entirely —
+// a readiness probe must never consume the budget or trip the limit. An
+// exclusion with `exact: true` matches the pathname alone; otherwise it is
+// a prefix, so `/api/users` also covers `/api/users/:id`.
+export interface RateLimitExclusion {
+  readonly path: string
+  readonly exact?: boolean
+}
+
+// A configured path loses its trailing slashes so `exact` matches the same
+// pathname whether it was written with one or not.
+const normalizePath = (path: string): string => path.replace(/\/+$/u, '') || '/'
+
+const excludedPath = (pathname: string, exclusion: RateLimitExclusion): boolean => {
+  const path = normalizePath(exclusion.path)
+  return exclusion.exact === true ? pathname === path : pathname.startsWith(path)
+}
+
+export const rateLimitMiddleware = (options?: {
+  readonly excludePaths?: ReadonlyArray<RateLimitExclusion>
+}) => {
+  const exclusions = options?.excludePaths ?? []
+  return Layer.unwrap(
+    Effect.gen(function* () {
+      const config = yield* AppConfig
+      const counter = yield* RateLimitCounter
+      if (!config.security.rateLimitEnabled) return Layer.empty
+      const { rateLimitMax, rateLimitWindow } = config.security
+      return HttpRouter.middleware((httpEffect) =>
+        Effect.gen(function* () {
+          const request = yield* HttpServerRequest.HttpServerRequest
+          const { pathname } = new URL(request.url, config.app.baseUrl)
+          if (exclusions.some((exclusion) => excludedPath(pathname, exclusion)))
+            return yield* httpEffect
+          const key = Option.getOrUndefined(request.remoteAddress) ?? 'local'
+          const verdict = yield* counter
+            .consume(key, rateLimitMax, rateLimitWindow)
+            .pipe(Effect.catchTag('RateLimitError', () => Effect.succeed('unavailable' as const)))
+          if (verdict === 'unavailable')
+            return HttpServerResponse.setStatus(503)(HttpServerResponse.text('Service Unavailable'))
+          const headers = {
+            'ratelimit-limit': String(verdict.limit),
+            'ratelimit-reset': String(verdict.resetSeconds),
+            'ratelimit-remaining': String(verdict.remaining)
+          }
+          if (!verdict.allowed) {
+            return HttpServerResponse.setStatus(429)(
+              HttpServerResponse.text('Too Many Requests')
+            ).pipe(
+              HttpServerResponse.setHeaders({
+                ...headers,
+                'retry-after': String(verdict.resetSeconds)
+              })
+            )
+          }
+          const response = yield* httpEffect
+          return HttpServerResponse.setHeaders(headers)(response)
+        })
+      ).layer
+    })
+  ).pipe(Layer.provide(RateLimitCounterLayer))
+}

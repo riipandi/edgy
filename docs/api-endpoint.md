@@ -35,7 +35,9 @@ If a user lookup fails because of a database error, the endpoint returns `503` w
 
 ## Rate limits and request IDs
 
-API routes use the configured rate limit. A rejected request returns `429` with `Retry-After` and `RateLimit-*` headers. A store that cannot be read returns `503` rather than an unthrottled request. The fixed-window counter is stored in the `rate_limits` database table, so separate server instances share the same limit.
+The user routes use the configured rate limit. A rejected request returns `429` with `Retry-After` and `RateLimit-*` headers. A store that cannot be read returns `503` rather than an unthrottled request. The fixed-window counter is stored in the `rate_limits` database table, so separate server instances share the same limit.
+
+`/api/health` is exempt from the rate limit: a readiness probe never consumes the budget, never trips the limit, and keeps answering when the limiter's store is down.
 
 ## API documentation
 

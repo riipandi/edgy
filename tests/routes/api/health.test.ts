@@ -37,11 +37,12 @@ describe('GET /api/health', () => {
     expect(await response.json()).toEqual({ status: 'unhealthy' })
   })
 
-  it('answers 503 while the rate-limit store is unreadable; the store failure stays fail-closed', async () => {
+  it('answers 200 while the rate-limit store is unreadable; the probe is exempt from the limiter', async () => {
     const health = await unwritableStoreHandler(new Request('http://localhost/api/health'))
-    expect(health.status).toBe(503)
-    expect(health.headers.get('content-type')).toContain('text/plain')
+    expect(health.status).toBe(200)
+    expect(await health.json()).toEqual({ status: 'ok' })
 
+    // The throttled routes keep failing closed on the same store.
     const limited = await unwritableStoreHandler(new Request('http://localhost/api/users'))
     expect(limited.status).toBe(503)
     expect(limited.headers.get('content-type')).toContain('text/plain')
