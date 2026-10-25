@@ -97,3 +97,22 @@ it.effect('the undocumented flags are gone', () =>
     expect(failureOf(completions)).toContain('--completions')
   })
 )
+
+it.effect('prints the root help without a subcommand', () =>
+  Effect.gen(function* () {
+    const result = yield* runCli([])
+
+    // run() reports the bare invocation as a help request; runMain maps it to
+    // a zero exit, so the harness only pins the rendered help here.
+    expect(result.output.join('\n')).toContain('SUBCOMMANDS')
+  })
+)
+
+it.effect('prints the help and fails for an unknown subcommand', () =>
+  Effect.gen(function* () {
+    const result = yield* runCli(['nope'])
+
+    expect(Exit.isFailure(result.exit)).toBe(true)
+    expect(result.output.join('\n')).toContain('SUBCOMMANDS')
+  })
+)

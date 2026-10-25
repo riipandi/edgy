@@ -48,7 +48,7 @@ export const migrateResetCmd = Command.make(
           return
         }
         yield* report.warn(`${executed.length} migration(s) would be rolled back (dry run):`)
-        for (const migration of executed) yield* report.warn(`  Would rollback ${migration.name}`)
+        for (const migration of executed) yield* report.warn(`Would rollback ${migration.name}`)
         if (config.up) yield* report.warn(`Would re-apply ${MIGRATION_COUNT} migrations`)
         return
       }

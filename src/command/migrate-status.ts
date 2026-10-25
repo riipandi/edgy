@@ -10,10 +10,6 @@ export const migrateStatusCmd = Command.make('migrate:status').pipe(
     Effect.gen(function* () {
       const report = yield* reporter
       const migrations = yield* migrationStatus
-      if (migrations.length === 0) {
-        yield* report.ok('No migrations')
-        return
-      }
       const executed = migrations.filter((migration) => migration.executedAt !== undefined)
       const pending = migrations.filter((migration) => migration.executedAt === undefined)
 

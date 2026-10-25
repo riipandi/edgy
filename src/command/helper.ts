@@ -1,5 +1,6 @@
 import { Console, Effect } from 'effect'
 import { CliError, Prompt, TerminalCapabilities } from 'effect/cli'
+import { QuitError } from 'effect/Terminal'
 
 const RESET = '\u001b[0m'
 const CYAN = '\u001b[36m'
@@ -40,7 +41,11 @@ export const reporter: Effect.Effect<Reporter> = Effect.map(
  * Asks before a destructive step. `--force` skips the prompt; without a TTY the
  * answer is a refusal, so a scripted run never hangs waiting for input.
  */
-export const confirmDestructive = (force: boolean, message: string, refusal: string) => {
+export const confirmDestructive = (
+  force: boolean,
+  message: string,
+  refusal: string
+): Effect.Effect<boolean, CliError.CliError | QuitError, Prompt.Environment> => {
   if (force) return Effect.succeed(true)
   if (!process.stdin.isTTY)
     return Effect.fail(new CliError.UserError({ cause: refusal, userMessage: refusal }))

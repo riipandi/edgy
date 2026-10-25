@@ -15,6 +15,49 @@ it.effect('refuses --seed without --up', () =>
   })
 )
 
+it.effect('previews the rollback and the re-apply in a dry run', () =>
+  Effect.gen(function* () {
+    const directory = yield* tempDirectory
+    const env = databaseEnv(directory)
+    yield* runCli(['migrate:up'], env)
+
+    const result = yield* runCli(['migrate:reset', '--up', '--seed', '--dry-run'], env)
+
+    expect(Exit.isSuccess(result.exit)).toBe(true)
+    expect(result.output[0]).toBe('4 migration(s) would be rolled back (dry run):')
+    for (const name of MIGRATION_NAMES) expect(result.output).toContain(`Would rollback ${name}`)
+    expect(result.output).toContain('Would re-apply 4 migrations')
+  })
+)
+
+it.effect('previews an empty schema without changing anything', () =>
+  Effect.gen(function* () {
+    const directory = yield* tempDirectory
+    const result = yield* runCli(['migrate:reset', '--up', '--dry-run'], databaseEnv(directory))
+
+    expect(Exit.isSuccess(result.exit)).toBe(true)
+    expect(result.output).toEqual(['No executed migrations to roll back'])
+  })
+)
+
+it.effect('applies and seeds from an empty schema with --up', () =>
+  Effect.gen(function* () {
+    const directory = yield* tempDirectory
+    const result = yield* runCli(
+      ['migrate:reset', '--up', '--seed', '--force'],
+      databaseEnv(directory)
+    )
+
+    expect(Exit.isSuccess(result.exit)).toBe(true)
+    expect(result.output).toContain('No executed migrations to roll back')
+    expect(result.output).toContain('Applying 4 migration(s)')
+    expect(result.output).toContain(`Applied ${MIGRATION_NAMES[3]}`)
+    expect(result.output).toContain('Seeding users')
+    expect(result.output).toContain(`Seeded users (${USER_SEED_COUNT} records)`)
+    expect(result.output).toContain('Reset complete')
+  })
+)
+
 it.effect('rolls everything back and re-applies with seeding', () =>
   Effect.gen(function* () {
     const directory = yield* tempDirectory

@@ -1,5 +1,5 @@
 import { NodeServices } from '@effect/platform-node'
-import { Cause, ConfigProvider, Effect, Exit, Layer, Logger, Option } from 'effect'
+import { Console, Cause, ConfigProvider, Effect, Exit, Layer, Logger, Option } from 'effect'
 import { TerminalCapabilities } from 'effect/cli'
 import { TestConsole } from 'effect/testing'
 import { mkdtempSync, rmSync } from 'node:fs'
@@ -30,7 +30,16 @@ export const runCli = (
     const output = yield* TestConsole.logLines
     return { exit, logs, output: output.map(String) }
   }).pipe(
-    Effect.provide(Layer.mergeAll(NodeServices.layer, ConfigLayer, TestConsole.layer)),
+    // A fresh test console per run: the module-level TestConsole.layer memoizes
+    // within the test's scope, so a second run would inherit the first run's
+    // captured lines.
+    Effect.provide(
+      Layer.mergeAll(
+        NodeServices.layer,
+        ConfigLayer,
+        Layer.effect(Console.Console)(TestConsole.make)
+      )
+    ),
     // Colors off: the captured output must match the exact strings the specs
     // assert, whatever the runner's terminal claims.
     Effect.provide(
