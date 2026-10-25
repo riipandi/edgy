@@ -1,4 +1,4 @@
-import { Layer } from 'effect'
+import { Layer, Logger } from 'effect'
 import * as HttpRouter from 'effect/http/HttpRouter'
 import * as HttpServer from 'effect/http/HttpServer'
 import { Database, type DatabaseError } from '#/database/adapter.ts'
@@ -21,12 +21,17 @@ export const toHandler = (
       ? apiRoutes
       : Layer.mergeAll(apiRoutes, ...middleware.map((m) => m as Layer.Layer<any>))
   const { handler, dispose } = HttpRouter.toWebHandler(
-    routes.pipe(
-      HttpRouter.provideRequest(services),
-      Layer.provide(RateLimitCounterLayer),
-      Layer.provide(databaseLayer),
-      Layer.provide(appConfig),
-      Layer.provide(HttpServer.layerServices)
+    Layer.mergeAll(
+      routes.pipe(
+        HttpRouter.provideRequest(services),
+        Layer.provide(RateLimitCounterLayer),
+        Layer.provide(databaseLayer),
+        Layer.provide(appConfig),
+        Layer.provide(HttpServer.layerServices)
+      ),
+      // Keep test output quiet: app logs are asserted through a capturing
+      // logger where a test needs them, never through the console.
+      Logger.layer([Logger.make(() => void 0)])
     ),
     { disableLogger: true }
   )
