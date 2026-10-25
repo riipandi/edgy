@@ -18,13 +18,13 @@ export const migrateStatusCmd = Command.make('migrate:status').pipe(
       const pending = migrations.filter((migration) => migration.executedAt === undefined)
 
       yield* report.ok(`Executed (${executed.length}):`)
-      if (executed.length === 0) yield* report.ok('  (none)')
+      if (executed.length === 0) yield* report.ok('(none)')
       for (const migration of executed)
-        yield* report.ok(`  ${migration.name} ${migration.executedAt?.toISOString()}`)
+        yield* report.ok(`${migration.name} ${migration.executedAt?.toISOString()}`)
 
       yield* report.warn(`Pending (${pending.length}):`)
-      if (pending.length === 0) yield* report.warn('  (none)')
-      for (const migration of pending) yield* report.warn(`  ${migration.name}`)
+      if (pending.length === 0) yield* report.warn('(none)')
+      for (const migration of pending) yield* report.warn(`${migration.name}`)
     }).pipe(Effect.provide(DatabaseLayer))
   )
 )

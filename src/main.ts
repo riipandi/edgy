@@ -1,5 +1,6 @@
 import { NodeRuntime } from '@effect/platform-node'
 import { Effect } from 'effect'
+import { CliError } from 'effect/cli'
 import { run, subcommandOf } from '#/command/root.ts'
 import { CoreLayer } from '#/kernel/layers.ts'
 
@@ -18,7 +19,10 @@ if (subcommandOf(args) !== 'serve') {
   void Effect.runPromise(run(args).pipe(Effect.provide(CoreLayer))).then(
     () => process.exit(0),
     (cause) => {
-      console.error(cause instanceof Error ? (cause.stack ?? cause.message) : cause)
+      // A CliError was already rendered by the command's own handler;
+      // printing it again would duplicate the report.
+      if (!CliError.isCliError(cause))
+        console.error(cause instanceof Error ? (cause.stack ?? cause.message) : cause)
       process.exit(1)
     }
   )

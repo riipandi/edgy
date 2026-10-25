@@ -1,7 +1,7 @@
 import { Effect, Layer } from 'effect'
-import { Command, Flag } from 'effect/cli'
+import { CliError, Command, Flag } from 'effect/cli'
 import { migrateToLatest } from '#/database/migrator.ts'
-import { runSeeders } from '#/database/seeder.ts'
+import { runSeeders, SEEDERS } from '#/database/seeder.ts'
 import { AppConfig } from '#/kernel/config/config.ts'
 import { awaitShutdownSignal } from '#/kernel/graceful.ts'
 import { server } from '#/kernel/http/serve.ts'
@@ -9,12 +9,15 @@ import { ApplicationLayer } from '#/kernel/layers.ts'
 
 const migrateBeforeStart = (seed: boolean) =>
   Effect.gen(function* () {
+    yield* Effect.logInfo('Migrating database')
     const results = yield* migrateToLatest
     if (results.length === 0) yield* Effect.logInfo('Database is up to date')
-    for (const item of results) yield* Effect.logInfo(`${item.status} ${item.migrationName}`)
+    for (const item of results) yield* Effect.logInfo(`Migrated ${item.migrationName}`)
     if (seed) {
+      for (const seeder of SEEDERS) yield* Effect.logInfo(`Seeding ${seeder.name}`)
       yield* runSeeders
-      yield* Effect.logInfo('Seeders applied')
+      for (const seeder of SEEDERS)
+        yield* Effect.logInfo(`Seeded ${seeder.name} (${seeder.records} records)`)
     }
   })
 
@@ -36,7 +39,10 @@ export const serveCmd = Command.make(
       const autoMigrate = config.autoMigrate || appConfig.database.autoMigrate
       if (config.seed && !autoMigrate)
         return yield* Effect.fail(
-          new Error('--seed requires --auto-migrate or DATABASE_AUTO_MIGRATE=true')
+          new CliError.UserError({
+            cause: '--seed requires --auto-migrate or DATABASE_AUTO_MIGRATE=true',
+            userMessage: '--seed requires --auto-migrate or DATABASE_AUTO_MIGRATE=true'
+          })
         )
       // Migrations and requests must share one layer build: a second build
       // would open a second connection, and the listener would start before the

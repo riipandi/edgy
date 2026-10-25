@@ -35,12 +35,12 @@ it.effect('--log-level filters the logger, not the console presentation', () =>
     // level, and nothing reaches the logger on a clean run.
     expect(quiet.output).toEqual([
       'Executed (0):',
-      '  (none)',
+      '(none)',
       'Pending (4):',
-      '  00001_create_platform_tables',
-      '  00002_create_identity_table',
-      '  00003_create_token_tables',
-      '  00004_rate_limits_table'
+      '00001_create_platform_tables',
+      '00002_create_identity_table',
+      '00003_create_token_tables',
+      '00004_rate_limits_table'
     ])
     expect(quiet.logs).toEqual([])
   })

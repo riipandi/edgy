@@ -44,7 +44,7 @@ export const migrateUpCmd = Command.make(
         if (pending.length === 0) yield* report.ok('No pending migrations')
         else {
           yield* report.warn(`${pending.length} pending migration(s) (dry run):`)
-          for (const migration of pending) yield* report.warn(`  Would apply ${migration.name}`)
+          for (const migration of pending) yield* report.warn(`Would apply ${migration.name}`)
         }
         return
       }
@@ -52,6 +52,6 @@ export const migrateUpCmd = Command.make(
       if (pending.length > 0) yield* report.start(`Applying ${pending.length} migration(s)`)
       const results = yield* target === undefined ? migrateToLatest : migrateTo(target)
       if (results.length === 0) yield* report.ok('Database is up to date')
-      else for (const item of results) yield* report.ok(`  Applied ${item.migrationName}`)
+      else for (const item of results) yield* report.ok(`Applied ${item.migrationName}`)
     }).pipe(Effect.provide(DatabaseLayer))
 ).pipe(Command.withDescription('Run database migrations'))

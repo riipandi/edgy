@@ -18,13 +18,13 @@ export const migrateSeedCmd = Command.make(
       if (config.dryRun) {
         yield* report.warn(`${SEEDERS.length} seeder(s) would run (dry run):`)
         for (const seeder of SEEDERS)
-          yield* report.warn(`  Would seed ${seeder.name} (${seeder.records} records)`)
+          yield* report.warn(`Would seed ${seeder.name} (${seeder.records} records)`)
         return
       }
 
       for (const seeder of SEEDERS) yield* report.start(`Seeding ${seeder.name}`)
       yield* runSeeders
       for (const seeder of SEEDERS)
-        yield* report.ok(`  Seeded ${seeder.name} (${seeder.records} records)`)
+        yield* report.ok(`Seeded ${seeder.name} (${seeder.records} records)`)
     }).pipe(Effect.provide(DatabaseLayer))
 ).pipe(Command.withDescription('Seed the database with initial data'))

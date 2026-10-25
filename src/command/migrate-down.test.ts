@@ -26,8 +26,8 @@ it.effect('lists what a rollback would remove without changing the schema', () =
 
     const result = yield* runCli(['migrate:down', '--count', '2', '--dry-run'], env)
 
-    expect(result.output).toContain(`  Would rollback ${MIGRATION_NAMES[3]}`)
-    expect(result.output).toContain(`  Would rollback ${MIGRATION_NAMES[2]}`)
+    expect(result.output).toContain(`Would rollback ${MIGRATION_NAMES[3]}`)
+    expect(result.output).toContain(`Would rollback ${MIGRATION_NAMES[2]}`)
 
     const status = yield* runCli(['migrate:status'], env)
     expect(statusLines(status.output)).toHaveLength(MIGRATION_NAMES.length)
@@ -58,12 +58,12 @@ it.effect('rolls back the requested number of migrations with --force', () =>
 
     const result = yield* runCli(['migrate:down', '--force'], env)
     expect(Exit.isSuccess(result.exit)).toBe(true)
-    expect(result.output).toContain(`  Rolled back ${MIGRATION_NAMES[3]}`)
+    expect(result.output).toContain(`Rolled back ${MIGRATION_NAMES[3]}`)
 
     const status = yield* runCli(['migrate:status'], env)
     expect(statusLines(status.output)).toHaveLength(MIGRATION_NAMES.length - 1)
     expect(status.output).toContain('Pending (1):')
-    expect(status.output).toContain(`  ${MIGRATION_NAMES[3]}`)
+    expect(status.output).toContain(`${MIGRATION_NAMES[3]}`)
   })
 )
 

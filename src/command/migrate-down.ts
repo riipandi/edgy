@@ -43,8 +43,7 @@ export const migrateDownCmd = Command.make(
 
           if (config.dryRun) {
             yield* report.warn(`${rollback.length} migration(s) would be rolled back (dry run):`)
-            for (const migration of rollback)
-              yield* report.warn(`  Would rollback ${migration.name}`)
+            for (const migration of rollback) yield* report.warn(`Would rollback ${migration.name}`)
             return
           }
 
@@ -64,6 +63,6 @@ export const migrateDownCmd = Command.make(
             yield* report.ok('No executed migrations left to roll back')
             return
           }
-          for (const item of results) yield* report.ok(`  Rolled back ${item.migrationName}`)
+          for (const item of results) yield* report.ok(`Rolled back ${item.migrationName}`)
         }).pipe(Effect.provide(DatabaseLayer))
 ).pipe(Command.withDescription('Rollback database migrations'))

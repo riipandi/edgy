@@ -17,7 +17,7 @@ it.effect('applies every pending migration', () =>
 
     expect(Exit.isSuccess(result.exit)).toBe(true)
     expect(result.output).toContain('Applying 4 migration(s)')
-    for (const name of MIGRATION_NAMES) expect(result.output).toContain(`  Applied ${name}`)
+    for (const name of MIGRATION_NAMES) expect(result.output).toContain(`Applied ${name}`)
   })
 )
 
@@ -30,14 +30,14 @@ it.effect('--to applies the migrations up to the named one only', () =>
     const dryRun = yield* runCli(['migrate:up', '--to', target, '--dry-run'], env)
     expect(dryRun.output).toEqual([
       '2 pending migration(s) (dry run):',
-      `  Would apply ${MIGRATION_NAMES[0]}`,
-      `  Would apply ${target}`
+      `Would apply ${MIGRATION_NAMES[0]}`,
+      `Would apply ${target}`
     ])
 
     const applied = yield* runCli(['migrate:up', '--to', target], env)
-    expect(applied.output).toContain(`  Applied ${MIGRATION_NAMES[0]}`)
-    expect(applied.output).toContain(`  Applied ${target}`)
-    expect(applied.output).not.toContain(`  Applied ${MIGRATION_NAMES[2]}`)
+    expect(applied.output).toContain(`Applied ${MIGRATION_NAMES[0]}`)
+    expect(applied.output).toContain(`Applied ${target}`)
+    expect(applied.output).not.toContain(`Applied ${MIGRATION_NAMES[2]}`)
 
     const status = yield* runCli(['migrate:status'], env)
     expect(statusLines(status.output)).toHaveLength(2)
