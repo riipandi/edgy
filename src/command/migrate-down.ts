@@ -2,7 +2,7 @@ import { Effect } from 'effect'
 import { CliError, Command, Flag } from 'effect/cli'
 import { DatabaseLayer } from '#/database/adapter.ts'
 import { migrateDown, migrationStatus } from '#/database/migrator.ts'
-import { confirmDestructive } from './confirm.ts'
+import { confirmDestructive, reporter } from './helper.ts'
 
 export const migrateDownCmd = Command.make(
   'migrate:down',
@@ -31,18 +31,20 @@ export const migrateDownCmd = Command.make(
           })
         )
       : Effect.gen(function* () {
+          const report = yield* reporter
           const migrations = yield* migrationStatus
           const executed = migrations.filter((migration) => migration.executedAt !== undefined)
           const rollback = executed.slice(-config.count).reverse()
 
           if (rollback.length === 0) {
-            yield* Effect.logInfo('No executed migrations to roll back')
+            yield* report.ok('No executed migrations to roll back')
             return
           }
 
           if (config.dryRun) {
+            yield* report.warn(`${rollback.length} migration(s) would be rolled back (dry run):`)
             for (const migration of rollback)
-              yield* Effect.logInfo(`Would rollback ${migration.name}`)
+              yield* report.warn(`  Would rollback ${migration.name}`)
             return
           }
 
@@ -53,14 +55,15 @@ export const migrateDownCmd = Command.make(
           )
           if (!confirmed) return
 
+          yield* report.start(`Rolling back ${rollback.length} migration(s)`)
           const results = yield* migrateDown(
             executed.map((migration) => migration.name),
             config.count
           )
           if (results.length === 0) {
-            yield* Effect.logInfo('No executed migrations left to roll back')
+            yield* report.ok('No executed migrations left to roll back')
             return
           }
-          for (const item of results) yield* Effect.logInfo(`${item.status} ${item.migrationName}`)
+          for (const item of results) yield* report.ok(`  Rolled back ${item.migrationName}`)
         }).pipe(Effect.provide(DatabaseLayer))
 ).pipe(Command.withDescription('Rollback database migrations'))

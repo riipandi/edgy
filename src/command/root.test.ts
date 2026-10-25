@@ -1,8 +1,8 @@
 import { it } from '@effect/vitest'
 import { Effect, Exit } from 'effect'
 import { expect } from 'vite-plus/test'
-import { normalizeArgs, subcommandOf } from './cli.ts'
-import { databaseEnv, failureOf, runCli, tempDirectory } from './harness.ts'
+import { databaseEnv, failureOf, runCli, tempDirectory } from './cli.ts'
+import { normalizeArgs, subcommandOf } from './root.ts'
 
 it('normalizes the --log-level value in both flag forms', () => {
   expect(normalizeArgs(['--log-level', 'Debug', 'serve'])).toEqual([
@@ -24,18 +24,25 @@ it('reads the subcommand from the first positional token', () => {
   expect(subcommandOf(['--log-level', 'serve'])).toBeUndefined()
 })
 
-it.effect('--log-level suppresses the logs below it', () =>
+it.effect('--log-level filters the logger, not the console presentation', () =>
   Effect.gen(function* () {
     const directory = yield* tempDirectory
     const env = databaseEnv(directory)
 
     const quiet = yield* runCli(['--log-level', 'error', 'migrate:status'], env)
     expect(Exit.isSuccess(quiet.exit)).toBe(true)
+    // The report is a presentation, not a log: it reads the same at every
+    // level, and nothing reaches the logger on a clean run.
+    expect(quiet.output).toEqual([
+      'Executed (0):',
+      '  (none)',
+      'Pending (4):',
+      '  00001_create_platform_tables',
+      '  00002_create_identity_table',
+      '  00003_create_token_tables',
+      '  00004_rate_limits_table'
+    ])
     expect(quiet.logs).toEqual([])
-
-    const loud = yield* runCli(['migrate:status'], env)
-    expect(Exit.isSuccess(loud.exit)).toBe(true)
-    expect(loud.logs).toContain('00001_create_platform_tables pending')
   })
 )
 

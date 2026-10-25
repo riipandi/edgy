@@ -3,7 +3,7 @@ import { Effect } from 'effect'
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { expect } from 'vite-plus/test'
-import { databaseEnv, failureOf, runCli, tempDirectory } from './harness.ts'
+import { databaseEnv, failureOf, runCli, tempDirectory } from './cli.ts'
 
 it.effect('answers Healthy against a reachable database', () =>
   Effect.gen(function* () {
@@ -12,8 +12,6 @@ it.effect('answers Healthy against a reachable database', () =>
 
     expect(failureOf(result)).toBe('')
     expect(result.output).toContain('Healthy')
-    // The connect/close lines belong to serve; a one-shot command prints its
-    // verdict alone.
     expect(result.logs).toEqual([])
   })
 )

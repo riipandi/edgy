@@ -2,6 +2,7 @@ import { Effect } from 'effect'
 import { Command, Flag } from 'effect/cli'
 import { DatabaseLayer } from '#/database/adapter.ts'
 import { runSeeders, SEEDERS } from '#/database/seeder.ts'
+import { reporter } from './helper.ts'
 
 export const migrateSeedCmd = Command.make(
   'migrate:seed',
@@ -13,13 +14,17 @@ export const migrateSeedCmd = Command.make(
   },
   (config) =>
     Effect.gen(function* () {
+      const report = yield* reporter
       if (config.dryRun) {
+        yield* report.warn(`${SEEDERS.length} seeder(s) would run (dry run):`)
         for (const seeder of SEEDERS)
-          yield* Effect.logInfo(`Would seed ${seeder.name} (${seeder.records} records)`)
+          yield* report.warn(`  Would seed ${seeder.name} (${seeder.records} records)`)
         return
       }
 
+      for (const seeder of SEEDERS) yield* report.start(`Seeding ${seeder.name}`)
       yield* runSeeders
-      for (const seeder of SEEDERS) yield* Effect.logInfo(`Seeded ${seeder.name}`)
+      for (const seeder of SEEDERS)
+        yield* report.ok(`  Seeded ${seeder.name} (${seeder.records} records)`)
     }).pipe(Effect.provide(DatabaseLayer))
 ).pipe(Command.withDescription('Seed the database with initial data'))

@@ -3,7 +3,7 @@ import { Effect, Exit } from 'effect'
 import { existsSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { expect } from 'vite-plus/test'
-import { failureOf, runCli, tempDirectory } from './harness.ts'
+import { failureOf, runCli, tempDirectory } from './cli.ts'
 
 const output = (directory: string): string => join(directory, '.env.example')
 

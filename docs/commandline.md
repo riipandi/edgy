@@ -60,6 +60,14 @@ migrate:seed       Seed the database with initial data
 Destructive commands (`migrate:down`, `migrate:reset`) ask for confirmation; `--force`
 skips the prompt, and non-interactive sessions must pass `--force` explicitly.
 
+Every one-shot command reports through plain colored lines, grouped under the step they belong to
+and separated by blank lines — cyan while a step runs (`Applying 4 migration(s)`, `Seeding users`),
+green when it succeeds (`  Applied 00001_…`, `  Seeded users (4 records)`), yellow in a `--dry-run`
+preview (`2 pending migration(s) (dry run):`, `  Would apply …`). `migrate:status` groups the list
+into `Executed (N):` and `Pending (N):`. There are no timestamps; `serve` keeps its logger format,
+including its auto-migrate lines. `--log-level` filters the logger (serve and runtime warnings),
+not these reports.
+
 ## Configuration example
 
 ```sh

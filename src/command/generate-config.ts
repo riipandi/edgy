@@ -2,7 +2,7 @@ import { Console, Effect, FileSystem, Option, Path } from 'effect'
 import { CliError, Command, Flag } from 'effect/cli'
 import { appConfig } from '#/kernel/config/config.ts'
 import { renderExample } from '#/kernel/config/example.ts'
-import { confirmDestructive } from './confirm.ts'
+import { confirmDestructive } from './helper.ts'
 
 const DEFAULT_OUTPUT = '.env.example'
 const REGENERATE = 'vpr app generate:config'

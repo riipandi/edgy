@@ -1,6 +1,6 @@
 import { NodeRuntime } from '@effect/platform-node'
 import { Effect } from 'effect'
-import { run, subcommandOf } from '#/command/cli.ts'
+import { run, subcommandOf } from '#/command/root.ts'
 import { CoreLayer } from '#/kernel/layers.ts'
 
 const args = process.argv.slice(2)
