@@ -1,4 +1,6 @@
-import { Effect, Layer, Metric } from 'effect'
+import { Effect, Layer, Logger, Metric } from 'effect'
+import * as HttpRouter from 'effect/http/HttpRouter'
+import * as HttpServer from 'effect/http/HttpServer'
 import { TypeID } from 'typeid-js'
 import { afterAll, expect, it } from 'vite-plus/test'
 import { requestLogMiddleware } from '#/middleware/request-log.ts'
@@ -13,7 +15,28 @@ const { handler, dispose } = toHandler(testServices, testConfig, undefined, [
   requestLogMiddleware as Layer.Layer<any>
 ])
 
-afterAll(() => dispose())
+// A minimal router with a dying route to exercise the failure branch of the
+// middleware itself.
+const lines: Array<string> = []
+const capture = Logger.layer([Logger.make((options) => lines.push(String(options.message)))])
+const { handler: failingHandler, dispose: disposeFailing } = HttpRouter.toWebHandler(
+  // The capture logger rides the top-level merge: a provided layer's
+  // CurrentLoggers reference does not reach the request fibers.
+  Layer.mergeAll(
+    HttpRouter.add('GET', '/boom', Effect.die(new Error('exploded'))).pipe(
+      Layer.provide(requestLogMiddleware as Layer.Layer<any>),
+      Layer.provide(testConfig),
+      Layer.provide(HttpServer.layerServices)
+    ),
+    capture
+  ),
+  { disableLogger: true }
+)
+
+afterAll(() => {
+  void dispose()
+  void disposeFailing()
+})
 
 const seriesFor = (statusCode: string, route: string) =>
   Effect.gen(function* () {
@@ -34,4 +57,16 @@ it('labels each series with the exact code and the matched route template', asyn
   expect(
     (await Effect.runPromise(seriesFor('404', '/api/users/:id'))).count
   ).toBeGreaterThanOrEqual(1)
+})
+
+it('records a defect as a 500 and warns with the failing route', async () => {
+  const linesBefore = lines.length
+  const response = await failingHandler(new Request('http://localhost/boom'))
+  expect(response.status).toBe(500)
+
+  const crashed = await Effect.runPromise(seriesFor('500', '/boom'))
+  expect(crashed.count).toBeGreaterThanOrEqual(1)
+
+  const warnings = lines.slice(linesBefore).filter((line) => line.includes('GET /boom error'))
+  expect(warnings).toHaveLength(1)
 })

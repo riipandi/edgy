@@ -1,4 +1,4 @@
-import { Cause, Effect, Layer } from 'effect'
+import { Cause, Effect, Layer, Logger } from 'effect'
 import * as OpenApi from 'effect/http-api/OpenApi'
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
@@ -34,6 +34,11 @@ const reservePort = () =>
     })
   })
 
+// The serve layer listens eagerly when built and spawns its own listening and
+// request fibers; only a logger ambient around that build reaches them, so the
+// silent logger rides the outermost provide.
+const silentLogger = Logger.layer([Logger.make(() => void 0)])
+
 describe('the serve composition root', () => {
   it('boots, answers /api/health, and disposes cleanly', async () => {
     const port = await reservePort()
@@ -56,7 +61,9 @@ describe('the serve composition root', () => {
         expect(response.headers.get('x-request-id')).toBeTruthy()
         const body = yield* Effect.tryPromise(() => response.json())
         expect(body).toEqual({ status: 'ok' })
-      }).pipe(Effect.provide(serveLayer), Effect.scoped)
+      })
+        .pipe(Effect.provide(serveLayer), Effect.scoped)
+        .pipe(Effect.provide(silentLogger))
     )
 
     if (exit._tag === 'Failure') {
