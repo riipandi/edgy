@@ -29,8 +29,9 @@ process exits `0`; a second signal exits immediately.
 healthcheck      Check application readiness (database ping)
 ```
 
-The command pings the configured database and exits `0` when it answers, `1` when it fails or stays
-silent. The Docker image runs this command as its container healthcheck.
+The command pings the configured database, prints `Healthy` or `Unhealthy`, and exits `0` or `1` to
+match. It narrates no connection lifecycle — the connect/close lines belong to `serve`. The Docker
+image runs this command as its container healthcheck.
 
 ## Database migrations
 

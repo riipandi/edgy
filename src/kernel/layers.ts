@@ -1,6 +1,6 @@
 import { NodeServices } from '@effect/platform-node'
 import { Layer } from 'effect'
-import { DatabaseLayer } from '#/database/adapter.ts'
+import { makeDatabaseLayer } from '#/database/adapter.ts'
 import { LoggerLayer } from '#/observer/logger.ts'
 import { RuntimeMetricsLayer } from '#/observer/runtime-metrics.ts'
 import { TelemetryRuntimeLayer } from '#/observer/tracing.ts'
@@ -17,4 +17,8 @@ export const CoreLayer = Layer.mergeAll(
   LoggerLayer.pipe(Layer.provide(loggerDependencies))
 ).pipe(Layer.provideMerge(ConfigLayer))
 
-export const ApplicationLayer = applicationServices.pipe(Layer.provideMerge(DatabaseLayer))
+// Serve is the only surface that narrates the connection lifecycle; the shared
+// DatabaseLayer used by the one-shot commands stays silent.
+export const ApplicationLayer = applicationServices.pipe(
+  Layer.provideMerge(makeDatabaseLayer({ lifecycleLogs: true }))
+)

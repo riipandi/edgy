@@ -20,7 +20,7 @@ from the database and the cached entry is replaced.
 
 ## Readiness
 
-`/api/health` returns `200` with `{"status":"ok"}` when the database responds. It returns `503` with `{"_tag":"ServiceUnavailable"}` when the database probe fails. Point the load balancer's readiness check at it: it measures whether this instance can serve, not whether the process is alive.
+`/api/health` returns `200` with `{"status":"ok"}` when the database responds. It returns `503` with `{"status":"unhealthy"}` when the database probe fails. Point the load balancer's readiness check at it: it measures whether this instance can serve, not whether the process is alive.
 
 ## Users
 

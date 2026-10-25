@@ -34,7 +34,7 @@ describe('GET /api/health', () => {
   it('responds 503 when the database readiness probe fails', async () => {
     const response = await unavailableHandler(new Request('http://localhost/api/health'))
     expect(response.status).toBe(503)
-    expect(await response.json()).toEqual({ _tag: 'ServiceUnavailable' })
+    expect(await response.json()).toEqual({ status: 'unhealthy' })
   })
 
   it('answers 503 while the rate-limit store is unreadable; the store failure stays fail-closed', async () => {

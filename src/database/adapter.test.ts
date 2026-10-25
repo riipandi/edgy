@@ -5,7 +5,7 @@ import { AppConfig } from '#/kernel/config/config.ts'
 import { dependencyDuration } from '#/observer/dependencies.ts'
 import { config } from '../../tests/fixtures/config.ts'
 import { testDatabasePath } from '../../tests/fixtures/database-url.ts'
-import { DatabaseLayer, makeDatabaseService } from './adapter.ts'
+import { DatabaseLayer, makeDatabaseLayer, makeDatabaseService } from './adapter.ts'
 import { openTursoDatabase } from './dialect.ts'
 
 it.effect('every database op flows through the dependency series', () =>
@@ -34,9 +34,43 @@ it.effect('every database op flows through the dependency series', () =>
   })
 )
 
-it.effect('announces the transport it connects to', () =>
+it.effect('announces the transport it connects to when lifecycle logs are on', () =>
   Effect.gen(function* () {
     const path = testDatabasePath('adapter-announce.db')
+    const lines: Array<string> = []
+    const logger = Logger.layer([
+      Logger.make(({ message }) => {
+        lines.push(String(message))
+      })
+    ])
+
+    yield* Effect.void.pipe(
+      Effect.provide(
+        makeDatabaseLayer({ lifecycleLogs: true }).pipe(
+          Layer.provide(
+            Layer.succeed(AppConfig, {
+              ...config,
+              database: { ...config.database, target: { kind: 'local', path } }
+            })
+          )
+        )
+      ),
+      Effect.provide(logger),
+      Effect.scoped
+    )
+
+    // The operator needs to know which transport a deploy actually reached; a
+    // bare path, a file: URI and a remote URL all arrive in DATABASE_URL.
+    expect(lines).toContain(`Connecting database local ${path}`)
+    expect(lines).toContain('Database connected')
+    expect(lines).toContain('Closing database connection')
+    expect(lines).toContain('Database connection closed')
+  })
+)
+
+it.effect('stays silent when lifecycle logs are off', () =>
+  Effect.gen(function* () {
+    const path = testDatabasePath('adapter-silent.db')
     const lines: Array<string> = []
     const logger = Logger.layer([
       Logger.make(({ message }) => {
@@ -59,9 +93,6 @@ it.effect('announces the transport it connects to', () =>
       Effect.scoped
     )
 
-    // The operator needs to know which transport a deploy actually reached; a
-    // bare path, a file: URI and a remote URL all arrive in DATABASE_URL.
-    expect(lines).toContain(`Connecting database local ${path}`)
-    expect(lines).toContain('Database connected')
+    expect(lines).toEqual([])
   })
 )

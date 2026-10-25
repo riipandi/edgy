@@ -1,6 +1,5 @@
 import { it } from '@effect/vitest'
 import { Effect, Exit } from 'effect'
-import { join } from 'node:path'
 import { expect } from 'vite-plus/test'
 import { MIGRATION_NAMES } from '#/database/migrations/index.ts'
 import { databaseEnv, failureOf, runCli, tempDirectory } from './harness.ts'
@@ -28,14 +27,7 @@ it.effect('--to applies the migrations up to the named one only', () =>
     const target = MIGRATION_NAMES[1] as string
 
     const dryRun = yield* runCli(['migrate:up', '--to', target, '--dry-run'], env)
-    expect(dryRun.logs).toEqual([
-      `Connecting database local ${join(directory, 'app-test.db')}`,
-      'Database connected',
-      `Pending ${MIGRATION_NAMES[0]}`,
-      `Pending ${target}`,
-      'Closing database connection',
-      'Database connection closed'
-    ])
+    expect(dryRun.logs).toEqual([`Pending ${MIGRATION_NAMES[0]}`, `Pending ${target}`])
 
     const applied = yield* runCli(['migrate:up', '--to', target], env)
     expect(applied.logs).toContain(`Success ${MIGRATION_NAMES[0]}`)

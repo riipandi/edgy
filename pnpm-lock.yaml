@@ -207,6 +207,9 @@ importers:
       '@tursodatabase/database':
         specifier: 0.8.3
         version: 0.8.3
+      '@tursodatabase/database-common':
+        specifier: ^0.8.3
+        version: 0.8.3
       '@tursodatabase/serverless':
         specifier: 1.4.1
         version: 1.4.1

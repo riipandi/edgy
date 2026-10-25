@@ -1,5 +1,6 @@
 import { connect } from '@tursodatabase/database'
 import type { Database as TursoDatabase } from '@tursodatabase/database'
+import type { DatabaseOpts } from '@tursodatabase/database-common'
 import { Session } from '@tursodatabase/serverless'
 import { Kysely, SqliteAdapter, SqliteIntrospector, SqliteQueryCompiler } from 'kysely'
 import type { DatabaseConnection, Dialect, Driver, LogEvent } from 'kysely'
@@ -100,8 +101,8 @@ const remoteExecutor = (url: string, token: string): TursoExecutor => {
 /** Options every local connection uses; exported so the multi-process test can match them. */
 export const LOCAL_CONNECT_OPTIONS = {
   timeout: 5_000,
-  experimental: ['multiprocess_wal' as const]
-}
+  experimental: ['multiprocess_wal']
+} satisfies DatabaseOpts
 
 const openLocal = async (path: string): Promise<TursoExecutor> => {
   // The resolver strips the scheme before this point; a `file:` string reaching

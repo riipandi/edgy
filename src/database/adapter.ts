@@ -62,40 +62,50 @@ export const makeDatabaseService = (db: Kysely<DB>, store: DependencyStore = 'sq
   })
 }
 
-export const DatabaseLayer = Layer.effect(
-  Database,
-  Effect.gen(function* () {
-    const config = yield* AppConfig
-    const log = yield* makeQueryLogger
-    // Which transport the process actually uses is the first thing an operator
-    // needs after a deploy, and it is not visible from the environment alone:
-    // a bare path, a file: URI and a remote URL all arrive in DATABASE_URL.
-    const describe = (target: typeof config.database.target): string =>
-      target.kind === 'local'
-        ? `Connecting database local ${target.path}`
-        : `Connecting database remote ${target.url}`
-    return yield* Effect.acquireRelease(
-      Effect.gen(function* () {
-        yield* Effect.logInfo(describe(config.database.target))
-        const database = yield* Effect.tryPromise({
-          try: () => openTursoDatabase(config.database.target, log),
-          catch: (cause) => new DatabaseError({ cause })
-        })
-        yield* Effect.logInfo('Database connected')
-        return database
-      }),
-      (database) =>
-        Effect.logInfo('Closing database connection').pipe(
-          Effect.andThen(
-            Effect.tryPromise({
-              try: () => database.destroy(),
-              catch: (cause) => new DatabaseError({ cause })
-            }).pipe(
-              Effect.tap(() => Effect.logInfo('Database connection closed')),
-              Effect.catch((error) => Effect.logError(`Database destroy failed: ${error.message}`))
+export const makeDatabaseLayer = (options: { readonly lifecycleLogs: boolean }) =>
+  Layer.effect(
+    Database,
+    Effect.gen(function* () {
+      const config = yield* AppConfig
+      const log = yield* makeQueryLogger
+      // Which transport the process actually uses is the first thing an operator
+      // needs after a deploy, and it is not visible from the environment alone:
+      // a bare path, a file: URI and a remote URL all arrive in DATABASE_URL.
+      const describe = (target: typeof config.database.target): string =>
+        target.kind === 'local'
+          ? `Connecting database local ${target.path}`
+          : `Connecting database remote ${target.url}`
+      const lifecycle = options.lifecycleLogs
+        ? (message: string) => Effect.logInfo(message)
+        : () => Effect.void
+      return yield* Effect.acquireRelease(
+        Effect.gen(function* () {
+          yield* lifecycle(describe(config.database.target))
+          const database = yield* Effect.tryPromise({
+            try: () => openTursoDatabase(config.database.target, log),
+            catch: (cause) => new DatabaseError({ cause })
+          })
+          yield* lifecycle('Database connected')
+          return database
+        }),
+        (database) =>
+          lifecycle('Closing database connection').pipe(
+            Effect.andThen(
+              Effect.tryPromise({
+                try: () => database.destroy(),
+                catch: (cause) => new DatabaseError({ cause })
+              }).pipe(
+                Effect.tap(() => lifecycle('Database connection closed')),
+                Effect.catch((error) =>
+                  Effect.logError(`Database destroy failed: ${error.message}`)
+                )
+              )
             )
           )
-        )
-    )
-  }).pipe(Effect.map(makeDatabaseService))
-)
+      )
+    }).pipe(Effect.map(makeDatabaseService))
+  )
+
+// The connect/close lines are the long-running server's operator signal; the
+// one-shot commands share this silent layer so their output stays their own.
+export const DatabaseLayer = makeDatabaseLayer({ lifecycleLogs: false })
