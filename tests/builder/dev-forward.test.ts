@@ -8,10 +8,12 @@ import { effectVite } from '../../src/builder/vite-plugin.ts'
 import { quietConsole } from '../fixtures/console.ts'
 
 // The dev plugin's forwarding runs the real composition root, so the suite
-// needs a reachable database; each run gets its own file. The composition's
-// request fibers log through the console, so the app records are filtered.
+// needs a reachable database; each run gets its own file. Metrics and docs
+// are on so the forwarded scrape and reference endpoints can be asserted on.
 const directory = mkdtempSync(path.join(tmpdir(), 'edgy-dev-plugin-'))
 process.env['DATABASE_URL'] ??= `file:${path.join(directory, 'dev.db')}`
+process.env['METRICS_ENABLED'] = 'true'
+process.env['API_DOCS_ENABLED'] = 'true'
 
 afterAll(quietConsole())
 
@@ -65,6 +67,19 @@ it('forwards /api requests to the composition root and skips page paths', async 
   const health = await fetch(`http://127.0.0.1:${port}/api/health`)
   expect(health.status).toBe(200)
   expect((await health.json()).status).toBe('ok')
+
+  // Every production endpoint the router owns rides the same forwarding, so
+  // dev mode answers exactly what serve answers: the scrape endpoint and the
+  // API reference, not the page fallback.
+  const metrics = await fetch(`http://127.0.0.1:${port}/metrics`)
+  expect(metrics.status).toBe(200)
+  expect(await metrics.text()).toContain('http_requests')
+
+  const reference = await fetch(`http://127.0.0.1:${port}/api-docs`)
+  expect(reference.status).toBe(200)
+
+  const schema = await fetch(`http://127.0.0.1:${port}/api/openapi.json`)
+  expect(schema.status).toBe(200)
 
   await teardown()
 })

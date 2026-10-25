@@ -11,7 +11,7 @@ import { securityHeadersMiddleware } from '#/middleware/security-headers.ts'
 import { requestTracerMiddleware } from '#/middleware/tracer.ts'
 import { trustProxyMiddleware } from '#/middleware/trust-proxy.ts'
 import { disposeUserRuntimeEffect } from '#/modules/user/user_ssr.ts'
-import { apiRoutes } from './api.ts'
+import { apiRoutes, metricsPath } from './api.ts'
 
 // GET only: the router falls back from HEAD to GET, so registering the catch-all
 // for every method would answer HEAD on an API path with this page.
@@ -34,7 +34,7 @@ export const server = Layer.unwrap(
       Layer.effectDiscard(Effect.addFinalizer(() => disposeUserRuntimeEffect))
     )
     const withMetrics = config.observability.metricsEnabled
-      ? routes.pipe(Layer.provide(PrometheusMetrics.layerHttp()))
+      ? routes.pipe(Layer.provide(PrometheusMetrics.layerHttp({ path: metricsPath })))
       : routes
     return HttpRouter.serve(withMetrics).pipe(
       Layer.provide(gracefulServerLayer({ host: config.server.host, port: config.server.port }))

@@ -6,7 +6,7 @@ import type { Plugin, ViteDevServer } from 'vite-plus'
 import { loadEnv } from 'vite-plus'
 import { DatabaseLayer } from '#/database/adapter.ts'
 import { migrateAndSeed } from '#/database/migrator.ts'
-import { apiHandler, apiDocsPath } from '#/kernel/http/api.ts'
+import { apiHandler, apiDocsPath, metricsPath } from '#/kernel/http/api.ts'
 import { CoreLayer } from '#/kernel/layers.ts'
 import { copyNativeBinding } from './binding.ts'
 import { assertNoExternalImports, packageNameFor } from './helpers.ts'
@@ -149,7 +149,10 @@ export const effectVite = (opts: EffectDevPluginOptions): Plugin => {
       const ready = Effect.runPromise(prepare).then(() => apiHandler())
       server.middlewares.use((req, res, next) => {
         const pathname = (req.url ?? '').split('?')[0] ?? ''
-        const handled = pathname.startsWith('/api/') || pathname === apiDocsPath
+        // `/metrics` rides along so the dev server's page fallback never
+        // swallows the scrape endpoint.
+        const handled =
+          pathname.startsWith('/api/') || pathname === apiDocsPath || pathname === metricsPath
         if (!handled) {
           next()
           return

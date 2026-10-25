@@ -78,9 +78,10 @@ it('records a defect as a 500 and warns with the failing route', async () => {
 it('stays quiet for browser, tooling, and scraper noise', async () => {
   for (const url of [
     'http://localhost/.well-known/appspecific/com.chrome.devtools.json',
+    'http://localhost/.well-known/jwks.json',
     'http://localhost/favicon.ico',
     'http://localhost/assets/app-4f2a1b9c.js',
-    'http://localhost/api/metrics'
+    'http://localhost/metrics'
   ]) {
     const before = lines.length
     const response = await failingHandler(new Request(url))

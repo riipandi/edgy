@@ -23,13 +23,17 @@ const isQuietPath = (pathname: string, quiet: QuietPath): boolean => {
 
 // Browser and tooling probes, favicons, hashed bundles that never change, and
 // metric scrapers polling on a schedule. Quiet paths skip both the log line
-// and the metric record.v
+// and the metric record. The `/.well-known/` prefix is deliberately broad:
+// machine-to-machine discovery documents live there — devtool probes, ACME
+// challenges, security.txt, and the OAuth/OpenID set (`jwks.json`,
+// `openid-configuration`, `oauth-authorization-server`) this API will grow —
+// and none of them carry log or metric signal.
 const defaultQuietPaths: ReadonlyArray<QuietPath> = [
   { path: '/.well-known/' },
   { path: '/favicon' },
   { path: '/apple-touch-icon' },
   { path: '/assets/' },
-  { path: '/api/metrics', exact: true }
+  { path: '/metrics', exact: true }
 ]
 
 export const requestLogMiddleware = (options?: {
@@ -47,8 +51,6 @@ export const requestLogMiddleware = (options?: {
             const started = yield* Clock.currentTimeMillis
             const outcome = yield* Effect.exit(effect)
             const duration = Math.max(0, (yield* Clock.currentTimeMillis) - started)
-            // Global middleware wraps the matched route, so RouteContext names
-            // the template; requests the router never matched reach nothing here.
             const matched = yield* Effect.serviceOption(HttpRouter.RouteContext)
             const route = routeLabel(Option.isSome(matched) ? matched.value.route.path : undefined)
 

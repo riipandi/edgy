@@ -1,10 +1,11 @@
-import { Effect, Layer } from 'effect'
+import { Context, Effect, Layer } from 'effect'
 import * as HttpApi from 'effect/http-api/HttpApi'
 import * as HttpApiBuilder from 'effect/http-api/HttpApiBuilder'
 import * as HttpApiScalar from 'effect/http-api/HttpApiScalar'
 import * as OpenApi from 'effect/http-api/OpenApi'
 import * as HttpRouter from 'effect/http/HttpRouter'
 import * as HttpServer from 'effect/http/HttpServer'
+import { PrometheusMetrics } from 'effect/observability'
 import { AppConfig } from '#/kernel/config/config.ts'
 import { healthHandlers, HealthApi } from '#/kernel/healthcheck.ts'
 import { corsMiddleware } from '#/middleware/cors.ts'
@@ -22,6 +23,10 @@ import pkg from '../../../package.json' with { type: 'json' }
 
 export const apiDocsPath = '/api-docs'
 export const openApiPath = '/api/openapi.json'
+
+// The Prometheus scrape endpoint; the serve command and the dev composition
+// mount it through PrometheusMetrics.layerHttp({ path: metricsPath }).
+export const metricsPath = '/metrics'
 
 export const api = HttpApi.make(pkg.name)
   .add(HealthApi, UsersApi)
@@ -51,6 +56,12 @@ export const apiRoutes = Layer.unwrap(
 
 export const apiHandler = async () => {
   const context = await applicationContext()
+  const config = Context.get(context, AppConfig)
+  // The dev composition mirrors the serve command's metrics gate so the
+  // forwarded scrape endpoint exists here too.
+  const metrics = config.observability.metricsEnabled
+    ? PrometheusMetrics.layerHttp({ path: metricsPath })
+    : Layer.empty
   const handler = HttpRouter.toWebHandler(
     // The composition's logger rides the outermost merge: fiber-level log
     // references only reach the request fibers from an ambient layer around
@@ -63,6 +74,7 @@ export const apiHandler = async () => {
         corsMiddleware,
         securityHeadersMiddleware,
         apiRoutes,
+        metrics,
         requestTracerMiddleware
       ).pipe(Layer.provide(Layer.succeedContext(context)), Layer.provide(HttpServer.layerServices)),
       LoggerLayer.pipe(Layer.provide(Layer.succeedContext(context)))
