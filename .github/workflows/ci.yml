@@ -35,13 +35,7 @@ jobs:
       - name: Unit tests
         run: vp run test
 
-      # - name: Browser tests
-      #   run: |
-      #     vp run e2e:install
-      #     vp run e2e --project Chromium
-
-      # - name: .env.example is current
-      #   run: vp run app generate:config --check
-
-      # - name: The API description is current
-      #   run: vp run app openapi:generate --check
+      - name: Browser tests
+        run: |
+          vp exec playwright install --with-deps chromium
+          vp run e2e --project Chromium
