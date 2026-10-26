@@ -102,3 +102,7 @@ generate:config        Generate .env.example from declared configuration schemas
 ```
 
 The generator inspects all typed configuration schemas and emits complete documentation with default values. It prevents overwriting production `.env` files and resolves symbolic links safely. Use `--check` in CI to detect uncommitted configuration changes.
+
+---
+
+Go to [documentation index](./index.md)

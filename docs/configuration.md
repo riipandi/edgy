@@ -97,3 +97,7 @@ These environment variables configure the development services in `container/com
 | `CLICKSTACK_RETENTION_DAYS`    | `30`                     | Days of telemetry data to retain in ClickHouse tables.                     |
 | `APP_DISTROLESS_TAG`           | `debug-nonroot`          | Distroless base image tag (must include `/busybox` for runtime execution). |
 | `CADVISOR_VERSION`             | `v0.52.1`                | Version tag for cAdvisor container metrics exporter.                       |
+
+---
+
+Go to [documentation index](./index.md)

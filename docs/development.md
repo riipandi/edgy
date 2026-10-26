@@ -96,3 +96,7 @@ vpr test
 - **Unit tests**: Colocated next to source files (e.g. `*.test.ts`).
 - **Integration tests**: Located in `tests/` covering API routes, middleware ordering, and builder plugins.
 - **Fixtures**: Shared test databases and mock configurations live in `tests/fixtures/`.
+
+---
+
+Go to [documentation index](./index.md)

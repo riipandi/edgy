@@ -142,3 +142,7 @@ Services in the compose stack:
 - **Redis (`redis`)**: In-memory store for distributed caching (DB 1) and rate limits (DB 2).
 - **cAdvisor (`cadvisor`)**: Gathers container-level CPU and memory metrics.
 - **Mailpit (`mailpit`)**: Local SMTP server and inbox viewer for development emails.
+
+---
+
+Go to [documentation index](./index.md)

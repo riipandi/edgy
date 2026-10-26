@@ -4,7 +4,6 @@ Human-facing documentation for the Edgy reference server.
 
 | Document                            | What it covers                                                          |
 | ----------------------------------- | ----------------------------------------------------------------------- |
-| [Getting started](../README.md)     | System overview, prerequisites, and first-run instructions.             |
 | [CLI](./commandline.md)             | CLI commands, flags, dry-run previews, and cluster supervision.         |
 | [Configuration](./configuration.md) | Environment variables, defaults, validation rules, and Compose options. |
 | [API endpoints](./api-endpoint.md)  | HTTP routes, response envelopes, pagination, health, and error shapes.  |

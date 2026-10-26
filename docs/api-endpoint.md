@@ -191,3 +191,7 @@ When enabled (`API_DOCS_ENABLED=true`):
 
 - `/api-docs`: Interactive documentation interface powered by Scalar.
 - `/api/openapi.json`: OpenAPI 3.1 specification describing schemas, parameters, and responses.
+
+---
+
+Go to [documentation index](./index.md)
