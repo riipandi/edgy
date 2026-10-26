@@ -4,7 +4,7 @@ name: Test and Verify
 
 on:
   # push:
-  #   branches: [main]
+  #   branches: ["**"]
   pull_request:
     paths-ignore:
       - ".vite-hooks/**"
