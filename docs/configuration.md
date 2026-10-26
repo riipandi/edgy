@@ -83,7 +83,7 @@ Rate limiting uses a continuous-refill token bucket algorithm. Counters are stor
 
 ## Docker Compose stack settings
 
-These environment variables configure the development services in `compose.yaml` (ClickStack, Redis, cAdvisor, Mailpit):
+These environment variables configure the development services in `container/compose.yaml` (ClickStack, Redis, cAdvisor, Mailpit):
 
 | Variable                       | Default                  | Description                                                                |
 | ------------------------------ | ------------------------ | -------------------------------------------------------------------------- |

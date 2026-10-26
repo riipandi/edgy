@@ -54,7 +54,7 @@ services:
   #   platform: linux/amd64
   #   hostname: app
   #   ports: ['127.0.0.1:${SERVER_PORT:-3000}:3000']
-  #   volumes: ['./.storage/app:/app/storage:rw']
+  #   volumes: ['../.storage/app:/app/storage:rw']
   #   environment:
   #     SERVER_PORT: 3000
   #     DATABASE_URL: file:/app/storage/data/app.db
@@ -106,10 +106,10 @@ services:
       - '127.0.0.1:${CLICKSTACK_UI_PORT:-8080}:8080' # HyperDX UI
       - '127.0.0.1:${OTLP_HTTP_PORT:-4318}:4318' # OTLP over HTTP
     volumes:
-      - './.storage/clickstack/db:/data/db:rw'
-      - './.storage/clickstack/ch_data:/var/lib/clickhouse:rw'
-      - './.storage/clickstack/ch_logs:/var/log/clickhouse-server:rw'
-      - './container/clickstack/otel-collector.yaml:/etc/otel/extra-config.yaml:ro'
+      - '../.storage/clickstack/db:/data/db:rw'
+      - '../.storage/clickstack/ch_data:/var/lib/clickhouse:rw'
+      - '../.storage/clickstack/ch_logs:/var/log/clickhouse-server:rw'
+      - './clickstack/otel-collector.yaml:/etc/otel/extra-config.yaml:ro'
     environment:
       CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
       CLICKHOUSE_PASSWORD: ${CLICKSTACK_DB_PASSWORD:-securedb}
@@ -135,9 +135,9 @@ services:
     restart: no
     entrypoint: ['/bin/sh', '/clickstack/provision.sh']
     volumes:
-      - './container/clickstack/provision.sh:/clickstack/provision.sh:ro'
-      - './container/clickstack/dashboards:/dashboards:ro'
-      - './container/clickstack/alerts:/alerts:ro'
+      - './clickstack/provision.sh:/clickstack/provision.sh:ro'
+      - './clickstack/dashboards:/dashboards:ro'
+      - './clickstack/alerts:/alerts:ro'
     environment:
       CLICKSTACK_ACCESS_KEY: ${CLICKSTACK_ACCESS_KEY:-}
       CLICKHOUSE_PASSWORD: ${CLICKSTACK_DB_PASSWORD:-securedb}
@@ -172,7 +172,7 @@ services:
     image: docker.io/library/redis:${REDIS_VERSION:-8-alpine}
     hostname: redis
     ports: ['127.0.0.1:${REDIS_PORT:-6379}:6379']
-    volumes: ['./.storage/redis:/data:rw']
+    volumes: ['../.storage/redis:/data:rw']
     command: '--appendonly yes --appendfsync everysec --requirepass ${REDIS_PASSWORD:-securedb}'
     cpus: 0.5 # set CPUs limit
     healthcheck:
@@ -186,7 +186,7 @@ services:
       - '127.0.0.1:${MAILPIT_POP3_PORT:-1110}:1110'
       - '127.0.0.1:${MAILPIT_SMTP_PORT:-1025}:1025'
       - '127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025'
-    volumes: ["./.storage/mailpit:/data:rw"]
+    volumes: ["../.storage/mailpit:/data:rw"]
     environment:
       TZ: Asia/Jakarta
       MP_TAGS_USERNAME: true
