@@ -41,10 +41,26 @@ jobs:
       - name: Unit tests
         run: vp run test
 
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install Playwright
+        run: vp exec playwright install --with-deps --only-shell chromium
+
       - name: Browser tests
-        run: |
-          vp exec playwright install --with-deps chromium
-          vp run e2e --project Chromium
+        run: vp run e2e --project Chromium
+
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: .output/e2e-result
+          retention-days: 14
 
   build:
     needs: verify
