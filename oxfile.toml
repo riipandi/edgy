@@ -15,11 +15,6 @@ stop_signal = "SIGTERM"
 name = "edgy"
 command = "node ./dist/entry.js serve"
 health_cmd = "node ./dist/entry.js healthcheck"
-
-# Set to true to run one worker per CPU (Node `cluster`, no code changes
-# needed). Before enabling: run migrations once outside cluster_mode, e.g.
-# `node entry.js migrate:up` — every clustered worker is a separate OS
-# process and would otherwise race to migrate the same database.
 cluster_instances = 4
 cluster_mode = true
 
