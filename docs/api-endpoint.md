@@ -5,11 +5,11 @@
 | `GET`    | `/api/health`       | Checks whether the database answers a readiness query.    |
 | `GET`    | `/api/users`        | Returns a page of user records.                           |
 | `GET`    | `/api/users/:id`    | Returns one user, or a `400` or `404` response.           |
-| `POST`   | `/api/users`        | Creates a user; `201`, or `409` on a duplicate email.      |
-| `PATCH`  | `/api/users/:id`    | Merges the patch into one user, or `404`.                  |
-| `DELETE` | `/api/users/:id`    | Deletes one user; `200`, or `404` when unknown.            |
-| `GET`    | `/api-docs`         | Scalar API reference (behind `API_DOCS_ENABLED`).          |
-| `GET`    | `/api/openapi.json` | OpenAPI document for the API (behind `API_DOCS_ENABLED`).  |
+| `POST`   | `/api/users`        | Creates a user; `201`, or `409` on a duplicate email.     |
+| `PATCH`  | `/api/users/:id`    | Merges the patch into one user, or `404`.                 |
+| `DELETE` | `/api/users/:id`    | Deletes one user; `200`, or `404` when unknown.           |
+| `GET`    | `/api-docs`         | Scalar API reference (behind `API_DOCS_ENABLED`).         |
+| `GET`    | `/api/openapi.json` | OpenAPI document for the API (behind `API_DOCS_ENABLED`). |
 
 Every row answers `HEAD` as well: the router falls back from `HEAD` to the `GET` route and returns the
 same status and headers without a body.
@@ -62,12 +62,12 @@ Readiness below) rather than this envelope — it answers machine health probes,
 
 `GET /api/users` accepts:
 
-| Param        | Meaning                                                                 |
-| ------------ | ------------------------------------------------------------------------ |
-| `limit`      | Records per page, `1`-`100`. Defaults to `20`.                           |
-| `cursor`     | Opaque token from a prior response's `metadata.next_cursor`.             |
-| `sort_by`    | `id` (default) or `created_at`.                                          |
-| `sort_order` | `asc` (default) or `desc`.                                               |
+| Param        | Meaning                                                      |
+| ------------ | ------------------------------------------------------------ |
+| `limit`      | Records per page, `1`-`100`. Defaults to `20`.               |
+| `cursor`     | Opaque token from a prior response's `metadata.next_cursor`. |
+| `sort_by`    | `id` (default) or `created_at`.                              |
+| `sort_order` | `asc` (default) or `desc`.                                   |
 
 and returns pagination state in the same `metadata` object:
 
@@ -118,15 +118,15 @@ Writes invalidate the user's cached read, so the next `GET /api/users/:id` repor
 Every error under `/api/*` is the error envelope above, `application/json` — nothing answers with
 an empty body or plain text:
 
-| Failure                             | Status | `error.code`         |
-| ------------------------------------ | ------ | --------------------- |
-| Validation or malformed payload      | `400`  | `VALIDATION_FAILED`    |
-| Unknown path or unregistered method  | `404`  | `NOT_FOUND`            |
-| Unknown user id                      | `404`  | `USER_NOT_FOUND`       |
-| Conflicting value (duplicate email)  | `409`  | `EMAIL_CONFLICT`       |
-| Invalid or expired pagination cursor | `400`  | `INVALID_CURSOR`       |
-| Database or rate-limit store outage  | `503`  | `DATABASE_ERROR`       |
-| Server defect                        | `500`  | `INTERNAL_ERROR`       |
+| Failure                              | Status | `error.code`        |
+| ------------------------------------ | ------ | ------------------- |
+| Validation or malformed payload      | `400`  | `VALIDATION_FAILED` |
+| Unknown path or unregistered method  | `404`  | `NOT_FOUND`         |
+| Unknown user id                      | `404`  | `USER_NOT_FOUND`    |
+| Conflicting value (duplicate email)  | `409`  | `EMAIL_CONFLICT`    |
+| Invalid or expired pagination cursor | `400`  | `INVALID_CURSOR`    |
+| Database or rate-limit store outage  | `503`  | `DATABASE_ERROR`    |
+| Server defect                        | `500`  | `INTERNAL_ERROR`    |
 
 A validation error's `error.details` names the failing part (`kind`) and carries the rendered
 issue (for example `must be a valid email address\n at ["email"]`) — it names the failing field but
