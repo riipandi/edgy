@@ -2,17 +2,49 @@
 
 ## Runtime composition
 
-The application is a modular monolith. `CoreLayer` provides Node platform services, configuration, logging, and telemetry. `ApplicationLayer` composes the user services over the database layer. The serve command provides that graph around both startup migrations and the HTTP server, so migrations, user queries, and readiness checks share one database service and scope.
+The application is a modular monolith. `CoreLayer` (`kernel/layers.ts`) provides Node platform services, configuration, logging, and telemetry. `ApplicationLayer` composes the feature modules' own layers over the database layer — `identityLayer` (`modules/identity/module.ts`) merges each feature's self-wired service graph (`UserLayer`). The serve command provides that graph around both startup migrations and the HTTP server, so migrations, user queries, and readiness checks share one database service and scope.
 
-The Vite API adapter builds `ApplicationLayer` into a `ManagedRuntime` and gives its service context to the web handler. Solid's production renderer carries the already-built `UserService` through Node's async context while rendering; the development renderer uses the managed runtime bridge. The runtime is disposed when the Vite API handler closes.
+`kernel/runtime.ts` is the one place that builds the `ManagedRuntime` from `ApplicationLayer` + `CoreLayer` and owns its disposal (`applicationContext`, `disposeUserRuntime`/`disposeUserRuntimeEffect`); the Vite API adapter and the serve command both receive the context or the dispose call from there, never the construction. Solid's production renderer carries the already-built `UserService` through Node's async context while rendering; the development renderer bridges through the kernel's runtime (`modules/identity/user/user_ssr.ts`'s `AsyncLocalStorage` store falls back to `applicationRuntime.runPromise` when no request-scoped service is set). The runtime is disposed when the Vite API handler closes, and by the serve layer's finalizer in production.
+
+`kernel/http/stack.ts` is the one middleware order (trust-proxy, tracer, cors, the caller's routes, request-id, error-response, request-log, security-headers) that both the dev API handler and the production server consume; each composition only adds its own delta on top (dev: `Layer.succeedContext`; serve: the SSR router and the dispose finalizer).
 
 ## Feature and persistence boundaries
 
-`modules/user/user_service.ts` defines application operations and depends on the `UserRepository` service contract in `modules/user/user_repo.ts`, which also implements that contract using the `Database` service provided by the database adapter. The feature owns persistence behavior while the adapter owns the database connection and lifecycle. Persistence failures cross the port as `UserRepositoryError`; HTTP handlers translate those failures to a sanitized `503` response.
+`modules/identity/user/user_service.ts` defines application operations and depends on the `UserRepository` service contract in `modules/identity/user/user_repo.ts`, which also implements that contract using the `Database` service provided by the database adapter. `modules/identity/user/user_layer.ts` wires the service over its own repository and cache layers inside the module — the composition root never sees those dependencies, only the merged module `layer`. The feature owns persistence behavior while the adapter owns the database connection and lifecycle. Persistence failures cross the port as `UserRepositoryError`; HTTP handlers translate those failures to a sanitized `503` response.
 
-The API wire contract is owned by Effect HttpApi: the group contracts (`kernel/healthcheck.ts`, `modules/user/user_route.ts`) define endpoint schemas, statuses, and error sets once, the handler factories beside them implement them, and `kernel/http/api.ts` composes `HttpApi.make(...).prefix('/api')` into `HttpApiBuilder.layer`. The rate-limit middleware stays a router-level layer provided into that composition. The OpenAPI document and the Scalar reference mount from the same contract behind `API_DOCS_ENABLED`; the document title and version come from `package.json` through the `OpenApi.Title`/`OpenApi.Version` annotations. `kernel/http/api.ts` exports the path constants (`apiDocsPath`, `openApiPath`, `metricsPath`) that the Vite dev plugin's forwarding guard also reads. The dev plugin forwards exactly the router-owned endpoints — `/api/*`, `apiDocsPath`, `metricsPath` — and leaves page and asset paths to Vite; `apiHandler` mounts the Prometheus endpoint behind the same `METRICS_ENABLED` gate the serve command uses, so dev answers what serve answers.
+The API wire contract is owned by Effect HttpApi: the group contracts (`kernel/healthcheck.ts`, `modules/identity/user/user_route.ts`) define endpoint schemas, statuses, and error sets once, the handler factories beside them implement them, and `kernel/http/api.ts` composes `HttpApi.make(...).prefix('/api')` into `HttpApiBuilder.layer`. The rate-limit middleware stays a router-level layer provided into that composition. The OpenAPI document and the Scalar reference mount from the same contract behind `API_DOCS_ENABLED`; the document title and version come from `package.json` through the `OpenApi.Title`/`OpenApi.Version` annotations. `kernel/http/api.ts` exports the path constants (`apiDocsPath`, `openApiPath`, `metricsPath`) that the Vite dev plugin's forwarding guard also reads. The dev plugin forwards exactly the router-owned endpoints — `/api/*`, `apiDocsPath`, `metricsPath` — and leaves page and asset paths to Vite; `apiHandler` mounts the Prometheus endpoint behind the same `METRICS_ENABLED` gate the serve command uses, so dev answers what serve answers.
 
 `kernel/healthcheck.ts` serves the health check directly from `Database.ping` — the health feature has no service of its own; the healthcheck CLI pings the same signal with a 2-second timeout. `GET /api/health` is the only health endpoint: readiness semantics, fail-closed on a database or rate-limit store outage (the liveness surface `GET /api/live` was removed on 2026-10-25, superseding the split below).
+
+## Module composition decisions (plan-20261026_1227, 2026-10-26)
+
+The owner judged the previous central registry (`kernel/registry.ts`) not pragmatic or scalable:
+every new feature module meant editing a shared kernel file, and the kernel imported a feature
+module's runtime singleton directly. These decisions replaced it with a thin composition root:
+
+- **D1 — modules are self-contained; the composition root is thin.** Each feature module exports
+  three things from its package `module.ts` — `layer` (the self-wired service graph, repository
+  and cache provided inside the module), the `HttpApiGroup`, and the handlers factory. The kernel
+  (`kernel/layers.ts`) imports only the module's index and merges `layer`s into `ApplicationLayer`;
+  it never imports a feature file directly. `kernel/registry.ts` is deleted — there is no
+  hand-maintained list of module dependencies to keep in sync. Rejected: a declarative central
+  registry (modules export a definition object an iterator reads) — one consumer today, and the
+  iteration machinery would hide the dependency graph behind indirection for no benefit over
+  `Layer.mergeAll`.
+- **D2 — the `ManagedRuntime` and its disposal are kernel-owned.** `kernel/runtime.ts` builds the
+  runtime from `ApplicationLayer` + `CoreLayer` and exposes `applicationContext`/`applicationRuntime`/
+  `disposeUserRuntime` (`disposeUserRuntimeEffect` for scoped finalizers); `modules/identity/user/user_ssr.ts`
+  keeps only the SSR bridge (the `AsyncLocalStorage` store and the `*FromService` functions) and
+  receives the runtime instead of constructing it. The `AsyncLocalStorage` bridge itself stays —
+  Solid's production renderer cannot carry an Effect context into render — only its ownership moved.
+- **D3 — one shared HTTP middleware stack.** `kernel/http/stack.ts` composes the common middleware
+  merge (trust-proxy, tracer, cors, the caller's routes, request-id, error-response, request-log,
+  security-headers) once; `serve.ts` adds the SSR router and the dispose finalizer, the dev handler
+  in `api.ts` adds `Layer.succeedContext`. Before this, the two compositions hand-merged the same
+  list separately and could drift without either side noticing.
+
+No migration, seed, or wire-contract changed: endpoint paths, statuses, and error sets stayed
+byte-identical across all three decisions.
 
 ## Persistence
 
