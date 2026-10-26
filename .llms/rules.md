@@ -44,3 +44,5 @@
 - Schema generic binding: Schema wrapper helpers (`SuccessEnvelope`, `ErrorEnvelope`) must constrain generic parameters to `Schema.Top` to preserve HttpApi's internal AST type inference. Constraining to `Schema.Schema<A>` breaks type inference, causing unrelated typecheck errors across the composition root.
 - Multiprocess WAL locking: Local SQLite files require `experimental: ['multiprocess_wal']` in `src/database/dialect.ts`. Opening the database with external tools (such as CLI `sqlite3`) without multi-process WAL support will lock the file and cause runtime failures in `serve` and `healthcheck`.
 - Client-side fetch bridge: Frontend routes use `src/modules/identity/user/user_fn.ts` for isomorphic data loading. Mismatches between server response envelope structures and client fetch expectations will surface as uncaught client-side hydration exceptions in browser tests.
+- Dev env loading: do not replace `loadEnvFile('.env.local')` with Vite `loadEnv(..., '')`. The empty prefix still skips unprefixed keys, so the composition root keeps the default `DATABASE_URL` and `/api/health` answers 404 when that file is missing.
+tests.

@@ -33,6 +33,11 @@ jobs:
       - name: Typecheck
         run: vp run typecheck
 
+      - name: .env.example is current
+        run: |
+          vp run app generate:config
+          vp run app generate:config --check
+
       - name: Unit tests
         run: vp run test
 
@@ -41,7 +46,7 @@ jobs:
           vp exec playwright install --with-deps chromium
           vp run e2e --project Chromium
 
-  build-standalone:
+  build:
     needs: verify
     strategy:
       fail-fast: false
@@ -57,5 +62,8 @@ jobs:
           node-version: 24.22.0
           cache: true
 
-      - name: Build the standalone bundle
+      - name: Test
+        run: vp run test
+
+      - name: Build
         run: vp run build:standalone
