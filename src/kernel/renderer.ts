@@ -11,8 +11,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { typeid } from 'typeid-js'
 import { AppConfig } from '#/kernel/config/config.ts'
 import { cspFor } from '#/middleware/security-headers.ts'
-import { UserService } from '#/modules/user/user_service.ts'
-import { withUserService } from '#/modules/user/user_ssr.ts'
+import { UserService } from '#/modules/identity/user/user_service.ts'
+import { withUserService } from '#/modules/identity/user/user_ssr.ts'
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url))
 

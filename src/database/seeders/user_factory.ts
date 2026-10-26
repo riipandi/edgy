@@ -1,6 +1,6 @@
 import type { Kysely } from 'kysely'
 import type { DB } from '#/database/schema.ts'
-import { generateUserId, type UserInsert } from '#/modules/user/user_schema.ts'
+import { generateUserId, type UserInsert } from '#/modules/identity/user/user_schema.ts'
 
 const createdAt = new Date().toISOString().replace('T', ' ').slice(0, 19)
 const seedUser = (id: string, email: string, name: string, role: number): UserInsert => ({

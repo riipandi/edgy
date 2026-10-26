@@ -11,7 +11,7 @@ import { requestLogMiddleware } from '#/middleware/request-log.ts'
 import { securityHeadersMiddleware } from '#/middleware/security-headers.ts'
 import { requestTracerMiddleware } from '#/middleware/tracer.ts'
 import { trustProxyMiddleware } from '#/middleware/trust-proxy.ts'
-import { disposeUserRuntimeEffect } from '#/modules/user/user_ssr.ts'
+import { disposeUserRuntimeEffect } from '#/modules/identity/user/user_ssr.ts'
 import { apiRoutes, metricsPath } from './api.ts'
 
 // GET only: the router falls back from HEAD to GET, so registering the catch-all

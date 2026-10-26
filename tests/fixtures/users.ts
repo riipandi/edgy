@@ -1,8 +1,8 @@
 import { Effect, Layer } from 'effect'
 import { TypeID } from 'typeid-js'
-import { UserRepositoryError } from '#/modules/user/user_repo.ts'
-import type { User } from '#/modules/user/user_schema.ts'
-import { UserService } from '#/modules/user/user_service.ts'
+import { UserRepositoryError } from '#/modules/identity/user/user_repo.ts'
+import type { User } from '#/modules/identity/user/user_schema.ts'
+import { UserService } from '#/modules/identity/user/user_service.ts'
 
 export const user = (uuid: string, name: string) => ({
   id: TypeID.fromUUID('user', uuid).toString(),

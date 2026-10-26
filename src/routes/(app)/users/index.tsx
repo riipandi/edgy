@@ -1,6 +1,6 @@
 import { Title } from '@solidjs/meta'
 import { For, createMemo } from 'solid-js'
-import { listUsers } from '#/modules/user/user_fn.ts'
+import { listUsers } from '#/modules/identity/user/user_fn.ts'
 import { fx } from '#/resources/styles/core/utils.stylex.ts'
 import { styles as userStyles } from '#/resources/styles/pages/user.stylex.ts'
 import { sx } from '#/resources/styles/props.ts'

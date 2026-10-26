@@ -18,8 +18,8 @@ import { docsSecurityHeadersMiddleware } from '#/middleware/security-headers.ts'
 import { securityHeadersMiddleware } from '#/middleware/security-headers.ts'
 import { requestTracerMiddleware } from '#/middleware/tracer.ts'
 import { trustProxyMiddleware } from '#/middleware/trust-proxy.ts'
-import { UsersApi, usersHandlers } from '#/modules/user/module.ts'
-import { applicationContext, disposeUserRuntime } from '#/modules/user/user_ssr.ts'
+import { UsersApi, usersHandlers } from '#/modules/identity/module.ts'
+import { applicationContext, disposeUserRuntime } from '#/modules/identity/user/user_ssr.ts'
 import { LoggerLayer } from '#/observer/logger.ts'
 import pkg from '../../../package.json' with { type: 'json' }
 
