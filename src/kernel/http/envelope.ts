@@ -1,4 +1,5 @@
 import { Schema } from 'effect'
+import * as HttpApiSchema from 'effect/http-api/HttpApiSchema'
 
 // Per .llms/api-response.md. Every /api/* success or error body is one of
 // these two shapes — no bare domain payload and no flat {"_tag":...} body.
@@ -26,7 +27,12 @@ export const Metadata = Schema.Struct({
 
 export const Links = Schema.NullOr(Schema.Record(Schema.String, Schema.NullOr(Schema.String)))
 
-export const SuccessEnvelope = <A>(data: Schema.Schema<A>) =>
+// The generic is bound to Schema.Top, not the narrower Schema.Schema<A> —
+// the latter only tracks the decoded type and erases the richer Codec shape
+// HttpApi's own type machinery needs, which otherwise makes the endpoint's
+// inferred requirements collapse to `unknown` instead of `never` wherever
+// the composed Layer is consumed (cli.ts, main.ts).
+export const SuccessEnvelope = <S extends Schema.Top>(data: S) =>
   Schema.Struct({
     status: Schema.Literal('success'),
     message: Schema.optional(Schema.String),
@@ -35,10 +41,18 @@ export const SuccessEnvelope = <A>(data: Schema.Schema<A>) =>
     links: Schema.optional(Links)
   })
 
-export const ErrorEnvelope = <A>(error: Schema.Schema<A>) =>
+// The status code is explicit here rather than read off `error`'s own
+// annotation: httpApiStatus is a per-schema-node annotation, so wrapping a
+// class in this struct would otherwise lose it — the outer struct is what
+// HttpApi actually inspects for the error set's status.
+export const ErrorEnvelope = <S extends Schema.Top>(error: S, statusCode: number) =>
   Schema.Struct({
     status: Schema.Literal('error'),
     message: Schema.String,
     error,
     metadata: Metadata
-  })
+  }).pipe(HttpApiSchema.status(statusCode))
+
+// A success response with nothing to return (a delete) — the envelope always
+// carries a JSON body, so there is no 204 No Content variant of it.
+export const EmptySuccessEnvelope = SuccessEnvelope(Schema.Void)

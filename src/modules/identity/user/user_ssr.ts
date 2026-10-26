@@ -25,8 +25,14 @@ const runWithUserService = <A, E>(
     : Effect.runPromise(run(service))
 }
 
+// The SSR page lists every user on one screen: no cursor UI exists there, so
+// this reads a single page large enough to cover the seeded set.
 export const listUsersFromService = () =>
-  runWithUserService((service) => Effect.map(service.list(), (users) => users.map(toUserResult)))
+  runWithUserService((service) =>
+    Effect.map(service.list({ limit: 100, sortBy: 'id', sortOrder: 'asc' }), (result) =>
+      result.users.map(toUserResult)
+    )
+  )
 
 // The cache status is read-scoped to the SSR request: the response head is
 // committed when the shell flushes, so the header write must happen before

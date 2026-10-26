@@ -56,7 +56,7 @@ const remove: UserService['Service']['remove'] = (id) => {
 export const testServices = Layer.succeed(
   UserService,
   UserService.of({
-    list: () => Effect.succeed(users),
+    list: () => Effect.succeed({ users, hasMore: false }),
     find: (id, bypass) =>
       Effect.succeed({
         user: users.find((candidate) => candidate.id === id.toString()),

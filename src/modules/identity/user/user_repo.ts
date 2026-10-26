@@ -2,6 +2,29 @@ import { Context, Effect, Layer, Schema } from 'effect'
 import { Database } from '#/database/adapter.ts'
 import type { User, UserInsert, UserIdType } from './user_schema.ts'
 
+export type UserSortColumn = 'id' | 'created_at'
+export type SortOrder = 'asc' | 'desc'
+
+// The index signature is what lets encodeCursor/decodeCursor's generic
+// CursorPayload constraint accept this shape.
+export interface ListCursor {
+  readonly [key: string]: string
+  readonly sortValue: string
+  readonly id: string
+}
+
+export interface ListUsersOptions {
+  readonly limit: number
+  readonly sortBy: UserSortColumn
+  readonly sortOrder: SortOrder
+  readonly cursor?: ListCursor
+}
+
+export interface ListUsersResult {
+  readonly users: readonly User[]
+  readonly hasMore: boolean
+}
+
 export class UserRepositoryError extends Schema.TaggedError<UserRepositoryError>()(
   'UserRepositoryError',
   { cause: Schema.Defect() }
@@ -26,7 +49,9 @@ export interface UpdateUserPatch {
 export class UserRepository extends Context.Service<
   UserRepository,
   {
-    readonly list: () => Effect.Effect<readonly User[], UserRepositoryError>
+    readonly list: (
+      options: ListUsersOptions
+    ) => Effect.Effect<ListUsersResult, UserRepositoryError>
     readonly find: (id: UserIdType) => Effect.Effect<User | undefined, UserRepositoryError>
     readonly findByEmail: (email: string) => Effect.Effect<User | undefined, UserRepositoryError>
     readonly create: (
@@ -50,10 +75,37 @@ export const UserRepositoryLayer = Layer.effect(
   Effect.gen(function* () {
     const database = yield* Database
     const mapError = (cause: unknown) => new UserRepositoryError({ cause })
-    const list = () =>
+    // Keyset pagination: the sort column plus `id` as a tiebreaker, so rows
+    // sharing a sort value (e.g. the same created_at) still page in a stable
+    // order. One extra row is fetched to detect whether a next page exists.
+    const list = (options: ListUsersOptions) =>
       database
-        .read((db) => db.selectFrom('users').selectAll().orderBy('id', 'asc').execute())
-        .pipe(Effect.mapError(mapError))
+        .read((db) => {
+          let query = db
+            .selectFrom('users')
+            .selectAll()
+            .orderBy(options.sortBy, options.sortOrder)
+            .orderBy('id', options.sortOrder)
+            .limit(options.limit + 1)
+          if (options.cursor !== undefined) {
+            const cursor = options.cursor
+            const op = options.sortOrder === 'asc' ? '>' : '<'
+            query = query.where((eb) =>
+              eb.or([
+                eb(options.sortBy, op, cursor.sortValue),
+                eb.and([eb(options.sortBy, '=', cursor.sortValue), eb('id', op, cursor.id)])
+              ])
+            )
+          }
+          return query.execute()
+        })
+        .pipe(
+          Effect.map((rows) => ({
+            users: rows.length > options.limit ? rows.slice(0, options.limit) : rows,
+            hasMore: rows.length > options.limit
+          })),
+          Effect.mapError(mapError)
+        )
     const find = (id: UserIdType) =>
       database
         .read((db) =>

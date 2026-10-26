@@ -39,7 +39,7 @@ it.effect('retries the lookup after a failed cache fill', () =>
     const flakyRepo = Layer.succeed(
       UserRepository,
       UserRepository.of({
-        list: () => Effect.succeed([]),
+        list: () => Effect.succeed({ users: [], hasMore: false }),
         find: () => {
           lookups += 1
           return lookups === 1
@@ -82,7 +82,7 @@ it.effect('create stores the user and refuses a duplicate email', () =>
     const repo = Layer.succeed(
       UserRepository,
       UserRepository.of({
-        list: () => Effect.succeed(rows),
+        list: () => Effect.succeed({ users: rows, hasMore: false }),
         find: (id) => Effect.succeed(rows.find((row) => row.id === id.toString())),
         findByEmail: (email) => Effect.succeed(rows.find((row) => row.email === email)),
         create: (id, values) => {
@@ -131,7 +131,7 @@ it.effect('update merges the patch, invalidates the cache, and reports misses', 
     const repo = Layer.succeed(
       UserRepository,
       UserRepository.of({
-        list: () => Effect.succeed(rows),
+        list: () => Effect.succeed({ users: rows, hasMore: false }),
         find: (id) => Effect.succeed(rows.find((row) => row.id === id.toString())),
         findByEmail: (email) => Effect.succeed(rows.find((row) => row.email === email)),
         create: () => Effect.die('covered by the create test'),
@@ -185,7 +185,7 @@ it.effect('update refuses an email owned by another user', () =>
     const repo = Layer.succeed(
       UserRepository,
       UserRepository.of({
-        list: () => Effect.succeed(rows),
+        list: () => Effect.succeed({ users: rows, hasMore: false }),
         find: (id) => Effect.succeed([grace, ...rows].find((row) => row.id === id.toString())),
         findByEmail: (email) => Effect.succeed([grace, ...rows].find((row) => row.email === email)),
         create: () => Effect.die('covered by the create test'),
@@ -229,7 +229,7 @@ it.effect('remove deletes, invalidates, and reports unknown ids', () =>
     const repo = Layer.succeed(
       UserRepository,
       UserRepository.of({
-        list: () => Effect.succeed(rows),
+        list: () => Effect.succeed({ users: rows, hasMore: false }),
         find: (id) => Effect.succeed(rows.find((row) => row.id === id.toString())),
         findByEmail: (email) => Effect.succeed(rows.find((row) => row.email === email)),
         create: () => Effect.die('covered by the create test'),

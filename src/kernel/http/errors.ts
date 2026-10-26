@@ -1,11 +1,11 @@
 import { Schema } from 'effect'
-import 'effect/http-api/HttpApiSchema'
 
 // Generic, reusable HTTP-semantic errors — not one bespoke class per domain
 // concept. A module constructs one of these with its own `code` and
-// `details` instead of declaring a new tagged class per failure mode. Each
-// carries the httpApiStatus annotation Effect's own HttpApiError built-ins
-// use, so an endpoint's error set needs no separate `.pipe(HttpApiSchema.status(...))`.
+// `details` instead of declaring a new tagged class per failure mode. The
+// HTTP status is not carried here — ErrorEnvelope (kernel/http/envelope.ts)
+// sets it explicitly per endpoint, since an annotation on this inner class
+// would not propagate to the outer envelope struct HttpApi inspects.
 
 const ErrorDebug = Schema.Struct({
   type: Schema.String,
@@ -21,36 +21,30 @@ const apiErrorFields = {
 
 export class ApiValidationError extends Schema.TaggedError<ApiValidationError>()(
   'ApiValidationError',
-  apiErrorFields,
-  { httpApiStatus: 400 }
+  apiErrorFields
 ) {}
 
 export class ApiNotFoundError extends Schema.TaggedError<ApiNotFoundError>()(
   'ApiNotFoundError',
-  apiErrorFields,
-  { httpApiStatus: 404 }
+  apiErrorFields
 ) {}
 
 export class ApiConflictError extends Schema.TaggedError<ApiConflictError>()(
   'ApiConflictError',
-  apiErrorFields,
-  { httpApiStatus: 409 }
+  apiErrorFields
 ) {}
 
 export class ApiRateLimitedError extends Schema.TaggedError<ApiRateLimitedError>()(
   'ApiRateLimitedError',
-  apiErrorFields,
-  { httpApiStatus: 429 }
+  apiErrorFields
 ) {}
 
 export class ApiInternalError extends Schema.TaggedError<ApiInternalError>()(
   'ApiInternalError',
-  apiErrorFields,
-  { httpApiStatus: 500 }
+  apiErrorFields
 ) {}
 
 export class ApiServiceUnavailableError extends Schema.TaggedError<ApiServiceUnavailableError>()(
   'ApiServiceUnavailableError',
-  apiErrorFields,
-  { httpApiStatus: 503 }
+  apiErrorFields
 ) {}

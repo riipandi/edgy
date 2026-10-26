@@ -50,11 +50,13 @@ it.effect('respondSuccess folds a rate-limit verdict into an absolute reset time
   })
 )
 
-it.effect('respondError carries the error instance and its status code', () =>
+it.effect('respondError fails with the envelope carrying the error instance and status code', () =>
   Effect.gen(function* () {
-    const error = { message: 'User not found', code: 'USER_NOT_FOUND', retryable: false }
-    const body = yield* respondError(error, 404).pipe(
-      Effect.provideService(RequestId, 'req_test123')
+    const error = { message: 'unused', code: 'USER_NOT_FOUND', retryable: false }
+    const body = yield* Effect.flip(
+      respondError(error, 404, 'User not found').pipe(
+        Effect.provideService(RequestId, 'req_test123')
+      )
     )
     expect(body).toEqual({
       status: 'error',

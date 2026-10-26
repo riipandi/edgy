@@ -11,14 +11,11 @@ import { redisUrlForDatabase } from './config/redis.ts'
 /**
  * The surface a `Cacheable.Class` tag carries: a keyed lookup with failure
  * invalidation built in, and explicit invalidation for writers. `get` pairs
- * the value with where it came from so responses can expose an `x-cache`
- * header; `bypass` skips the cache entirely (no read, no write).
+ * the value with where it came from so a caller can report whether a lookup
+ * was served from the cache; `bypass` skips the cache entirely (no read, no
+ * write).
  */
 export type CacheStatus = 'hit' | 'miss' | 'bypass' | 'disabled'
-
-// The cache status rides the x-cache response header so callers can
-// see whether a lookup was served from the cache.
-export const CacheHeader = { 'x-cache': Schema.String } as const
 
 export interface CacheableService<A, E> {
   readonly get: (key: string) => Effect.Effect<readonly [value: A, status: CacheStatus], E>

@@ -10,6 +10,12 @@ const user = {
   created_at: '2026-01-01 00:00:00'
 }
 
+const envelope = <A>(data: A, status = 200) =>
+  Response.json(
+    { status: 'success', data, metadata: { status_code: status, request_id: 'req_x' } },
+    { status }
+  )
+
 interface Call {
   readonly url: string
   readonly method: string
@@ -32,9 +38,9 @@ const withFetch = (respond: (call: Call) => Response, run: () => Promise<void>):
 }
 
 describe('the user api client', () => {
-  it('lists users through GET /api/users', async () => {
+  it('lists users through GET /api/users, unwrapping the success envelope', async () => {
     await withFetch(
-      () => Response.json([user]),
+      () => envelope([user]),
       async () => {
         expect(await listUsers()).toEqual([user])
       }
@@ -61,7 +67,7 @@ describe('the user api client', () => {
     await withFetch(
       (seen) => {
         call = seen
-        return Response.json(user, { status: 201 })
+        return envelope(user, 201)
       },
       async () => {
         expect(await createUser({ email: 'a@example.com', name: 'A' })).toEqual(user)
@@ -79,7 +85,7 @@ describe('the user api client', () => {
     await withFetch(
       (seen) => {
         call = seen
-        return Response.json(user)
+        return envelope(user)
       },
       async () => {
         expect(await updateUser('user_x', { name: 'B' })).toEqual(user)
@@ -100,7 +106,7 @@ describe('the user api client', () => {
 
   it('reports delete success and miss without throwing', async () => {
     await withFetch(
-      () => new Response(null, { status: 204 }),
+      () => envelope(undefined),
       async () => {
         expect(await removeUser('user_x')).toBe(true)
       }

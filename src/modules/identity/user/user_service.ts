@@ -1,7 +1,12 @@
 import { Context, Effect, Layer, Schema } from 'effect'
 import { Cacheable, type CacheStatus } from '#/kernel/cache.ts'
 import { UserRepository, UserRepositoryError } from './user_repo.ts'
-import type { CreateUserValues, UpdateUserPatch } from './user_repo.ts'
+import type {
+  CreateUserValues,
+  ListUsersOptions,
+  ListUsersResult,
+  UpdateUserPatch
+} from './user_repo.ts'
 import { parseUserId, generateUserId, UserSchema } from './user_schema.ts'
 import type { User, UserIdType } from './user_schema.ts'
 
@@ -22,7 +27,9 @@ export class UserEmailConflict extends Schema.TaggedError<UserEmailConflict>()(
 export class UserService extends Context.Service<
   UserService,
   {
-    readonly list: () => Effect.Effect<readonly User[], UserRepositoryError>
+    readonly list: (
+      options: ListUsersOptions
+    ) => Effect.Effect<ListUsersResult, UserRepositoryError>
     readonly find: (
       id: UserIdType,
       bypass?: boolean
@@ -90,6 +97,6 @@ export const UserServiceLayer = Layer.effect(
             deleted ? Effect.as(cache.invalidate(id.toString()), true) : Effect.succeed(false)
           )
         )
-    return UserService.of({ list: () => repo.list(), find, create, update, remove })
+    return UserService.of({ list: repo.list, find, create, update, remove })
   })
 )
