@@ -1,20 +1,16 @@
 import { Context, Effect, Layer } from 'effect'
-import * as HttpApi from 'effect/http-api/HttpApi'
 import * as HttpApiBuilder from 'effect/http-api/HttpApiBuilder'
 import * as HttpApiScalar from 'effect/http-api/HttpApiScalar'
-import * as OpenApi from 'effect/http-api/OpenApi'
 import * as HttpRouter from 'effect/http/HttpRouter'
 import * as HttpServer from 'effect/http/HttpServer'
 import * as HttpServerResponse from 'effect/http/HttpServerResponse'
 import { PrometheusMetrics } from 'effect/observability'
 import { AppConfig } from '#/kernel/config/config.ts'
-import { healthHandlers, HealthApi } from '#/kernel/healthcheck.ts'
+import { api, moduleHandlerLayer } from '#/kernel/registry.ts'
 import { applicationContext, disposeUserRuntime } from '#/kernel/runtime.ts'
 import { rateLimitMiddleware } from '#/middleware/rate-limit.ts'
 import { docsSecurityHeadersMiddleware } from '#/middleware/security-headers.ts'
-import { UsersApi, usersHandlers } from '#/modules/identity/module.ts'
 import { LoggerLayer } from '#/observer/logger.ts'
-import pkg from '../../../package.json' with { type: 'json' }
 import { httpStack } from './stack.ts'
 
 export const apiDocsPath = '/api-docs'
@@ -24,11 +20,7 @@ export const openApiPath = '/api/openapi.json'
 // mount it through PrometheusMetrics.layerHttp({ path: metricsPath }).
 export const metricsPath = '/metrics'
 
-export const api = HttpApi.make(pkg.name)
-  .add(HealthApi, UsersApi)
-  .annotate(OpenApi.Title, pkg.name)
-  .annotate(OpenApi.Version, pkg.version)
-  .prefix('/api')
+export { api }
 
 // The fallback answers every router-owned path the contract does not define —
 // including the wrong method on a known path — so an API typo is a JSON 404
@@ -49,8 +41,7 @@ export const apiRoutes = Layer.unwrap(
     const config = yield* AppConfig
     const openapiPath = config.docs.enabled ? openApiPath : undefined
     const routes = HttpApiBuilder.layer(api, { openapiPath }).pipe(
-      Layer.provide(healthHandlers(api)),
-      Layer.provide(usersHandlers(api)),
+      Layer.provide(moduleHandlerLayer(api)),
       Layer.provide(rateLimitMiddleware({ excludePaths: [{ path: '/api/health', exact: true }] }))
     )
     const withFallbacks = Layer.mergeAll(routes, apiFallbacks)
