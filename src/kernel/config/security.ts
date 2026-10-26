@@ -1,49 +1,108 @@
-import { Config, ConfigProvider, Effect } from 'effect'
-import { choice, flag, group, int, milliseconds, secret, text, type ValueOf } from './field.ts'
+import { Config, Effect } from 'effect'
+import { BlockList, isIP } from 'node:net'
+import { custom, flag, group, int, invalid, milliseconds } from './field.ts'
 
-/** Abuse protection for the API routes. */
+/**
+ * The TRUST_PROXY setting, following the pocket-id concept: `false` trusts no
+ * proxy, `true` trusts every address, and anything else is a comma-separated
+ * list of proxy IPs or CIDR ranges.
+ */
+export interface TrustProxy {
+  readonly trustAll: boolean
+  readonly proxies: BlockList
+}
+
+const family = (address: string): 'ipv4' | 'ipv6' => (isIP(address) === 6 ? 'ipv6' : 'ipv4')
+
+const parseOriginList = (raw: string): Effect.Effect<ReadonlyArray<string>, Config.ConfigError> =>
+  Effect.suspend(() => {
+    const origins = raw
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter((origin) => origin !== '')
+    for (const origin of origins) {
+      if (!/^https?:\/\//.test(origin))
+        return Effect.fail(
+          invalid('CORS_ALLOWED_ORIGINS', `'${origin}' is not an absolute origin URL`)
+        )
+    }
+    return Effect.succeed(origins)
+  })
+
+const addEntry = (proxies: BlockList, entry: string): void => {
+  const separator = entry.indexOf('/')
+  const address = separator === -1 ? entry : entry.slice(0, separator)
+  if (isIP(address) === 0) throw new Error(`'${entry}' is not an IP or CIDR range`)
+  if (separator === -1) proxies.addAddress(address, family(address))
+  else proxies.addSubnet(address, Number(entry.slice(separator + 1)), family(address))
+}
+
+export const parseTrustProxy = (raw: string): Effect.Effect<TrustProxy, Config.ConfigError> =>
+  Effect.suspend(() => {
+    const value = raw.trim().toLowerCase()
+    if (value === '' || value === 'false')
+      return Effect.succeed<TrustProxy>({ trustAll: false, proxies: new BlockList() })
+    if (value === 'true')
+      return Effect.succeed<TrustProxy>({ trustAll: true, proxies: new BlockList() })
+
+    const proxies = new BlockList()
+    const entries = raw
+      .split(',')
+      .map((entry) => entry.trim())
+      .filter((entry) => entry !== '')
+    if (entries.length === 0)
+      return Effect.fail(invalid('TRUST_PROXY', 'expected proxy IPs or CIDR ranges, or true/false'))
+    for (const entry of entries) {
+      try {
+        addEntry(proxies, entry)
+      } catch {
+        return Effect.fail(invalid('TRUST_PROXY', `'${entry}' is not an IP or CIDR range`))
+      }
+    }
+    return Effect.succeed<TrustProxy>({ trustAll: false, proxies })
+  })
+
+/** Whether `address` may set the client IP in X-Forwarded-For or X-Real-IP. */
+export const isTrustedProxy = (trust: TrustProxy, address: string): boolean =>
+  trust.trustAll || (isIP(address) !== 0 && trust.proxies.check(address, family(address)))
+
 export const securityConfig = group(
   {
-    rateLimitEnabled: flag('RATE_LIMIT_ENABLED', true, 'Rate-limit the /api routes per client'),
-    rateLimitMax: int(
-      'RATE_LIMIT_MAX',
-      100,
-      'Requests allowed per client per window on /api; with the cloudflare store only reported, so keep it equal to the limit in wrangler.jsonc'
+    rateLimitEnabled: flag('RATE_LIMIT_ENABLED', true, 'Enable API rate limiting'),
+    rateLimitMax: int('RATE_LIMIT_MAX', 100, 'Requests allowed per client per window', 1),
+    rateLimitWindow: milliseconds(
+      'RATE_LIMIT_WINDOW',
+      60_000,
+      'Rate-limit window in milliseconds',
+      1
     ),
-    rateLimitWindow: milliseconds('RATE_LIMIT_WINDOW', 60_000, 'Length of the rate-limit window', {
-      min: 1
-    }),
-    rateLimitStore: choice(
-      'RATE_LIMIT_STORE',
-      ['memory', 'redis', 'cloudflare'],
-      'memory',
-      "Where counters live: per process (memory), shared by every instance (redis; Node.js only) or Cloudflare's rate-limit binding (cloudflare; Workers only, the real limit and period are set in wrangler.jsonc)"
+    trustProxy: custom(
+      {
+        name: 'TRUST_PROXY',
+        description:
+          'Proxies that may set X-Forwarded-For: true, false, or comma-separated IPs/CIDRs',
+        kind: 'string',
+        default: 'false'
+      },
+      Config.String('TRUST_PROXY').pipe(
+        Config.withDefault('false'),
+        Config.mapEffect(parseTrustProxy)
+      )
     ),
-    rateLimitBinding: text(
-      'RATE_LIMIT_BINDING',
-      'RATE_LIMITER',
-      'Name of the Workers rate-limit binding, used when RATE_LIMIT_STORE=cloudflare'
-    ),
-    redisUrl: secret(
-      'REDIS_URL',
-      'Redis or Valkey URL used when RATE_LIMIT_STORE or CACHE_STORE is redis; the default is the Valkey of `pnpm compose:up`',
-      'redis://:securedb@localhost:6379'
+    corsEnabled: flag('CORS_ENABLED', true, 'Enable CORS for the API'),
+    corsAllowedOrigins: custom(
+      {
+        name: 'CORS_ALLOWED_ORIGINS',
+        description:
+          'Origins allowed to call the API cross-origin, comma-separated (empty allows any origin)',
+        kind: 'string',
+        default: ''
+      },
+      Config.String('CORS_ALLOWED_ORIGINS').pipe(
+        Config.withDefault(''),
+        Config.mapEffect(parseOriginList)
+      )
     )
   },
-  {
-    title: 'Security',
-    // An allowance below one refuses every request while enabled.
-    transform: (raw) =>
-      raw.rateLimitEnabled && raw.rateLimitMax < 1
-        ? Effect.fail(
-            new Config.ConfigError(
-              new ConfigProvider.SourceError({
-                message: 'RATE_LIMIT_MAX must be at least 1 when RATE_LIMIT_ENABLED is true'
-              })
-            )
-          )
-        : Effect.succeed(raw)
-  }
+  'Security'
 )
-
-export type SecurityConfig = ValueOf<typeof securityConfig>

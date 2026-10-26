@@ -1,0 +1,235 @@
+{
+    "name": "Application Overview",
+    "tags": ["edgy", "application"],
+    "filters": [
+        {
+            "name": "Service",
+            "type": "QUERY_EXPRESSION",
+            "expression": "ServiceName",
+            "source": "Traces"
+        }
+    ],
+    "tiles": [
+        {
+            "name": "Requests",
+            "x": 0,
+            "y": 0,
+            "w": 6,
+            "h": 4,
+            "config": {
+                "displayType": "number",
+                "numberFormat": {
+                    "output": "number",
+                    "mantissa": 0,
+                    "thousandSeparated": true
+                },
+                "alignDateRangeToGranularity": true,
+                "source": "Traces",
+                "select": [
+                    {
+                        "aggFn": "count"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "Error rate (%)",
+            "x": 6,
+            "y": 0,
+            "w": 6,
+            "h": 4,
+            "config": {
+                "displayType": "number",
+                "configType": "sql",
+                "source": "Traces",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT if(count() = 0, 0, round(100 * countIf(StatusCode = 'Error') / count(), 2)) AS error_pct FROM $__sourceTable WHERE $__timeFilter(Timestamp) AND $__filters"
+            }
+        },
+        {
+            "name": "Latency p95 (ms)",
+            "x": 12,
+            "y": 0,
+            "w": 6,
+            "h": 4,
+            "config": {
+                "displayType": "number",
+                "numberFormat": {
+                    "output": "number",
+                    "mantissa": 1,
+                    "thousandSeparated": true
+                },
+                "alignDateRangeToGranularity": true,
+                "source": "Traces",
+                "select": [
+                    {
+                        "aggFn": "quantile",
+                        "level": 0.95,
+                        "valueExpression": "Duration / 1e6"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "Services reporting",
+            "x": 18,
+            "y": 0,
+            "w": 6,
+            "h": 4,
+            "config": {
+                "displayType": "number",
+                "configType": "sql",
+                "source": "Traces",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT uniqExact(ServiceName) AS services FROM $__sourceTable WHERE $__timeFilter(Timestamp) AND $__filters"
+            }
+        },
+        {
+            "name": "Traffic by service",
+            "x": 0,
+            "y": 4,
+            "w": 12,
+            "h": 7,
+            "config": {
+                "displayType": "line",
+                "numberFormat": {
+                    "output": "number",
+                    "mantissa": 0,
+                    "thousandSeparated": true
+                },
+                "alignDateRangeToGranularity": true,
+                "groupBy": "ServiceName",
+                "source": "Traces",
+                "select": [
+                    {
+                        "aggFn": "count"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "Latency percentiles (ms)",
+            "x": 12,
+            "y": 4,
+            "w": 12,
+            "h": 7,
+            "config": {
+                "displayType": "line",
+                "numberFormat": {
+                    "output": "number",
+                    "mantissa": 1,
+                    "thousandSeparated": true
+                },
+                "alignDateRangeToGranularity": true,
+                "source": "Traces",
+                "select": [
+                    {
+                        "aggFn": "quantile",
+                        "level": 0.5,
+                        "valueExpression": "Duration / 1e6",
+                        "alias": "p50"
+                    },
+                    {
+                        "aggFn": "quantile",
+                        "level": 0.95,
+                        "valueExpression": "Duration / 1e6",
+                        "alias": "p95"
+                    },
+                    {
+                        "aggFn": "quantile",
+                        "level": 0.99,
+                        "valueExpression": "Duration / 1e6",
+                        "alias": "p99"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "Top routes",
+            "x": 0,
+            "y": 11,
+            "w": 12,
+            "h": 8,
+            "config": {
+                "displayType": "table",
+                "numberFormat": {
+                    "output": "number",
+                    "mantissa": 0,
+                    "thousandSeparated": true
+                },
+                "alignDateRangeToGranularity": true,
+                "groupBy": "SpanName",
+                "source": "Traces",
+                "select": [
+                    {
+                        "aggFn": "count",
+                        "alias": "spans"
+                    },
+                    {
+                        "aggFn": "quantile",
+                        "level": 0.95,
+                        "valueExpression": "Duration / 1e6",
+                        "alias": "p95_ms"
+                    },
+                    {
+                        "aggFn": "count",
+                        "where": "StatusCode = 'Error'",
+                        "whereLanguage": "sql",
+                        "alias": "errors"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "Signal freshness",
+            "x": 12,
+            "y": 11,
+            "w": 12,
+            "h": 8,
+            "config": {
+                "displayType": "table",
+                "configType": "sql",
+                "source": "Traces",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT ServiceName AS service, count() AS spans, round(quantile(0.95)(Duration / 1e6), 1) AS p95_ms, max(Timestamp) AS last_event FROM $__sourceTable WHERE $__timeFilter(Timestamp) AND $__filters GROUP BY service ORDER BY spans DESC LIMIT 20"
+            }
+        },
+        {
+            "name": "Telemetry footprint",
+            "x": 0,
+            "y": 19,
+            "w": 6,
+            "h": 4,
+            "config": {
+                "displayType": "number",
+                "numberFormat": {
+                    "output": "byte",
+                    "mantissa": 1
+                },
+                "configType": "sql",
+                "source": "Traces",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT sum(bytes_on_disk) AS bytes FROM system.parts WHERE active AND database = 'default' AND table IN ('otel_traces', 'otel_logs', 'otel_traces_kv_rollup_15m', 'otel_logs_kv_rollup_15m')"
+            }
+        },
+        {
+            "name": "Rows in range",
+            "x": 6,
+            "y": 19,
+            "w": 6,
+            "h": 4,
+            "config": {
+                "displayType": "number",
+                "numberFormat": {
+                    "output": "number",
+                    "mantissa": 0,
+                    "thousandSeparated": true
+                },
+                "configType": "sql",
+                "source": "Traces",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT count() AS rows FROM $__sourceTable WHERE $__timeFilter(Timestamp) AND $__filters"
+            }
+        }
+    ]
+}

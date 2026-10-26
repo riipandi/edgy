@@ -1,24 +1,60 @@
-import { Effect } from 'effect'
-import type { DatabaseError } from '../../kernel/errors.ts'
-import { type UsersTable, UserId } from '../../modules/user/user_schema.ts'
-import { DatabaseService } from '../service.ts'
+import type { Kysely } from 'kysely'
+import type { DB } from '#/database/schema.ts'
+import { generateUserId, type UserInsert } from '#/modules/identity/user/user_schema.ts'
 
-const SAMPLE_USERS: ReadonlyArray<Pick<UsersTable, 'email' | 'name'>> = [
-  { email: 'ada@example.com', name: 'Ada Lovelace' },
-  { email: 'grace@example.com', name: 'Grace Hopper' },
-  { email: 'linus@example.com', name: 'Linus Torvalds' }
+const createdAt = new Date().toISOString().replace('T', ' ').slice(0, 19)
+const seedUser = (id: string, email: string, name: string, role: number): UserInsert => ({
+  id,
+  email,
+  name,
+  avatar_url: null,
+  role,
+  email_verified: 0,
+  data: null,
+  disabled: 0,
+  created_at: createdAt,
+  updated_at: createdAt
+})
+
+const users = [
+  seedUser(
+    generateUserId('01890a5d-ac96-774b-bcce-b302099a8056').toString(),
+    'admin@example.com',
+    'Admin Sistem',
+    100
+  ),
+  seedUser(
+    generateUserId('01890a5d-ac96-774b-bcce-b302099a8057').toString(),
+    'ada@example.com',
+    'Ada Lovelace',
+    20
+  ),
+  seedUser(
+    generateUserId('01890a5d-ac96-774b-bcce-b302099a8058').toString(),
+    'grace@example.com',
+    'Grace Hopper',
+    20
+  ),
+  seedUser(
+    generateUserId('01890a5d-ac96-774b-bcce-b302099a8059').toString(),
+    'margaret@example.com',
+    'Margaret Hamilton',
+    20
+  )
 ]
 
-/** Inserts the sample users. Rows whose `email` already exists are skipped. */
-export const seedUsers: Effect.Effect<void, DatabaseError, DatabaseService> = DatabaseService.use(
-  ({ query }) =>
-    query(async (db) => {
-      for (const user of SAMPLE_USERS) {
-        await db
-          .insertInto('users')
-          .values({ id: UserId.make(), ...user })
-          .onConflict((oc) => oc.column('email').doNothing())
-          .execute()
-      }
-    })
-)
+export const seedUsers = async (db: Kysely<DB>): Promise<void> => {
+  const existing = new Set(
+    (await db.selectFrom('users').select('email').execute()).map((row) => row.email)
+  )
+  const pending = users.filter((user) => !existing.has(user.email))
+  if (pending.length === 0) return
+  await db
+    .insertInto('users')
+    .values(pending)
+    .onConflict((conflict) => conflict.column('email').doNothing())
+    .execute()
+}
+
+/** Number of records inserted by the users seeder, for dry-run reports. */
+export const USER_SEED_COUNT = users.length

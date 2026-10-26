@@ -10,11 +10,19 @@ This file holds the workflow rules, always in force; the detail — the reposito
 
 ## Working rules
 
+- Keep things in one function unless composable or reusable.
 - Do not document, test, or treat a stub as working — implemented surfaces are listed in `.llms/index.md` and `.llms/architecture.md`; the rest is a scaffold.
 - Do not add, remove, or rename a top-level directory unless asked; extend an existing package.
+- Do not extract single-use helpers preemptively. Inline the logic at the call site unless the helper is reused, hides a genuinely complex boundary, or has a clear independent name that improves the caller.
 - Porting a plan into code means implementing it. A doc may describe a larger surface than the code has.
 - Comments are short and rare. Write one only for what the code cannot say (a why, a contract, a trap), in plain words, with no filler. Never restate the code, and never mention a decision, plan, issue, audit, session, or another file in a code comment. The full rule is in `.llms/rules.md` ("Code comments").
-- When writing Effect code, inspect @vendor/effect/ for examples of idiomatic usage, tests, module structure, and API design. Treat it as the source of truth for Effect patterns.
+- When working with Effect, check `.llms/effect-docs.md` first — every Effect implementation starts there (it links the v4 docs and names the modules this repository reaches for) — then read the pinned module docs in `node_modules/@effect/**/ai-docs` and `node_modules/effect/ai-docs`; the module cache is the truth, the website is the guide.
+- Before adding complexity for a speculative or vanishingly unlikely race or security edge case, explain the concrete failure mode, likelihood, and complexity cost to the user and get their buy-in. Do not silently expand scope for theoretical robustness.
+
+## Tooling (vite-plus)
+
+- The project runs on vite-plus (`vp`/`vpr`). Invoke every project script through the task runner: `vpr <script>` (`vpr dev`, `vpr build`, `vpr test`, `vpr check`, `vpr start`, `vpr e2e`, …) and the application CLI through `vpr app <command>` (`vpr app serve`, `vpr app migrate:up`, `vpr app generate:config`, …).
+- Do not use `pnpm <script>` or `pnpm app` — that shorthand is not the project's convention.
 
 ## Skills
 
@@ -71,15 +79,6 @@ If they already chose in the same thread, do not re-ask. If new facts change the
 - **Prose.** Tree documents are English. Technical documentation for agents lives in `.llms/`; product documentation for humans lives in `docs/` — keep `docs/` free of technical references (paths, internals, agent context); its orientation is the human reader. Chat may follow the user's language. Files do not. The `clarity` skill is mandatory before writing or rewriting any of them; `handoff` for handovers.
 - **Library docs.** Use the MCP Context7 and DeepWiki tools for external libraries; the module cache is the pinned truth — code wins over docs.
 - **Secrets.** A secret is listed once in the configuration system's secret list and nowhere else. Never print one; never rewrite a dotenv file without consent.
-
-## Vendored Repositories
-
-This project vendors external repositories under @vendor/
-
-- Use vendored repositories as read-only reference material when working with related libraries
-- Prefer examples and patterns from the vendored source code over generated guesses or web search results
-- Do not edit files under @vendor/ unless explicitly asked
-- Do not import from @vendor/ - application code should continue importing from normal package dependencies
 
 ## Git
 

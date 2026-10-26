@@ -12,10 +12,12 @@ Context: <the forces — the constraint that forced a choice, the problem, the d
 Decision: <what was picked, and the one reason that survived the alternatives.>
 
 Consequences:
+
 - (positive) <what the pick buys — the benefit, named concretely>
 - (negative) <what the pick costs — the trade-off, the debt, the capability given up. A decision with no named cost was not examined.>
 
 Alternatives considered:
+
 - <alternative> — rejected: <the reason, specific to this tree, not "considered and rejected">
 ```
 

@@ -1,150 +1,144 @@
 # Deployment
 
-How to build, bundle, and ship the server.
+Edgy is deployed as a standalone Node.js process or container image with zero external runtime dependencies.
 
-## Building
+## Deployment topologies
 
-[Vite](https://vite.dev) builds both targets: the server (or Worker) and the browser assets, in one
-run (`vite build`). After it, one small step makes the Node entry executable and writes a
-minimal `package.json`, so the result runs without the project's own `node_modules`. Only the single
-executable is a separate command.
+The application supports two distinct operational modes based on workload, resource scale, and architecture: **Single node mode** and **Cluster mode**.
 
-```bash
-pnpm build                  # -> dist/server  (index.mjs, with assets/ for the browser beside it)
-pnpm build --mode worker    # -> dist/worker  (index.js + public/ for the browser)
-pnpm compile                # -> dist/edgy  (single executable, experimental)
+### Single node mode
+
+A lightweight deployment pattern running one application process behind a reverse proxy. Best suited for single-container setups, VPS hosting, staging environments, and moderate traffic.
+
+```mermaid
+graph TD
+    Client["HTTP Client / Browser"] -->|"HTTPS (Port 443)"| Proxy["Reverse Proxy (Nginx / Caddy / Cloudflare)"]
+    Proxy -->|"HTTP (Port 3000)"| App["Edgy Application (node dist/entry.js serve)"]
+
+    subgraph Host ["Single Node Host / Container"]
+        App -->|"Local Disk (0600)"| LocalDB[("SQLite Database File")]
+        App -->|"In-Memory"| MemStore["Process Memory (LRU Cache & Token Bucket Limiter)"]
+    end
+
+    App -.->|"Optional OTLP"| Telemetry["Telemetry Collector (ClickStack)"]
 ```
 
-`dev`, `build` and `preview` are Vite's own commands, and `--mode worker` makes any of them the
-Worker's (Vite's `--mode` is the one switch its command line passes to the configuration). Left out,
-it is the Node server. Every other Vite option works as on Vite: `pnpm build --minify`,
-`pnpm dev --port 3001`.
+In single node mode:
 
-`--minify` is Vite's own flag, so it works on any of them (`pnpm build --minify`); the browser assets
-are always minified.
+- **Execution**: Run directly with `node dist/entry.js serve` (or `vpr start`).
+- **Persistence**: Employs a local SQLite file (`storage/data/app.db`) through Turso's embedded engine with multi-process WAL.
+- **Cache & Throttling**: User cache lookups and rate-limiting buckets reside in process memory without requiring external Redis infrastructure.
+- **Maintenance**: Migrations can be applied automatically at boot via `--auto-migrate` or as a release step via `migrate:up`.
 
-Run the build anywhere, with no `node_modules` present:
+### Cluster mode
 
-```bash
-node dist/server/index.mjs serve
-./dist/server/index.mjs serve   # the Node entry is executable and starts with a shebang
+A high-throughput deployment pattern that distributes workload across multiple processes or instances to maximize CPU utilization and provide redundancy.
+
+#### 1. Local multi-worker cluster (OxMgr)
+
+Supervises multiple Node.js worker processes across available CPU cores on a single physical server or virtual machine using Node's native `cluster` module.
+
+```mermaid
+graph TD
+    Client["HTTP Client / Browser"] -->|"HTTPS (Port 443)"| LB["Reverse Proxy / Port Listener"]
+    LB -->|"Port 3000"| Supervisor["OxMgr Process Supervisor (oxfile.toml)"]
+
+    subgraph SingleServer ["Multi-Core Dedicated Server / VM"]
+        Supervisor --> Worker1["Worker Process 1"]
+        Supervisor --> Worker2["Worker Process 2"]
+        Supervisor --> Worker3["Worker Process 3"]
+        Supervisor --> Worker4["Worker Process 4"]
+
+        Worker1 & Worker2 & Worker3 & Worker4 -->|"Multiprocess WAL"| SharedLocalDB[("Local SQLite Database File")]
+        Worker1 & Worker2 & Worker3 & Worker4 -.->|"Optional RESP"| RedisInstance[("Redis (Shared Cache & Rate Limits)")]
+    end
 ```
 
-The server finds its browser assets in `assets/`, next to `index.mjs`, so keep the two together
-when you copy the build. The Worker entry (`dist/worker/index.js`) is not executable: the platform
-loads it, nothing runs it.
+- **Execution**: Start the clustered workers using `vpr start:cluster` (or `oxmgr runtime ./oxfile.toml`).
+- **Persistence**: All worker processes safely read and write to the same local SQLite database file via multi-process WAL mode (`multiprocess_wal`).
+- **State Coordination**: To share rate limits and cached entries seamlessly across workers, set `REDIS_ENABLE=true` pointing to a local or remote Redis instance.
+- **Migration Rule**: Always run `node dist/entry.js migrate:up` before starting the cluster. Clustered workers must never run with `--auto-migrate` to prevent database lock contention during boot.
 
-## Two targets
+#### 2. Distributed multi-node cluster
 
-The same application runs in two places. The code, routes and configuration are shared; only the
-runtime and the database differ.
+Scales horizontally across multiple separate host machines, Kubernetes pods, or container instances behind a global or cloud load balancer.
 
-| Target             | Runtime          | Database             | Built with        |
-| ------------------ | ---------------- | -------------------- | ----------------- |
-| Node.js server     | Node.js >= 24.22 | SQLite (`node:sqlite`) | `pnpm build`   |
-| Cloudflare Workers | workerd          | Cloudflare D1        | `pnpm build --mode worker` |
+```mermaid
+graph TD
+    Client["HTTP Client / Browser"] -->|"HTTPS"| CloudLB["Cloud Load Balancer / Ingress"]
 
-## Cloudflare Workers
+    subgraph Nodes ["Independent Compute Nodes"]
+        CloudLB --> Node1["Application Pod / VM 1"]
+        CloudLB --> Node2["Application Pod / VM 2"]
+        CloudLB --> NodeN["Application Pod / VM N"]
+    end
 
-```bash
-pnpm dev --mode worker       # run the source in workerd, with hot updates
-pnpm build --mode worker     # build into dist/worker (the Worker and, in public/, the browser assets)
-pnpm preview --mode worker   # run the Worker built in dist/worker, in workerd (build it first)
-pnpm run deploy              # build a minified Worker, then publish it with wrangler
+    subgraph SharedInfra ["Shared Cloud Infrastructure"]
+        Node1 & Node2 & NodeN -->|"HTTPS / libsql://"| RemoteTurso[("Turso Cloud / Remote sqld")]
+        Node1 & Node2 & NodeN -->|"RESP (Port 6379)"| CentralRedis[("Centralized Redis Cluster (DB 1 & 2)")]
+    end
 ```
 
-The Worker is the same Vite configuration with `--mode worker`. Vite's Cloudflare plugin
-reads `wrangler.jsonc` and writes the configuration that `wrangler deploy` uses, including the
-browser assets, which Cloudflare serves itself without starting the Worker. Node's built-ins
-(`node:async_hooks`) stay imports, which Cloudflare provides through the `nodejs_compat` flag.
-`--minify` works for both targets; `pnpm compile` (single executable) is Node.js only.
+- **Execution**: Each compute node runs independently via container orchestration or cloud runners.
+- **Persistence**: Nodes connect to a shared remote Turso database over HTTP/libSQL (`DATABASE_URL=libsql://...` with `DATABASE_TOKEN`).
+- **Distributed State**: Centralized Redis (`REDIS_ENABLE=true`) synchronizes token-bucket rate limits and cached records across all active nodes.
+- **Health Probes**: Each node answers readiness checks at `/api/health`, failing closed if either Turso or Redis fails to respond.
 
-`pnpm dev --mode worker` is the fast loop. `pnpm preview --mode worker` runs the artifact you will
-actually ship: build it the way `pnpm run deploy` does (`pnpm build --mode worker --minify`), then preview it.
-
-Local secrets and overrides for the Worker go in `.dev.vars` (Wrangler's own file, ignored by git).
-`.env.local` is for the Node.js server and is deliberately not read for the Worker: it would
-override the variables in `wrangler.jsonc`.
-
-Before the first deploy:
-
-1. Create the database: `wrangler d1 create edgy`, then put the printed id in `wrangler.jsonc`
-   (`d1_databases[0].database_id`).
-2. Put application settings under `vars` in `wrangler.jsonc` and secrets in `wrangler secret put`.
-   See [Configuration](./configuration.md).
-3. Create the schema, in one of two ways.
-   - Explicitly, before the deploy (recommended for production): `pnpm app migrate:up --remote`
-     applies the migrations to the real database, after `--dry-run` has shown what is pending. It
-     needs `wrangler login` (or `CLOUDFLARE_API_TOKEN`). Then switch the automatic route off:
-     `pnpm run deploy --var DATABASE_AUTO_MIGRATE:false`.
-   - Automatically: `wrangler.jsonc` sets `DATABASE_AUTO_MIGRATE` to `true`, so the first request to
-     a new database applies the migrations. Several isolates starting at once can race on that
-     first migration, and a preview upload shares these settings, so use it for a new or
-     throwaway database.
-
-Differences from the Node.js server:
-
-- D1 has no interactive transactions, so code that needs one fails with a database error.
-- Cached reads are kept per isolate with `CACHE_STORE=memory`, or per location in Cloudflare's Cache API with `CACHE_STORE=cloudflare` (the default in `wrangler.jsonc`); the Cache API stores nothing on `*.workers.dev`, so use a custom domain for it to have an effect.
-- Rate limiting is counted per isolate with `memory`, and per Cloudflare location with `RATE_LIMIT_STORE=cloudflare`, which uses the `ratelimits` binding in `wrangler.jsonc` (allowance and period are set there). Neither is an exact global quota.
-- Logs go straight to the platform's log stream (`console`), without batching.
-- Set `TRUSTED_PLATFORM=CF-Connecting-IP` (`wrangler.jsonc` does): a Worker has no socket address, and
-  without it every client shares one rate-limit bucket.
-
-## Scaling the Node.js server
-
-One process serves roughly 10,000 list requests (20 rows each) per second on a laptop, and SQLite access is
-synchronous, so a slow query holds up every other request on that process. To go further, run several
-processes (SQLite's WAL mode lets them read and write the same file) behind a reverse proxy, and set
-`TRUST_PROXY` to your proxy's address or network (see [Configuration](./configuration.md#behind-a-reverse-proxy)). Rate limits then apply to each process separately.
-
-Behind a load balancer, set `SHUTDOWN_DRAIN_DELAY` to a few seconds: on a stop signal `/health`
-answers `503` first, and the server closes the listener only after that pause, so the balancer stops
-sending traffic before connections are refused.
-
-## Telemetry and overload
-
-The defaults of `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS` and `REDIS_URL` are the
-local development stack. In production set your own (the collector's URL and key, your Redis), or set
-`OTEL_SDK_DISABLED=true` if there is no collector; add `otlp` to `LOG_TRANSPORT` to send logs too. In production keep the ratio under control with `OTEL_TRACES_SAMPLE_RATIO`: recording every
-request costs a few percent of throughput (about 7% on a laptop at full sampling), and a tenth of that
-is rarely a loss. If the collector is unreachable, export pauses and drops its buffer; requests are
-unaffected.
-
-Rate limiting is on by default (`RATE_LIMIT_ENABLED`). Behind several instances, set `RATE_LIMIT_STORE=redis` with a `REDIS_URL` so the rate limit is shared,
-not multiplied. `MAX_IN_FLIGHT` caps the requests one process handles at once; past it the server answers
-`503` straight away, which lets a load balancer retry elsewhere instead of every request slowing down.
-
-## Build configuration
-
-Bundling is configured in one file, `vite.config.ts`, which serves both targets (`--mode worker`
-selects the Worker). It is an ordinary Vite configuration, so Vite's own flags apply (`--minify`), and
-so does anything you add to it (`server`, `build`, `resolve`, more plugins): what you set there wins
-over the defaults of the project's Vite plugin. There is nothing else to set.
-
-The Node.js server is one bundle with its dependencies inlined. A dependency that ships a native
-addon cannot be bundled that way; none of the current dependencies do (the database is
-`node:sqlite`).
-
-## Single executable
-
-`pnpm compile` builds the server as one CommonJS file together with the browser assets, generates a
-preparation blob with `node --experimental-sea-config`, and injects it into a copy of the running
-`node` binary using [postject](https://github.com/nodejs/postject). The browser assets travel inside
-the executable, so it serves its own pages with nothing beside it.
+## Build artifacts
 
 ```bash
-pnpm compile
-./dist/edgy serve
+vpr build               # standard production build
+vpr build:standalone    # standalone bundle with all dependencies inlined
+```
+
+- `vpr build`: Compiles server entry points and client browser bundles into `dist/`.
+- `vpr build:standalone`: Inlines all dependencies into a single executable script (`dist/entry.js`). The target platform's native Turso engine binding is copied into `dist/node_modules/@tursodatabase/`. Copying the `dist/` directory produces a self-contained deployable unit.
+
+To execute the built server:
+
+```bash
+node dist/entry.js serve
+```
+
+## Process clustering with OxMgr
+
+Standalone builds automatically emit `dist/oxfile.toml`, configured for multi-worker process clustering using Node's `cluster` module.
+
+To run the clustered runtime:
+
+```bash
+vpr start:cluster
 ```
 
 > [!IMPORTANT]
-> Node marks Single Executable Applications as **experimental** (stability 1.1). The generated
-> binary:
->
-> - embeds the Node runtime, so expect **~120 MB**;
-> - **cannot be cross-compiled** — it only runs on the platform that built it;
-> - is supported on Windows, macOS (arm64) and Linux (except Alpine and s390x).
->
-> On macOS the compiler strips and re-signs the binary ad-hoc around the injection step. This
-> project uses `node:sqlite`, so the output has no external dependencies.
+> Run database migrations (`node dist/entry.js migrate:up`) as a separate step before starting cluster mode. Clustered workers run as independent OS processes and would otherwise race to migrate the database concurrently.
+
+## Container deployment
+
+The application Dockerfile builds a distroless container image:
+
+```bash
+vpr docker:build
+```
+
+- The container executes as a non-root user.
+- The build uses `--build-arg DISTROLESS_TAG=debug-nonroot` to provide `/busybox/env` for executing the Node runtime.
+- The container healthcheck runs `entry.js healthcheck`, verifying database readiness every 20 seconds.
+- Storage volumes should mount to `/app/storage` for persistent local SQLite databases and log sinks.
+
+## Docker Compose development stack
+
+To spin up the complete local environment including observability and Redis:
+
+```bash
+vpr compose:up     # start services in background
+vpr compose:down   # stop and remove containers
+```
+
+Services in the compose stack:
+
+- **Application (`app`)**: Built from the project Dockerfile with a 256 MB memory limit.
+- **ClickStack (`clickstack`)**: Combined OpenTelemetry collector, ClickHouse analytics store, and telemetry UI answering at `http://localhost:8080`.
+- **Redis (`redis`)**: In-memory store for distributed caching (DB 1) and rate limits (DB 2).
+- **cAdvisor (`cadvisor`)**: Gathers container-level CPU and memory metrics.
+- **Mailpit (`mailpit`)**: Local SMTP server and inbox viewer for development emails.

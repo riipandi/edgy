@@ -1,14 +1,42 @@
-# yaml-language-server: $schema=https://www.schemastore.org/pnpm-workspace.json
-
-catalogMode: manual
-
-minimumReleaseAge: 0
-
-verifyDepsBeforeRun: false
-
 allowBuilds:
   esbuild: true
-  workerd: true
+
+minimumReleaseAgeStrict: true
+minimumReleaseAge: 1440
+
+minimumReleaseAgeExclude:
+  - "@effect/*"
+  - "@effect/platform-node"
+  - "@effect/platform-node-shared"
+  - "@solidjs/*"
+  - "@storybook/addon-vitest"
+  - effect
+  - filesystem-routing
+  - kysely
+  - solid-js
+  - storybook-solidjs-vite
 
 catalog:
-  typescript: ^7.0.2
+  "@vitest/coverage-v8": 5.0.5
+  vite-plus: 1.4.0
+  vite: npm:@voidzero-dev/vite-plus-core@1.4.0
+  vitest: 5.0.5
+
+overrides:
+  uuid: ^14.0.3
+  vite@*: "catalog:"
+  vitest@*: "catalog:"
+
+peerDependencyRules:
+  allowAny:
+    - vitest
+  allowedVersions:
+    vitest: "*"
+
+permissions:
+  "@solidjs/diagnostics":
+    skills: true
+  "@solidjs/web":
+    skills: true
+  solid-js:
+    skills: true

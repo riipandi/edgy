@@ -1,15 +1,15 @@
 ---
 name: agent-docs
 description: >
-    The documentation-ledger workflow: drafting plan documents
-    (.llms/plans), filing and reconciling issues (.llms/issues), curating
-    the roadmap (.llms/roadmap), writing handovers and audits, keeping
-    .llms/index.md and the .llms core documents in sync, and maintaining
-    the human-facing docs/ tree. Use when the user asks for a plan, an
-    issue, a roadmap entry, a handover, an index update, or any docs/
-    change — and when the user runs /agent-docs.
+  The documentation-ledger workflow: drafting plan documents
+  (.llms/plans), filing and reconciling issues (.llms/issues), curating
+  the roadmap (.llms/roadmap), writing handovers and audits, keeping
+  .llms/index.md and the .llms core documents in sync, and maintaining
+  the human-facing docs/ tree. Use when the user asks for a plan, an
+  issue, a roadmap entry, a handover, an index update, or any docs/
+  change — and when the user runs /agent-docs.
 metadata:
-    short-description: "The .llms ledger and docs/ workflow"
+  short-description: 'The .llms ledger and docs/ workflow'
 ---
 
 # Agent docs — the documentation ledger workflow
@@ -76,12 +76,12 @@ build it on facts, not invention:
 The ledger has four document kinds; each carries its frontmatter keys and
 its own status options — never a status from another kind's vocabulary.
 
-| Document | Frontmatter keys (required) | Document `status` options | Item/phase `status` options |
-| --- | --- | --- | --- |
-| Plan — `.llms/plans/plan-<stamp>.md` | `status`, `updated`, `phases:` (each: `id`, `title`, `status`, `note`) | `awaiting-approval` (drafted, unstarted) · `in-progress` (phases running) · `done` (every phase landed, matrix green) · `cancelled` (owner closed it; the note names why) | `pending` (not started) · `in_progress` (active this turn) · `committed` (landed, commit hash in the note) · `partially-done` (the note names what moved and what parked) · `done` |
-| Issue — `.llms/issues/issue-<stamp>.md` | `status` (the rollup), `captured`, `updated`, `summary`, `count` (items actually listed) | the rollup mirrors its items: `open` · `considering` · `resolved` · `wontfix` | `open` (work to do, nobody working it) · `considering` (a decision parked with a named trigger — act only when it fires) · `resolved` (landed, the resolution names the evidence) · `wontfix` (the owner declined; the trigger records when to reopen) |
-| Roadmap — `.llms/roadmap/<name>.md` | `status`, `updated`, `references` (source issues/plans) | `living` (updated in place, stamped) | per entry: `parked (unlock: …)` · `taken (plan-<stamp>)` · `opened (issue-<stamp>)` · `landed (commit/plan)` |
-| Handover — `.llms/handover/handover-<stamp>.md` | `status`, `captured` (from the filename stamp), `plan`, `wave` — a key the body cannot name is omitted, not guessed | `done` (the session closed its work) · `partial` (compacted mid-work; the open threads named) | — |
+| Document                                        | Frontmatter keys (required)                                                                                         | Document `status` options                                                                                                                                                 | Item/phase `status` options                                                                                                                                                                                                                            |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Plan — `.llms/plans/plan-<stamp>.md`            | `status`, `updated`, `phases:` (each: `id`, `title`, `status`, `note`)                                              | `awaiting-approval` (drafted, unstarted) · `in-progress` (phases running) · `done` (every phase landed, matrix green) · `cancelled` (owner closed it; the note names why) | `pending` (not started) · `in_progress` (active this turn) · `committed` (landed, commit hash in the note) · `partially-done` (the note names what moved and what parked) · `done`                                                                     |
+| Issue — `.llms/issues/issue-<stamp>.md`         | `status` (the rollup), `captured`, `updated`, `summary`, `count` (items actually listed)                            | the rollup mirrors its items: `open` · `considering` · `resolved` · `wontfix`                                                                                             | `open` (work to do, nobody working it) · `considering` (a decision parked with a named trigger — act only when it fires) · `resolved` (landed, the resolution names the evidence) · `wontfix` (the owner declined; the trigger records when to reopen) |
+| Roadmap — `.llms/roadmap/<name>.md`             | `status`, `updated`, `references` (source issues/plans)                                                             | `living` (updated in place, stamped)                                                                                                                                      | per entry: `parked (unlock: …)` · `taken (plan-<stamp>)` · `opened (issue-<stamp>)` · `landed (commit/plan)`                                                                                                                                           |
+| Handover — `.llms/handover/handover-<stamp>.md` | `status`, `captured` (from the filename stamp), `plan`, `wave` — a key the body cannot name is omitted, not guessed | `done` (the session closed its work) · `partial` (compacted mid-work; the open threads named)                                                                             | —                                                                                                                                                                                                                                                      |
 
 Shared conventions: `updated` is the last time the file's claims were
 true (a status flip without a fresh `updated` is a stale file); `count`
@@ -239,14 +239,14 @@ explicitly recorded n/a — silence is not a verdict.
 Two kinds live here: the **snapshots** — real ledger documents whose
 shape is the lesson — and the **cards** — one-page technique guides.
 
-| File | Kind | The shape it shows |
-| --- | --- | --- |
-| `references/plan-example.md` | snapshot | A full plan: frontmatter phases, verified current state, decisions with rejected alternatives, the execution-rules block, per-phase commits, matrix, out-of-scope |
-| `references/issue-example.md` | snapshot | An issue rollup: frontmatter rollup, per-item statuses with triggers, the settled-records section |
-| `references/roadmap-example.md` | snapshot | A roadmap document: frontmatter, per-entry `parked (unlock)` lines, evidence, first moves, source stamps |
-| `references/handover-example.md` | snapshot | A handover: frontmatter convention, what the session did, the commits, what stayed open |
-| `references/adr-example.md` | card | The decision record: context, decision, consequences both sides, alternatives with evidence-backed rejections; scale — full ADR vs compact record |
-| `references/verification-example.md` | card | The adversarial claim check: extract, tree-check, break — the verdicts (verified / stale / unfounded / contradicted) and what each writes |
-| `references/refactor-sequence-example.md` | card | The safe sequence (contracts → implementations → callers → tests → cleanup), the affected-files table, the named undo |
-| `references/acceptance-criteria-example.md` | card | Requirements vs constraints vs guidelines; Given-When-Then criteria; the measurable bar; non-goals as a first-class section |
-| `references/docs-tone-example.md` | card | The human-docs tone: lead with the why, one idea per paragraph, GFM and admonitions earned, examples over descriptions, no internals |
+| File                                        | Kind     | The shape it shows                                                                                                                                                |
+| ------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `references/plan-example.md`                | snapshot | A full plan: frontmatter phases, verified current state, decisions with rejected alternatives, the execution-rules block, per-phase commits, matrix, out-of-scope |
+| `references/issue-example.md`               | snapshot | An issue rollup: frontmatter rollup, per-item statuses with triggers, the settled-records section                                                                 |
+| `references/roadmap-example.md`             | snapshot | A roadmap document: frontmatter, per-entry `parked (unlock)` lines, evidence, first moves, source stamps                                                          |
+| `references/handover-example.md`            | snapshot | A handover: frontmatter convention, what the session did, the commits, what stayed open                                                                           |
+| `references/adr-example.md`                 | card     | The decision record: context, decision, consequences both sides, alternatives with evidence-backed rejections; scale — full ADR vs compact record                 |
+| `references/verification-example.md`        | card     | The adversarial claim check: extract, tree-check, break — the verdicts (verified / stale / unfounded / contradicted) and what each writes                         |
+| `references/refactor-sequence-example.md`   | card     | The safe sequence (contracts → implementations → callers → tests → cleanup), the affected-files table, the named undo                                             |
+| `references/acceptance-criteria-example.md` | card     | Requirements vs constraints vs guidelines; Given-When-Then criteria; the measurable bar; non-goals as a first-class section                                       |
+| `references/docs-tone-example.md`           | card     | The human-docs tone: lead with the why, one idea per paragraph, GFM and admonitions earned, examples over descriptions, no internals                              |

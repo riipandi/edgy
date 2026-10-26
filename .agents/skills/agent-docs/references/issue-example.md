@@ -2,7 +2,7 @@
 status: open
 captured: YYYY-MM-DDTHH:MM:00+07:00
 updated: YYYY-MM-DDTHH:MM:00+07:00
-summary: "One sentence: what was found, where it lives, and what the rollup carries. The count matches the items actually listed."
+summary: 'One sentence: what was found, where it lives, and what the rollup carries. The count matches the items actually listed.'
 count: 3
 ---
 

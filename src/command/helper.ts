@@ -1,56 +1,57 @@
-import { Effect } from 'effect'
-import { CliError, Flag, Prompt } from 'effect/cli'
+import { Console, Effect } from 'effect'
+import { CliError, Prompt, TerminalCapabilities } from 'effect/cli'
+import { QuitError } from 'effect/Terminal'
 
-/** Plain console output for CLI commands. Bypasses the Effect logger, so no timestamp or level prefix. */
-export const print = (...args: readonly unknown[]): Effect.Effect<void> =>
-  Effect.sync(() => console.log(...args))
+const RESET = '\u001b[0m'
+const CYAN = '\u001b[36m'
+const GREEN = '\u001b[32m'
+const YELLOW = '\u001b[33m'
 
-/**
- * Fails with a `UserError` (a usage message, not a stack trace) unless
- * `condition` holds. Use it for flag combinations the parser cannot reject.
- */
-export const ensure = (
-  condition: boolean,
-  message: string
-): Effect.Effect<void, CliError.UserError> =>
-  condition
-    ? Effect.void
-    : Effect.fail(new CliError.UserError({ cause: message, userMessage: message }))
+export interface Reporter {
+  /** A step is beginning; its results follow, indented. */
+  readonly start: (message: string) => Effect.Effect<void>
+  /** A step finished successfully. */
+  readonly ok: (message: string) => Effect.Effect<void>
+  /** A dry-run preview of what would happen. */
+  readonly warn: (message: string) => Effect.Effect<void>
+  /** An empty line separating one grouped phase from the next. */
+  readonly space: () => Effect.Effect<void>
+}
 
-/**
- * Asks before a destructive operation. `--force` skips the prompt. Without a TTY the operation is
- * refused with a `UserError` (a non-zero exit, so a script notices) rather than run unasked.
- * Resolves `false` when the prompt is declined.
- *
- * Needs the platform services (`FileSystem`, `Path`, `Terminal`), supplied by `NodeServices.layer`
- * at the CLI root.
- */
-export const confirmDestructive = (force: boolean, message: string) => {
-  if (force) return Effect.succeed(true)
-  if (!process.stdin.isTTY) {
-    return ensure(false, `Refusing to run non-interactively without --force (${message})`).pipe(
-      Effect.as(false)
-    )
+// The one-shot commands present through the console, not the logger: no
+// timestamps, and the color carries the state the words name.
+export const reporter: Effect.Effect<Reporter> = Effect.map(
+  TerminalCapabilities.TerminalCapabilities,
+  (capabilities) => {
+    const paint =
+      (color: string) =>
+      (text: string): string =>
+        capabilities.canColor ? `${color}${text}${RESET}` : text
+    const print = (color: string) => (message: string) => Console.log(paint(color)(message))
+    return {
+      start: print(CYAN),
+      ok: print(GREEN),
+      warn: print(YELLOW),
+      space: () => Console.log('')
+    }
   }
+)
+
+/**
+ * Asks before a destructive step. `--force` skips the prompt; without a TTY the
+ * answer is a refusal, so a scripted run never hangs waiting for input.
+ */
+export const confirmDestructive = (
+  force: boolean,
+  message: string,
+  refusal: string
+): Effect.Effect<boolean, CliError.CliError | QuitError, Prompt.Environment> => {
+  if (force) return Effect.succeed(true)
+  if (!process.stdin.isTTY)
+    return Effect.fail(new CliError.UserError({ cause: refusal, userMessage: refusal }))
   return Effect.gen(function* () {
-    const confirmed = yield* Effect.orDie(Prompt.run(Prompt.Confirm({ message, initial: false })))
-    if (!confirmed) yield* print('Aborted')
+    const confirmed = yield* Prompt.Confirm({ message, initial: false })
+    if (!confirmed) yield* Console.log('Aborted')
     return confirmed
   })
 }
-
-/**
- * `--remote`: run against the real D1 database the Worker uses, through the account `wrangler
- * login` signed in to, instead of the local copy. It always means D1, whatever `DATABASE_DRIVER`
- * says. Only the commands that are safe to point at production take it.
- */
-export const remoteFlag = Flag.Boolean('remote').pipe(
-  Flag.withDefault(false),
-  Flag.withDescription(
-    'Use the remote D1 database (needs `wrangler login`) instead of the local one'
-  )
-)
-
-/** Says which database is about to be touched when it is not the local one. */
-export const announceRemote = (remote: boolean): Effect.Effect<void> =>
-  remote ? print('Remote D1 database') : Effect.void

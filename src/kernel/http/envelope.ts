@@ -1,139 +1,58 @@
-import type { H3Event } from 'h3'
-import { requestIdOf } from '../../middleware/request_id.ts'
-import type { PageSummary } from '../pagination.ts'
-import { type ApiLinks, type ApiPagination, paginationLinks, paginationMeta } from './pagination.ts'
+import { Schema } from 'effect'
+import * as HttpApiSchema from 'effect/http-api/HttpApiSchema'
 
-/** Rate-limit state of the caller; filled by a rate-limit middleware when one exists. */
-export interface ApiRateLimit {
-  /** Maximum requests allowed in the window. */
-  readonly limit: number
-  /** Left in the window. Absent when the store only reports allowed or refused. */
-  readonly remaining?: number
-  /** Unix timestamp at which the window resets. */
-  readonly reset: number
-}
+// Per .llms/api-response.md. Every /api/* success or error body is one of
+// these two shapes — no bare domain payload and no flat {"_tag":...} body.
 
-export interface ApiErrorMetadata {
-  readonly status_code: number
-  readonly request_id: string
-  /** The `trc_` id of the trace. Set only when this request's trace was recorded. */
-  readonly trace_id?: string
-  /** How a cached read was answered; set only when the request read through the cache. */
-  readonly cache?: 'hit' | 'miss' | 'bypass'
-  /** Present on every response under the rate limiter, a `429` included. */
-  readonly rate_limit?: ApiRateLimit
-}
+export const ApiRateLimit = Schema.Struct({
+  limit: Schema.Number,
+  remaining: Schema.optional(Schema.Number),
+  reset: Schema.Number
+})
 
-export interface ApiMetadata extends ApiErrorMetadata, Partial<ApiPagination> {}
+export const CacheStatus = Schema.Literals(['hit', 'miss', 'bypass', 'disabled'])
 
-/** `{ status: 'success' }` body. `data` and `links` are omitted when empty. */
-export interface ApiSuccess {
-  readonly status: 'success'
-  readonly message?: string
-  readonly data?: unknown
-  readonly metadata: ApiMetadata
-  readonly links?: ApiLinks
-}
+// ApiPagination's fields are spread directly into Metadata, not nested, per
+// the spec's "...ApiPagination" note.
+export const Metadata = Schema.Struct({
+  status_code: Schema.Number,
+  request_id: Schema.String,
+  trace_id: Schema.optional(Schema.String),
+  rate_limit: Schema.optional(ApiRateLimit),
+  cache: Schema.optional(CacheStatus),
+  limit: Schema.optional(Schema.Number),
+  has_more: Schema.optional(Schema.Boolean),
+  next_cursor: Schema.optional(Schema.NullOr(Schema.String))
+})
 
-/** What lies behind a server-side failure. Present only at `LOG_LEVEL=Debug` or below, redacted. */
-export interface ApiErrorDebug {
-  /** The error's tag (`DatabaseError`), or `Defect` for an unexpected exception. */
-  readonly type: string
-  readonly message?: string
-}
+export const Links = Schema.NullOr(Schema.Record(Schema.String, Schema.NullOr(Schema.String)))
 
-/** The `error` member: machine-readable, never internals (except `debug`, when enabled). */
-export interface ApiErrorBody {
-  /** Stable identifier of the failure, for clients to switch on (`NOT_FOUND`, `RATE_LIMITED`). */
-  readonly code: string
-  /** Whether sending the same request again can succeed. */
-  readonly retryable: boolean
-  /** Per-error facts: the validation issues, the id that was not found, `retry_after`. */
-  readonly details?: unknown
-  readonly debug?: ApiErrorDebug
-}
+// The generic is bound to Schema.Top, not the narrower Schema.Schema<A> —
+// the latter only tracks the decoded type and erases the richer Codec shape
+// HttpApi's own type machinery needs, which otherwise makes the endpoint's
+// inferred requirements collapse to `unknown` instead of `never` wherever
+// the composed Layer is consumed (cli.ts, main.ts).
+export const SuccessEnvelope = <S extends Schema.Top>(data: S) =>
+  Schema.Struct({
+    status: Schema.Literal('success'),
+    message: Schema.optional(Schema.String),
+    data: Schema.optional(data),
+    metadata: Metadata,
+    links: Schema.optional(Links)
+  })
 
-/** `{ status: 'error' }` body. */
-export interface ApiError {
-  readonly status: 'error'
-  readonly message: string
-  readonly error: ApiErrorBody
-  readonly metadata: ApiErrorMetadata
-}
-
-/** A handler's result, already encoded through its response schema. */
-export interface Reply {
-  /** Omitted from the body when `undefined`. */
-  readonly data?: unknown
-  readonly message?: string
-  readonly pagination?: PageSummary
-}
-
-/** `trace_id` when this request's trace was recorded. */
-const traceMeta = (event: H3Event): { readonly trace_id?: string } => {
-  const id = event.context.traceTypeId
-  return id === undefined ? {} : { trace_id: id }
-}
-
-/** `cache` when the request read through the cache. */
-const cacheMeta = (event: H3Event): { readonly cache?: 'hit' | 'miss' | 'bypass' } => {
-  const { cache } = event.context
-  return cache === undefined ? {} : { cache }
-}
-
-/** The id minted by the `requestId` plugin; `unknown` only if that plugin was not registered. */
-const requestIdFor = (event: H3Event): string => requestIdOf(event) ?? 'unknown'
-
-/** Success envelope. Pagination fields go into `metadata`; `links` appear only for collections. */
-export const successEnvelope = (event: H3Event, statusCode: number, reply: Reply): ApiSuccess => {
-  const rateLimit = event.context.rateLimit
-  const base = {
-    status_code: statusCode,
-    request_id: requestIdFor(event),
-    ...traceMeta(event),
-    ...cacheMeta(event),
-    ...(rateLimit === undefined ? {} : { rate_limit: rateLimit })
-  }
-  const body = {
-    status: 'success' as const,
-    ...(reply.message === undefined ? {} : { message: reply.message }),
-    ...(reply.data === undefined ? {} : { data: reply.data })
-  }
-  if (reply.pagination === undefined) return { ...body, metadata: base }
-
-  const pagination = paginationMeta(reply.pagination)
-  return {
-    ...body,
-    metadata: { ...base, ...pagination },
-    links: paginationLinks(event.url, pagination)
-  }
-}
-
-export const errorEnvelope = (
-  event: H3Event,
-  statusCode: number,
-  message: string,
-  error: ApiErrorBody
-): ApiError => {
-  event.context.errorCode = error.code
-  return {
-    status: 'error',
-    message,
+// The status code is explicit here rather than read off `error`'s own
+// annotation: httpApiStatus is a per-schema-node annotation, so wrapping a
+// class in this struct would otherwise lose it — the outer struct is what
+// HttpApi actually inspects for the error set's status.
+export const ErrorEnvelope = <S extends Schema.Top>(error: S, statusCode: number) =>
+  Schema.Struct({
+    status: Schema.Literal('error'),
+    message: Schema.String,
     error,
-    metadata: {
-      status_code: statusCode,
-      request_id: requestIdFor(event),
-      ...traceMeta(event),
-      ...cacheMeta(event),
-      ...(event.context.rateLimit === undefined ? {} : { rate_limit: event.context.rateLimit })
-    }
-  }
-}
+    metadata: Metadata
+  }).pipe(HttpApiSchema.status(statusCode))
 
-/** The `Link` header (RFC 8288) for a link map. `null` relations are left out. */
-export const linkHeader = (links: ApiLinks): string | undefined => {
-  const parts = Object.entries(links).flatMap(([rel, url]) =>
-    url === null || url === undefined ? [] : [`<${url}>; rel="${rel}"`]
-  )
-  return parts.length === 0 ? undefined : parts.join(', ')
-}
+// A success response with nothing to return (a delete) — the envelope always
+// carries a JSON body, so there is no 204 No Content variant of it.
+export const EmptySuccessEnvelope = SuccessEnvelope(Schema.Void)

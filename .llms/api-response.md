@@ -14,11 +14,12 @@ Minimal sucess response:
 ```
 
 Complete success response:
+
 ```json
 {
     status: success
     message?: string
-    data?: {} | []
+    data?: {} | [] // Always present on success
     metadata: {
         status_code: number (http code)
         request_id: string
@@ -27,8 +28,8 @@ Complete success response:
         // Rate limit information
         rate_limit?: ApiRateLimit
 
-        // How a cached read was answered: hit | miss | bypass (absent when nothing was cached)
-        cache?: 'hit' | 'miss' | 'bypass'
+        // How a cached read was answered: hit | miss | bypass | disabled (absent when nothing was cached)
+        cache?: 'hit' | 'miss' | 'bypass' | 'disabled'
 
         // Pagination information (HATEOAS-first)
         ...ApiPagination
@@ -41,6 +42,7 @@ Complete success response:
 ```
 
 ApiPagination:
+
 ```json
 {
     limit?: number // number of items per page
@@ -50,6 +52,7 @@ ApiPagination:
 ```
 
 PaginationParams (query params):
+
 ```json
 {
     limit?: number // number of items per page (1 to 100)
@@ -62,10 +65,11 @@ PaginationParams (query params):
 Links of a collection: `self`, `first` (no cursor), `next` (`null` on the last page).
 
 Error response (only under `/api`; any other path answers an HTML error page with the same status and headers, see `rules.md`):
+
 ```json
 {
     status: error
-    message: string (general error message)
+    message: string (general error message) // Always present
     error: ApiErrorBody
     metadata: {
         status_code: number (http code)
@@ -78,6 +82,7 @@ Error response (only under `/api`; any other path answers an HTML error page wit
 ```
 
 ApiErrorBody:
+
 ```json
 {
     code: string // stable identifier: NOT_FOUND, VALIDATION_FAILED, CONFLICT, RATE_LIMITED, DATABASE_ERROR, ...
@@ -88,6 +93,7 @@ ApiErrorBody:
 ```
 
 Links:
+
 ```json
 {
     links?: {
@@ -102,6 +108,7 @@ Links:
 ```
 
 ApiRateLimit:
+
 ```json
 {
     limit: number // maximum number of requests allowed in the current window

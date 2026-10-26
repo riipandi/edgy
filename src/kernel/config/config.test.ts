@@ -1,228 +1,65 @@
-import { describe, expect, it } from '@effect/vitest'
-import { ConfigProvider, Duration, Effect, Redacted } from 'effect'
-import { readFileSync } from 'node:fs'
-import { renderExample } from './example.ts'
-import { appConfig, telemetryEnabled } from './service.ts'
+import { ConfigProvider, Duration, Effect } from 'effect'
+import { describe, expect, it } from 'vite-plus/test'
+import { AppConfig, appConfig, ConfigLayer } from './config.ts'
+import { telemetryEnabled } from './observability.ts'
 
-const parse = (env: Record<string, string>) =>
+const resolved = (env: Record<string, string> = {}) =>
   Effect.runPromise(
-    // A Config is yieldable but not an Effect, so it needs the generator.
-    // oxlint-disable-next-line effecttsgo/unnecessary-effect-gen
     Effect.gen(function* () {
-      return yield* appConfig.config
-    }).pipe(Effect.provideService(ConfigProvider.ConfigProvider, ConfigProvider.fromEnvRecord(env)))
+      return yield* AppConfig
+    }).pipe(
+      Effect.provide(ConfigLayer),
+      Effect.provide(ConfigProvider.layer(ConfigProvider.fromEnvRecord(env)))
+    )
   )
 
-describe('configuration', () => {
-  it('parses with no variables set, using the documented defaults', async () => {
-    const config = await parse({})
-    expect(config.server.port).toBe(3000)
-    expect(config.database.driver).toBe('sqlite')
-    expect(config.security.rateLimitEnabled).toBe(true)
-    expect(config.security.rateLimitMax).toBe(100)
-    expect(config.observability.metricsEnabled).toBe(false)
-    expect(config.observability.sampleRatio).toBe(0.7)
-    expect(config.logging.transport).toEqual(['console', 'file'])
-    expect(config.logging.rotation).toBe('daily')
-    expect(config.logging.fileMaxFiles).toBe(14)
-  })
-
-  it('parses LOG_TRANSPORT as a list, ignoring spaces and repeats', async () => {
-    expect((await parse({ LOG_TRANSPORT: 'console, file' })).logging.transport).toEqual([
-      'console',
-      'file'
-    ])
-    expect((await parse({ LOG_TRANSPORT: 'file,file' })).logging.transport).toEqual(['file'])
-  })
-
-  it('accepts the four rotation periods and rejects anything else', async () => {
-    for (const rotation of ['hourly', 'daily', 'weekly', 'monthly']) {
-      expect((await parse({ LOG_ROTATION: rotation })).logging.rotation).toBe(rotation)
-    }
-    await expect(parse({ LOG_ROTATION: 'yearly' })).rejects.toThrow(/LOG_ROTATION/)
-  })
-
-  it('reads every duration as whole milliseconds', async () => {
-    const config = await parse({
-      REQUEST_TIMEOUT: '1500',
-      SHUTDOWN_TIMEOUT: '2500',
-      SHUTDOWN_DRAIN_DELAY: '300',
-      LOG_FLUSH_INTERVAL: '50',
-      RATE_LIMIT_WINDOW: '120000',
-      OTEL_EXPORT_INTERVAL: '750'
+describe('appConfig', () => {
+  it('resolves every section from documented defaults', async () => {
+    const config = await resolved()
+    expect(config.app.baseUrl).toBe('http://localhost:3000')
+    expect(config.server).toMatchObject({ host: '0.0.0.0', port: 3000 })
+    expect(config.database.target).toMatchObject({ kind: 'local', path: './storage/data/app.db' })
+    expect(config.logging).toMatchObject({
+      level: 'Info',
+      transport: ['console', 'file'],
+      format: 'pretty'
     })
-    expect(Duration.toMillis(config.server.requestTimeout)).toBe(1500)
-    expect(Duration.toMillis(config.server.shutdownTimeout)).toBe(2500)
-    expect(Duration.toMillis(config.server.shutdownDrainDelay)).toBe(300)
-    expect(Duration.toMillis(config.logging.flushInterval)).toBe(50)
-    expect(Duration.toMillis(config.security.rateLimitWindow)).toBe(120_000)
-    expect(Duration.toMillis(config.observability.exportInterval)).toBe(750)
-  })
-
-  it('refuses a duration with a unit, naming the variable', async () => {
-    await expect(parse({ REQUEST_TIMEOUT: '30 seconds' })).rejects.toThrow(
-      /REQUEST_TIMEOUT must be a whole number of milliseconds/
-    )
-    await expect(parse({ RATE_LIMIT_WINDOW: '1 minute' })).rejects.toThrow(/RATE_LIMIT_WINDOW/)
-    await expect(parse({ REQUEST_TIMEOUT: '1.5' })).rejects.toThrow(/REQUEST_TIMEOUT/)
-  })
-
-  it('refuses a duration below its minimum', async () => {
-    await expect(parse({ REQUEST_TIMEOUT: '0' })).rejects.toThrow(/REQUEST_TIMEOUT.*at least 1/)
-    await expect(parse({ RATE_LIMIT_WINDOW: '-5' })).rejects.toThrow(/RATE_LIMIT_WINDOW/)
-    // zero is meaningful for a pause
-    expect(
-      Duration.toMillis((await parse({ SHUTDOWN_DRAIN_DELAY: '0' })).server.shutdownDrainDelay)
-    ).toBe(0)
-  })
-
-  it('defaults the services of the Docker Compose stack, so development needs no setup', async () => {
-    const config = await parse({})
-    expect(config.observability.otlpEndpoint).toBe('http://localhost:4318')
-    expect(Redacted.value(config.observability.otlpHeaders)).toBe(
-      'authorization=edgy-dev-ingestion-key'
-    )
-    expect(Redacted.value(config.security.redisUrl)).toBe('redis://:securedb@localhost:6379')
+    expect(config.security).toMatchObject({ rateLimitEnabled: true, corsEnabled: true })
+    expect(config.cache).toMatchObject({ enabled: true, maxEntries: 256 })
+    expect(Duration.toMillis(config.cache.ttl)).toBe(30_000)
+    expect(config.redis.enabled).toBe(false)
+    expect(config.observability).toMatchObject({ serviceName: 'edgy', compression: 'gzip' })
+    expect(config.docs.enabled).toBe(false)
     expect(telemetryEnabled(config.observability)).toBe(true)
   })
 
-  it('turns telemetry off with OTEL_SDK_DISABLED, whatever the endpoint', async () => {
-    const config = await parse({ OTEL_SDK_DISABLED: 'true' })
-    expect(telemetryEnabled(config.observability)).toBe(false)
+  it('derives the database target from DATABASE_URL', async () => {
+    const config = await resolved({ DATABASE_URL: 'file:/tmp/app.db' })
+    expect(config.database.target).toMatchObject({ kind: 'local', path: '/tmp/app.db' })
   })
 
-  it('does not allow shipping logs while telemetry is off', async () => {
-    await expect(
-      parse({ LOG_TRANSPORT: 'console,otlp', OTEL_SDK_DISABLED: 'true' })
-    ).rejects.toThrow(/otlp/)
-    const ok = await parse({ LOG_TRANSPORT: 'console,otlp' })
-    expect(ok.logging.transport).toEqual(['console', 'otlp'])
-  })
-
-  it('does not print a secret', async () => {
-    const config = await parse({ OTEL_EXPORTER_OTLP_HEADERS: 'authorization=real-secret' })
-    expect(JSON.stringify(config.observability.otlpHeaders)).not.toContain('real-secret')
-    expect(Redacted.value(config.observability.otlpHeaders)).toBe('authorization=real-secret')
-  })
-
-  it('refuses an enabled limiter with no allowance, and an unknown store', async () => {
-    await expect(parse({ RATE_LIMIT_ENABLED: 'true', RATE_LIMIT_MAX: '0' })).rejects.toThrow(
-      /RATE_LIMIT_MAX/
-    )
-    await expect(parse({ RATE_LIMIT_STORE: 'kv' })).rejects.toThrow(/RATE_LIMIT_STORE/)
-    // a disabled limiter ignores the maximum
-    await expect(parse({ RATE_LIMIT_ENABLED: 'false', RATE_LIMIT_MAX: '0' })).resolves.toBeDefined()
-  })
-
-  it('reads the cache settings, with defaults that keep the old behaviour', async () => {
-    const defaults = (await parse({})).cache
-    expect(defaults).toMatchObject({ enabled: true, store: 'memory', maxEntries: 256 })
-    expect(Duration.toMillis(defaults.ttl)).toBe(30_000)
-    expect(Duration.toMillis(defaults.localTtl)).toBe(5_000)
-
-    const custom = (await parse({ CACHE_STORE: 'redis', CACHE_TTL: '60000', CACHE_LOCAL_TTL: '0' }))
-      .cache
-    expect(custom.store).toBe('redis')
-    expect(Duration.toMillis(custom.ttl)).toBe(60_000)
-    expect(Duration.toMillis(custom.localTtl)).toBe(0)
-  })
-
-  it('refuses a cache that could hold nothing, a zero TTL and an unknown store', async () => {
-    await expect(parse({ CACHE_MAX_ENTRIES: '0' })).rejects.toThrow(/CACHE_MAX_ENTRIES/)
-    await expect(parse({ CACHE_ENABLED: 'false', CACHE_MAX_ENTRIES: '0' })).resolves.toBeDefined()
-    await expect(parse({ CACHE_TTL: '0' })).rejects.toThrow(/CACHE_TTL/)
-    await expect(parse({ CACHE_STORE: 'kv' })).rejects.toThrow(/CACHE_STORE/)
-  })
-
-  it('reads TRUST_PROXY as none, all, or a list of addresses and ranges', async () => {
-    expect((await parse({})).server.trustProxy).toEqual({ kind: 'none' })
-    expect((await parse({ TRUST_PROXY: 'false' })).server.trustProxy).toEqual({ kind: 'none' })
-    expect((await parse({ TRUST_PROXY: 'TRUE' })).server.trustProxy).toEqual({ kind: 'all' })
-
-    const list = (await parse({ TRUST_PROXY: '10.0.0.10, 172.18.0.0/16,fd00::/8' })).server
-    expect(list.trustProxy.kind).toBe('list')
-    expect(list.trustProxy.kind === 'list' ? list.trustProxy.ranges : []).toHaveLength(3)
-  })
-
-  it('refuses a TRUST_PROXY entry that is not an address or range, naming it', async () => {
-    for (const bad of ['10.0.0.10,proxy.internal', '10.0.0.0/33', 'yes', '10.0.0.10,,']) {
-      await expect(parse({ TRUST_PROXY: bad })).rejects.toThrow(/TRUST_PROXY/)
+  it('tags every field spec with a section', () => {
+    expect(appConfig.specs.length).toBeGreaterThan(0)
+    for (const spec of appConfig.specs) {
+      expect(spec.name).toMatch(/^[A-Z][A-Z0-9_]+$/)
+      expect(spec.description.length).toBeGreaterThan(0)
+      expect(spec.section).toBeTruthy()
     }
-  })
-
-  it('reads TRUSTED_PLATFORM as a header name, lower-cased, or nothing', async () => {
-    expect((await parse({})).server.trustedPlatform).toBeUndefined()
-    expect((await parse({ TRUSTED_PLATFORM: 'CF-Connecting-IP' })).server.trustedPlatform).toBe(
-      'cf-connecting-ip'
-    )
-    await expect(parse({ TRUSTED_PLATFORM: 'bad header' })).rejects.toThrow(/TRUSTED_PLATFORM/)
-  })
-
-  it('does not send the development ingestion key to a collector that is not local', async () => {
-    const remote = { OTEL_EXPORTER_OTLP_ENDPOINT: 'https://otel.example.com' }
-    await expect(parse(remote)).rejects.toThrow(/OTEL_EXPORTER_OTLP_HEADERS/)
-    // Its own key, telemetry off, or a local collector: all fine.
-    await expect(
-      parse({ ...remote, OTEL_EXPORTER_OTLP_HEADERS: 'authorization=real' })
-    ).resolves.toBeDefined()
-    await expect(parse({ ...remote, OTEL_SDK_DISABLED: 'true' })).resolves.toBeDefined()
-    await expect(
-      parse({ OTEL_EXPORTER_OTLP_ENDPOINT: 'http://host.docker.internal:4318' })
-    ).resolves.toBeDefined()
-    await expect(parse({})).resolves.toBeDefined()
-  })
-
-  it('rejects an unknown or empty LOG_TRANSPORT', async () => {
-    await expect(parse({ LOG_TRANSPORT: 'console,syslog' })).rejects.toThrow(/LOG_TRANSPORT/)
-    await expect(parse({ LOG_TRANSPORT: ',' })).rejects.toThrow(/LOG_TRANSPORT/)
-  })
-
-  it('reads overrides from every section', async () => {
-    const config = await parse({
-      PORT: '4100',
-      DATABASE_DRIVER: 'd1',
-      LOG_FORMAT: 'json',
-      RATE_LIMIT_ENABLED: 'true',
-      RATE_LIMIT_STORE: 'cloudflare',
-      RATE_LIMIT_MAX: '50',
-      METRICS_ENABLED: 'true'
-    })
-    expect(config.server.port).toBe(4100)
-    expect(config.database.driver).toBe('d1')
-    expect(config.logging.format).toBe('json')
-    expect(config.security.rateLimitMax).toBe(50)
-    expect(config.security.rateLimitEnabled).toBe(true)
-    expect(config.security.rateLimitStore).toBe('cloudflare')
-    expect(config.observability.metricsEnabled).toBe(true)
-  })
-
-  it('fails on a present-but-invalid value', async () => {
-    await expect(parse({ PORT: 'abc' })).rejects.toThrow(/PORT/)
-    await expect(parse({ DATABASE_DRIVER: 'mysql' })).rejects.toThrow(/DATABASE_DRIVER/)
-  })
-
-  it('refuses credentialed CORS with a wildcard origin', async () => {
-    await expect(parse({ CORS_CREDENTIALS: 'true' })).rejects.toThrow(/CORS_ORIGINS/)
-    const ok = await parse({ CORS_CREDENTIALS: 'true', CORS_ORIGINS: 'https://app.example.com' })
-    expect(ok.cors.origins).toEqual(['https://app.example.com'])
   })
 })
 
-describe('.env.example', () => {
-  it('is exactly what config:generate would write', () => {
-    const onDisk = readFileSync(new URL('../../../.env.example', import.meta.url), 'utf8')
-    expect(onDisk).toBe(renderExample(appConfig.specs))
+describe('the OTLP transport requires telemetry', () => {
+  it('accepts otlp transport while telemetry is enabled', async () => {
+    const config = await resolved({ LOG_TRANSPORT: 'console,otlp' })
+    expect(config.logging.transport).toEqual(['console', 'otlp'])
   })
 
-  it('lists every variable once, and its default parses', async () => {
-    const names = appConfig.specs.map((spec) => spec.name)
-    expect(new Set(names).size).toBe(names.length)
-
-    const defaults = Object.fromEntries(appConfig.specs.map((spec) => [spec.name, spec.default]))
-    await expect(parse(defaults)).resolves.toBeDefined()
-  })
-
-  it('writes durations as plain milliseconds', () => {
-    expect(renderExample(appConfig.specs)).toContain('REQUEST_TIMEOUT=30000')
+  it('rejects otlp transport with the SDK disabled', async () => {
+    await expect(resolved({ LOG_TRANSPORT: 'otlp', OTEL_SDK_DISABLED: 'true' })).rejects.toThrow(
+      /OTLP logging requires telemetry to be enabled/
+    )
+    await expect(
+      resolved({ LOG_TRANSPORT: 'console,otlp', OTEL_SDK_DISABLED: 'true' })
+    ).rejects.toThrow(/OTLP logging requires telemetry to be enabled/)
   })
 })

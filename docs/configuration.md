@@ -1,272 +1,99 @@
-# Application Configuration
+# Configuration
 
-All configuration is read from environment variables, validated at startup. A value that is present
-but invalid (a non-numeric `PORT`, an unknown `DATABASE_DRIVER`) stops the process with an error that
-names the variable, instead of failing on the first request.
+Application settings are declared as typed configuration schemas with startup validation. If an environment variable carries an invalid value, the application exits immediately during boot with a clear error rather than failing during request execution.
 
-Every variable is optional. The defaults suit local development: they point at the services of
-`pnpm compose:up` (ClickStack for telemetry, Valkey for the shared rate limit), so a fresh checkout
-needs no setup. A deployment overrides them through its environment.
-
-Durations are whole numbers of **milliseconds** (`REQUEST_TIMEOUT=30000` is thirty seconds). A value
-with a unit, such as `30 seconds`, is refused at startup with a message naming the variable.
-
-## Example file
-
-`.env.example` lists every variable with its default and a one-line description. It is generated from
-the configuration itself, so it is always complete:
+To regenerate `.env.example` from schemas, run:
 
 ```bash
-pnpm app config:generate               # create .env.example (never replaces an existing, different file)
-pnpm app config:generate --overwrite   # replace it after a confirmation (--force skips the prompt)
-pnpm app config:generate --check       # fail if the file is out of date
-cp .env.example .env                # then change only what you need
+vpr app generate:config --overwrite
 ```
 
-The command never writes a real `.env` file.
+## General settings
 
-## Server
+| Variable           | Default                 | Description                                                                              |
+| ------------------ | ----------------------- | ---------------------------------------------------------------------------------------- |
+| `APP_BASE_URL`     | `http://localhost:3000` | Canonical public origin; relative URLs are resolved against this base.                   |
+| `SERVER_HOST`      | `0.0.0.0`               | Network interface address for HTTP listener.                                             |
+| `SERVER_PORT`      | `3000`                  | Port for HTTP listener.                                                                  |
+| `API_DOCS_ENABLED` | `false`                 | Enable interactive Scalar API docs (`/api-docs`) and OpenAPI spec (`/api/openapi.json`). |
 
-| Variable               | Default      | Description                                                                 |
-| ---------------------- | ------------ | --------------------------------------------------------------------------- |
-| `HOST`                 | `127.0.0.1`  | Bind address; set `0.0.0.0` in a container or behind a proxy on another host |
-| `PORT`                 | `3000`       | Bind port                                                                   |
-| `BODY_LIMIT`           | `1048576`    | Largest accepted request body in bytes; bigger bodies get `413`             |
-| `REQUEST_TIMEOUT`      | `30000`      | Milliseconds a request may run before it is cancelled and answered with `504` |
-| `SHUTDOWN_TIMEOUT`     | `10000`      | Milliseconds a stop signal waits for requests still being handled           |
-| `SHUTDOWN_DRAIN_DELAY` | `0`          | Milliseconds between `/health` turning `503` and the server closing         |
-| `MAX_IN_FLIGHT`        | `1024`       | Requests handled at once before new ones are refused with `503`; `0` turns the guard off |
-| `TRUST_PROXY`          | `false`      | Proxies that may set the client address: `false`, `true`, or a list of addresses and CIDR ranges (see below) |
-| `TRUSTED_PLATFORM`     | (empty)      | Header a CDN or platform sets to the client address, such as `CF-Connecting-IP` (see below) |
-| `PROXY_PROTOCOL`       | `false`      | Load balancers that send a PROXY protocol header naming the client: `false`, `true`, or a list of addresses and CIDR ranges (Node.js only, see below) |
-| `CLOUDFLARE_LOCATION_HEADERS` | `false` | Add the client's country and city (from Cloudflare's headers) to the request log (see below) |
+`APP_BASE_URL` must be an absolute `http` or `https` URL. Trailing paths are stripped automatically.
 
-### Behind a reverse proxy
+## Database settings
 
-Behind a reverse proxy every request reaches the server from the proxy's address, yet the rate limit
-needs the client's. There are two ways to pass it on.
+| Variable                | Default                      | Description                                                                 |
+| ----------------------- | ---------------------------- | --------------------------------------------------------------------------- |
+| `DATABASE_URL`          | `file:./storage/data/app.db` | Database connection string: local file path or remote Turso URI.            |
+| `DATABASE_TOKEN`        | _(empty)_                    | Authentication token for remote Turso databases (required for remote URLs). |
+| `DATABASE_AUTO_MIGRATE` | `false`                      | Automatically run pending database migrations on server startup.            |
 
-`TRUST_PROXY` says which proxies may speak for a client:
+`DATABASE_URL` supports two execution transports:
 
-- `false` (the default) trusts no proxy: the client is the address of the connection.
-- A comma-separated list of the proxies' IP addresses or CIDR ranges, such as `10.0.0.10,172.18.0.0/16`.
-  A request from one of them may set the client in `X-Forwarded-For` or `X-Real-IP`; a request from
-  any other address is counted under its own address, whatever the headers claim.
-- `true` trusts every address. Use it only when the server cannot be reached without going through
-  your proxy.
+- **Local File (`file:` URI or relative/absolute path)**: Uses Turso's embedded SQLite engine in multi-process WAL mode. Several local processes (such as clustered server workers, health checks, and migration CLIs) safely share access to the same database file on disk. In-memory databases (`:memory:`) are rejected because separate processes cannot share transient memory.
+- **Remote Database (`libsql://`, `turso://`, `https://`, `http://`)**: Connects over HTTP to a remote Turso database or `sqld` instance. `DATABASE_TOKEN` is mandatory. Startup performs an immediate pre-flight check to verify connectivity.
 
-`X-Forwarded-For` is read from the right. Each proxy adds the address it received the request from, so
-the entries on the right belong to your proxies; those are skipped, and the first address that is not
-one of them is the client. A client that sends its own `X-Forwarded-For` only adds entries on the left,
-which are never believed. An empty entry (`a,,b`) is skipped; an entry that is not an address makes the
-server use the connection's own address. A range covers one address family: `::/0` does not match IPv4
-peers, so list `0.0.0.0/0` as well.
+## Redis settings
 
-`TRUSTED_PLATFORM` names a header that a CDN or platform sets to the client address, which is then read
-directly instead of `X-Forwarded-For`: `CF-Connecting-IP` for Cloudflare, `Fly-Client-IP` for Fly.io,
-`X-Appengine-Remote-Addr` for Google App Engine, or any header your own proxy sets. On Node the header is
-believed only when the connection comes from an address listed in `TRUST_PROXY`, because any other
-client could write it; list the platform's proxy addresses there. On Cloudflare Workers there is no
-connection to check, so it is believed as sent. If the header is missing or not believed, the
-connection's address is used.
+| Variable       | Default                                   | Description                                                             |
+| -------------- | ----------------------------------------- | ----------------------------------------------------------------------- |
+| `REDIS_ENABLE` | `false`                                   | Enable Redis for distributed caching and shared rate-limiting counters. |
+| `REDIS_URL`    | `redis://default:securedb@localhost:6379` | Connection string for Redis. Features use distinct database indexes.    |
 
-`PROXY_PROTOCOL` is for a TCP load balancer (HAProxy, AWS NLB, DigitalOcean) that cannot add an HTTP
-header because it never reads the HTTP. Instead it opens each connection with a short PROXY protocol
-header (version 1 or 2) that names the real client. List the balancers' addresses or ranges, and the
-server reads that header from them and treats the client as the connection's address from then on, so
-`TRUST_PROXY`, the rate limit and the logs all see the real client. The balancer must be set to send
-the header: a listed address that connects without one is disconnected, since serving it would make
-every client look like the balancer. A connection from any address that is not listed is served
-normally, and a header sent by it is not believed. `true` expects the header from every connection,
-so use it only when nothing but your balancer can connect. Node.js only: a Worker has no TCP
-connection to read it from.
+When `REDIS_ENABLE=true`, user lookups are cached in Redis database index `1`, and rate-limiting buckets are stored in database index `2`. If Redis becomes unreachable at runtime, cached lookups gracefully fall back to direct database reads.
 
-`CLOUDFLARE_LOCATION_HEADERS=true` adds `country` and `city` to each request's log line, taken from
-the `CF-IPCountry` and `CF-IPCity` headers Cloudflare sets (the city needs Cloudflare's "Add visitor
-location headers" managed transform). Anyone can send those headers to a server Cloudflare does not
-sit in front of, so they are believed only when `TRUSTED_PLATFORM` is set and the request carries that
-header with a valid address from a peer that may be believed (see above). Without it the setting does nothing.
+## Logging settings
 
-## Database
+| Variable             | Default                  | Description                                                        |
+| -------------------- | ------------------------ | ------------------------------------------------------------------ |
+| `LOG_LEVEL`          | `Info`                   | Minimum log severity: `Debug`, `Info`, `Warn`, `Error`, `None`.    |
+| `LOG_TRANSPORT`      | `console,file`           | Active sinks separated by commas: `console`, `file`, or `otlp`.    |
+| `LOG_FILE`           | `storage/logs/app.jsonl` | File path for JSON-lines log sink when `file` is selected.         |
+| `LOG_ROTATION`       | `daily`                  | File rotation interval: `hourly`, `daily`, `weekly`, or `monthly`. |
+| `LOG_FILE_MAX_FILES` | `14`                     | Maximum number of rotated log files to retain (`0` retains all).   |
+| `LOG_FORMAT`         | `pretty`                 | Console formatting style: `pretty` or `json`.                      |
+| `LOG_FLUSH_INTERVAL` | `250`                    | Batch flush interval in milliseconds for log sinks.                |
 
-| Variable                | Default                  | Description                                                              |
-| ----------------------- | ------------------------ | ------------------------------------------------------------------------ |
-| `DATABASE_DRIVER`       | `sqlite`                 | `sqlite` (Node.js) or `d1` (Cloudflare D1)                               |
-| `DATABASE_PATH`         | `./storage/data/edgy.db` | SQLite file, or `:memory:`; parent directories are created (`sqlite` only) |
-| `D1_BINDING`            | `DB`                     | Name of the D1 binding in `wrangler.jsonc` (`d1` only)                   |
-| `DATABASE_AUTO_MIGRATE` | `false` (`pnpm dev`: on) | Apply pending migrations at start: on Workers, and in `pnpm dev`, where unset means on |
+## Security and cache settings
 
-## Logging
+| Variable               | Default | Description                                                                     |
+| ---------------------- | ------- | ------------------------------------------------------------------------------- |
+| `CORS_ENABLED`         | `true`  | Enable Cross-Origin Resource Sharing middleware.                                |
+| `CORS_ALLOWED_ORIGINS` | `*`     | Comma-separated list of permitted origins. Empty or `*` permits all origins.    |
+| `RATE_LIMIT_ENABLED`   | `true`  | Enforce token-bucket rate limiting on `/api/*` routes.                          |
+| `RATE_LIMIT_MAX`       | `100`   | Maximum token bucket capacity per window (minimum `1`).                         |
+| `RATE_LIMIT_WINDOW`    | `60000` | Rate limit window duration in milliseconds (default: 1 minute).                 |
+| `TRUST_PROXY`          | `false` | Trusted reverse proxy configuration: `true`, `false`, or comma-separated CIDRs. |
+| `CACHE_ENABLED`        | `true`  | Enable caching for user lookups.                                                |
+| `CACHE_MAX_ENTRIES`    | `256`   | Maximum entries held in process memory cache.                                   |
+| `CACHE_TTL`            | `30000` | Time-to-live for cached user records in milliseconds (default: 30 seconds).     |
 
-| Variable             | Default      | Description                                                                |
-| -------------------- | ------------ | -------------------------------------------------------------------------- |
-| `LOG_LEVEL`          | `Info`       | `All` \| `Fatal` \| `Error` \| `Warn` \| `Info` \| `Debug` \| `Trace` \| `None` (**case-sensitive**). `Debug` and `Trace` also add `error.debug` (the redacted cause) to server-error responses; `Trace` also prints every SQL statement with its duration (never the values) |
-| `LOG_TRANSPORT`      | `console,file`    | Where logs go: any of `console`, `file`, `otlp`, comma-separated (`otlp` needs `OTEL_EXPORTER_OTLP_ENDPOINT`) |
-| `LOG_FILE`           | `./storage/logs/edgy.jsonl` | Base path of the log file; the file written carries the period (see below) |
-| `LOG_ROTATION`       | `daily`      | How often a new log file starts: `hourly`, `daily`, `weekly` or `monthly` (UTC) |
-| `LOG_FILE_MAX_FILES` | `14`         | Log files kept, the current one included; older ones are deleted. `0` keeps every file |
-| `LOG_FORMAT`         | `pretty`     | Console format: `pretty` for readable lines, `json` for one JSON object per line |
-| `LOG_FLUSH_INTERVAL` | `250`        | Milliseconds log lines are buffered before they are written together (Node.js) |
+Rate limiting uses a continuous-refill token bucket algorithm. Counters are stored in the database `rate_limits` table by default or in Redis when `REDIS_ENABLE=true`.
 
-Requests that are only noise are written at `Debug`, so they do not appear at `Info`: a browser asking for
-`favicon.ico`, a crawler for `robots.txt`, Chrome DevTools, a load balancer polling `/health` or `/metrics`
-and a vulnerability scanner probing for `wp-login.php` or `.env` (404s only). Set `LOG_LEVEL=Debug` to see
-them again. A health check that fails is always logged. They are still counted in the metrics, except that
-health and metrics polls are left out of the latency histogram and are not traced.
+## Observability settings
 
-The file always holds one JSON object per line, whatever `LOG_FORMAT` says, with the keys in a fixed
-order that starts with the time (`timestamp`, `level`, `message`, `annotations`, then `cause` when there is
-one). `LOG_FORMAT=json` on the console uses the same shape. The file's name is the base name
-from `LOG_FILE` plus the period it covers, with underscores as separators:
+| Variable                         | Default                 | Description                                                               |
+| -------------------------------- | ----------------------- | ------------------------------------------------------------------------- |
+| `METRICS_ENABLED`                | `false`                 | Mount Prometheus scrape endpoint at `/metrics` and start runtime sampler. |
+| `OTEL_SDK_DISABLED`              | `false`                 | Disable OpenTelemetry tracing and metric exports.                         |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`    | `http://localhost:4318` | Base URL for OTLP HTTP collector.                                         |
+| `OTEL_EXPORTER_OTLP_HEADERS`     | development key         | Comma-separated authentication headers for collector.                     |
+| `OTEL_SERVICE_NAME`              | `edgy`                  | Service identifier attached to exported traces and metrics.               |
+| `OTEL_EXPORT_INTERVAL`           | `5000`                  | Batch export interval for telemetry in milliseconds.                      |
+| `OTEL_EXPORTER_OTLP_COMPRESSION` | `gzip`                  | OTLP payload compression: `gzip` or `none`.                               |
 
-| `LOG_ROTATION` | File name                      | Starts a new file     |
-| -------------- | ------------------------------ | --------------------- |
-| `hourly`       | `edgy_20261015_09.jsonl`       | every hour            |
-| `daily`        | `edgy_20261015.jsonl`          | every day             |
-| `weekly`       | `edgy_20261012.jsonl`          | every Monday (its date) |
-| `monthly`      | `edgy_202610.jsonl`            | every month           |
+## Docker Compose stack settings
 
-Periods are in UTC, the same clock as the `timestamp` inside each line. A restart within the same period
-appends to the same file. Each line goes to the file of its own timestamp, so lines around midnight land
-in the right file. Once there are more than `LOG_FILE_MAX_FILES` files, the oldest are deleted; only files
-named like the pattern above are ever touched, never other files in the directory. Rotated files are not
-compressed.
+These environment variables configure the development services in `compose.yaml` (ClickStack, Redis, cAdvisor, Mailpit):
 
-A `LOG_FILE` that cannot be opened stops the process at startup. A write that fails later is reported on
-standard error and that batch of lines is dropped. On Cloudflare Workers `LOG_TRANSPORT` has no effect;
-logs go to the platform's stream.
-
-## Security
-
-| Variable            | Default    | Description                                                              |
-| ------------------- | ---------- | ------------------------------------------------------------------------ |
-| `RATE_LIMIT_ENABLED` | `true`    | Turns rate limiting on `/api` on or off                                  |
-| `RATE_LIMIT_MAX`    | `100`      | Requests per client per window; at least `1`. With `cloudflare` it is only reported, so keep it equal to the limit in `wrangler.jsonc` |
-| `RATE_LIMIT_WINDOW` | `60000`    | Length of the rate-limit window, in milliseconds                         |
-| `RATE_LIMIT_STORE`  | `memory`   | Where counters live: `memory` (per process), `redis` (shared by every instance, Node.js only) or `cloudflare` (Workers only) |
-| `RATE_LIMIT_BINDING` | `RATE_LIMITER` | Name of the Workers rate-limit binding, used when `RATE_LIMIT_STORE=cloudflare` |
-| `REDIS_URL`         | `redis://:securedb@localhost:6379` | Redis or Valkey URL, used when `RATE_LIMIT_STORE` or `CACHE_STORE` is `redis` (one connection serves both). Secret; the default is the Valkey of `pnpm compose:up` |
-
-With `memory` each running instance keeps its own counts, so the effective limit is `RATE_LIMIT_MAX`
-times the number of instances. With `redis` every instance counts against one allowance, which makes
-`RATE_LIMIT_MAX` the real global limit. If Redis is slow or down the limiter lets requests through
-instead of refusing them (it gives up on a call after a fraction of a second and skips Redis for ten
-seconds), because a rate limiter must not take the API down with it.
-
-With `cloudflare` the count is kept by Cloudflare's rate-limit binding, per location and eventually
-consistent: it holds back abuse but is not an exact global quota. The allowance and the period (10 or
-60 seconds) are declared under `ratelimits` in `wrangler.jsonc`, so `RATE_LIMIT_MAX` is only reported as the limit (keep it equal to the one in `wrangler.jsonc`);
-`RATE_LIMIT_WINDOW` only sets the `Retry-After` a refused client is told, so keep it equal to the
-period. The binding does not report what is left, so those responses omit the remaining count.
-A store that is not available on the running platform (`redis` on Workers, `cloudflare` on Node.js)
-stops startup with a message instead of failing quietly. Behind a proxy, set `TRUST_PROXY` or
-`TRUSTED_PLATFORM` (below), otherwise every client appears to have the proxy's address.
-
-`MAX_IN_FLIGHT` is the overload guard: past that many requests at once the server answers `503` with
-`Retry-After: 1` immediately, instead of queueing everyone until they time out. `/health` and
-`/metrics` are never refused.
-
-## Cache
-
-User lookups by id are cached. The cache is on by default and lives in the process, which is what
-the server always did; a shared store is opt-in.
-
-| Variable           | Default  | Description                                                                 |
-| ------------------ | -------- | --------------------------------------------------------------------------- |
-| `CACHE_ENABLED`    | `true`   | Turns the cache on or off; off sends every read to the database             |
-| `CACHE_STORE`      | `memory` | `memory` (per process), `redis` (shared by every instance, Node.js only) or `cloudflare` (Workers only) |
-| `CACHE_TTL`        | `30000`  | How long an entry stays cached, in milliseconds                             |
-| `CACHE_LOCAL_TTL`  | `5000`   | With a shared store, how long a process also keeps its own copy (`0` keeps none), in milliseconds |
-| `CACHE_MAX_ENTRIES`| `256`    | Entries a process keeps in memory, per cache                                |
-
-A write removes the entry it changes, so the only stale reads are those that follow a write made by
-another instance. With `memory` that lasts up to `CACHE_TTL`; with a shared store the entry is gone for
-everyone at once, apart from the local copies, which last up to `CACHE_LOCAL_TTL`. Lower it (or set `0`)
-if that matters more to you than saving a round trip to the store.
-
-The `X-Cache` response header, `metadata.cache` in the response body and the request log say how a cached read was answered: `cache=hit`, `cache=miss` (the database was asked) or
-`cache=bypass` (`?nocache=true`). A request that read nothing through the cache, or runs with the cache off,
-has no `cache` field.
-
-Add `?nocache=true` to a `GET` to read straight from the database for that request. It neither reads nor
-changes the cache, so it shows what is really stored without refreshing what other callers are served.
-Anyone who can call the API can use it, so it is not a way to protect the database; rate limiting is.
-
-Which store helps depends on the database. A row read from SQLite on the same machine takes tens of
-microseconds, quicker than any round trip to Redis, so for a single Node.js server `memory` is the right
-choice. `redis` pays off with several instances or a networked database. With `redis` an unreachable store
-costs the cached entries, not the requests: calls to it are given up on after a fraction of a second and
-skipped for ten seconds, the same as the rate limiter.
-
-`cloudflare` uses Cloudflare's Cache API. Entries are kept per location and expire after `CACHE_TTL`
-(rounded up to whole seconds); removing one removes it only in the location that handled the write, so
-another location can serve it until it expires. The Cache API stores nothing on `*.workers.dev`, so there
-every read reaches D1; use a custom domain.
-
-## Observability
-
-| Variable                         | Default     | Description                                                              |
-| -------------------------------- | ----------- | ------------------------------------------------------------------------ |
-| `METRICS_ENABLED`                | `false`     | Serve Prometheus metrics at `GET /metrics`                               |
-| `OTEL_SDK_DISABLED`              | `false`     | `true` turns trace, metric and `otlp` log export off, whatever the endpoint |
-| `OTEL_EXPORTER_OTLP_ENDPOINT`    | `http://localhost:4318` | OTLP/HTTP collector base URL; the default is the ClickStack of `pnpm compose:up` |
-| `OTEL_EXPORTER_OTLP_HEADERS`     | `authorization=edgy-dev-ingestion-key` | Headers sent with every export, `key=value` pairs separated by commas. Secret; the default is the development key of `pnpm compose:up`, and the server refuses to start with it when the endpoint is not local |
-| `OTEL_SERVICE_NAME`              | `edgy`      | Service name attached to every signal                                    |
-| `OTEL_EXPORT_INTERVAL`           | `5000`      | Milliseconds between exports of buffered traces, metrics and logs        |
-| `OTEL_EXPORTER_OTLP_COMPRESSION` | `gzip`      | Compression of export requests: `gzip` or `none`                         |
-| `OTEL_TRACES_SAMPLE_RATIO`       | `0.7`       | Fraction of requests whose trace is recorded, from 0 to 1                |
-
-Telemetry is OpenTelemetry over HTTP with JSON bodies (no gRPC), so it works with ClickStack/HyperDX,
-Grafana, Honeycomb or any OpenTelemetry collector. It is on by default and aimed at the local
-collector: where none is listening the exporters fail quietly and pause, so nothing breaks, but a
-deployment without a collector should set `OTEL_SDK_DISABLED=true` instead of exporting to localhost.
-Traces and metrics follow the endpoint; logs are sent when `LOG_TRANSPORT` includes `otlp`.
-
-The development key and password above belong to the local Docker stack. Production sets its own
-`OTEL_EXPORTER_OTLP_HEADERS` and `REDIS_URL` through the environment.
-
-- **Traces** have a server span per request named after the route (`GET /api/users/:id`), with the
-  database calls beneath it. A `traceparent` header from the caller continues its trace, and the id
-  comes back as `metadata.trace_id`, so a report from a client can be found. A `404` or a validation
-  error is not an error span; a `5xx` is.
-- **Sampling.** By default 70 % of requests are recorded (`OTEL_TRACES_SAMPLE_RATIO=0.7`); `1` records
-  every request and `0.1` one in ten. A caller's sampled trace is always kept.
-- **Delivery never slows a request.** Everything is buffered and sent in the background. If the
-  collector fails, export pauses for a minute and drops what it held rather than building up memory.
-
-> [!WARNING]
-> `/metrics` has no authentication. Enable it only where the port is not reachable from the internet.
-
-## CORS
-
-| Variable             | Default | Description                                              |
-| -------------------- | ------- | -------------------------------------------------------- |
-| `CORS_ORIGINS`       | `*`     | `*` or a comma-separated allowlist                       |
-| `CORS_METHODS`       | `*`     | `*` or a comma-separated list                            |
-| `CORS_ALLOW_HEADERS` | `*`     | `*` or a comma-separated list                            |
-| `CORS_CREDENTIALS`   | `false` | Send `access-control-allow-credentials`                  |
-| `CORS_MAX_AGE`       | `86400` | Preflight cache seconds; `false` or `0` omits the header |
-
-> [!WARNING]
-> `CORS_CREDENTIALS=true` requires an explicit `CORS_ORIGINS` allowlist. A wildcard origin is
-> invalid for credentialed requests, so the process fails fast at startup instead of sending a
-> header browsers will reject.
-
-## Cloudflare Workers
-
-On Workers the same variables go under `vars` in `wrangler.jsonc` (secrets through
-`wrangler secret put`). A Worker always uses D1, so `DATABASE_DRIVER` and `DATABASE_PATH` have no
-effect there; the binding is the one named by `D1_BINDING`. `LOG_TRANSPORT` can be `console`, `otlp` or
-both (`file` has no meaning there), and `RATE_LIMIT_STORE=redis` and `CACHE_STORE=redis` are not available on Workers (use `memory` or `cloudflare`).
-Telemetry is flushed after a response, at most once per `OTEL_EXPORT_INTERVAL`, so the last
-requests before an idle period are sent when the next one arrives.
-
-## Example
-
-```bash
-CORS_ORIGINS="https://app.example.com,https://admin.example.com" \
-CORS_CREDENTIALS=true \
-LOG_LEVEL=Warn \
-PORT=8080 \
-pnpm app serve
-```
+| Variable                       | Default                  | Description                                                                |
+| ------------------------------ | ------------------------ | -------------------------------------------------------------------------- |
+| `SERVER_PORT`                  | `3000`                   | Port mapped from host to application container.                            |
+| `CLICKSTACK_UI_PORT`           | `8080`                   | Host port for ClickStack telemetry dashboard UI.                           |
+| `OTLP_HTTP_PORT`               | `4318`                   | Host port for OTLP HTTP telemetry receiver.                                |
+| `CLICKSTACK_INGESTION_KEY`     | `edgy-dev-ingestion-key` | Ingestion key accepted by the ClickStack collector.                        |
+| `CLICKSTACK_DB_PASSWORD`       | `securedb`               | Password for internal ClickHouse and Redis services.                       |
+| `CLICKSTACK_ACCESS_KEY`        | _(empty)_                | API access key for telemetry dashboard auto-provisioning.                  |
+| `CLICKSTACK_ALERT_WEBHOOK_URL` | _(empty)_                | Destination webhook for alerts (omitted skips alert provisioning).         |
+| `CLICKSTACK_RETENTION_DAYS`    | `30`                     | Days of telemetry data to retain in ClickHouse tables.                     |
+| `APP_DISTROLESS_TAG`           | `debug-nonroot`          | Distroless base image tag (must include `/busybox` for runtime execution). |
+| `CADVISOR_VERSION`             | `v0.52.1`                | Version tag for cAdvisor container metrics exporter.                       |

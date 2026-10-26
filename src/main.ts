@@ -1,17 +1,29 @@
-import * as NodeRuntime from '@effect/platform-node/NodeRuntime'
+import { NodeRuntime } from '@effect/platform-node'
 import { Effect } from 'effect'
-import { run } from './command/cli.ts'
-import { CoreLayer } from './kernel/layers.ts'
+import { CliError } from 'effect/cli'
+import { run, subcommandOf } from '#/command/root.ts'
+import { CoreLayer } from '#/kernel/layers.ts'
 
-/**
- * CLI entry point, and the only place that calls `Effect.provide` with a layer. `CoreLayer` gives
- * every subcommand the configuration, the logger and the platform services. Commands add their data
- * layers through `Command.provide`. `runMain` interrupts on SIGINT/SIGTERM, which closes every scope:
- * server, then database, then the log buffer, flushed last.
- */
-// Telemetry exists for the long-running server. A one-shot command would only wait, at exit, for a
-// collector it has nothing worth sending to, so it runs with export off unless told otherwise.
-if (process.argv[2] !== 'serve') process.env['OTEL_SDK_DISABLED'] ??= 'true'
+const args = process.argv.slice(2)
 
-// oxlint-disable-next-line effecttsgo/strict-effect-provide
-run.pipe(Effect.provide(CoreLayer), NodeRuntime.runMain)
+// Telemetry exists for the long-running server. A one-shot command would
+// only wait, at exit, for a collector it has nothing worth sending to,
+// so it runs with export off unless told otherwise.
+if (subcommandOf(args) !== 'serve') {
+  process.env['OTEL_SDK_DISABLED'] ??= 'true'
+  NodeRuntime.runMain(run(args).pipe(Effect.provide(CoreLayer)))
+} else {
+  // The serve command owns the shutdown sequence: it completes its scope on
+  // SIGINT/SIGTERM with every finalizer awaited. runMain's interrupt-based
+  // exit detaches async finalizers, so the server runs without it.
+  void Effect.runPromise(run(args).pipe(Effect.provide(CoreLayer))).then(
+    () => process.exit(0),
+    (cause) => {
+      // A CliError was already rendered by the command's own handler;
+      // printing it again would duplicate the report.
+      if (!CliError.isCliError(cause))
+        console.error(cause instanceof Error ? (cause.stack ?? cause.message) : cause)
+      process.exit(1)
+    }
+  )
+}

@@ -1,48 +1,36 @@
-import { definePlugin, handleCors, type CorsOptions } from 'h3'
-import type { CorsConfig } from '../kernel/config/cors.ts'
-
 /**
- * Response headers a browser script may read across origins. Without them only the
- * CORS-safelisted headers are visible, so a web client could not read its request id,
- * rate limit or next page.
- */
-const EXPOSED_HEADERS = [
-  'x-request-id',
-  'x-trace-id',
-  'x-cache',
-  'x-ratelimit-limit',
-  'x-ratelimit-remaining',
-  'x-ratelimit-reset',
-  'retry-after',
-  'link'
-] as const
-
-const toCorsOptions = (cors: CorsConfig): CorsOptions => ({
-  origin: cors.origins === '*' ? '*' : [...cors.origins],
-  methods: cors.methods === '*' ? '*' : [...cors.methods],
-  allowHeaders: cors.allowHeaders === '*' ? '*' : [...cors.allowHeaders],
-  exposeHeaders: [...EXPOSED_HEADERS],
-  credentials: cors.credentials,
-  maxAge: cors.maxAge,
-  preflight: { statusCode: 204 }
-})
-
-/**
- * CORS plugin. Applies the configured policy to every route. A preflight (`OPTIONS`) is
- * answered at once with `204`; any other request gets the `Access-Control-*` headers and
- * continues.
+ * CORS for the API surface. Enabled by default and allows any origin;
+ * CORS_ALLOWED_ORIGINS narrows it to absolute origins. Global middleware: the
+ * serve command's composition (HttpRouter.serve) has no route scope for a
+ * route-scoped middleware layer to attach to.
  *
- * h3 writes these headers to both `event.res.headers` and `event.res.errHeaders`, so they
- * survive error responses too.
- *
- * The caller supplies the policy. The config layer already rejects `credentials` combined
- * with a wildcard origin.
+ * The any-origin default is only safe while the API carries no authentication.
+ * Once it does, an empty list must stop meaning "echo every origin", or any
+ * site a signed-in user visits can read the API with that user's credentials.
  */
-export const cors = definePlugin<CorsConfig>((app, config) => {
-  const options = toCorsOptions(config)
 
-  app.use((event, next) => {
-    const preflight = handleCors(event, options)
-    return preflight === false ? next() : preflight
-  })
-})
+import { Effect, Types } from 'effect'
+import * as HttpMiddleware from 'effect/http/HttpMiddleware'
+import * as HttpRouter from 'effect/http/HttpRouter'
+import * as HttpServerResponse from 'effect/http/HttpServerResponse'
+import { AppConfig } from '#/kernel/config/config.ts'
+
+type AppEffect = Effect.Effect<HttpServerResponse.HttpServerResponse, Types.unhandled>
+
+export const corsMiddleware = HttpRouter.middleware(
+  Effect.map(AppConfig, (config) => (effect: AppEffect) => {
+    if (!config.security.corsEnabled) return effect
+    const allowedOrigins = config.security.corsAllowedOrigins
+    return HttpMiddleware.cors({
+      // Empty list allows any origin: a predicate echoes the caller's
+      // Origin, which also keeps credentials valid (the literal `*` cannot).
+      allowedOrigins: (origin: string) =>
+        allowedOrigins.length === 0 || allowedOrigins.includes(origin),
+      allowedMethods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'],
+      allowedHeaders: ['accept', 'content-type', 'authorization'],
+      credentials: true,
+      maxAge: 600
+    })(effect) as AppEffect
+  }),
+  { global: true }
+)

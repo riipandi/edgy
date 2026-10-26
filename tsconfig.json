@@ -1,11 +1,14 @@
 {
-    "$schema": "./node_modules/@effect/tsgo/schema.json",
+    "$schema": "https://json.schemastore.org/tsconfig",
     "compilerOptions": {
         "allowImportingTsExtensions": true,
         "allowSyntheticDefaultImports": true,
         "erasableSyntaxOnly": false,
+        "esModuleInterop": true,
         "exactOptionalPropertyTypes": true,
         "isolatedModules": true,
+        "jsx": "preserve",
+        "jsxImportSource": "@solidjs/web",
         "lib": ["ESNext", "DOM"],
         "module": "ESNext",
         "moduleDetection": "force",
@@ -24,16 +27,11 @@
         "strictPropertyInitialization": true,
         "target": "esnext",
         "tsBuildInfoFile": ".output/tsconfig.tsbuildinfo",
-        "types": ["node"],
+        "types": ["vite-plus/client"],
         "useDefineForClassFields": true,
         "verbatimModuleSyntax": true,
-        "plugins": [
-            {
-                "name": "@effect/language-service",
-                "diagnostics": false
-            }
-        ]
+        "paths": { "#/*": ["./src/*"] }
     },
-    "include": ["**/*.ts", "**/*.marko"],
-    "exclude": [".output", ".wrangler", "dist", "storage", "vendor"]
+    "include": ["**/*.ts", "**/*.tsx"],
+    "exclude": [".output", ".wrangler", "dist"]
 }

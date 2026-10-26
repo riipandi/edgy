@@ -1,59 +1,28 @@
-import {
-  choice,
-  choiceList,
-  group,
-  int,
-  logLevel,
-  milliseconds,
-  text,
-  type ValueOf
-} from './field.ts'
+import { choice, choiceList, text, int } from './field.ts'
+import { group, logLevel, milliseconds } from './field.ts'
+import type { ValueOf } from './field.ts'
 
-/** Logging: severity, format and how often buffered lines are written. */
 export const loggingConfig = group(
   {
-    level: logLevel(
-      'LOG_LEVEL',
-      'Info',
-      'Minimum severity emitted (case-sensitive; Trace also prints SQL)'
-    ),
+    level: logLevel('LOG_LEVEL', 'Info', 'Minimum log severity'),
     transport: choiceList(
       'LOG_TRANSPORT',
       ['console', 'file', 'otlp'],
       ['console', 'file'],
-      'Where logs go: any of console, file, otlp, comma-separated. otlp needs telemetry on (OTEL_SDK_DISABLED not true). Workers use the console and otlp only'
+      'Log sinks'
     ),
-    file: text(
-      'LOG_FILE',
-      './storage/logs/edgy.jsonl',
-      'Base path of the JSON-lines log; the file written carries the period, e.g. edgy_20261015.jsonl'
-    ),
+    file: text('LOG_FILE', 'storage/logs/app.jsonl', 'Base path for JSON-lines logs'),
     rotation: choice(
       'LOG_ROTATION',
       ['hourly', 'daily', 'weekly', 'monthly'],
       'daily',
-      'How often a new log file starts (UTC): edgy_YYYYMMDD_hh, edgy_YYYYMMDD, edgy_YYYYMMDD (Monday), edgy_YYYYMM'
+      'Log rotation period'
     ),
-    fileMaxFiles: int(
-      'LOG_FILE_MAX_FILES',
-      14,
-      'Log files kept, the current one included; older ones are deleted. 0 keeps every file'
-    ),
-    format: choice(
-      'LOG_FORMAT',
-      ['pretty', 'json'],
-      'pretty',
-      'Console format: human-readable lines, or one JSON object per line (the file is always JSON)'
-    ),
-    flushInterval: milliseconds(
-      'LOG_FLUSH_INTERVAL',
-      250,
-      'How long log lines are buffered before one batched write to stdout',
-      { min: 1 }
-    )
+    fileMaxFiles: int('LOG_FILE_MAX_FILES', 14, 'Maximum rotated log files; zero keeps all'),
+    format: choice('LOG_FORMAT', ['pretty', 'json'], 'pretty', 'Console log format'),
+    flushInterval: milliseconds('LOG_FLUSH_INTERVAL', 250, 'Buffered log flush interval', 1)
   },
-  { title: 'Logging' }
+  'Logging'
 )
 
-export type LoggingConfig = ValueOf<typeof loggingConfig>
-export type LogFormat = LoggingConfig['format']
+export type LogFormat = ValueOf<typeof loggingConfig>['format']

@@ -1,0 +1,197 @@
+{
+    "name": "Application SLI",
+    "tags": ["edgy", "application"],
+    "tiles": [
+        {
+            "name": "Requests per second",
+            "x": 0,
+            "y": 0,
+            "w": 6,
+            "h": 4,
+            "config": {
+                "displayType": "number",
+                "numberFormat": {
+                    "output": "number",
+                    "mantissa": 2
+                },
+                "configType": "sql",
+                "source": "Metrics",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT round((max(Value) - min(Value)) / greatest(dateDiff('second', min(TimeUnix), max(TimeUnix)), 1), 2) AS rps FROM $__sourceTable(sum) WHERE $__timeFilter(TimeUnix) AND MetricName = 'http_requests'"
+            }
+        },
+        {
+            "name": "5xx rate (%)",
+            "x": 6,
+            "y": 0,
+            "w": 6,
+            "h": 4,
+            "config": {
+                "displayType": "number",
+                "numberFormat": {
+                    "output": "number",
+                    "mantissa": 2
+                },
+                "configType": "sql",
+                "source": "Metrics",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT round(100 * sumIf(delta, Attributes['status_code'] >= '500' AND Attributes['status_code'] <= '599') / greatest(sum(delta), 1), 2) AS rate FROM (SELECT Attributes, max(Value) - min(Value) AS delta FROM $__sourceTable(sum) WHERE $__timeFilter(TimeUnix) AND MetricName = 'http_requests' GROUP BY Attributes)"
+            }
+        },
+        {
+            "name": "429 rate (%)",
+            "x": 12,
+            "y": 0,
+            "w": 6,
+            "h": 4,
+            "config": {
+                "displayType": "number",
+                "numberFormat": {
+                    "output": "number",
+                    "mantissa": 2
+                },
+                "configType": "sql",
+                "source": "Metrics",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT round(100 * sumIf(delta, Attributes['status_code'] = '429') / greatest(sum(delta), 1), 2) AS rate FROM (SELECT Attributes, max(Value) - min(Value) AS delta FROM $__sourceTable(sum) WHERE $__timeFilter(TimeUnix) AND MetricName = 'http_requests' GROUP BY Attributes)"
+            }
+        },
+        {
+            "name": "Mean latency (ms)",
+            "x": 18,
+            "y": 0,
+            "w": 6,
+            "h": 4,
+            "config": {
+                "displayType": "number",
+                "numberFormat": {
+                    "output": "number",
+                    "mantissa": 1
+                },
+                "configType": "sql",
+                "source": "Metrics",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT round(1000 * sum(Sum) / greatest(sum(Count), 1), 1) AS mean_ms FROM $__sourceTable(histogram) WHERE $__timeFilter(TimeUnix) AND MetricName = 'http_request_duration_seconds'"
+            }
+        },
+        {
+            "name": "Requests per second by status code",
+            "x": 0,
+            "y": 4,
+            "w": 12,
+            "h": 7,
+            "config": {
+                "displayType": "line",
+                "numberFormat": {
+                    "output": "number",
+                    "mantissa": 2
+                },
+                "configType": "sql",
+                "source": "Metrics",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT $__timeInterval(TimeUnix) AS ts, Attributes['status_code'] AS status_code, round((max(Value) - min(Value)) / $__interval_s, 2) AS rps FROM $__sourceTable(sum) WHERE $__timeFilter(TimeUnix) AND MetricName = 'http_requests' GROUP BY ts, status_code ORDER BY ts"
+            }
+        },
+        {
+            "name": "Requests per second by method",
+            "x": 12,
+            "y": 4,
+            "w": 12,
+            "h": 7,
+            "config": {
+                "displayType": "line",
+                "numberFormat": {
+                    "output": "number",
+                    "mantissa": 2
+                },
+                "configType": "sql",
+                "source": "Metrics",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT $__timeInterval(TimeUnix) AS ts, Attributes['method'] AS method, round((max(Value) - min(Value)) / $__interval_s, 2) AS rps FROM $__sourceTable(sum) WHERE $__timeFilter(TimeUnix) AND MetricName = 'http_requests' GROUP BY ts, method ORDER BY ts"
+            }
+        },
+        {
+            "name": "Mean latency by method (ms)",
+            "x": 0,
+            "y": 11,
+            "w": 12,
+            "h": 7,
+            "config": {
+                "displayType": "line",
+                "numberFormat": {
+                    "output": "number",
+                    "mantissa": 1
+                },
+                "configType": "sql",
+                "source": "Metrics",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT $__timeInterval(TimeUnix) AS ts, Attributes['method'] AS method, round(1000 * sum(Sum) / greatest(sum(Count), 1), 1) AS mean_ms FROM $__sourceTable(histogram) WHERE $__timeFilter(TimeUnix) AND MetricName = 'http_request_duration_seconds' GROUP BY ts, method ORDER BY ts"
+            }
+        },
+        {
+            "name": "Status code mix",
+            "x": 12,
+            "y": 11,
+            "w": 12,
+            "h": 7,
+            "config": {
+                "displayType": "stacked_bar",
+                "numberFormat": {
+                    "output": "number",
+                    "mantissa": 0,
+                    "thousandSeparated": true
+                },
+                "configType": "sql",
+                "source": "Metrics",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT $__timeInterval(TimeUnix) AS ts, Attributes['status_code'] AS status_code, max(Value) - min(Value) AS requests FROM $__sourceTable(sum) WHERE $__timeFilter(TimeUnix) AND MetricName = 'http_requests' GROUP BY ts, status_code ORDER BY ts"
+            }
+        },
+        {
+            "name": "Health probe",
+            "x": 0,
+            "y": 18,
+            "w": 12,
+            "h": 7,
+            "config": {
+                "displayType": "table",
+                "configType": "sql",
+                "source": "Traces",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT SpanAttributes['http.route'] AS probe, StatusCode AS status, count() AS checks, round(quantile(0.95)(Duration / 1e6), 1) AS p95_ms, max(Timestamp) AS last_seen FROM $__sourceTable WHERE $__timeFilter(Timestamp) AND $__filters AND SpanAttributes['http.route'] = '/api/health' GROUP BY probe, status ORDER BY checks DESC"
+            }
+        },
+        {
+            "name": "Mean latency by status code (ms)",
+            "x": 0,
+            "y": 25,
+            "w": 12,
+            "h": 7,
+            "config": {
+                "displayType": "line",
+                "numberFormat": {
+                    "output": "number",
+                    "mantissa": 1
+                },
+                "configType": "sql",
+                "source": "Metrics",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT $__timeInterval(TimeUnix) AS ts, Attributes['status_code'] AS status_code, round(1000 * sum(Sum) / greatest(sum(Count), 1), 1) AS mean_ms FROM $__sourceTable(histogram) WHERE $__timeFilter(TimeUnix) AND MetricName = 'http_request_duration_seconds' GROUP BY ts, status_code ORDER BY ts"
+            }
+        },
+        {
+            "name": "Telemetry freshness",
+            "x": 12,
+            "y": 18,
+            "w": 12,
+            "h": 7,
+            "config": {
+                "displayType": "table",
+                "configType": "sql",
+                "source": "Metrics",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT signal, verdict, round(age, 0) AS age_seconds, toDateTime(now()) AS checked_at FROM (SELECT 'http_request_duration_seconds' AS signal, dateDiff('second', max(TimeUnix), now()) AS age, multiIf(age <= 120, 'fresh', age <= 600, 'stale', 'silent') AS verdict FROM $__sourceTable(histogram) WHERE TimeUnix >= now() - INTERVAL 6 HOUR AND MetricName = 'http_request_duration_seconds' UNION ALL SELECT 'http_requests' AS signal, dateDiff('second', max(TimeUnix), now()) AS age, multiIf(age <= 120, 'fresh', age <= 600, 'stale', 'silent') AS verdict FROM $__sourceTable(sum) WHERE TimeUnix >= now() - INTERVAL 6 HOUR AND MetricName = 'http_requests' UNION ALL SELECT 'otel_traces' AS signal, dateDiff('second', max(Timestamp), now()) AS age, multiIf(age <= 120, 'fresh', age <= 600, 'stale', 'silent') AS verdict FROM otel_traces WHERE Timestamp > toDateTime64(0, 9, 'UTC') AND Timestamp >= now() - INTERVAL 6 HOUR UNION ALL SELECT 'otel_logs' AS signal, dateDiff('second', max(Timestamp), now()) AS age, multiIf(age <= 120, 'fresh', age <= 600, 'stale', 'silent') AS verdict FROM otel_logs WHERE Timestamp > toDateTime64(0, 9, 'UTC') AND Timestamp >= now() - INTERVAL 6 HOUR) ORDER BY age_seconds ASC"
+            }
+        }
+    ]
+}

@@ -1,59 +1,55 @@
-import { Duration, Effect, Metric } from 'effect'
+import { Effect, Metric } from 'effect'
 
-/** Total HTTP requests handled, labelled by method and final status. */
-const httpRequests = Metric.counter('http_requests_total', {
-  description: 'Total number of HTTP requests handled',
+export const httpRequests = Metric.counter('http_requests', {
+  description: 'HTTP requests handled by the Effect server',
   incremental: true
 })
 
-/** Request latency in milliseconds. */
-const httpDuration = Metric.timer('http_request_duration_ms', {
-  description: 'HTTP request latency in milliseconds',
-  boundaries: [5, 10, 25, 50, 100, 250, 500, 1000]
+const SECOND_BOUNDARIES = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
+
+export const httpRequestDuration = Metric.histogram('http_request_duration_seconds', {
+  description: 'HTTP request duration in seconds',
+  boundaries: SECOND_BOUNDARIES
 })
 
-/** Requests refused by the overload guard (`MAX_IN_FLIGHT`). */
-const httpShed = Metric.counter('http_requests_shed_total', {
-  description: 'Requests refused with 503 because too many were already in flight',
-  incremental: true
-})
+const KNOWN_METHODS = new Set([
+  'GET',
+  'HEAD',
+  'POST',
+  'PUT',
+  'PATCH',
+  'DELETE',
+  'OPTIONS',
+  'TRACE',
+  'CONNECT'
+])
 
-/** Counts one request refused by the overload guard. */
-export const recordShedRequest: Effect.Effect<void> = Metric.update(httpShed, 1)
-
-const KNOWN_METHODS = new Set(['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'])
-
-/**
- * The method as a metric label. The method comes from the client and every distinct value is a
- * time series kept for the life of the process, so anything but a standard method maps to one
- * `OTHER` series.
- */
-export const metricMethod = (method: string): string =>
+// Bounded to known methods so an exotic method cannot grow the series set.
+export const methodLabel = (method: string): string =>
   KNOWN_METHODS.has(method) ? method : 'OTHER'
 
-/**
- * Records one finished request. Called for **every** response, errors and 404s included. The
- * timer skips probes (`timed: false`): a probe polled every second answers in microseconds and
- * would drag the latency percentiles toward zero.
- */
-export const recordHttpRequest = (
+// Bounded attributes only, so the series count stays flat no matter the
+// traffic: the method collapses to the known set, the code is one numeric
+// response, and the route comes from the matched template (contract paths,
+// the SSR catch-all, `unmatched`) — never the raw request path.
+export const recordRequest = (
   method: string,
-  status: number,
-  durationMs: number,
-  options: { readonly timed: boolean } = { timed: true }
-): Effect.Effect<void> => {
-  const attributes = { method: metricMethod(method), status: String(status) }
-  const count = Metric.update(Metric.withAttributes(httpRequests, attributes), 1)
-  return options.timed
-    ? Effect.all(
-        [
-          count,
-          Metric.update(
-            Metric.withAttributes(httpDuration, attributes),
-            Duration.millis(durationMs)
-          )
-        ],
-        { discard: true }
-      )
-    : count
-}
+  statusCode: number,
+  route: string,
+  durationMs: number
+) =>
+  Effect.gen(function* () {
+    const boundedMethod = methodLabel(method)
+    yield* Metric.update(
+      Metric.withAttributes(httpRequests, {
+        method: boundedMethod,
+        status_code: String(statusCode),
+        route
+      }),
+      1
+    )
+    yield* Metric.update(
+      Metric.withAttributes(httpRequestDuration, { method: boundedMethod, route }),
+      Math.max(0, durationMs) / 1000
+    )
+  })

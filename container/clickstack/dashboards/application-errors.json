@@ -1,0 +1,190 @@
+{
+    "name": "Application Errors",
+    "tags": ["edgy", "application"],
+    "filters": [
+        {
+            "name": "Service",
+            "type": "QUERY_EXPRESSION",
+            "expression": "ServiceName",
+            "source": "Traces"
+        }
+    ],
+    "tiles": [
+        {
+            "name": "Error spans",
+            "x": 0,
+            "y": 0,
+            "w": 6,
+            "h": 4,
+            "config": {
+                "displayType": "number",
+                "numberFormat": { "output": "number", "mantissa": 0, "thousandSeparated": true },
+                "alignDateRangeToGranularity": true,
+                "source": "Traces",
+                "select": [
+                    { "aggFn": "count", "where": "StatusCode = 'Error'", "whereLanguage": "sql" }
+                ]
+            }
+        },
+        {
+            "name": "Affected routes",
+            "x": 6,
+            "y": 0,
+            "w": 6,
+            "h": 4,
+            "config": {
+                "displayType": "number",
+                "configType": "sql",
+                "source": "Traces",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT uniqExact(SpanName) AS routes FROM $__sourceTable WHERE $__timeFilter(Timestamp) AND $__filters AND StatusCode = 'Error'"
+            }
+        },
+        {
+            "name": "Spans over 1s",
+            "x": 12,
+            "y": 0,
+            "w": 6,
+            "h": 4,
+            "config": {
+                "displayType": "number",
+                "numberFormat": { "output": "number", "mantissa": 0, "thousandSeparated": true },
+                "alignDateRangeToGranularity": true,
+                "source": "Traces",
+                "select": [{ "aggFn": "count", "where": "Duration > 1e9", "whereLanguage": "sql" }]
+            }
+        },
+        {
+            "name": "Slowest span (ms)",
+            "x": 18,
+            "y": 0,
+            "w": 6,
+            "h": 4,
+            "config": {
+                "displayType": "number",
+                "numberFormat": { "output": "number", "mantissa": 1, "thousandSeparated": true },
+                "configType": "sql",
+                "source": "Traces",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT if(count() = 0, 0, round(max(Duration) / 1e6, 1)) AS slowest_ms FROM $__sourceTable WHERE $__timeFilter(Timestamp) AND $__filters"
+            }
+        },
+        {
+            "name": "Error rate over time (%)",
+            "x": 0,
+            "y": 4,
+            "w": 12,
+            "h": 7,
+            "config": {
+                "displayType": "line",
+                "numberFormat": { "output": "number", "mantissa": 2 },
+                "configType": "sql",
+                "source": "Traces",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT $__timeInterval(Timestamp) AS ts, round(100 * countIf(StatusCode = 'Error') / greatest(count(), 1), 2) AS error_pct FROM $__sourceTable WHERE $__timeFilter(Timestamp) AND $__filters GROUP BY ts ORDER BY ts"
+            }
+        },
+        {
+            "name": "Error count by route over time",
+            "x": 12,
+            "y": 4,
+            "w": 12,
+            "h": 7,
+            "config": {
+                "displayType": "stacked_bar",
+                "numberFormat": { "output": "number", "mantissa": 0, "thousandSeparated": true },
+                "configType": "sql",
+                "source": "Traces",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT $__timeInterval(Timestamp) AS ts, SpanName AS route, count() AS errors FROM $__sourceTable WHERE $__timeFilter(Timestamp) AND $__filters AND StatusCode = 'Error' GROUP BY ts, route ORDER BY ts"
+            }
+        },
+        {
+            "name": "HTTP status mix",
+            "x": 0,
+            "y": 11,
+            "w": 12,
+            "h": 7,
+            "config": {
+                "displayType": "stacked_bar",
+                "configType": "sql",
+                "source": "Traces",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT $__timeInterval(Timestamp) AS ts, SpanAttributes['http.status_code'] AS status, count() AS spans FROM $__sourceTable WHERE $__timeFilter(Timestamp) AND $__filters AND SpanAttributes['http.status_code'] != '' GROUP BY ts, status ORDER BY ts"
+            }
+        },
+        {
+            "name": "Slow span threshold (s)",
+            "x": 12,
+            "y": 11,
+            "w": 12,
+            "h": 7,
+            "config": {
+                "displayType": "line",
+                "numberFormat": { "output": "number", "mantissa": 0, "thousandSeparated": true },
+                "configType": "sql",
+                "source": "Traces",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT $__timeInterval(Timestamp) AS ts, countIf(Duration > 1e8) AS over_100ms, countIf(Duration > 5e8) AS over_500ms, countIf(Duration > 1e9) AS over_1s FROM $__sourceTable WHERE $__timeFilter(Timestamp) AND $__filters GROUP BY ts ORDER BY ts"
+            }
+        },
+        {
+            "name": "Errors by route",
+            "x": 0,
+            "y": 18,
+            "w": 12,
+            "h": 8,
+            "config": {
+                "displayType": "table",
+                "numberFormat": { "output": "number", "mantissa": 0, "thousandSeparated": true },
+                "alignDateRangeToGranularity": true,
+                "groupBy": "SpanName",
+                "source": "Traces",
+                "select": [
+                    {
+                        "aggFn": "count",
+                        "where": "StatusCode = 'Error'",
+                        "whereLanguage": "sql",
+                        "alias": "errors"
+                    },
+                    { "aggFn": "count", "alias": "spans" },
+                    {
+                        "aggFn": "quantile",
+                        "level": 0.95,
+                        "valueExpression": "Duration / 1e6",
+                        "alias": "p95_ms"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "Slowest spans",
+            "x": 12,
+            "y": 18,
+            "w": 12,
+            "h": 8,
+            "config": {
+                "displayType": "table",
+                "configType": "sql",
+                "source": "Traces",
+                "connection": "Local ClickHouse",
+                "sqlTemplate": "SELECT Timestamp, ServiceName, SpanName, round(Duration / 1e6, 1) AS duration_ms, StatusCode FROM $__sourceTable WHERE $__timeFilter(Timestamp) AND $__filters ORDER BY Duration DESC LIMIT 50"
+            }
+        },
+        {
+            "name": "Recent error logs",
+            "x": 0,
+            "y": 26,
+            "w": 24,
+            "h": 8,
+            "config": {
+                "displayType": "search",
+                "alignDateRangeToGranularity": true,
+                "source": "Logs",
+                "select": "",
+                "where": "SeverityText IN ('error', 'ERROR', 'fatal', 'FATAL')",
+                "whereLanguage": "sql"
+            }
+        }
+    ]
+}

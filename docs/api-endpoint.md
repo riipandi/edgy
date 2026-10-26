@@ -1,199 +1,193 @@
-# API Endpoint
+# API Endpoints
 
-| Method | Path                        | Description                                       |
-| ------ | --------------------------- | ------------------------------------------------- |
-| `GET`  | `/`                         | The front page (HTML)                             |
-| `GET`  | `/health`                   | Readiness check (database reachable); `503` while shutting down |
-| `GET`  | `/metrics`                  | Prometheus metrics, only when `METRICS_ENABLED=true` |
-| `GET`  | `/users`                    | The user directory as an HTML page (the same `limit`, `cursor` and sort parameters as the API) |
-| `GET`  | `/api/users`                | List users, paginated                             |
-| `GET`  | `/api/users/:id`            | Fetch one user                                    |
-| `POST` | `/api/users`                | Create a user from a JSON body with a required `email` and `name` (`201`). Emails are stored in lowercase, and the same address in another spelling is a `409` |
-| `GET`  | `/.well-known/security.txt` | Contact metadata (RFC 9116 style)                 |
+The server exposes a typed REST API under `/api` alongside interactive API documentation and health probes.
 
-`HEAD` is answered wherever `GET` is, without a body. Every endpoint under `/api`, and `/health`, answers in the envelope below. `/health` carries only a `message`, with no `data`. `/` and `/.well-known/*` do not, and neither do the pages (`/`, `/users`), which answer in HTML.
+| Method   | Path                | Behavior                                                              |
+| -------- | ------------------- | --------------------------------------------------------------------- |
+| `GET`    | `/api/health`       | Checks whether dependencies answer readiness queries (fail-closed).   |
+| `GET`    | `/api/users`        | Returns a cursor-paginated list of user records.                      |
+| `GET`    | `/api/users/:id`    | Returns a single user by ID (`user_...`), or `404`.                   |
+| `POST`   | `/api/users`        | Creates a user; returns `201`, or `409` on duplicate email.           |
+| `PATCH`  | `/api/users/:id`    | Merges partial fields into an existing user, or `404`.                |
+| `DELETE` | `/api/users/:id`    | Deletes a user by ID; returns `200` with empty body, or `404`.        |
+| `GET`    | `/api-docs`         | Interactive Scalar API documentation (active when enabled).           |
+| `GET`    | `/api/openapi.json` | OpenAPI 3.1 specification for the API (active when enabled).          |
+| `GET`    | `/metrics`          | Prometheus metrics scrape endpoint (active when metrics are enabled). |
 
-**Errors follow the path.** A failure under `/api` is always JSON in the error shape below. A failure anywhere else (an unknown address, a page that could not be built, `/health` while the server shuts down) is an HTML error page showing the status and the request ID, with the same status code and headers. A client that wants JSON stays under `/api`.
+Every GET endpoint supports `HEAD` requests, returning identical headers and status codes without a response body.
 
-## API description
+## Request and response lifecycle
 
-[`openapi.json`](./openapi.json) describes every endpoint under `/api` in OpenAPI 3.1: the parameters, the request bodies, and the answers inside the response envelope. It is generated from the same schemas the server validates with, so it matches the code; point a client generator or an API explorer at it. Effect's `@effect/openapi-generator` (`openapigen`) can turn it into a typed client.
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Client as API Consumer
+    participant Gateway as API Gateway / Router
+    participant Limiter as Token Bucket Rate Limiter
+    participant Endpoint as Endpoint Handler
+    participant Storage as Database / Cache
 
-## Response format
+    Client->>Gateway: HTTP Request (e.g. GET /api/users)
+    Gateway->>Gateway: Assign Request ID (x-request-id: req_...)
+    Gateway->>Limiter: Check Client IP Rate Limit
 
-A successful response carries the payload in `data`, and always reports the HTTP status and the request ID:
+    alt Rate Limit Exceeded
+        Limiter-->>Client: 429 Too Many Requests (Error Envelope + Retry-After)
+    else Request Allowed
+        Limiter->>Endpoint: Route to Feature Handler
+        Endpoint->>Storage: Execute Operation / Query
+
+        alt Operation Succeeded
+            Storage-->>Endpoint: Return Data
+            Endpoint-->>Client: 200/201 Success Envelope (Data + Metadata + Links)
+        else Business or Validation Error
+            Endpoint-->>Client: 400/404/409 Error Envelope (Code + Message + Metadata)
+        else Storage or Service Outage
+            Endpoint-->>Client: 503 Service Unavailable (Sanitized DATABASE_ERROR)
+        end
+    end
+```
+
+## Response envelope
+
+Every API response under `/api/*` (with the exception of `/api/health`) conforms to a unified JSON response envelope.
+
+### Success envelope
 
 ```json
 {
   "status": "success",
-  "data": { "id": "user_01m5k7w3p8fvx9r2c4t6y0hq1d", "email": "ada@example.com", "name": "Ada Lovelace" },
-  "metadata": { "status_code": 200, "request_id": "req_01m4zyktdnfzva2mkmb76p93hq" }
-}
-```
-
-An error has a human-readable `message` and an `error` object a program can act on:
-
-```json
-{
-  "status": "error",
-  "message": "Validation failed",
-  "error": {
-    "code": "VALIDATION_FAILED",
-    "retryable": false,
-    "details": [{ "path": ["email"], "message": "must be a valid email address" }]
+  "data": {
+    "id": "user_01m5k7w3p8fvx9r2c4t6y0hq1d",
+    "email": "ada@example.com",
+    "name": "Ada Lovelace"
   },
-  "metadata": { "status_code": 400, "request_id": "req_01m4zyktdzfzva2mn4svp2rqqm" }
-}
-```
-
-| Field | Meaning |
-| ----- | ------- |
-| `error.code` | Stable name of the failure (`NOT_FOUND`, `RATE_LIMITED`, `DATABASE_ERROR`…). Switch on this, not on `message` |
-| `error.retryable` | `true` when sending the same request again can succeed (a timeout, a busy database, a rate limit, an overload) |
-| `error.details` | Facts about this failure: the validation issues, the id that was not found, `retry_after` seconds |
-| `error.debug` | What lies behind a server-side failure. Only when the server runs at `LOG_LEVEL=Debug` or below; secrets in it are removed |
-
-The same id is in the `X-Trace-ID` header, so a client or proxy that never parses the body can still log it.
-
-`metadata.trace_id` is on error responses too, when traces are exported: quote it (with
-`metadata.request_id`) when you report a problem. A field that holds a secret (`password`, `token`…)
-is never quoted back in a validation message.
-
-Responses contain only the documented fields.
-
-## Pagination
-
-Lists are paged with a cursor, not a page number, so a request costs the same on the first page and the thousandth, and a row added while you read cannot shift the pages. List endpoints accept these query parameters:
-
-| Parameter    | Default | Meaning                                                                    |
-| ------------ | ------- | -------------------------------------------------------------------------- |
-| `limit`      | `20`    | Items per page, 1 to 100                                                   |
-| `cursor`     | (none)  | Where the next page starts; copy it from `metadata.next_cursor` or `links.next` |
-| `sort_by`    | `id`    | Field to sort by. `/api/users` accepts `id`, `email` and `name`            |
-| `sort_order` | `asc`   | `asc` or `desc`                                                            |
-
-A paginated response adds the cursor to `metadata` and navigation to `links`:
-
-```json
-{
-  "status": "success",
-  "data": [{ "id": "user_01m5k7w3p8fvx9r2c4t6y0hq1d", "email": "ada@example.com", "name": "Ada Lovelace" }],
   "metadata": {
     "status_code": 200,
-    "request_id": "req_01m4zymemrfera61y7ekvtpz48",
-    "limit": 2,
-    "has_more": true,
-    "next_cursor": "eyJzIjoiaWQiLCJvIjoiYXNjIiwidiI6InVzZXJfMDFtNWs3dzNwOGZ2eDlyMmM0dDZ5MGhxMWQiLCJpIjoidXNlcl8wMW01azd3M3A4ZnZ4OXIyYzR0NnkwaHExZCJ9"
-  },
-  "links": {
-    "self": "/api/users?limit=2",
-    "first": "/api/users?limit=2",
-    "next": "/api/users?limit=2&cursor=eyJzIjoiaWQiLCJvIjoiYXNjIiwidiI6InVzZXJfMDFtNWs3dzNwOGZ2eDlyMmM0dDZ5MGhxMWQiLCJpIjoidXNlcl8wMW01azd3M3A4ZnZ4OXIyYzR0NnkwaHExZCJ9"
+    "request_id": "req_01m5k7w3p8fvx9r2c4t6y0hq1d",
+    "trace_id": "trc_01m5k7w3p8fvx9r2c4t6y0hq1d",
+    "cache": "hit"
   }
 }
 ```
 
-- Follow `links.next` until it is `null` (`has_more` is `false`). The last page can be empty only when the list itself is.
-- There is no total and no page number. Counting every row on each request does not scale.
-- A cursor belongs to the sort it was issued for: sending it with another `sort_by` or `sort_order`, or a value that is not a cursor, is a `400`. `links.next` repeats your sort and limit, so following it is always safe.
-- Treat a cursor as opaque. Its format can change between versions.
-- Links are relative and keep your other query parameters.
+- `metadata.status_code`: Matches the HTTP response status code.
+- `metadata.request_id`: Correlates with the `x-request-id` response header for tracing and audit logs.
+- `metadata.trace_id`: Present when OpenTelemetry tracing is active.
+- `metadata.cache`: Emitted on cached lookups (`hit`, `miss`, `bypass`, or `disabled`). Pass `?nocache=1` to bypass the cache.
 
-## Errors
-
-| Status | Meaning |
-| ------ | ------- |
-| `400`  | Validation failed (body, path or query), or the body is not valid JSON |
-| `404`  | Unknown path (`NOT_FOUND`), or unknown user (`NOT_FOUND`, `"details": { "id": "user_…" }`); an `:id` that is not a `user_` id is a `400` |
-| `405`  | A path that exists under other methods (`METHOD_NOT_ALLOWED`); `Allow` lists them |
-| `415`  | A request body that is not `application/json` |
-| `429`  | Rate limit exceeded; `Retry-After` says how many seconds to wait |
-| `409`  | The user already exists (duplicate email; `CONFLICT`) |
-| `413`  | Request body larger than `BODY_LIMIT` |
-| `499`  | The client closed the connection before the response |
-| `500`  | Server-side failure (`DATABASE_ERROR`, `INTERNAL_ERROR`); the cause goes to the log, and to the response only in debug mode, redacted |
-| `503`  | `/health` while the server is shutting down, or any `/api` request while the server is overloaded (`Retry-After: 1`) |
-| `504`  | The request exceeded `REQUEST_TIMEOUT` |
-
-## Tracing
-
-When the server exports telemetry, a successful response carries `metadata.trace_id`, the id of its
-trace in your observability backend, written as a `trc_` id. Send a W3C `traceparent` header to make
-the server's spans part of your own trace; the same trace comes back.
-
-The `trc_` id identifies the trace of your request on the server side: quote it when you report a
-problem, and whoever runs the server can find everything that happened.
+### Error envelope
 
 ```json
-"metadata": { "status_code": 200, "request_id": "req_01m5…", "trace_id": "trc_0ayxjhj5pd8fer8j7b44e80ccw" }
+{
+  "status": "error",
+  "message": "User not found",
+  "error": {
+    "code": "USER_NOT_FOUND",
+    "retryable": false,
+    "details": {
+      "id": "user_01m5k7w3p8fvx9r2c4t6y0hq1d"
+    }
+  },
+  "metadata": {
+    "status_code": 404,
+    "request_id": "req_01m5k7w3p8fvx9r2c4t6y0hq1d"
+  }
+}
 ```
 
-## Skipping the cache
+- `message`: Human-readable summary of the error.
+- `error.code`: Stable uppercase machine-readable error token (e.g. `USER_NOT_FOUND`, `VALIDATION_FAILED`).
+- `error.retryable`: Boolean indicating whether retrying the exact request without changes might succeed.
+- `error.details`: Structured diagnostic information when applicable (e.g., validation path failures).
 
-A single user is served from a cache for up to `CACHE_TTL`. Add `?nocache=true` to a `GET` to read it
-from the database for that request:
+## Pagination
 
-```bash
-curl 'http://localhost:3000/api/users/user_01m5k7w3p8fvx9r2c4t6y0hq1d?nocache=true'
+Collection endpoints such as `GET /api/users` use cursor-based pagination:
+
+| Query parameter | Default | Description                                                      |
+| --------------- | ------- | ---------------------------------------------------------------- |
+| `limit`         | `20`    | Number of records per page (minimum `1`, maximum `100`).         |
+| `cursor`        | `null`  | Opaque token from a preceding response's `metadata.next_cursor`. |
+| `sort_by`       | `id`    | Field to sort by (`id` or `created_at`).                         |
+| `sort_order`    | `asc`   | Sort direction (`asc` or `desc`).                                |
+
+Paginated responses embed pagination state in `metadata` and provide navigation URLs in `links`:
+
+```json
+{
+  "status": "success",
+  "data": [...],
+  "metadata": {
+    "status_code": 200,
+    "request_id": "req_...",
+    "limit": 20,
+    "has_more": true,
+    "next_cursor": "eyJzb3J0VmFsdWUiOiJ1c2VyXzAxLi4ifQ"
+  },
+  "links": {
+    "self": "/api/users?limit=20",
+    "first": "/api/users?limit=20",
+    "next": "/api/users?limit=20&cursor=eyJzb3J0VmFsdWUiOiJ1c2VyXzAxLi4ifQ"
+  }
+}
 ```
 
-Only the value `true` counts. The request does not refresh the cache for anyone else.
+When `metadata.has_more` is `false`, `next_cursor` and `links.next` are `null`. Cursors are bound to the specific sort criteria under which they were generated; an invalid or corrupted cursor returns `400` with code `INVALID_CURSOR`.
+
+## Health and readiness
+
+`GET /api/health` serves as a machine-level readiness probe for load balancers and container orchestrators:
+
+```json
+{
+  "status": "ok",
+  "details": {
+    "database": {
+      "status": "up",
+      "timestamp": "2026-10-26T17:00:00.000Z"
+    }
+  }
+}
+```
+
+- If all registered dependencies are operational within the 2-second timeout, it returns `200` with `status: "ok"`.
+- If any component is down or times out, it fails closed with `503` and `status: "unhealthy"`.
+- This probe does not use the standard API response envelope and is completely exempt from rate limiting.
+
+## Users resource
+
+- `GET /api/users`: Returns a paginated list of user records.
+- `GET /api/users/:id`: Looks up a user by their TypeID (`user_...`). Accepts `?nocache=1` to force cache refresh.
+- `POST /api/users`: Creates a user with initial role `10` (SUBSCRIBER). Payload requires `email` (valid email, max 254 chars), optional `name` (max 200 chars), and optional `avatar_url` (absolute URL, max 2048 chars).
+- `PATCH /api/users/:id`: Updates user fields. Absent fields remain untouched; sending `null` clears optional fields. Duplicate emails trigger `409 EMAIL_CONFLICT`.
+- `DELETE /api/users/:id`: Hard-deletes the user record and invalidates cached data.
+
+## Standard error codes
+
+| Error code          | Status | Meaning                                                             |
+| ------------------- | ------ | ------------------------------------------------------------------- |
+| `VALIDATION_FAILED` | `400`  | Request body or query parameters failed schema validation.          |
+| `INVALID_CURSOR`    | `400`  | Pagination cursor was malformed or incompatible with selected sort. |
+| `NOT_FOUND`         | `404`  | Requested API path or HTTP method is not registered.                |
+| `USER_NOT_FOUND`    | `404`  | Specified user ID does not match an existing record.                |
+| `EMAIL_CONFLICT`    | `409`  | Submitted email address is already registered to another user.      |
+| `RATE_LIMITED`      | `429`  | Request rate exceeded client quota.                                 |
+| `INTERNAL_ERROR`    | `500`  | Unexpected server defect occurred.                                  |
+| `DATABASE_ERROR`    | `503`  | Database or rate limiter storage was unreachable or timed out.      |
 
 ## Rate limiting
 
-When rate limiting is enabled (`RATE_LIMIT_ENABLED`), every `/api` response reports the caller's allowance, in headers and
-in `metadata.rate_limit`:
+API endpoints enforce a token-bucket rate limiter identified by client IP. The bucket refills continuously according to the configured window and quota:
 
-```json
-"rate_limit": { "limit": 100, "remaining": 97, "reset": 1792077446 }
-```
+- When quota is exceeded, responses return status `429 Too Many Requests`.
+- Standard headers `Retry-After`, `RateLimit-Limit`, `RateLimit-Remaining`, and `RateLimit-Reset` indicate when more capacity will be available.
+- Response `metadata.rate_limit` carries `{ limit, remaining, reset }`.
+- Storage failures fail closed (`503 DATABASE_ERROR`) to protect system stability.
 
-The same numbers are in the `X-RateLimit-Limit`, `X-RateLimit-Remaining` and `X-RateLimit-Reset`
-headers. `reset` is a Unix timestamp. A refused request (`429`) carries them too, in the headers and in
-the error body's `metadata.rate_limit`, plus `Retry-After` (seconds to wait).
+## Interactive documentation
 
-On Cloudflare Workers with `RATE_LIMIT_STORE=cloudflare` the store only says allowed or refused, so
-`remaining` (and `X-RateLimit-Remaining`) is left out; `limit` is the configured `RATE_LIMIT_MAX`.
-Probes (`/health`, `/`) and `/.well-known` are never limited.
+When enabled (`API_DOCS_ENABLED=true`):
 
-## Security headers
-
-Every response carries `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
-`Referrer-Policy: no-referrer` and a `Content-Security-Policy` that forbids loading anything.
-
-## Other response headers
-
-| Header | When | Meaning |
-| --- | --- | --- |
-| `Cache-Control: no-store` | every `/api` response, errors included | Answers are per caller and per moment; nothing may cache them |
-| `Server-Timing: total;dur=<ms>` | every response | Time the server spent on the request |
-| `Link` | collections | The pagination links of the body (`self`, `first`, `next`) as RFC 8288 relations |
-| `X-Request-ID` | every response | The request's `req_` id; send your own to continue an upstream trace |
-| `X-Trace-ID` | when the trace was recorded | The trace's `trc_` id (same as `metadata.trace_id`); absent when telemetry is off or the request was not sampled |
-| `X-Cache` | a read served through the cache | `HIT` (from the cache), `MISS` (read from the database) or `BYPASS` (`?nocache=true`); absent otherwise. The same answer is in `metadata.cache` (`hit`, `miss`, `bypass`), errors included |
-| `Retry-After` | `429`, `503` | Seconds to wait before trying again |
-
-For a browser app on another origin, the `Access-Control-Expose-Headers` of every response lists
-`X-Request-ID`, `X-Trace-ID`, `X-Cache`, the three `X-RateLimit-*` headers, `Retry-After` and `Link`, so a script can read them.
-
-## Identifiers
-
-Every id is a TypeID: a prefix that says what it is, then 26 characters. They sort by creation time.
-
-| Prefix  | What                         | Where you see it |
-| ------- | ---------------------------- | ---------------- |
-| `req_`  | One request                  | `x-request-id`, `metadata.request_id`, every log line of the request |
-| `trc_`  | One trace                    | `metadata.trace_id`, the `traceId` of request log lines |
-| `user_` | A user                       | `data.id`, `/api/users/:id` |
-| `inst_` | A running server instance    | `service.instance.id` in telemetry |
-
-## Request ID
-
-Every response carries an `x-request-id` header, repeated as `metadata.request_id`. Send your own to continue an upstream trace:
-
-```bash
-curl -H 'x-request-id: req_from_gateway' http://localhost:3000/api/users
-```
-
-> [!NOTE]
-> Error responses include CORS headers too, so the request ID and CORS survive on `4xx` and `5xx` alike.
+- `/api-docs`: Interactive documentation interface powered by Scalar.
+- `/api/openapi.json`: OpenAPI 3.1 specification describing schemas, parameters, and responses.

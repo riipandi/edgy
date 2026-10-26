@@ -1,0 +1,24 @@
+#:schema https://raw.githubusercontent.com/Vladimir-Urik/OxMgr/refs/heads/master/schemas/oxfile.schema.json
+
+version = 1
+
+[defaults]
+restart_policy = "on_failure"
+max_restarts = 10
+stop_timeout_secs = 5
+health_interval_secs = 20
+health_timeout_secs = 4
+health_max_failures = 3
+stop_signal = "SIGTERM"
+
+[[apps]]
+name = "edgy"
+command = "node ./dist/entry.js serve"
+health_cmd = "node ./dist/entry.js healthcheck"
+cluster_instances = 4
+cluster_mode = true
+
+[apps.env]
+NODE_ENV = "production"
+RATE_LIMIT_ENABLED = "false"
+SERVER_HOST = "127.0.0.1"

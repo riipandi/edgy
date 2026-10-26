@@ -1,30 +1,83 @@
-import { Command } from 'effect/cli'
-import pkg from '../../package.json' with { type: 'json' }
-import { configGenerateCmd } from './config-generate.ts'
-import { migrateDownCmd } from './migrate-down.ts'
-import { migrateResetCmd } from './migrate-reset.ts'
-import { migrateSeedCmd } from './migrate-seed.ts'
-import { migrateStatusCmd } from './migrate-status.ts'
-import { migrateUpCmd } from './migrate-up.ts'
-import { openapiGenerateCmd } from './openapi-generate.ts'
-import { serveCmd } from './serve.ts'
+import { NodeServices } from '@effect/platform-node'
+import { Console, Cause, ConfigProvider, Effect, Exit, Layer, Logger, Option } from 'effect'
+import { TerminalCapabilities } from 'effect/cli'
+import { TestConsole } from 'effect/testing'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { ConfigLayer } from '#/kernel/config/config.ts'
+import { run } from './root.ts'
 
-const rootCmd = Command.make('edgy').pipe(
-  Command.withDescription('h3 + Effect HTTP server'),
-  Command.withSubcommands([
-    serveCmd,
-    configGenerateCmd,
-    openapiGenerateCmd,
-    migrateUpCmd,
-    migrateDownCmd,
-    migrateStatusCmd,
-    migrateResetCmd,
-    migrateSeedCmd
-  ])
+/** What a command run produced: its exit, its log lines, and its console output. */
+export interface CliResult {
+  readonly exit: Exit.Exit<void, unknown>
+  readonly logs: ReadonlyArray<string>
+  readonly output: ReadonlyArray<string>
+}
+
+/**
+ * Runs the real CLI program with the given argv, a real filesystem, and the
+ * configuration drawn from `env` alone — no `.env.local`, no ambient variables.
+ * Logs and console output are captured instead of printed.
+ */
+export const runCli = (
+  args: ReadonlyArray<string>,
+  env: Readonly<Record<string, string>> = {}
+): Effect.Effect<CliResult> => {
+  const logs: Array<string> = []
+  return Effect.gen(function* () {
+    const exit = yield* Effect.exit(run(args))
+    const output = yield* TestConsole.logLines
+    return { exit, logs, output: output.map(String) }
+  }).pipe(
+    // A fresh test console per run: the module-level TestConsole.layer memoizes
+    // within the test's scope, so a second run would inherit the first run's
+    // captured lines.
+    Effect.provide(
+      Layer.mergeAll(
+        NodeServices.layer,
+        ConfigLayer,
+        Layer.effect(Console.Console)(TestConsole.make)
+      )
+    ),
+    // Colors off: the captured output must match the exact strings the specs
+    // assert, whatever the runner's terminal claims.
+    Effect.provide(
+      Layer.succeed(TerminalCapabilities.TerminalCapabilities, {
+        canColor: false,
+        canAnimate: false,
+        canPrompt: false
+      })
+    ),
+    Effect.provide(ConfigProvider.layer(ConfigProvider.fromEnvRecord(env))),
+    Effect.provide(Logger.layer([Logger.make(({ message }) => void logs.push(String(message)))])),
+    Effect.scoped,
+    Effect.orDie
+  )
+}
+
+/** The failure the run ended with, rendered for an assertion. */
+export const failureOf = (result: CliResult): string => {
+  if (Exit.isSuccess(result.exit)) return ''
+  const error = Cause.findErrorOption(result.exit.cause)
+  if (Option.isNone(error)) return String(result.exit.cause)
+  const value = error.value as {
+    readonly _tag?: string
+    readonly userMessage?: string
+    readonly cause?: unknown
+  }
+  if (value._tag === 'UserError') return value.userMessage ?? String(value.cause)
+  const errors = (value as { readonly errors?: ReadonlyArray<unknown> }).errors
+  return errors === undefined ? JSON.stringify(value) : JSON.stringify(errors)
+}
+
+/** A fresh directory under the system temp directory, removed when the scope closes. */
+export const tempDirectory = Effect.acquireRelease(
+  Effect.sync(() => mkdtempSync(join(tmpdir(), 'edgy-cli-'))),
+  (directory) => Effect.sync(() => rmSync(directory, { recursive: true, force: true }))
 )
 
-/** Root CLI program. Without a subcommand it prints help. The version comes from `package.json`. */
-export const run = Command.run(rootCmd, { version: pkg.version })
-
-/** The same program over explicit arguments, instead of the process's. */
-export const runWith = Command.runWith(rootCmd, { version: pkg.version })
+/** Configuration pointing the database at a file inside the given temp directory. */
+export const databaseEnv = (directory: string): Record<string, string> => ({
+  DATABASE_URL: `file:${join(directory, 'app-test.db')}`
+})

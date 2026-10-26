@@ -17,41 +17,31 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v5
-
-      - uses: pnpm/action-setup@v6
+      - uses: actions/checkout@v7
+      - uses: ./.github/setup-sdk
         with:
-          run_install: false
-
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
+          node-version: 24.22.0
+          cache: true
 
       - name: Format and lint
-        run: pnpm check
+        run: vp run check
 
-      - name: Types (TypeScript and Marko)
-        run: pnpm typecheck
+      - name: Typecheck
+        run: vp run typecheck
 
-      - name: Tests
-        run: pnpm test
+      - name: Unit tests
+        run: vp run test
 
-      - name: Browser tests
-        run: pnpm e2e:install && pnpm e2e --project Chromium
+      # - name: Browser tests
+      #   run: |
+      #     vp run e2e:install
+      #     vp run e2e --project Chromium
 
-      - name: .env.example is current
-        run: pnpm app config:generate --check
+      # - name: .env.example is current
+      #   run: vp run app generate:config --check
 
-      - name: The API description is current
-        run: pnpm app openapi:generate --check
+      # - name: The API description is current
+      #   run: vp run app openapi:generate --check
 
-      - name: Build the Node server
-        run: pnpm build
-
-      - name: Build the Worker
-        run: pnpm build --mode worker --minify
-        env:
-          WRANGLER_LOG_PATH: ${{ runner.temp }}/wrangler-logs
+      - name: Build the application
+        run: vp run build

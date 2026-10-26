@@ -15,7 +15,8 @@ references: <the issue and plan stamps the entries came from>
 ## <The theme, e.g. Protocol & federation>
 
 ### RI-1 — <the improvement, as a noun phrase>
-*(from issue-<stamp> <item id>)*
+
+_(from issue-<stamp> <item id>)_
 
 - status: parked (unlock: <the named event>) · updated YYYY-MM-DD
 
@@ -26,7 +27,8 @@ wish — name who or what fires it.>
 **First move:** <what the plan or task would touch first, in one line.>
 
 ### RI-2 — <the improvement with an owner deferral>
-*(from issue-<stamp> <item id>)*
+
+_(from issue-<stamp> <item id>)_
 
 - status: parked (owner-deferred YYYY-MM-DD; unlock: <the named event>)
   · updated YYYY-MM-DD
@@ -38,7 +40,8 @@ wish — name who or what fires it.>
 ## <The theme, e.g. Dependencies & toolchain (upstream-gated)>
 
 ### RI-3 — <the upstream-gated cleanup>
-*(from issue-<stamp>)*
+
+_(from issue-<stamp>)_
 
 - status: parked (unlock: <the upstream release or tag>) · updated
   YYYY-MM-DD

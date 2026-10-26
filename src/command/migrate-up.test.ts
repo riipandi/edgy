@@ -1,0 +1,92 @@
+import { it } from '@effect/vitest'
+import { Effect, Exit } from 'effect'
+import { expect } from 'vite-plus/test'
+import { MIGRATION_NAMES } from '#/database/migrations/index.ts'
+import { databaseEnv, failureOf, runCli, tempDirectory } from './cli.ts'
+
+/** The status lines: one per migration, each carrying its ISO execution time. */
+const statusLines = (output: ReadonlyArray<string>): ReadonlyArray<string> =>
+  output.filter((line) => /\d{4}-\d{2}-\d{2}T/.test(line))
+
+it.effect('applies every pending migration', () =>
+  Effect.gen(function* () {
+    const directory = yield* tempDirectory
+    const env = databaseEnv(directory)
+
+    const result = yield* runCli(['migrate:up'], env)
+
+    expect(Exit.isSuccess(result.exit)).toBe(true)
+    expect(result.output).toContain('Applying 4 migration(s)')
+    for (const name of MIGRATION_NAMES) expect(result.output).toContain(`Applied ${name}`)
+  })
+)
+
+it.effect('--to applies the migrations up to the named one only', () =>
+  Effect.gen(function* () {
+    const directory = yield* tempDirectory
+    const env = databaseEnv(directory)
+    const target = MIGRATION_NAMES[1] as string
+
+    const dryRun = yield* runCli(['migrate:up', '--to', target, '--dry-run'], env)
+    expect(dryRun.output).toEqual([
+      '2 pending migration(s) (dry run):',
+      `Would apply ${MIGRATION_NAMES[0]}`,
+      `Would apply ${target}`
+    ])
+
+    const applied = yield* runCli(['migrate:up', '--to', target], env)
+    expect(applied.output).toContain(`Applied ${MIGRATION_NAMES[0]}`)
+    expect(applied.output).toContain(`Applied ${target}`)
+    expect(applied.output).not.toContain(`Applied ${MIGRATION_NAMES[2]}`)
+
+    const status = yield* runCli(['migrate:status'], env)
+    expect(statusLines(status.output)).toHaveLength(2)
+  })
+)
+
+it.effect('refuses an applied target instead of rolling the schema back', () =>
+  Effect.gen(function* () {
+    const directory = yield* tempDirectory
+    const env = databaseEnv(directory)
+    const target = MIGRATION_NAMES[1] as string
+
+    yield* runCli(['migrate:up'], env)
+
+    const refused = yield* runCli(['migrate:up', '--to', target], env)
+    expect(Exit.isFailure(refused.exit)).toBe(true)
+    expect(failureOf(refused)).toContain(`migration '${target}' is already applied`)
+
+    const dryRun = yield* runCli(['migrate:up', '--to', target, '--dry-run'], env)
+    expect(Exit.isFailure(dryRun.exit)).toBe(true)
+    expect(failureOf(dryRun)).toContain(`migration '${target}' is already applied`)
+
+    // The schema still holds every migration: nothing was rolled back.
+    const status = yield* runCli(['migrate:status'], env)
+    expect(statusLines(status.output)).toHaveLength(MIGRATION_NAMES.length)
+  })
+)
+
+it.effect('refuses a target it does not know', () =>
+  Effect.gen(function* () {
+    const directory = yield* tempDirectory
+    const env = databaseEnv(directory)
+
+    const result = yield* runCli(['migrate:up', '--to', 'nope'], env)
+
+    expect(Exit.isFailure(result.exit)).toBe(true)
+    expect(failureOf(result)).toContain("unknown migration 'nope'")
+  })
+)
+
+it.effect('reports a fully applied schema as up to date', () =>
+  Effect.gen(function* () {
+    const directory = yield* tempDirectory
+    const env = databaseEnv(directory)
+
+    yield* runCli(['migrate:up'], env)
+    const again = yield* runCli(['migrate:up'], env)
+
+    expect(Exit.isSuccess(again.exit)).toBe(true)
+    expect(again.output).toContain('Database is up to date')
+  })
+)

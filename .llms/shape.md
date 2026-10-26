@@ -1,80 +1,83 @@
 # Repository shape
 
-The layout, the toolchain, and the commands. Read once; return when a path or a command is needed.
-
 ## Stack
 
-- Node.js >= 24.22 (native TypeScript stripping: source runs directly, no build step in development), pnpm 12 (`devEngines`; `npx` rejected)
-- Effect v4 (typed errors, DI layers, CLI, Config, Logger, Schema, Cache, Metric), h3 v2 (plugins, rou3 trie)
-- Kysely 0.29 on `node:sqlite` (no native addons) or Cloudflare D1 (`DATABASE_DRIVER`)
-- Pages: Marko 6 (`@marko/vite`) and vanilla-extract (`.css.ts`), server-rendered and streamed, hydrated only where interactive
-- Vite 8 (Rolldown) for every bundle; wrangler through the Cloudflare Vite plugin for Workers
-- oxfmt + oxlint; `tsc -b --noEmit` + `mtc` (Marko templates) for types; Vitest for unit tests; Playwright Test for browser tests
+Edgy is a modular TypeScript ESM application running on Node.js 24.22 or newer. The runtime and HTTP composition use `effect` and `@effect/platform-node`. Persistence is managed by Kysely over SQLite through Turso's drivers: `@tursodatabase/database` for local files with multiprocess WAL support, and `@tursodatabase/serverless` over HTTP for remote Turso databases. Frontend pages are server-rendered with SolidJS 2.0 (`solid-js`, `@solidjs/web`, `@solidjs/router`) with build-time CSS extraction via StyleX. Builds and testing run through Vite and `vite-plus` (`vp`/`vpr`), with standalone deployment bundling and optional multi-core process clustering through OxMgr (`oxfile.toml`).
 
-## Layout
+```mermaid
+graph TD
+    Client["HTTP Client / Browser"] -->|"HTTP / HTTPS"| Proxy["Reverse Proxy / OxMgr Cluster Supervisor"]
+    Proxy -->|"Cluster Workers (Node.js)"| Server["Effect HTTP Server (src/kernel/http/server.ts)"]
+    
+    subgraph Core ["Application Core"]
+        Server --> Router["HttpRouter & Middleware Stack (src/kernel/http/stack.ts)"]
+        Router --> API["Effect HttpApi Subsystem (src/kernel/http/api.ts)"]
+        Router --> SSR["SolidJS 2.0 SSR Streamer (src/kernel/renderer.ts)"]
+        
+        API --> Reg["Module Registry (src/kernel/registry.ts)"]
+        Reg --> Identity["Identity Module (src/modules/identity)"]
+        Reg --> Health["Healthcheck Core (src/kernel/healthcheck.ts)"]
+        
+        Identity --> Repo["User Repository (src/modules/identity/user/user_repo.ts)"]
+        Repo --> DBAdapter["Database Adapter Service (src/database/adapter.ts)"]
+        Identity --> CacheService["Cache Subsystem (Memory LRU / Redis)"]
+    end
 
-```text
-src/
-  main.ts            # Node CLI entry; the only Effect.provide
-  worker.ts          # Workers entry: one app per env object, exports only its handler
-  app.ts             # createApp({ runtime, config }): global plugins + route table
-  server.ts          # serveHttp: captures the HttpRuntime, starts h3 inside a scope
-  node.ts            # makeNodeApp: runtime, rate limiter and createApp as Node builds them (serveHttp and dev.ts)
-  dev.ts             # startDevApp: the application for `pnpm dev`, loaded through Vite's module runner
-  layers.ts          # AppLayer (Node): configured database + services
-  services.ts        # ServicesLayer: every module's repos and services (portable)
-  kernel/            # runtime-agnostic core
-    config/          # service.ts (ConfigService, appConfig), field.ts (field helpers), one section file each (server, database, logging, security, observability, cors), example.ts (.env.example)
-    cache/           # read_through.ts, guard.ts (fail-open decorator), local.ts, edge_cache.ts (Workers Cache API)
-    http/            # the h3 <-> Effect bridge: handler.ts + handler_doc.ts (defineHandler, definePagedHandler, defineMessageHandler), router.ts (defineRouteGroup, routesOf, API_PREFIX), responder.ts (runProgram, runEffect), runtime.ts (HttpRuntime, HttpServices), page.ts, html_response.ts (HTML CSP), error_page.ts, errors.ts, error_body.ts, envelope.ts, pagination.ts, decode.ts, openapi.ts + openapi_document.ts, allowed_methods.ts (405 Allow), assets.ts, node_assets.ts (Node only), proxy_protocol.ts (Node only), startup_failure.ts, request_context.ts, inflight.ts
-    errors.ts, pagination.ts (Page, cursor codec), objectids.ts (defineId), redact.ts, ip.ts (addresses and CIDR ranges), fail_open.ts, layers.ts (CoreLayer, Node)
-  observer/          # logger.ts, log_file.ts, log_json.ts, flush.ts, telemetry.ts (OTLP, Flusher), trace_id.ts, error_reporter.ts, metrics.ts, metrics_handler.ts, http_observer.ts, quiet_paths.ts
-  middleware/        # cors, request_id, security_headers, development, load_shedding, body_limit, cache_control, client_ip, client_location, rate_limit (+ rate_limit_shared: Redis, rate_limit_binding: Workers)
-  command/           # effect/cli: cli.ts, one file per command, helper.ts, generated.ts (shared by the generators)
-  routes/            # the route table: route.ts (order matters), api.ts (/api group, apiModules), web.ts (pages), options.ts (rate-limit deps)
-  modules/           # one vertical slice per resource: user/ (schema, repo, service, handler, routes), health/
-  pages/             # origin-root page handlers, mounted by routes/web.ts: home.ts (GET /), user.ts (GET /users)
-  database/
-    service.ts       # DatabaseService, makeDatabaseService, makeQueryLogger, isUniqueViolation
-    schema.ts        # the Kysely Database type
-    sqlite.ts, d1.ts # the drivers (d1.ts is portable); d1_node.ts and wrangler_config.ts (Node only: local and --remote D1)
-    layer.ts         # DatabaseLayer / databaseLayer({ remote }): picks the driver; Node only
-    dialect/         # NodeSQLiteDialect and D1Dialect
-    migrator.ts, migrations/ (index.ts registry + one file each), seeder.ts, seeders/
-web/                 # frontend: pages/ (one .marko per page), tags/ (components), styles/ (*.css.ts), marko.d.ts
-builder/             # the Vite plugin: edgy.ts (the one plugin), platform.ts (platformOf, OUT_DIR, CLIENT_DIR, withDefaults), node.ts, dev.ts, output.ts, native.ts (native-addon guard), preview.ts, worker.ts, compile.ts (single executable)
-e2e/                 # Playwright: screens/ (one *.spec.ts per page), fixtures/ (page objects), utils/ (helpers), test-data/ (JSON), config.ts (ENV)
-tests/               # shared test helpers (app.ts, d1.ts, cache.ts, collector.ts, ids.ts) and cross-cutting tests (dev server, vite config, live sockets, native addons); other tests sit beside the code
-docs/                # human-facing docs (openapi.json is generated)
-vite.config.ts       # plain Vite config + `plugins: [edgy({ mode })]`; yours to extend
-playwright.config.ts, vitest.config.ts, wrangler.jsonc, compose.yaml, bin/edgy.mjs
-.env.example         # generated by `pnpm app config:generate`; never edit by hand
-.github/workflows/ci.yml  # check, typecheck, test, browser tests, both generators' --check, both builds
+    subgraph Storage ["Persistence & External Services"]
+        DBAdapter --> Dialect["Turso Kysely Dialect (src/database/dialect.ts)"]
+        Dialect -->|"Local file (multiprocess_wal)"| LocalDB[("SQLite Local File")]
+        Dialect -->|"libsql:// / https://"| RemoteDB[("Turso Cloud / Remote sqld")]
+        CacheService -->|"REDIS_ENABLE=true"| RedisStore[("Redis Instance (db 1: cache, db 2: rate limit)")]
+    end
+
+    subgraph Telemetry ["Observability"]
+        Server --> OTLP["OTLP HTTP Exporter (Effect Observability)"]
+        OTLP --> Collector["ClickStack Telemetry Collector (OTLP/HTTP 4318)"]
+        Collector --> ClickHouse[("ClickHouse Storage")]
+    end
 ```
 
-Output: `dist/server` (`index.mjs`, `chunks/`, `assets/`, `package.json`), `dist/worker` (`index.js`, `wrangler.json`, `public/assets/`).
+## Source layout
+
+| Path                               | Responsibility                                                                             |
+| ---------------------------------- | ------------------------------------------------------------------------------------------ |
+| `src/main.ts`, `src/command/`      | Process entry point, CLI command tree (`serve`, `healthcheck`, `migrate:*`, `generate:config`). |
+| `src/kernel/layers.ts`             | Dependency injection composition roots (`CoreLayer`, `ApplicationLayer`).                  |
+| `src/kernel/registry.ts`           | Single file where feature modules wire their HttpApi groups, handlers, and service layers. |
+| `src/kernel/runtime.ts`            | `ManagedRuntime` lifecycle ownership and disposal for SSR and development adapters.        |
+| `src/kernel/http/`                 | HTTP server, middleware stack, envelope factories (`envelope.ts`), responder (`respond.ts`). |
+| `src/kernel/config/`               | Validated typed configuration definitions for app, server, database, redis, logging, etc. |
+| `src/modules/`                     | Self-contained domain modules (`identity/user`) containing route, handler, service, repo.  |
+| `src/database/`                    | Turso Kysely dialect (`dialect.ts`), adapter (`adapter.ts`), migrator, schema, seeders.   |
+| `src/middleware/`, `src/observer/` | HTTP middlewares (CORS, error reshaping, rate limit, request-id, log) and OpenTelemetry.  |
+| `src/routes/`, `src/resources/`    | File-based SolidJS routes, shared components, and StyleX styling definitions.              |
+| `src/builder/`                     | Vite plugins, standalone dependency inlining, leak verification, and oxfile generation.   |
+| `tests/`                           | Integration tests, API tests, and test fixtures; unit tests sit beside their source files. |
 
 ## Commands
 
-- `pnpm app <command> [flags]`: the CLI from source (`node ./src/main.ts`; plain Node, no Vite). Commands: `serve`, `config:generate`, `openapi:generate`, `migrate:up|down|status|reset|seed`.
-- `pnpm dev [--mode worker]`: `vite`. Node: the application runs inside the dev server, one process and port (`HOST`/`PORT`, default `127.0.0.1:3000`, `strictPort`), reading `.env`, `.env.local` and the mode's files; a page or style edit and a change under `src/` or to an env file reload the browser (the latter restarts the application in the process). Worker: workerd with a local D1 under `.wrangler/`; settings come from `wrangler.jsonc`, local overrides from `.dev.vars`, never `.env.local`. `pnpm dev` migrates by itself unless `DATABASE_AUTO_MIGRATE=false`.
-- `pnpm build [--mode worker]`: `vite build` (server first, then the browser assets). `--minify` minifies the server.
-- `pnpm preview [--mode worker]`: serves what `pnpm build` wrote (it does not build). Node starts the built server on a free port and proxies the preview address to it; Worker runs the build in workerd (`127.0.0.1:3000`).
-- `pnpm start`: `node --env-file-if-exists=.env.local ./bin/edgy.mjs serve`, the built server.
-- `pnpm compile`: the single executable (SEA); Node target, host platform only.
-- `pnpm run deploy` (not `pnpm deploy`): builds the Worker with `--minify`, then `wrangler deploy` (which follows the redirect the plugin writes to `dist/worker/wrangler.json`).
-- `pnpm app config:generate [--check]`, `pnpm app openapi:generate [--check]`: regenerate or verify `.env.example` and `docs/openapi.json`.
-- `pnpm check` (`oxfmt --check && oxlint`, read-only), `pnpm format`, `pnpm lint` (`oxlint --fix`, rewrites files), `pnpm typecheck` (`tsc -b --noEmit && mtc`; `tsc` skips `.marko` files and exits 0 on a broken template, `mtc` checks them).
-- `pnpm test` / `pnpm test:coverage`: Vitest, project `unit` (`src/**` and `tests/**`, `*.test.ts`) and project `marko` (`web/**/*.test.ts` in jsdom, `@marko/testing-library`), coverage by V8 over `src/` in `.output/tests-results/coverage` (`pnpm test:report` serves it). Beyond it, validate the Node bundle with `pnpm build` + `node dist/server/index.mjs serve --auto-migrate` and the Worker with `pnpm preview --mode worker`.
-- `pnpm e2e` (`e2e:ui`, `e2e:chrome`, `e2e:firefox`, `e2e:safari`, `e2e:mobile`, `e2e:report`, `e2e:install`): Playwright Test (`playwright.config.ts`, `e2e/screens/*.spec.ts`). Four browser projects run against the production Node build, which `webServer` builds, migrates, seeds (a database under `.output/e2e/`) and starts on port 3100 (`E2E_BASE_URL` points at a running server instead; `ENV` in `e2e/config.ts`); a fifth, `Dev`, runs `hot-reload.spec.ts` against `pnpm dev` on 3101 (`E2E_DEV_URL`). Report: `.output/e2e-result/`.
-- `pnpm compose:up|down|restart|cleanup`: the development services (cleanup also deletes `./.storage`).
+| Command                 | Purpose                                                                             |
+| ----------------------- | ----------------------------------------------------------------------------------- |
+| `vpr dev`               | Start the Vite development server with HMR and live server reloading.              |
+| `vpr build`             | Build the production server and browser bundles to `dist/`.                         |
+| `vpr build:standalone`  | Build a minified standalone bundle with all dependencies inlined into `dist/entry.js`.|
+| `vpr preview`           | Preview the built production application locally.                                  |
+| `vpr start`             | Start the built server with production environment defaults (`node dist/entry.js serve`). |
+| `vpr start:cluster`     | Build standalone and run with OxMgr cluster runtime (`oxmgr runtime ./oxfile.toml`).|
+| `vpr test`              | Run the complete unit and integration test suite via Vitest.                       |
+| `vpr typecheck`         | Validate TypeScript project references without emitting output (`tsc -b --noEmit`). |
+| `vpr check`             | Verify formatting (`vp fmt --check`) and run linter (`vp lint`).                   |
+| `vpr format`            | Format all matched files in place (`vp fmt --write .`).                             |
+| `vpr lint`              | Fix lint issues across the codebase (`vp lint --fix .`).                            |
+| `vpr coverage`          | Run unit and integration tests with coverage reporting.                             |
+| `vpr app <command>`     | Execute the application CLI directly from source (`node src/main.ts ...`).         |
+| `vpr compose:up`        | Spin up the ClickStack observability stack, Redis, cAdvisor, and app in Docker.     |
+| `vpr compose:down`      | Shut down the Docker Compose stack.                                                 |
 
-## Conventions
+All commands run through `vpr <script>`; `vpr app <command>` invokes the application CLI from source.
 
-- **TypeScript strict**, `.ts` extension on relative imports (Node type stripping).
-- Handler programs are `Effect<A, AppError, HttpEnv>`, declared with `defineHandler` and kept thin.
-- DI by `Context.Service` with a `static layer` on the class; `CoreLayer` once in `main.ts`, `AppLayer` per command; no global runtime. Service methods use `Effect.fn('Service.method')` so every call gets a span.
-- `Effect.provide(layer)` appears only in `src/main.ts` (lint `effecttsgo/strict-effect-provide`); per-command layers go through `Command.provide`.
-- Route groups are h3 plugins; global middleware runs in registration order (`src/app.ts`) and is registered before groups mount.
-- Comments are short and only for a why, a contract or a trap; no history, no references to decisions, plans, issues or files (`rules.md`, "Code comments").
-- Prose: `.llms/` is for agents (technical, file evidence); `docs/` is for humans (no internals, no paths); tree documents are English, no hard wrapping.
+## Deployment and runtime contract
+
+1. **Standalone bundle**: `vpr build:standalone` emits a single executable script `dist/entry.js` with zero bare node_modules dependencies. The Turso native engine binding (`@tursodatabase/database-<platform>`) is copied into `dist/node_modules/` for the target platform.
+2. **Container builds**: A container build passes `--build-arg DISTROLESS_TAG=debug-nonroot`. The bundle's shebang is `#!/busybox/env node` (via `ENV_BINARY_PATH` in `Dockerfile`), requiring the `debug` distroless variant with `/busybox`.
+3. **Process clustering (OxMgr)**: A standalone build writes `dist/oxfile.toml` by default, configured for Node's `cluster` module (`cluster_mode = true`, `cluster_instances = 4`). Database migrations must be run as a separate step (`vpr app migrate:up` or `node entry.js migrate:up`) prior to launching clustered workers to avoid concurrent migration race conditions.

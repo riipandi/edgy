@@ -1,35 +1,26 @@
 import { Effect } from 'effect'
 import { Command } from 'effect/cli'
-import { databaseLayer } from '../database/layer.ts'
-import { getMigrationInfos } from '../database/migrator.ts'
-import { announceRemote, print, remoteFlag } from './helper.ts'
+import { DatabaseLayer } from '#/database/adapter.ts'
+import { migrationStatus } from '#/database/migrator.ts'
+import { reporter } from './helper.ts'
 
-/** Lists executed and pending migrations. */
-export const migrateStatusCmd = Command.make('migrate:status', { remote: remoteFlag }, (config) =>
-  Effect.gen(function* () {
-    yield* announceRemote(config.remote)
-    const infos = yield* getMigrationInfos
-    if (infos.length === 0) {
-      yield* print('No migrations registered')
-      return
-    }
+export const migrateStatusCmd = Command.make('migrate:status').pipe(
+  Command.withDescription('Check database migration status'),
+  Command.withHandler(() =>
+    Effect.gen(function* () {
+      const report = yield* reporter
+      const migrations = yield* migrationStatus
+      const executed = migrations.filter((migration) => migration.executedAt !== undefined)
+      const pending = migrations.filter((migration) => migration.executedAt === undefined)
 
-    const executed = infos.filter((info) => info.executedAt !== undefined)
-    const pending = infos.filter((info) => info.executedAt === undefined)
+      yield* report.ok(`Executed (${executed.length}):`)
+      if (executed.length === 0) yield* report.ok('(none)')
+      for (const migration of executed)
+        yield* report.ok(`${migration.name} ${migration.executedAt?.toISOString()}`)
 
-    yield* print(`Executed (${executed.length}):`)
-    for (const info of executed) {
-      yield* print(`  ${info.name} (${info.executedAt!.toISOString()})`)
-    }
-    if (executed.length === 0) yield* print('  (none)')
-
-    yield* print(`Pending (${pending.length}):`)
-    for (const info of pending) {
-      yield* print(`  ${info.name}`)
-    }
-    if (pending.length === 0) yield* print('  (none)')
-  })
-).pipe(
-  Command.provide((config) => databaseLayer({ remote: config.remote })),
-  Command.withDescription('Check database migration status')
+      yield* report.warn(`Pending (${pending.length}):`)
+      if (pending.length === 0) yield* report.warn('(none)')
+      for (const migration of pending) yield* report.warn(`${migration.name}`)
+    }).pipe(Effect.provide(DatabaseLayer))
+  )
 )

@@ -1,5 +1,4 @@
 /**
- * Aggregated database schema. Each `*_schema.ts` file augments this interface by declaration
- * merging, so the Kysely instance is typed without a central registry.
+ * Feature schemas augment this interface, keeping Kysely's table registry decentralized.
  */
-export interface Database {}
+export interface DB {}

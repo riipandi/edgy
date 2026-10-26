@@ -1,28 +1,19 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/compose-spec/compose-spec/master/schema/compose-spec.json
 
-# Development services. The application itself runs on the host (`pnpm dev`);
-# this file only supplies what it talks to:
-#   - ClickStack (HyperDX + ClickHouse + an OpenTelemetry collector) to receive traces, metrics and logs
-#   - Valkey, a Redis-compatible store, for RATE_LIMIT_STORE=redis
+###
+# - ClickStack (gRPC is not published on purpose)
+#   -> address  : http://localhost:8080
+#   -> email    : admin@example.com
+#   -> password : @Password123!
 #
-#   pnpm compose:up        start both, in the background
-#   pnpm compose:down      stop them (data is kept in ./.storage)
-#   pnpm compose:cleanup   stop them and delete their data
-#
-# HyperDX UI: http://localhost:8080, signed in with the development account below.
-#   email    admin@example.com    (HYPERDX_EMAIL)
-#   password @Password123!        (HYPERDX_PASSWORD)
-#
-# The collector accepts the ingestion key `edgy-dev-ingestion-key` (CLICKSTACK_INGESTION_KEY):
+# The collector accepts the ingestion key `edgy-dev-ingestion-key`:
 #   OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 #   OTEL_EXPORTER_OTLP_HEADERS=authorization=edgy-dev-ingestion-key
 #
-# OTLP/HTTP:  http://localhost:4318 (OTEL_EXPORTER_OTLP_ENDPOINT); gRPC is not published on purpose
-#
-# Host ports are variables (CLICKSTACK_UI_PORT, OTLP_HTTP_PORT, VALKEY_PORT) for machines where
-# 8080, 4318 or 6379 are taken by another stack. They are published on 127.0.0.1 only: the
-# development accounts and keys below are defaults, not secrets, so they must not be reachable
-# from the network.
+# The `app` service builds from the project Dockerfile and runs inside the
+# network; `cadvisor` exposes per-container resource metrics that the collector
+# scrapes into the same pipeline.
+### 
 
 name: edgy
 
@@ -32,95 +23,183 @@ x-common: &common
     - 'host.docker.internal:host-gateway'
   restart: unless-stopped
   security_opt: ['no-new-privileges:true']
+  shm_size: 32m # set shared memory limit
+  mem_limit: 64m # set memory limit
+  cpus: 1.0 # set CPUs limit
   healthcheck:
-    start_period: 20s
+    start_period: 15s
     interval: 30s
     timeout: 10s
     retries: 5
 
+# ClickHouse connection and four sources HyperDX creates on first start.
+# Explicit settings avoid image defaults that break dashboard queries.
+# Provisioning also applies them to existing stacks on restart.
+x-clickstack-connection: &clickstack-connection >-
+  [{"name":"Local ClickHouse","host":"http://localhost:8123","username":"${CLICKHOUSE_USER:-default}","password":"${CLICKSTACK_DB_PASSWORD:-securedb}"}]
+x-clickstack-sources: &clickstack-sources >-
+  [{"from":{"databaseName":"default","tableName":"otel_logs"},"kind":"log","timestampValueExpression":"Timestamp","name":"Logs","displayedTimestampValueExpression":"Timestamp","implicitColumnExpression":"Body","serviceNameExpression":"ServiceName","bodyExpression":"Body","eventAttributesExpression":"LogAttributes","resourceAttributesExpression":"ResourceAttributes","defaultTableSelectExpression":"Timestamp,ServiceName,SeverityText,Body","severityTextExpression":"SeverityText","traceIdExpression":"TraceId","spanIdExpression":"SpanId","metadataMaterializedViews":{"kvRollupTable":"otel_logs_kv_rollup_15m","granularity":"15 minute"},"connection":"Local ClickHouse","traceSourceId":"Traces","metricSourceId":"Metrics"},
+  {"from":{"databaseName":"default","tableName":"otel_traces"},"kind":"trace","timestampValueExpression":"Timestamp","name":"Traces","displayedTimestampValueExpression":"Timestamp","implicitColumnExpression":"SpanName","serviceNameExpression":"ServiceName","eventAttributesExpression":"SpanAttributes","resourceAttributesExpression":"ResourceAttributes","defaultTableSelectExpression":"Timestamp,ServiceName,StatusCode,round(Duration/1e6),SpanName","traceIdExpression":"TraceId","spanIdExpression":"SpanId","durationExpression":"Duration","durationPrecision":9,"parentSpanIdExpression":"ParentSpanId","spanNameExpression":"SpanName","spanKindExpression":"SpanKind","statusCodeExpression":"StatusCode","statusMessageExpression":"StatusMessage","metadataMaterializedViews":{"kvRollupTable":"otel_traces_kv_rollup_15m","granularity":"15 minute"},"connection":"Local ClickHouse","logSourceId":"Logs","sessionSourceId":"Sessions","metricSourceId":"Metrics"},
+  {"from":{"databaseName":"default","tableName":""},"kind":"metric","timestampValueExpression":"TimeUnix","name":"Metrics","resourceAttributesExpression":"ResourceAttributes","metricTables":{"gauge":"otel_metrics_gauge","histogram":"otel_metrics_histogram","sum":"otel_metrics_sum","summary":"otel_metrics_summary"},"connection":"Local ClickHouse","logSourceId":"Logs"},
+  {"from":{"databaseName":"default","tableName":"hyperdx_sessions"},"kind":"session","timestampValueExpression":"TimestampTime","name":"Sessions","displayedTimestampValueExpression":"Timestamp","implicitColumnExpression":"Body","serviceNameExpression":"ServiceName","bodyExpression":"Body","eventAttributesExpression":"LogAttributes","resourceAttributesExpression":"ResourceAttributes","defaultTableSelectExpression":"Timestamp,ServiceName,SeverityText,Body","severityTextExpression":"SeverityText","traceIdExpression":"TraceId","spanIdExpression":"SpanId","connection":"Local ClickHouse","traceSourceId":"Traces"}]
+
 services:
+  # app:
+  #   <<: *common
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #     args:
+  #       DISTROLESS_TAG: ${APP_DISTROLESS_TAG:-debug-nonroot}
+  #   platform: linux/amd64
+  #   hostname: app
+  #   ports: ['127.0.0.1:${SERVER_PORT:-3000}:3000']
+  #   volumes: ['./.storage/app:/app/storage:rw']
+  #   environment:
+  #     SERVER_PORT: 3000
+  #     DATABASE_URL: file:/app/storage/data/app.db
+  #     DATABASE_AUTO_MIGRATE: 'true'
+  #     REDIS_ENABLE: 'true'
+  #     REDIS_URL: redis://default:securedb@redis:6379
+  #     OTEL_EXPORTER_OTLP_ENDPOINT: http://clickstack:4318
+  #     OTEL_EXPORTER_OTLP_HEADERS: authorization=${CLICKSTACK_INGESTION_KEY:-edgy-dev-ingestion-key}
+  #     OTEL_SERVICE_NAME: edgy
+  #     OTEL_EXPORT_INTERVAL: '5000'
+  #     # The container memory limit is 256m; keep the V8 heap under it.
+  #     # @ref: https://www.akamas.io/resources/tuning-nodejs-v8-performance-efficiency
+  #     NODE_OPTIONS: --max-old-space-size=192
+  #   mem_limit: 256m # set memory limit
+  #   cpus: 1.0 # set CPUs limit
+  #   healthcheck:
+  #     test: ['CMD', '/app/entry.js', 'healthcheck']
+  #     start_period: 30s
+  #   depends_on:
+  #     clickstack: { condition: service_started }
+  #     redis: { condition: service_healthy }
+
+  cadvisor:
+    <<: *common
+    image: ghcr.io/google/cadvisor:${CADVISOR_VERSION:-0.60}
+    hostname: cadvisor
+    expose: ['8080']
+    devices: ['/dev/kmsg']
+    volumes:
+      - '/:/rootfs:ro'
+      - '/sys:/sys:ro'
+      - '/var/run:/var/run:ro'
+      - '/var/lib/docker:/var/lib/docker:ro'
+    command: ['--housekeeping_interval=30s', '--docker_only=true']
+    mem_limit: 128m # set memory limit
+    cpus: 0.5 # set CPUs limit
+    privileged: true
+    healthcheck:
+      test: ["CMD-SHELL", "nc -vz 127.0.0.1 8080 || exit 1"]
+
   clickstack:
     <<: *common
     # All-in-one: HyperDX app + API, ClickHouse, MongoDB and the OpenTelemetry collector
     # in one container. Fine for development; production runs them as separate services.
-    image: docker.hyperdx.io/hyperdx/hyperdx-all-in-one:${CLICKSTACK_VERSION:-latest}
+    # @ref: https://clickhouse.com/docs/clickstack/managing/config
+    image: docker.io/hyperdx/hyperdx-all-in-one:${CLICKSTACK_VERSION:-2}
     hostname: clickstack
     ports:
       - '127.0.0.1:${CLICKSTACK_UI_PORT:-8080}:8080' # HyperDX UI
-      - '127.0.0.1:${OTLP_HTTP_PORT:-4318}:4318' # OTLP over HTTP (the application's exporter)
-    environment:
-      FRONTEND_URL: http://localhost:8080
-      HYPERDX_LOG_LEVEL: ${HYPERDX_LOG_LEVEL:-info}
-      USAGE_STATS_ENABLED: 'false'
-      # A fixed key the collector accepts as `authorization`, so the application needs no
-      # key copied out of the UI. Honoured by this image only; never use one in production.
-      INGESTION_API_KEY: ${CLICKSTACK_INGESTION_KEY:-edgy-dev-ingestion-key}
+      - '127.0.0.1:${OTLP_HTTP_PORT:-4318}:4318' # OTLP over HTTP
     volumes:
       - './.storage/clickstack/db:/data/db:rw'
       - './.storage/clickstack/ch_data:/var/lib/clickhouse:rw'
       - './.storage/clickstack/ch_logs:/var/log/clickhouse-server:rw'
+      - './container/clickstack/otel-collector.yaml:/etc/otel/extra-config.yaml:ro'
+    environment:
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
+      CLICKHOUSE_PASSWORD: ${CLICKSTACK_DB_PASSWORD:-securedb}
+      CUSTOM_OTELCOL_CONFIG_FILE: /etc/otel/extra-config.yaml
+      DEFAULT_CONNECTIONS: *clickstack-connection
+      DEFAULT_SOURCES: *clickstack-sources
+      FRONTEND_URL: http://localhost:${HYPERDX_PORT:-8080}
+      HYPERDX_API_KEY: ${CLICKSTACK_INGESTION_KEY:-edgy-dev-ingestion-key}
+      HYPERDX_LOG_LEVEL: ${HYPERDX_LOG_LEVEL:-debug}
+      INGESTION_API_KEY: ${CLICKSTACK_INGESTION_KEY:-edgy-dev-ingestion-key}
+      OTLP_AUTH_TOKEN: ${CLICKSTACK_INGESTION_KEY:-edgy-dev-ingestion-key}
+      USAGE_STATS_ENABLED: false
     shm_size: 512m # set shared memory limit
-    mem_limit: 4g # set memory limit
+    mem_limit: 2g # set memory limit
     cpus: 2.0 # set CPUs limit
     healthcheck:
       test: ['CMD-SHELL', 'curl -sf http://localhost:8080/api/health || exit 1']
-      start_period: 60s
+      start_period: 30s
 
-  # One-shot: ClickStack has no collector pipelines until a team exists, and a team exists only
-  # after someone registers. This registers the development account (idempotent: an existing
-  # account answers 409) so telemetry works from the first `pnpm compose:up`, with no clicking.
   clickstack-init:
     <<: *common
-    image: docker.io/curlimages/curl:${CURL_VERSION:-8.14.1}
-    restart: 'no'
-    healthcheck:
-      disable: true
-    entrypoint: ['/bin/sh', '-c']
-    command:
-      - |
-        i=0
-        until curl -sf http://clickstack:8080/api/health >/dev/null; do
-          i=$$((i + 1))
-          [ "$$i" -ge 90 ] && { echo "HyperDX did not become ready"; exit 1; }
-          sleep 2
-        done
-        body=$$(printf '{"email":"%s","password":"%s","confirmPassword":"%s"}' \
-          "$$HYPERDX_EMAIL" "$$HYPERDX_PASSWORD" "$$HYPERDX_PASSWORD")
-        status=$$(curl -s -o /dev/null -w '%{http_code}' -X POST http://clickstack:8080/api/register/password \
-          -H 'content-type: application/json' -d "$$body")
-        case "$$status" in
-          200) echo "HyperDX: registered $${HYPERDX_EMAIL}" ;;
-          409) echo "HyperDX: account already exists" ;;
-          *) echo "HyperDX: registration answered $$status"; exit 1 ;;
-        esac
+    image: docker.io/badouralix/curl-jq:${CURLJQ_VERSION:-alpine}
+    restart: no
+    entrypoint: ['/bin/sh', '/clickstack/provision.sh']
+    volumes:
+      - './container/clickstack/provision.sh:/clickstack/provision.sh:ro'
+      - './container/clickstack/dashboards:/dashboards:ro'
+      - './container/clickstack/alerts:/alerts:ro'
     environment:
+      CLICKSTACK_ACCESS_KEY: ${CLICKSTACK_ACCESS_KEY:-}
+      CLICKHOUSE_PASSWORD: ${CLICKSTACK_DB_PASSWORD:-securedb}
+      CLICKSTACK_ALERT_WEBHOOK_URL: ${CLICKSTACK_ALERT_WEBHOOK_URL:-}
+      CLICKSTACK_RETENTION_DAYS: ${CLICKSTACK_RETENTION_DAYS:-30}
+      DEFAULT_CONNECTIONS: *clickstack-connection
+      DEFAULT_SOURCES: *clickstack-sources
       HYPERDX_EMAIL: ${HYPERDX_EMAIL:-admin@example.com}
       HYPERDX_PASSWORD: ${HYPERDX_PASSWORD:-@Password123!}
-    mem_limit: 32m # set memory limit
-    cpus: 0.5 # set CPUs limit
+    healthcheck:
+      disable: true
     depends_on:
-      # Started, not healthy: waiting for health would hold `compose up --detach`
-      # for a minute. The script below retries until the API answers instead.
       clickstack: { condition: service_started }
 
-  valkey:
+  redis-exporter:
     <<: *common
-    image: docker.io/valkey/valkey:${VALKEY_VERSION:-9.2-alpine}
-    hostname: valkey
-    ports: ['127.0.0.1:${VALKEY_PORT:-6379}:6379']
-    volumes: ['./.storage/valkey:/data:rw']
-    command: '--appendonly yes --appendfsync everysec --requirepass ${VALKEY_PASSWORD:-securedb}'
-    shm_size: 32m # set shared memory limit
-    mem_limit: 128m # set memory limit
-    cpus: 1.0 # set CPUs limit
+    image: docker.io/oliver006/redis_exporter:${REDIS_EXPORTER_VERSION:-v1.95.0}
+    hostname: redis-exporter
+    expose: ['9121']
+    environment:
+      REDIS_ADDR: redis://redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-securedb}
+      REDIS_EXPORTER_LOG_FORMAT: json
+    cpus: 0.5 # set CPUs limit
     healthcheck:
-      test:
-        [
-          'CMD-SHELL',
-          'valkey-cli --no-auth-warning -a $${VALKEY_PASSWORD:-securedb} ping | grep PONG',
-        ]
-      start_period: 5s
-      interval: 15s
+      test: ['CMD', '/redis_exporter', '--version']
+    depends_on:
+      redis: { condition: service_started }
+
+  redis:
+    <<: *common
+    image: docker.io/library/redis:${REDIS_VERSION:-8-alpine}
+    hostname: redis
+    ports: ['127.0.0.1:${REDIS_PORT:-6379}:6379']
+    volumes: ['./.storage/redis:/data:rw']
+    command: '--appendonly yes --appendfsync everysec --requirepass ${REDIS_PASSWORD:-securedb}'
+    cpus: 0.5 # set CPUs limit
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli --no-auth-warning -a $${REDIS_PASSWORD:-securedb} ping | grep PONG']
+
+  mailpit:
+    <<: *common
+    image: docker.io/axllent/mailpit:${MAILPIT_VERSION:-latest}
+    hostname: mailpit
+    ports:
+      - '127.0.0.1:${MAILPIT_POP3_PORT:-1110}:1110'
+      - '127.0.0.1:${MAILPIT_SMTP_PORT:-1025}:1025'
+      - '127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025'
+    volumes: ["./.storage/mailpit:/data:rw"]
+    environment:
+      TZ: Asia/Jakarta
+      MP_TAGS_USERNAME: true
+      MP_DISABLE_VERSION_CHECK: true
+      MP_ALLOW_UNTRUSTED_TLS: true
+      MP_POP3_BIND_ADDR: 0.0.0.0:1110
+      MP_SMTP_BIND_ADDR: 0.0.0.0:1025
+      MP_UI_BIND_ADDR: 0.0.0.0:8025
+      MP_SMTP_AUTH_ALLOW_INSECURE: true
+      MP_SMTP_AUTH: "maileruser1:mailerpass1 maileruser2:mailerpass2"
+    cpus: 0.5 # set CPUs limit
+    healthcheck:
+      test: ["CMD-SHELL", "nc -vz 127.0.0.1 8025 || exit 1"]
 
 networks:
   intranet:
