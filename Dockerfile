@@ -34,6 +34,7 @@ FROM base AS builder
 
 # Install dependencies first so this layer is cached across source changes.
 COPY --chown=vp:vp package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY --chown=vp:vp .agents/ .agents/
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store vp install --frozen-lockfile \
     --ignore-scripts
 
