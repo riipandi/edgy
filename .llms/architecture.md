@@ -62,7 +62,11 @@ dev answers what serve answers.
 `kernel/healthcheck.ts` serves the health check directly from `Database.ping` — the health
 feature has no service of its own; the healthcheck CLI pings the same signal with a 2-second
 timeout. `GET /api/health` is the only health endpoint: readiness semantics, fail-closed on a
-database or rate-limit store outage.
+database or rate-limit store outage. It keeps its own `{status, details}` shape rather than the
+standard success/error envelope every other `/api/*` endpoint uses. Health's own `status`
+(`ok`/`unhealthy`) is a different axis than the envelope's `status` (`success`/`error`), and the
+endpoint is a stable machine contract shared with the healthcheck CLI and orchestration probes,
+not a typical API client surface.
 
 ## Persistence
 
