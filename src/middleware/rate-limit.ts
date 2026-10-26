@@ -10,6 +10,7 @@ import { Database } from '#/database/adapter.ts'
 import type { DB } from '#/database/schema.ts'
 import { AppConfig } from '#/kernel/config/config.ts'
 import { redisUrlForDatabase } from '#/kernel/config/redis.ts'
+import { RateLimitVerdict } from '#/kernel/http/request-context.ts'
 import { awaitRedis } from '#/kernel/redis-boot.ts'
 import { withDependencyTelemetry } from '#/observer/dependencies.ts'
 
@@ -251,7 +252,9 @@ export const rateLimitMiddleware = (options?: {
               })
             )
           }
-          const response = yield* httpEffect
+          const response = yield* httpEffect.pipe(
+            Effect.provideService(RateLimitVerdict, Option.some(verdict))
+          )
           return HttpServerResponse.setHeaders(headers)(response)
         })
       ).layer

@@ -3,6 +3,7 @@ import * as HttpRouter from 'effect/http/HttpRouter'
 import * as HttpServerRequest from 'effect/http/HttpServerRequest'
 import * as HttpServerResponse from 'effect/http/HttpServerResponse'
 import { TypeID, typeid } from 'typeid-js'
+import { RequestId as RequestIdContext } from '#/kernel/http/request-context.ts'
 
 export const REQUEST_ID_HEADER = 'x-request-id'
 
@@ -28,7 +29,7 @@ export const requestIdMiddleware = HttpRouter.use((router) =>
       const header = request.headers[REQUEST_ID_HEADER]
       const id = (header !== undefined ? requestIdFrom(header) : undefined) ?? newRequestId()
       yield* Effect.annotateLogsScoped({ requestId: id.toString() })
-      const response = yield* effect
+      const response = yield* effect.pipe(Effect.provideService(RequestIdContext, id.toString()))
       return HttpServerResponse.setHeader(REQUEST_ID_HEADER, id.toString())(response)
     })
   )
