@@ -5,7 +5,7 @@ import type { AddressInfo } from 'node:net'
 import { describe, expect, it } from 'vite-plus/test'
 import { AppConfig } from '#/kernel/config/config.ts'
 import { api } from '#/kernel/http/api.ts'
-import { server } from '#/kernel/http/serve.ts'
+import { server } from '#/kernel/http/server.ts'
 import pkg from '../../package.json' with { type: 'json' }
 import { config } from '../fixtures/config.ts'
 import { migratedDatabaseFor } from '../fixtures/database.ts'

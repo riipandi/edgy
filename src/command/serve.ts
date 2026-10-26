@@ -4,7 +4,7 @@ import { migrateToLatest } from '#/database/migrator.ts'
 import { runSeeders, SEEDERS } from '#/database/seeder.ts'
 import { AppConfig } from '#/kernel/config/config.ts'
 import { awaitShutdownSignal } from '#/kernel/graceful.ts'
-import { server } from '#/kernel/http/serve.ts'
+import { server } from '#/kernel/http/server.ts'
 import { ApplicationLayer } from '#/kernel/layers.ts'
 
 const migrateBeforeStart = (seed: boolean) =>
