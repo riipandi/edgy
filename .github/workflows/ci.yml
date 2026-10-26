@@ -1,8 +1,8 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
+  # push:
+  #   branches: [main]
   pull_request:
 
 concurrency:
@@ -33,7 +33,7 @@ jobs:
       - name: Typecheck
         run: vp run typecheck
 
-      - name: .env.example is current
+      - name: Generate app config
         run: |
           vp run app generate:config
           vp run app generate:config --check
