@@ -1,16 +1,31 @@
-name: CI
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: Test and Verify
 
 on:
   # push:
   #   branches: [main]
   pull_request:
+    paths-ignore:
+      - ".vite-hooks/**"
+      - ".github/workflows/release.yml"
+      - ".llms/**"
+      - ".vscode/**"
+      - ".zed/**"
+      - "container/**"
+      - "docs/**"
+      - "**/*.md"
+  workflow_dispatch:
+
+permissions: read-all
 
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: test-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-permissions:
-  contents: read
+env:
+  CI: true
+  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: true
 
 jobs:
   verify:
