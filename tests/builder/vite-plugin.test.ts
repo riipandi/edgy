@@ -198,7 +198,7 @@ describe('closeBundle', () => {
     hooks(plugin).closeBundle.call({ environment: { name: 'effect' } })
 
     const oxfile = readFileSync(path.join(dist, 'oxfile.toml'), 'utf8')
-    expect(oxfile).toContain('cluster_mode = false')
+    expect(oxfile).toContain('cluster_mode = true')
     expect(oxfile).toContain('command = "node entry.js serve"')
     expect(oxfile).not.toContain('--auto-migrate')
   })

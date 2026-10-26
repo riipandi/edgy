@@ -1,196 +1,99 @@
-# Application configuration
+# Configuration
 
-The application reads optional environment variables through Effect `Config`, validated at startup.
-Values are grouped by app, server, database, logging, security, cache, observability, and docs.
-Invalid values fail during startup rather than surfacing on the first request. Durations use whole
-milliseconds.
+Application settings are declared as typed configuration schemas with startup validation. If an environment variable carries an invalid value, the application exits immediately during boot with a clear error rather than failing during request execution.
 
-Run `vpr app generate:config` to create `.env.example` from the same declarations. The generator
-redacts secret defaults, refuses real `.env` files, and requires confirmation before replacing a
-different existing output file.
-
-## Example file
-
-`.env.example` lists every variable with its default and a one-line description. It is generated
-from the configuration itself, so it is always complete:
+To regenerate `.env.example` from schemas, run:
 
 ```bash
-vpr app generate:config               # create .env.example (never replaces an existing, different file)
-vpr app generate:config --overwrite   # replace it after a confirmation (--force skips the prompt)
-vpr app generate:config --check       # fail if the file is out of date
-cp .env.example .env.local            # then change only what you need
+vpr app generate:config --overwrite
 ```
 
-## General Configuration
+## General settings
 
-| Variable           | Default                 | Meaning                                                       |
-| ------------------ | ----------------------- | ------------------------------------------------------------- |
-| `API_DOCS_ENABLED` | `false`                 | Expose the OpenAPI document and the Scalar API reference.     |
-| `APP_BASE_URL`     | `http://localhost:3000` | Public origin; relative request URLs are resolved against it. |
-| `SERVER_HOST`      | `0.0.0.0`               | HTTP listener address                                         |
-| `SERVER_PORT`      | `3000`                  | HTTP listener port                                            |
+| Variable           | Default                 | Description                                                                              |
+| ------------------ | ----------------------- | ---------------------------------------------------------------------------------------- |
+| `APP_BASE_URL`     | `http://localhost:3000` | Canonical public origin; relative URLs are resolved against this base.                   |
+| `SERVER_HOST`      | `0.0.0.0`               | Network interface address for HTTP listener.                                             |
+| `SERVER_PORT`      | `3000`                  | Port for HTTP listener.                                                                  |
+| `API_DOCS_ENABLED` | `false`                 | Enable interactive Scalar API docs (`/api-docs`) and OpenAPI spec (`/api/openapi.json`). |
 
-Set `APP_BASE_URL` to the origin users reach the application on. It must be an absolute `http` or
-`https` URL; only the origin is kept, so a trailing path is dropped and an invalid value fails
-startup — empty and whitespace-only values fail the same way. (Setting the variable to an empty
-string in the process environment counts as unset, so the default applies there.) Behind a reverse
-proxy, use the public origin rather than the bind address.
+`APP_BASE_URL` must be an absolute `http` or `https` URL. Trailing paths are stripped automatically.
 
-When `API_DOCS_ENABLED` enabled, the server serves the Scalar API reference at `/api-docs` and the OpenAPI
-document at `/api/openapi.json`. Keep it off unless the API is meant to be public.
+## Database settings
 
-## Database
+| Variable                | Default                      | Description                                                                 |
+| ----------------------- | ---------------------------- | --------------------------------------------------------------------------- |
+| `DATABASE_URL`          | `file:./storage/data/app.db` | Database connection string: local file path or remote Turso URI.            |
+| `DATABASE_TOKEN`        | _(empty)_                    | Authentication token for remote Turso databases (required for remote URLs). |
+| `DATABASE_AUTO_MIGRATE` | `false`                      | Automatically run pending database migrations on server startup.            |
 
-| Variable                | Default                                   | Meaning                                                                                       |
-| ----------------------- | ----------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`          | `file:./storage/data/app.db`              | Local database file, or the URL of a remote Turso database.                                   |
-| `DATABASE_TOKEN`        | empty                                     | Turso auth token; required by a remote URL and ignored by a local one.                        |
-| `DATABASE_AUTO_MIGRATE` | `false`                                   | Apply migrations before the server starts. The `--auto-migrate` serve flag also enables this. |
-| `REDIS_ENABLE`          | `false`                                   | Use Redis for the rate-limit and cache stores.                                                |
-| `REDIS_URL`             | `redis://default:securedb@localhost:6379` | Redis connection URL; each feature uses its own database.                                     |
+`DATABASE_URL` supports two execution transports:
 
-`DATABASE_URL` is one variable for both transports. A `file:` URI is a local database, and its path
-is read the way RFC 8089 defines it: `file:/data/app.db`, `file:///data/app.db` and
-`file://localhost/data/app.db` name the same file, `file:./storage/app.db` is relative to the
-working directory, and a percent-encoded path is decoded. A bare path such as `./storage/app.db`
-works as a convenience. `file://otherhost/data/app.db` is refused, because a local engine cannot
-open another machine's file, and `:memory:` is refused too — an in-memory database cannot be shared
-with the healthcheck probe or a migration run. A remote database is named by `libsql://`,
-`turso://`, `https://` or `http://` and requires `DATABASE_TOKEN`; a remote URL without a token
-fails at startup, naming the variable, rather than at the first query. Setting `DATABASE_TOKEN`
-next to a local URL logs one warning and ignores it. An `http://` URL works — a local `sqld` on
-loopback has no TLS — but one warning names the variable and the unencrypted token.
+- **Local File (`file:` URI or relative/absolute path)**: Uses Turso's embedded SQLite engine in multi-process WAL mode. Several local processes (such as clustered server workers, health checks, and migration CLIs) safely share access to the same database file on disk. In-memory databases (`:memory:`) are rejected because separate processes cannot share transient memory.
+- **Remote Database (`libsql://`, `turso://`, `https://`, `http://`)**: Connects over HTTP to a remote Turso database or `sqld` instance. `DATABASE_TOKEN` is mandatory. Startup performs an immediate pre-flight check to verify connectivity.
 
-The local file is created next to its directory (mode `0775`) and narrowed to `0600`, and so is
-every sidecar the engine writes beside it (`-wal` for the write-ahead log, `-tshm` for shared
-memory), which hold uncommitted rows. Foreign keys are enforced and the journal mode is WAL. Every
-process of the application opens the file in multi-process WAL mode, so the healthcheck probe and a
-migration run can read and write while the server holds the same database; a tool outside this
-application (`sqlite3`, the `turso` CLI) opening that file without the same option conflicts with
-it.
+## Redis settings
 
-A remote database is verified when it is acquired — one `select 1` bounded by a 5-second query
-timeout — so a wrong host or a revoked token fails the startup, naming the cause, instead of
-surfacing at the first request. Every remote request carries the same 5-second bound; a stalled
-connection cannot hold the process forever. A local URL is not probed.
+| Variable       | Default                                   | Description                                                             |
+| -------------- | ----------------------------------------- | ----------------------------------------------------------------------- |
+| `REDIS_ENABLE` | `false`                                   | Enable Redis for distributed caching and shared rate-limiting counters. |
+| `REDIS_URL`    | `redis://default:securedb@localhost:6379` | Connection string for Redis. Features use distinct database indexes.    |
 
-Database access is exposed through an Effect service. It owns the Kysely connection lifecycle and
-returns typed `DatabaseError` failures. Migrations and seeders use the same service, over either
-transport.
+When `REDIS_ENABLE=true`, user lookups are cached in Redis database index `1`, and rate-limiting buckets are stored in database index `2`. If Redis becomes unreachable at runtime, cached lookups gracefully fall back to direct database reads.
 
-One connection serves every feature that needs Redis. Features are separated by database index
-rather than by URL: the cache uses database `1` and the rate limiter database `2`, so keys never
-collide and a deployment configures a single server. `REDIS_URL` accepts `redis://` and `rediss://`
-URLs; a database index written in the URL is replaced by the feature's own index. Set
-`REDIS_ENABLE=true` only when Redis is reachable — the process connects at startup, and an
-unreachable server fails the layers that depend on it.
+## Logging settings
 
-## Logging
+| Variable             | Default                  | Description                                                        |
+| -------------------- | ------------------------ | ------------------------------------------------------------------ |
+| `LOG_LEVEL`          | `Info`                   | Minimum log severity: `Debug`, `Info`, `Warn`, `Error`, `None`.    |
+| `LOG_TRANSPORT`      | `console,file`           | Active sinks separated by commas: `console`, `file`, or `otlp`.    |
+| `LOG_FILE`           | `storage/logs/app.jsonl` | File path for JSON-lines log sink when `file` is selected.         |
+| `LOG_ROTATION`       | `daily`                  | File rotation interval: `hourly`, `daily`, `weekly`, or `monthly`. |
+| `LOG_FILE_MAX_FILES` | `14`                     | Maximum number of rotated log files to retain (`0` retains all).   |
+| `LOG_FORMAT`         | `pretty`                 | Console formatting style: `pretty` or `json`.                      |
+| `LOG_FLUSH_INTERVAL` | `250`                    | Batch flush interval in milliseconds for log sinks.                |
 
-| Variable             | Default                  | Meaning                                                       |
-| -------------------- | ------------------------ | ------------------------------------------------------------- |
-| `LOG_LEVEL`          | `Info`                   | Minimum log level.                                            |
-| `LOG_TRANSPORT`      | `console`, `file`        | Comma-separated sinks: `console`, `file`, and/or `otlp`.      |
-| `LOG_FILE`           | `storage/logs/app.jsonl` | File sink path; used when `file` is selected.                 |
-| `LOG_ROTATION`       | `daily`                  | File period: `hourly`, `daily`, `weekly`, or `monthly` (UTC). |
-| `LOG_FILE_MAX_FILES` | `14`                     | Rotated files to keep; `0` keeps all.                         |
-| `LOG_FORMAT`         | `pretty`                 | Console output format: `pretty` or `json`.                    |
-| `LOG_FLUSH_INTERVAL` | `250`                    | Console and file sink batch window in milliseconds.           |
+## Security and cache settings
 
-The default console logger keeps local output readable. Select `json` for structured console output.
-The file sink writes JSON lines, rotates on UTC period boundaries, and flushes when the logger scope
-closes. `LOG_TRANSPORT` accepts only the listed sinks; unknown or empty comma-separated entries fail
-configuration parsing.
+| Variable               | Default | Description                                                                     |
+| ---------------------- | ------- | ------------------------------------------------------------------------------- |
+| `CORS_ENABLED`         | `true`  | Enable Cross-Origin Resource Sharing middleware.                                |
+| `CORS_ALLOWED_ORIGINS` | `*`     | Comma-separated list of permitted origins. Empty or `*` permits all origins.    |
+| `RATE_LIMIT_ENABLED`   | `true`  | Enforce token-bucket rate limiting on `/api/*` routes.                          |
+| `RATE_LIMIT_MAX`       | `100`   | Maximum token bucket capacity per window (minimum `1`).                         |
+| `RATE_LIMIT_WINDOW`    | `60000` | Rate limit window duration in milliseconds (default: 1 minute).                 |
+| `TRUST_PROXY`          | `false` | Trusted reverse proxy configuration: `true`, `false`, or comma-separated CIDRs. |
+| `CACHE_ENABLED`        | `true`  | Enable caching for user lookups.                                                |
+| `CACHE_MAX_ENTRIES`    | `256`   | Maximum entries held in process memory cache.                                   |
+| `CACHE_TTL`            | `30000` | Time-to-live for cached user records in milliseconds (default: 30 seconds).     |
 
-## Security and cache
+Rate limiting uses a continuous-refill token bucket algorithm. Counters are stored in the database `rate_limits` table by default or in Redis when `REDIS_ENABLE=true`.
 
-| Variable               | Default | Meaning                                                                                |
-| ---------------------- | ------- | -------------------------------------------------------------------------------------- |
-| `CACHE_ENABLED`        | `true`  | Cache user lookups.                                                                    |
-| `CACHE_MAX_ENTRIES`    | `256`   | Maximum entries held by the user lookup cache.                                         |
-| `CACHE_TTL`            | `30000` | Cache entry lifetime in milliseconds.                                                  |
-| `CORS_ALLOWED_ORIGINS` | `*`     | Comma-separated absolute origins. Empty allows any origin.                             |
-| `CORS_ENABLED`         | `true`  | Answer cross-origin requests.                                                          |
-| `RATE_LIMIT_ENABLED`   | `true`  | Enable API rate limiting.                                                              |
-| `RATE_LIMIT_MAX`       | `100`   | Requests allowed for a client during one window; must be at least `1`.                 |
-| `RATE_LIMIT_WINDOW`    | `60000` | Rate-limit window in milliseconds.                                                     |
-| `TRUST_PROXY`          | `false` | Proxies that may set `X-Forwarded-For`: `true`, `false`, or comma-separated IPs/CIDRs. |
+## Observability settings
 
-Rate limiting applies only to the API routes. It refills gradually (a token bucket, not a fixed
-window): a client regains part of its budget continuously instead of waiting for the whole window
-to reset. The counters live in the `rate_limits` database table by default, or in Redis when
-`REDIS_ENABLE=true`, which lets several instances share the limit. A store that cannot be read
-answers `503` instead of letting the request through unthrottled. `TRUST_PROXY` controls which
-reverse proxies may set the client address through `X-Forwarded-For` or `X-Real-IP`; requests that
-do not come through a trusted proxy are keyed by their own address, and a spoofed forwarded header
-from an untrusted peer is ignored. Cached user lookups
-live in process memory by default, or in Redis when `REDIS_ENABLE=true`; a failed lookup is never
-cached.
+| Variable                         | Default                 | Description                                                               |
+| -------------------------------- | ----------------------- | ------------------------------------------------------------------------- |
+| `METRICS_ENABLED`                | `false`                 | Mount Prometheus scrape endpoint at `/metrics` and start runtime sampler. |
+| `OTEL_SDK_DISABLED`              | `false`                 | Disable OpenTelemetry tracing and metric exports.                         |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`    | `http://localhost:4318` | Base URL for OTLP HTTP collector.                                         |
+| `OTEL_EXPORTER_OTLP_HEADERS`     | development key         | Comma-separated authentication headers for collector.                     |
+| `OTEL_SERVICE_NAME`              | `edgy`                  | Service identifier attached to exported traces and metrics.               |
+| `OTEL_EXPORT_INTERVAL`           | `5000`                  | Batch export interval for telemetry in milliseconds.                      |
+| `OTEL_EXPORTER_OTLP_COMPRESSION` | `gzip`                  | OTLP payload compression: `gzip` or `none`.                               |
 
-`CORS_ENABLED` defaults to `true` and `CORS_ALLOWED_ORIGINS` defaults to empty, which allows any
-origin. The server echoes the caller's origin and allows credentials on that origin. This is safe
-only while the API carries no authentication: with no cookie or session token to steal, a cross-site
-caller reads the same public data as any other client. Set `CORS_ALLOWED_ORIGINS` to the origins you
-serve before the API gains an auth cookie, otherwise any site a signed-in user visits can read the
-API with that user's credentials.
+## Docker Compose stack settings
 
-## Observability
+These environment variables configure the development services in `compose.yaml` (ClickStack, Redis, cAdvisor, Mailpit):
 
-| Variable                         | Default                 | Meaning                                                                                                  |
-| -------------------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------- |
-| `METRICS_ENABLED`                | `false`                 | Register the Effect Prometheus endpoint at `/metrics` and run the runtime metrics sampler that feeds it. |
-| `OTEL_SDK_DISABLED`              | `false`                 | Disable OTLP trace and metric export.                                                                    |
-| `OTEL_EXPORTER_OTLP_ENDPOINT`    | `http://localhost:4318` | OTLP/HTTP collector base URL.                                                                            |
-| `OTEL_EXPORTER_OTLP_HEADERS`     | development header      | Comma-separated `key=value` request headers. Treat this as a secret.                                     |
-| `OTEL_SERVICE_NAME`              | `edgy`                  | Service name attached to telemetry.                                                                      |
-| `OTEL_EXPORT_INTERVAL`           | `5000`                  | Export interval in milliseconds.                                                                         |
-| `OTEL_EXPORTER_OTLP_COMPRESSION` | `gzip`                  | OTLP compression: `gzip` or `none`.                                                                      |
-
-Traces and metrics use Effect's OTLP exporters. Logs use OTLP when `LOG_TRANSPORT` includes `otlp`.
-One-shot CLI commands disable OTLP export by default so they do not wait on a collector during
-shutdown. Set `OTEL_SDK_DISABLED=false` explicitly if a one-shot command should export telemetry.
-
-The `/metrics` endpoint is unauthenticated by design: it is meant to be scraped from inside the
-network, and access control belongs to the reverse proxy or the scrape configuration. Keep
-`METRICS_ENABLED` off on deployments that expose the port directly.
-
-## Compose observability stack
-
-The compose stack (`docker compose up --detach`) runs the application next to its observability
-and support services: ClickStack (telemetry UI, ClickHouse, collector), the app, cAdvisor, Redis,
-the Redis exporter, and Mailpit. These variables configure the stack and are not part of the
-generated application configuration:
-
-| Variable                             | Default                               | Meaning                                                                                     |
-| ------------------------------------ | ------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `SERVER_PORT`                        | `3000`                                | Host port the compose app publishes on `127.0.0.1`.                                         |
-| `CLICKSTACK_UI_PORT`                 | `8080`                                | Host port for the ClickStack UI.                                                            |
-| `OTLP_HTTP_PORT`                     | `4318`                                | Host port for OTLP/HTTP ingestion (host-run processes only; the app uses the internal URL). |
-| `CLICKSTACK_INGESTION_KEY`           | `edgy-dev-ingestion-key`              | OTLP ingestion key the collector accepts.                                                   |
-| `CLICKSTACK_DB_PASSWORD`             | `securedb`                            | ClickHouse password used by the stack and the app's Redis/ClickHouse wiring.                |
-| `CLICKSTACK_ACCESS_KEY`              | empty                                 | Access key for the provisioner's API calls; empty falls back to the password login flow.    |
-| `CLICKSTACK_ALERT_WEBHOOK_URL`       | empty                                 | Webhook URL that receives the two alert channels. Leave empty to skip alert provisioning.   |
-| `CLICKSTACK_RETENTION_DAYS`          | `30`                                  | Days of telemetry kept; the provisioner rewrites each table's TTL when it differs.          |
-| `HYPERDX_EMAIL` / `HYPERDX_PASSWORD` | `admin@example.com` / `@Password123!` | First-run ClickStack admin login the provisioner uses.                                      |
-| `APP_DISTROLESS_TAG`                 | `debug-nonroot`                       | Distroless variant for the compose app build (see the note below).                          |
-| `CADVISOR_VERSION`                   | `v0.52.1`                             | cAdvisor image tag.                                                                         |
-
-Set `CLICKSTACK_ALERT_WEBHOOK_URL` to a webhook endpoint to have the provisioner create the
-`edgy alerts` channel and apply the two alerts shipped in `container/clickstack/alerts`: a
-no-spans alert (telemetry from the application has stopped for 10 minutes) and a collector alert
-(refused or failed exports above zero). With the key unset, dashboards still provision but no
-alerting exists — a silent stack and a broken stack look the same, which is exactly what the
-`Telemetry freshness` tile in the Application SLI dashboard is for.
-
-`APP_DISTROLESS_TAG` defaults to `debug-nonroot` because the container build bakes the entry's shebang
-as `#!/busybox/env node` (`ENV_BINARY_PATH` in the Dockerfile), and only the `debug` distroless variants
-ship `/busybox`. The plain `nonroot` tag ships neither `/busybox` nor `/usr/bin/env`, so an image built
-from it starts with `exec /app/entry.js failed: No such file or directory`. Use `debug-nonroot` for
-every local and development container build.
-
-`CLICKSTACK_RETENTION_DAYS` (default `30`) is how long telemetry is kept. ClickHouse enforces it as
-a table TTL, and the provisioner rewrites every `otel_*` and `hyperdx_*` table's TTL at start when
-it differs from the configured value — so changing the variable and restarting applies it, and a
-table the image recreates with its own 30-day default is healed on the next start. When the
-configured window drops toward what the "Days of headroom" tile projects, the disk, not the
-retention, is the next thing to revisit.
+| Variable                       | Default                  | Description                                                                |
+| ------------------------------ | ------------------------ | -------------------------------------------------------------------------- |
+| `SERVER_PORT`                  | `3000`                   | Port mapped from host to application container.                            |
+| `CLICKSTACK_UI_PORT`           | `8080`                   | Host port for ClickStack telemetry dashboard UI.                           |
+| `OTLP_HTTP_PORT`               | `4318`                   | Host port for OTLP HTTP telemetry receiver.                                |
+| `CLICKSTACK_INGESTION_KEY`     | `edgy-dev-ingestion-key` | Ingestion key accepted by the ClickStack collector.                        |
+| `CLICKSTACK_DB_PASSWORD`       | `securedb`               | Password for internal ClickHouse and Redis services.                       |
+| `CLICKSTACK_ACCESS_KEY`        | _(empty)_                | API access key for telemetry dashboard auto-provisioning.                  |
+| `CLICKSTACK_ALERT_WEBHOOK_URL` | _(empty)_                | Destination webhook for alerts (omitted skips alert provisioning).         |
+| `CLICKSTACK_RETENTION_DAYS`    | `30`                     | Days of telemetry data to retain in ClickHouse tables.                     |
+| `APP_DISTROLESS_TAG`           | `debug-nonroot`          | Distroless base image tag (must include `/busybox` for runtime execution). |
+| `CADVISOR_VERSION`             | `v0.52.1`                | Version tag for cAdvisor container metrics exporter.                       |

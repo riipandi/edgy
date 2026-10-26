@@ -6,68 +6,65 @@
 
 A small, opinionated reference server built with [Effect](https://effect.website) for typed errors,
 dependency injection, HTTP routing, middleware, structured logging, and telemetry. [Kysely](https://kysely.dev)
-provides the query builder over SQLite through Turso's engine — a local file, or a remote database over
-HTTP.
+provides the query builder over SQLite through Turso's engine — a local file with multi-process WAL support,
+or a remote database over HTTP.
 
 It also serves HTML pages: server-rendered [Solid](https://v2.solidjs.com) components with a
 file-based router, styled with [StyleX](https://stylexjs.com/), interactive where they need to be.
-[Vite](https://vite.dev) builds the server and browser assets; the standalone mode bundles server
-dependencies into one JavaScript entry.
+[Vite](https://vite.dev) builds the server and browser assets; standalone mode bundles dependencies
+into a single executable script with optional [OxMgr](https://github.com/Vladimir-Urik/OxMgr) cluster supervision.
 
 ## Features
 
-- **Typed failures** — persistence errors stay in Effect's error channel and are mapped to sanitized HTTP responses.
-- **Small JSON API** — health and user routes return JSON responses without an envelope layer.
-- **Effect HTTP stack** — routes, middleware, and the Node.js HTTP server use Effect's HTTP platform.
-- **Built-in middleware** — request IDs, request logging, and configurable rate limiting.
-- **Observable** — Effect exports OpenTelemetry traces, metrics, and optional logs over OTLP.
-- **Configurable** — grouped, validated environment configuration controls the server, SQLite, cache, rate limit, logging, and telemetry.
-- **Resilient** — typed database errors, bounded in-memory caching and rate limiting, graceful shutdown.
-- **One database, two transports** — a local SQLite file through Turso's native engine, or a remote Turso database over HTTP, chosen by `DATABASE_URL`.
-- **Server-rendered pages** — streamed Solid pages with a file-based router, hydrated where they are interactive, with typed, build-time styles.
-- **Standalone build** — Vite builds the Node.js server and browser assets; `--minify` reduces the server bundle.
-- **Standalone bundle** — `vpr build:standalone` produces one executable JavaScript entry.
+- **Typed failures** — persistence errors stay in Effect's error channel and map to sanitized HTTP responses.
+- **Unified response envelope** — success and error envelopes carrying request IDs, trace IDs, and typed error codes.
+- **Effect HTTP stack** — declarative routes, middleware, and the Node.js server use Effect's HTTP platform.
+- **Built-in middleware** — TypeID request IDs, token-bucket rate limiting, CORS, security headers, and structured logging.
+- **Observable** — exports OpenTelemetry traces and metrics over OTLP into the bundled ClickStack dashboard.
+- **Configurable** — typed, startup-validated environment configuration with automated example generation.
+- **One database, two transports** — local SQLite file via Turso's native engine (multiprocess WAL), or remote Turso over HTTP.
+- **Server-rendered pages** — streamed SolidJS 2.0 pages with file-based routing and zero-runtime StyleX styles.
+- **Standalone and clustering** — `vpr build:standalone` emits a self-contained bundle ready for OxMgr multi-worker clustering.
 
 ## Requirements
 
-- **Node.js >= 24.22** — required for native TypeScript stripping.
+- **Node.js >= 24.22** — required for native TypeScript execution.
 - **pnpm 12** — declared via `devEngines`; `npx` is intentionally rejected.
 
 ## Getting started
 
 ```bash
 vp install
-vpr app migrate:up       # create the users table
-vpr app migrate:seed     # insert sample rows (idempotent)
-vpr dev                  # http://localhost:3000, pages update live, server code reloads
-vpr test                 # run the test suite
+vpr app migrate:up       # run database migrations
+vpr app migrate:seed     # insert sample fixture data
+vpr dev                  # http://localhost:3000 (hot reloading enabled)
+vpr test                 # run test suite
 vpr compose:up           # local ClickStack collector and UI for telemetry
 ```
 
-Settings are optional environment variables. See [Configuration](./docs/configuration.md) for names,
-defaults, and validation rules.
+Settings are optional environment variables. See [Configuration](./docs/configuration.md) for defaults and rules.
 
 Verify it is up:
 
 ```bash
 curl http://localhost:3000/api/health
-# {"status":"ok"}
+# {"status":"ok","details":{"database":{"status":"up","timestamp":"2026-10-26T17:00:00.000Z"}}}
 
 curl 'http://localhost:3000/api/users?limit=10'
-# {"status":"success","data":[{"id":"user_01m5k7w3p8fvx9r2c4t6y0hq1d","email":"ada@example.com","name":"Ada Lovelace"}, ...],"metadata":{...},"links":{...}}
+# {"status":"success","data":[{"id":"user_01m5k7w3p8fvx9r2c4t6y0hq1d","email":"ada@example.com","name":"Ada Lovelace"}, ...],"metadata":{"status_code":200,"request_id":"req_...","limit":10,"has_more":true,"next_cursor":"..."},"links":{"self":"...","first":"...","next":"..."}}
 ```
 
 ## Documentation
 
 The full documentation index lives in [docs/index.md](./docs/index.md):
 
-| Document                                 | What it covers                                             |
-| ---------------------------------------- | ---------------------------------------------------------- |
-| [CLI](./docs/commandline.md)             | Commands, flags, confirmation and dry-run behaviour        |
-| [Configuration](./docs/configuration.md) | Environment variables, defaults, examples                  |
-| [API endpoints](./docs/api-endpoint.md)  | Endpoint list, request ID tracing, the OpenAPI description |
-| [Development](./docs/development.md)     | Day-to-day commands, database workflow, validation         |
-| [Deployment](./docs/deployment.md)       | Node.js server and bundled assets                          |
+| Document                                 | What it covers                                            |
+| ---------------------------------------- | --------------------------------------------------------- |
+| [CLI](./docs/commandline.md)             | Commands, flags, confirmation, and cluster mode           |
+| [Configuration](./docs/configuration.md) | Environment variables, defaults, and Compose settings     |
+| [API endpoints](./docs/api-endpoint.md)  | Endpoint list, response envelopes, pagination, and errors |
+| [Development](./docs/development.md)     | Day-to-day workflow, database migrations, and SolidJS SSR |
+| [Deployment](./docs/deployment.md)       | Standalone builds, OxMgr process clustering, and Docker   |
 
 ## References
 
@@ -76,12 +73,11 @@ The full documentation index lives in [docs/index.md](./docs/index.md):
 - Kysely — [documentation](https://kysely.dev)
 - Frontend — [Solid](https://v2.solidjs.com) · [Solid Router](https://v2.solidjs.com/routing/solid-router) · [Vite](https://vite.dev/guide/) · [StyleX](https://stylexjs.com/)
 - Database — [Turso](https://turso.tech) · [Kysely dialect](https://github.com/tursodatabase/kysely-libsql)
-- Node.js — [single executable applications](https://nodejs.org/api/single-executable-applications.html)
+- Process Manager — [OxMgr](https://github.com/Vladimir-Urik/OxMgr)
 
 ## License
 
-This project licensed under the [MIT License](https://choosealicense.com/licenses/mit).
-See the [LICENSE](./LICENSE) file for more information.
+This project is licensed under the [MIT License](./LICENSE).
 
 ---
 

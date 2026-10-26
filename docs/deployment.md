@@ -1,109 +1,144 @@
 # Deployment
 
-Edgy runs as a Node.js server and stores data in SQLite. The HTTP server uses
-Effect's Node platform.
+Edgy is deployed as a standalone Node.js process or container image with zero external runtime dependencies.
 
-## Build
+## Deployment topologies
 
-```bash
-vpr build
-vpr build:standalone
+The application supports two distinct operational modes based on workload, resource scale, and architecture: **Single node mode** and **Cluster mode**.
+
+### Single node mode
+
+A lightweight deployment pattern running one application process behind a reverse proxy. Best suited for single-container setups, VPS hosting, staging environments, and moderate traffic.
+
+```mermaid
+graph TD
+    Client["HTTP Client / Browser"] -->|"HTTPS (Port 443)"| Proxy["Reverse Proxy (Nginx / Caddy / Cloudflare)"]
+    Proxy -->|"HTTP (Port 3000)"| App["Edgy Application (node dist/entry.js serve)"]
+
+    subgraph Host ["Single Node Host / Container"]
+        App -->|"Local Disk (0600)"| LocalDB[("SQLite Database File")]
+        App -->|"In-Memory"| MemStore["Process Memory (LRU Cache & Token Bucket Limiter)"]
+    end
+
+    App -.->|"Optional OTLP"| Telemetry["Telemetry Collector (ClickStack)"]
 ```
 
-`vpr build` creates the server entry and browser assets in `dist/`. Keep the
-assets together when copying the build. `vpr build:standalone` bundles server
-dependencies — the SSR bundle included — into one executable JavaScript entry;
-it is not a native binary. The build fails if any external package import
-remains in the output, so the bundle runs without a resolved `node_modules`
-tree. The one exception is a compiled addon: the SQLite engine loads its
-native binding at runtime, so the standalone build writes that package into
-`dist/node_modules/@tursodatabase/` for the platform it built on. Copy `dist/`
-whole and the entry runs anywhere that platform runs.
+In single node mode:
 
-Run the bundled server with:
+- **Execution**: Run directly with `node dist/entry.js serve` (or `vpr start`).
+- **Persistence**: Employs a local SQLite file (`storage/data/app.db`) through Turso's embedded engine with multi-process WAL.
+- **Cache & Throttling**: User cache lookups and rate-limiting buckets reside in process memory without requiring external Redis infrastructure.
+- **Maintenance**: Migrations can be applied automatically at boot via `--auto-migrate` or as a release step via `migrate:up`.
 
-```bash
-vpr start
+### Cluster mode
+
+A high-throughput deployment pattern that distributes workload across multiple processes or instances to maximize CPU utilization and provide redundancy.
+
+#### 1. Local multi-worker cluster (OxMgr)
+
+Supervises multiple Node.js worker processes across available CPU cores on a single physical server or virtual machine using Node's native `cluster` module.
+
+```mermaid
+graph TD
+    Client["HTTP Client / Browser"] -->|"HTTPS (Port 443)"| LB["Reverse Proxy / Port Listener"]
+    LB -->|"Port 3000"| Supervisor["OxMgr Process Supervisor (oxfile.toml)"]
+
+    subgraph SingleServer ["Multi-Core Dedicated Server / VM"]
+        Supervisor --> Worker1["Worker Process 1"]
+        Supervisor --> Worker2["Worker Process 2"]
+        Supervisor --> Worker3["Worker Process 3"]
+        Supervisor --> Worker4["Worker Process 4"]
+
+        Worker1 & Worker2 & Worker3 & Worker4 -->|"Multiprocess WAL"| SharedLocalDB[("Local SQLite Database File")]
+        Worker1 & Worker2 & Worker3 & Worker4 -.->|"Optional RESP"| RedisInstance[("Redis (Shared Cache & Rate Limits)")]
+    end
 ```
 
-The application requires Node.js 24.22 or newer. It needs no database service: the default
-`DATABASE_URL` points at a local SQLite file through Turso's engine, whose native binding ships with
-the bundle's `node_modules/@tursodatabase` directory. Point `DATABASE_URL` at a writable persistent
-location before starting the process, or at a remote Turso database (`libsql://`/`turso://` plus
-`DATABASE_TOKEN`) to keep no local state.
+- **Execution**: Start the clustered workers using `vpr start:cluster` (or `oxmgr runtime ./oxfile.toml`).
+- **Persistence**: All worker processes safely read and write to the same local SQLite database file via multi-process WAL mode (`multiprocess_wal`).
+- **State Coordination**: To share rate limits and cached entries seamlessly across workers, set `REDIS_ENABLE=true` pointing to a local or remote Redis instance.
+- **Migration Rule**: Always run `node dist/entry.js migrate:up` before starting the cluster. Clustered workers must never run with `--auto-migrate` to prevent database lock contention during boot.
 
-## Runtime configuration
+#### 2. Distributed multi-node cluster
 
-Set `SERVER_HOST` and `SERVER_PORT` for the listener. Use `DATABASE_AUTO_MIGRATE=true`
-to apply migrations at startup, or run `vpr app migrate:up` as a release step.
-A local database file serves one host: the engine's multi-process WAL mode lets
-several processes on that host share it, and a network filesystem does not carry
-the locking it relies on. Deploy a remote Turso database (`DATABASE_URL` plus
-`DATABASE_TOKEN`) to run several instances against one store. Rate-limit windows
-and cached lookups can be shared between instances through Redis when
-`REDIS_ENABLE=true`; without Redis each instance keeps its own counters and cache.
+Scales horizontally across multiple separate host machines, Kubernetes pods, or container instances behind a global or cloud load balancer.
 
-A standalone build ships an [Oxmgr](https://github.com/Vladimir-Urik/OxMgr) config
-(`oxfile.toml`) for running one worker per CPU on a single host, which the
-multi-process database mode above supports. Using it is optional — a plain
-single-process deploy needs no changes — and cluster mode is off by default in
-the generated file. Run migrations once, separately from a multi-worker start,
-so two workers never race to migrate the same database.
+```mermaid
+graph TD
+    Client["HTTP Client / Browser"] -->|"HTTPS"| CloudLB["Cloud Load Balancer / Ingress"]
 
-Set `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_HEADERS` for your
-collector. The server exports traces and metrics when `OTEL_SDK_DISABLED` is
-false; add `otlp` to `LOG_TRANSPORT` to export logs. Keep collector credentials
-in the runtime environment and do not commit them.
+    subgraph Nodes ["Independent Compute Nodes"]
+        CloudLB --> Node1["Application Pod / VM 1"]
+        CloudLB --> Node2["Application Pod / VM 2"]
+        CloudLB --> NodeN["Application Pod / VM N"]
+    end
 
-## Container healthcheck
-
-The Docker image defines a container healthcheck that runs `entry.js healthcheck`.
-The command pings the database and exits `0` when the application is ready,
-`1` when the database fails or does not answer. Docker marks the container
-unhealthy while the command keeps failing.
-
-## The compose stack
-
-```bash
-vpr compose:up     # docker compose up --detach --remove-orphans
-vpr compose:down   # docker compose down --remove-orphans
+    subgraph SharedInfra ["Shared Cloud Infrastructure"]
+        Node1 & Node2 & NodeN -->|"HTTPS / libsql://"| RemoteTurso[("Turso Cloud / Remote sqld")]
+        Node1 & Node2 & NodeN -->|"RESP (Port 6379)"| CentralRedis[("Centralized Redis Cluster (DB 1 & 2)")]
+    end
 ```
 
-`vpr compose:up` starts seven services: ClickStack (the telemetry UI, ClickHouse,
-MongoDB, and the OTLP collector in one container), the application itself,
-cAdvisor, Redis, the Redis exporter, and Mailpit. The application builds from
-the project Dockerfile on first start, runs with a 256 MB memory limit, and
-publishes its port on `127.0.0.1` — the same server that runs on the host is
-what compose serves, with its database file under `.storage/app` and its
-telemetry flowing to the collector inside the network. The compose variables
-are listed in [configuration](./configuration.md#compose-observability-stack).
+- **Execution**: Each compute node runs independently via container orchestration or cloud runners.
+- **Persistence**: Nodes connect to a shared remote Turso database over HTTP/libSQL (`DATABASE_URL=libsql://...` with `DATABASE_TOKEN`).
+- **Distributed State**: Centralized Redis (`REDIS_ENABLE=true`) synchronizes token-bucket rate limits and cached records across all active nodes.
+- **Health Probes**: Each node answers readiness checks at `/api/health`, failing closed if either Turso or Redis fails to respond.
 
-The UI answers at `http://localhost:8080` (first-run credentials in the
-configuration table). The OTLP endpoint `http://localhost:4318` is for
-processes running on the host; the compose application already points at the
-collector through the internal network address. Telemetry retention defaults
-to 30 days and follows `CLICKSTACK_RETENTION_DAYS` (see
-[configuration](./configuration.md#compose-observability-stack)).
+## Build artifacts
 
-## Container resource metrics
+```bash
+vpr build               # standard production build
+vpr build:standalone    # standalone bundle with all dependencies inlined
+```
 
-cAdvisor runs privileged inside the stack and exports per-container CPU,
-memory, and restart signals, which the collector scrapes into the same
-telemetry pipeline. The Node.js Runtime Metrics dashboard carries three
-container tiles for the application: memory working set against the container
-limit, CPU throttling seconds, and restarts observed in the selected window.
-A rising working set toward the limit or a nonzero restart count is the signal
-that the memory limit is doing its job — the in-process runtime gauges on the
-same dashboard cannot see either.
+- `vpr build`: Compiles server entry points and client browser bundles into `dist/`.
+- `vpr build:standalone`: Inlines all dependencies into a single executable script (`dist/entry.js`). The target platform's native Turso engine binding is copied into `dist/node_modules/@tursodatabase/`. Copying the `dist/` directory produces a self-contained deployable unit.
 
-## Alerting
+To execute the built server:
 
-The provisioner applies two alerts beside the dashboards, but only when
-`CLICKSTACK_ALERT_WEBHOOK_URL` is set: one fires when the application has sent
-no trace spans for ten minutes (telemetry loss, not application health), and
-one fires when the collector refuses or fails to export above zero in a
-five-minute window. With the key unset, no alerting is provisioned — treat the
-unset state as "dashboards only". The Application SLI dashboard's telemetry
-freshness tile shows the same signal continuously as a fresh, stale, or silent
-verdict per telemetry signal, so a quiet dashboard can be told apart from a
-broken pipeline without waiting for an alert to fire.
+```bash
+node dist/entry.js serve
+```
+
+## Process clustering with OxMgr
+
+Standalone builds automatically emit `dist/oxfile.toml`, configured for multi-worker process clustering using Node's `cluster` module.
+
+To run the clustered runtime:
+
+```bash
+vpr start:cluster
+```
+
+> [!IMPORTANT]
+> Run database migrations (`node dist/entry.js migrate:up`) as a separate step before starting cluster mode. Clustered workers run as independent OS processes and would otherwise race to migrate the database concurrently.
+
+## Container deployment
+
+The application Dockerfile builds a distroless container image:
+
+```bash
+vpr docker:build
+```
+
+- The container executes as a non-root user.
+- The build uses `--build-arg DISTROLESS_TAG=debug-nonroot` to provide `/busybox/env` for executing the Node runtime.
+- The container healthcheck runs `entry.js healthcheck`, verifying database readiness every 20 seconds.
+- Storage volumes should mount to `/app/storage` for persistent local SQLite databases and log sinks.
+
+## Docker Compose development stack
+
+To spin up the complete local environment including observability and Redis:
+
+```bash
+vpr compose:up     # start services in background
+vpr compose:down   # stop and remove containers
+```
+
+Services in the compose stack:
+
+- **Application (`app`)**: Built from the project Dockerfile with a 256 MB memory limit.
+- **ClickStack (`clickstack`)**: Combined OpenTelemetry collector, ClickHouse analytics store, and telemetry UI answering at `http://localhost:8080`.
+- **Redis (`redis`)**: In-memory store for distributed caching (DB 1) and rate limits (DB 2).
+- **cAdvisor (`cadvisor`)**: Gathers container-level CPU and memory metrics.
+- **Mailpit (`mailpit`)**: Local SMTP server and inbox viewer for development emails.

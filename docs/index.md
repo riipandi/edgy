@@ -2,18 +2,18 @@
 
 Human-facing documentation for the Edgy reference server.
 
-| Document                            | What it covers                                           |
-| ----------------------------------- | -------------------------------------------------------- |
-| [Getting started](../README.md)     | What the project is, requirements, first run             |
-| [CLI](./commandline.md)             | Commands, flags, confirmation and dry-run behaviour      |
-| [Configuration](./configuration.md) | Environment variables, defaults, examples                |
-| [API endpoints](./api-endpoint.md)  | Endpoint list, request ID tracing, error response shapes |
-| [Development](./development.md)     | Day-to-day commands, database workflow, validation       |
-| [Deployment](./deployment.md)       | Node.js server and bundled assets                        |
+| Document                            | What it covers                                                          |
+| ----------------------------------- | ----------------------------------------------------------------------- |
+| [Getting started](../README.md)     | System overview, prerequisites, and first-run instructions.             |
+| [CLI](./commandline.md)             | CLI commands, flags, dry-run previews, and cluster supervision.         |
+| [Configuration](./configuration.md) | Environment variables, defaults, validation rules, and Compose options. |
+| [API endpoints](./api-endpoint.md)  | HTTP routes, response envelopes, pagination, health, and error shapes.  |
+| [Development](./development.md)     | Local dev server, database workflow, SolidJS frontend, and testing.     |
+| [Deployment](./deployment.md)       | Standalone builds, OxMgr process clustering, Docker, and telemetry.     |
 
 ## Reading order by goal
 
-- **Run it locally for the first time** — README (getting started) → [Configuration](./configuration.md)
-- **Work on the code** — [Development](./development.md) → [CLI](./commandline.md)
-- **Ship it** — [Deployment](./deployment.md) → [Configuration](./configuration.md)
-- **Integrate with it** — [API endpoints](./api-endpoint.md)
+- **Run locally for the first time** — [Getting started](../README.md) → [Configuration](./configuration.md)
+- **Work on the codebase** — [Development](./development.md) → [CLI](./commandline.md)
+- **Deploy to production** — [Deployment](./deployment.md) → [Configuration](./configuration.md)
+- **Consume the API** — [API endpoints](./api-endpoint.md)
