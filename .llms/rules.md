@@ -27,6 +27,7 @@
 - Rate limiting enforces a token-bucket algorithm with continuous refill (`refillRateMillis = window / limit`). Counters persist to the `rate_limits` table or Redis (`REDIS_ENABLE=true`). Outages fail closed with `503 DATABASE_ERROR`. Exclusions (`/api/health`) are prefix or exact matches.
 - Standalone builds (`vpr build:standalone`) inline all JavaScript dependencies into `dist/entry.js` and verify zero bare external package imports remain. The Turso native binding is copied to `dist/node_modules/` for the host platform.
 - Standalone builds automatically generate `dist/oxfile.toml` for OxMgr cluster process supervision (`cluster_mode = true`, `cluster_instances = 4`). Clustered deployments must execute migrations prior to starting workers.
+- Page routes are scanned by `filesystem-routing` and imported in `src/router.ts` as `virtual:file-routes`. `fileRoutes({ types: true })` writes gitignored `file-routes.d.ts` (referenced from `src/vite-env.d.ts`) only when the Vite plugin's `buildStart` runs. CI must run `vp run build` before `vp run check` and `vp run typecheck`. Do not also reference `filesystem-routing/types`: the package declares the two must not both be referenced.
 
 ## How to change it
 

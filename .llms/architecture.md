@@ -134,6 +134,7 @@ Persistence utilizes Kysely over SQLite via a unified custom dialect in `src/dat
 - **Script Nonce Hardening**: Every page render mints a TypeID nonce (`nonce_...`), embeds it into hydration scripts, and issues a strict CSP header (`script-src 'self' 'nonce-...' 'strict-dynamic'`).
 - **Isomorphic Fetch Bridge**: `src/modules/identity/user/user_fn.ts` provides universal data-fetching functions. In the browser, it issues standard `fetch('/api/users')`. On the server during SSR, calls resolve directly against `UserService` in memory.
 - **Zero-Runtime CSS**: Page styles in `src/resources/styles/` are authored with StyleX and extracted to static CSS bundles at build time.
+- **File routes**: `filesystem-routing/vite` scans `src/routes` and serves the manifest as `virtual:file-routes`. `src/router.ts` passes `pageRoutes` to `@solidjs/router/fs`. `@solidjs/router` does not write route types. `fileRoutes({ types: true })` writes gitignored `file-routes.d.ts` as a literal tuple (so path-derived route types survive) only from the Vite plugin's `buildStart`. A clean checkout has no declaration until `vp dev` or `vp build` runs, so CI builds before lint and typecheck. The package forbids also referencing `filesystem-routing/types`.
 
 ## Process lifecycle and graceful shutdown
 

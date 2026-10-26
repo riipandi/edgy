@@ -23,6 +23,9 @@ jobs:
           node-version: 24.22.0
           cache: true
 
+      - name: Build the application
+        run: vp run build
+
       - name: Format and lint
         run: vp run check
 
@@ -42,6 +45,3 @@ jobs:
 
       # - name: The API description is current
       #   run: vp run app openapi:generate --check
-
-      - name: Build the application
-        run: vp run build

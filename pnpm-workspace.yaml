@@ -14,6 +14,7 @@ minimumReleaseAgeExclude:
   - filesystem-routing
   - kysely
   - solid-js
+  - storybook
   - storybook-solidjs-vite
 
 catalog:
