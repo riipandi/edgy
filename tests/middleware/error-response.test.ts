@@ -49,24 +49,28 @@ const { handler, dispose } = HttpRouter.toWebHandler(
 
 afterAll(() => void dispose())
 
-it('answers a defect under /api with a JSON internal server error', async () => {
+it('answers a defect under /api with a JSON internal error envelope', async () => {
   const response = await handler(new Request('http://localhost/api/boom'))
   expect(response.status).toBe(500)
   expect(response.headers.get('content-type')).toContain('application/json')
-  expect(await response.json()).toEqual({ _tag: 'InternalServerError' })
+  const body = await response.json()
+  expect(body.status).toBe('error')
+  expect(body.error).toMatchObject({ code: 'INTERNAL_ERROR', retryable: false })
 })
 
 it('still lets the request log warn about the raw failure', () => {
   expect(lines.some((line) => line.includes('GET /api/boom error'))).toBe(true)
 })
 
-it('reshapes a decode failure into a 400 with the failing kind', async () => {
+it('reshapes a decode failure into a 400 error envelope with the failing kind', async () => {
   const response = await handler(new Request('http://localhost/api/decode'))
   expect(response.status).toBe(400)
-  expect(await response.json()).toMatchObject({
-    _tag: 'HttpApiDecodeError',
-    kind: 'Payload',
-    message: expect.stringContaining('Expected')
+  const body = await response.json()
+  expect(body.status).toBe('error')
+  expect(body.error).toMatchObject({
+    code: 'VALIDATION_FAILED',
+    retryable: false,
+    details: { kind: 'Payload', issue: expect.stringContaining('Expected') }
   })
 })
 

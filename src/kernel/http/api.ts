@@ -6,6 +6,8 @@ import * as HttpServer from 'effect/http/HttpServer'
 import * as HttpServerResponse from 'effect/http/HttpServerResponse'
 import { PrometheusMetrics } from 'effect/observability'
 import { AppConfig } from '#/kernel/config/config.ts'
+import { ApiNotFoundError } from '#/kernel/http/errors.ts'
+import { errorBody } from '#/kernel/http/respond.ts'
 import { api, moduleHandlerLayer } from '#/kernel/registry.ts'
 import { applicationContext, disposeUserRuntime } from '#/kernel/runtime.ts'
 import { rateLimitMiddleware } from '#/middleware/rate-limit.ts'
@@ -26,13 +28,14 @@ export { api }
 // including the wrong method on a known path — so an API typo is a JSON 404
 // in serve and in dev instead of the SSR page or an empty body. Static routes
 // keep find-my-way priority over the wildcard.
+const apiFallback = Effect.flatMap(
+  errorBody(new ApiNotFoundError({ code: 'NOT_FOUND', retryable: false }), 404, 'Not found'),
+  (body) => Effect.succeed(HttpServerResponse.jsonUnsafe(body, { status: 404 }))
+)
+
 const apiFallbacks = HttpRouter.use((router) =>
   Effect.gen(function* () {
-    yield* router.add(
-      '*',
-      '/api/*',
-      Effect.succeed(HttpServerResponse.jsonUnsafe({ _tag: 'NotFound' }, { status: 404 }))
-    )
+    yield* router.add('*', '/api/*', apiFallback)
   })
 )
 

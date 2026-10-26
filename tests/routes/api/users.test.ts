@@ -97,13 +97,14 @@ describe('GET /api/users/:id', () => {
     expect((await response.json()).metadata.cache).toBe('bypass')
   })
 
-  it('responds 400 JSON for a non-TypeID id', async () => {
+  it('responds 400 with a validation error envelope for a non-TypeID id', async () => {
     const response = await handler(new Request('http://localhost/api/users/not-a-typeid'))
     expect(response.status).toBe(400)
-    expect(await response.json()).toMatchObject({
-      _tag: 'HttpApiDecodeError',
-      kind: 'Params',
-      message: expect.stringContaining('["id"]')
+    const body = await response.json()
+    expect(body.status).toBe('error')
+    expect(body.error).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      details: { kind: 'Params', issue: expect.stringContaining('["id"]') }
     })
   })
 
@@ -119,16 +120,20 @@ describe('GET /api/users/:id', () => {
 })
 
 describe('unknown API path', () => {
-  it('responds 404 JSON for an unknown path', async () => {
+  it('responds 404 with an error envelope for an unknown path', async () => {
     const response = await handler(new Request('http://localhost/api/nope'))
     expect(response.status).toBe(404)
-    expect(await response.json()).toEqual({ _tag: 'NotFound' })
+    const body = await response.json()
+    expect(body.status).toBe('error')
+    expect(body.error).toMatchObject({ code: 'NOT_FOUND', retryable: false })
   })
 
-  it('responds 404 JSON for an unregistered method', async () => {
+  it('responds 404 with an error envelope for an unregistered method', async () => {
     const response = await handler(new Request('http://localhost/api/users', { method: 'PUT' }))
     expect(response.status).toBe(404)
-    expect(await response.json()).toEqual({ _tag: 'NotFound' })
+    const body = await response.json()
+    expect(body.status).toBe('error')
+    expect(body.error).toMatchObject({ code: 'NOT_FOUND', retryable: false })
   })
 })
 
@@ -185,23 +190,25 @@ describe('POST /api/users', () => {
     })
   })
 
-  it('responds 400 JSON for a blank email', async () => {
+  it('responds 400 with a validation error envelope for a blank email', async () => {
     const response = await post('/api/users', { email: '   ' })
     expect(response.status).toBe(400)
-    expect(await response.json()).toMatchObject({
-      _tag: 'HttpApiDecodeError',
-      kind: 'Payload',
-      message: expect.stringContaining('["email"]')
+    const body = await response.json()
+    expect(body.status).toBe('error')
+    expect(body.error).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      details: { kind: 'Payload', issue: expect.stringContaining('["email"]') }
     })
   })
 
-  it('responds 400 JSON for a body that is not JSON', async () => {
+  it('responds 400 with a validation error envelope for a body that is not JSON', async () => {
     const response = await rawPost('/api/users', '{not json')
     expect(response.status).toBe(400)
-    expect(await response.json()).toMatchObject({
-      _tag: 'HttpApiDecodeError',
-      kind: 'Payload',
-      message: expect.stringContaining('JSON')
+    const body = await response.json()
+    expect(body.status).toBe('error')
+    expect(body.error).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      details: { kind: 'Payload', issue: expect.stringContaining('JSON') }
     })
   })
 

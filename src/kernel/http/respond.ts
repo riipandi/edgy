@@ -97,16 +97,30 @@ export const respondSuccess = <A>(
     return body
   })
 
+// Builds the error envelope as a plain value — used where the caller returns
+// the body itself rather than failing an HttpApi handler's effect (the
+// defect-reshaping middleware constructs an HttpServerResponse directly).
+export const errorBody = <E>(
+  error: E,
+  statusCode: number,
+  message: string,
+  options?: RespondOptions
+): Effect.Effect<ErrorBody<E>> =>
+  Effect.map(buildMetadata(statusCode, options), (metadata) => ({
+    status: 'error' as const,
+    message,
+    error,
+    metadata
+  }))
+
 // Fails the effect with the envelope rather than returning it: the endpoint's
 // declared error schema is what HttpApi encodes a failure's channel into, so
 // `yield* respondError(...)` inside a handler propagates as the failure
 // HttpApi expects, carrying the status ErrorEnvelope already annotated.
-export const respondError = <E extends { readonly message: string }>(
+export const respondError = <E>(
   error: E,
   statusCode: number,
   message: string,
   options?: RespondOptions
 ): Effect.Effect<never, ErrorBody<E>> =>
-  Effect.flatMap(buildMetadata(statusCode, options), (metadata) =>
-    Effect.fail<ErrorBody<E>>({ status: 'error', message, error, metadata })
-  )
+  Effect.flatMap(errorBody(error, statusCode, message, options), Effect.fail)
