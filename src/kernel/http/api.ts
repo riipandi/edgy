@@ -10,18 +10,12 @@ import { PrometheusMetrics } from 'effect/observability'
 import { AppConfig } from '#/kernel/config/config.ts'
 import { healthHandlers, HealthApi } from '#/kernel/healthcheck.ts'
 import { applicationContext, disposeUserRuntime } from '#/kernel/runtime.ts'
-import { corsMiddleware } from '#/middleware/cors.ts'
-import { errorResponseMiddleware } from '#/middleware/error-response.ts'
 import { rateLimitMiddleware } from '#/middleware/rate-limit.ts'
-import { requestIdMiddleware } from '#/middleware/request-id.ts'
-import { requestLogMiddleware } from '#/middleware/request-log.ts'
 import { docsSecurityHeadersMiddleware } from '#/middleware/security-headers.ts'
-import { securityHeadersMiddleware } from '#/middleware/security-headers.ts'
-import { requestTracerMiddleware } from '#/middleware/tracer.ts'
-import { trustProxyMiddleware } from '#/middleware/trust-proxy.ts'
 import { UsersApi, usersHandlers } from '#/modules/identity/module.ts'
 import { LoggerLayer } from '#/observer/logger.ts'
 import pkg from '../../../package.json' with { type: 'json' }
+import { httpStack } from './stack.ts'
 
 export const apiDocsPath = '/api-docs'
 export const openApiPath = '/api/openapi.json'
@@ -84,17 +78,10 @@ export const apiHandler = async () => {
     // references only reach the request fibers from an ambient layer around
     // the whole program, the same rule the test compositions follow.
     Layer.mergeAll(
-      Layer.mergeAll(
-        trustProxyMiddleware,
-        requestIdMiddleware,
-        errorResponseMiddleware,
-        requestLogMiddleware(),
-        corsMiddleware,
-        securityHeadersMiddleware,
-        apiRoutes,
-        metrics,
-        requestTracerMiddleware
-      ).pipe(Layer.provide(Layer.succeedContext(context)), Layer.provide(HttpServer.layerServices)),
+      httpStack(apiRoutes, metrics).pipe(
+        Layer.provide(Layer.succeedContext(context)),
+        Layer.provide(HttpServer.layerServices)
+      ),
       LoggerLayer.pipe(Layer.provide(Layer.succeedContext(context)))
     )
   )
