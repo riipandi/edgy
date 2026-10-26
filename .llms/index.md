@@ -6,7 +6,7 @@
 | [rules.md](./rules.md)               | Implemented contracts and change guidance.                     |
 | [architecture.md](./architecture.md) | Runtime composition and package boundaries.                    |
 | [effect-docs.md](./effect-docs.md)   | Effect v4 documentation links.                                 |
-| [plans/](./plans/)                   | Execution contracts; newest is plan-20261026_1227 (self-contained module DI, phases 1-4 landed). |
+| [plans/](./plans/)                   | Execution contracts; newest is plan-20261026_1620 (module registry + API response envelope, proposed). |
 | [issues/](./issues/)                 | Live findings; none — every issue is archived.                 |
 | [roadmap/](./roadmap/)               | Parked improvements with named unlocks.                        |
 | [handover/](./handover/)             | Session compactions; newest is handover-20261026_1340.         |
