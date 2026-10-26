@@ -29,10 +29,14 @@ dependencies inside the module (`modules/identity/user/user_layer.ts`), so the c
 never sees those dependencies — only the module's merged service layer. A module's package
 `module.ts` re-exports its `HttpApiGroup`, its handlers factory, and its merged service layer
 under its own name (identity exports `identityLayer`); the kernel imports a module through that
-barrel alone, never a feature file directly. Wiring a module into the application means editing
-`kernel/layers.ts` (merge the layer into `ApplicationLayer`) and `kernel/http/api.ts` (add the
-group to the `HttpApi` chain, provide the handlers factory into `apiRoutes`) — two kernel files,
-not a shared registry.
+barrel alone, never a feature file directly. `kernel/registry.ts` is the one file that wires a
+module into the application: it imports the module's group, handlers factory, and service layer,
+and exports `api` (the `HttpApi.make(...).add(...)` chain), `moduleServiceLayer`
+(`Layer.mergeAll` of every module's layer, consumed by `kernel/layers.ts`'s `ApplicationLayer`),
+and `moduleHandlerLayer` (consumed by `kernel/http/api.ts`'s `apiRoutes`). Neither `kernel/layers.ts`
+nor `kernel/http/api.ts` imports a feature module directly. The `.add(...)` chain stays a literal,
+hand-written call rather than built from an array — Effect v4's `HttpApi.add` needs a tuple-typed
+argument list, so a runtime array of module groups does not type-check without a cast.
 
 ## Feature and persistence boundaries
 
@@ -47,17 +51,20 @@ handlers translate those failures to a sanitized `503` response.
 ## API and HTTP
 
 Effect HttpApi owns the wire contract: the group contracts (`kernel/healthcheck.ts`,
-`modules/identity/user/user_route.ts`) define endpoint schemas, statuses, and error sets once, the
-handler factories beside them implement them, and `kernel/http/api.ts` composes
-`HttpApi.make(...).prefix('/api')` into `HttpApiBuilder.layer`. The rate-limit middleware is a
-router-level layer provided into that composition. The OpenAPI document and the Scalar reference
-mount from the same contract behind `API_DOCS_ENABLED`; the document title and version come from
-`package.json` through the `OpenApi.Title`/`OpenApi.Version` annotations. `kernel/http/api.ts`
-exports the path constants (`apiDocsPath`, `openApiPath`, `metricsPath`) that the Vite dev
-plugin's forwarding guard also reads. The dev plugin forwards exactly the router-owned endpoints —
-`/api/*`, `apiDocsPath`, `metricsPath` — and leaves page and asset paths to Vite; `apiHandler`
-mounts the Prometheus endpoint behind the same `METRICS_ENABLED` gate the serve command uses, so
-dev answers what serve answers.
+`modules/identity/user/user_route.ts`) define endpoint schemas, statuses, and error sets once —
+every success/error schema wrapped in `SuccessEnvelope`/`ErrorEnvelope` except health's own — the
+handler factories beside them implement them with `respondSuccess`/`respondError`, and
+`kernel/registry.ts` composes `HttpApi.make(...).add(...).prefix('/api')` into the `api` value;
+`kernel/http/api.ts` consumes that value into `HttpApiBuilder.layer` and re-exports it unchanged
+for its own existing consumers. The rate-limit middleware is a router-level layer provided into
+that composition. The OpenAPI document and the Scalar reference mount from the same contract
+behind `API_DOCS_ENABLED`; the document title and version come from `package.json` through the
+`OpenApi.Title`/`OpenApi.Version` annotations. `kernel/http/api.ts` exports the path constants
+(`apiDocsPath`, `openApiPath`, `metricsPath`) that the Vite dev plugin's forwarding guard also
+reads. The dev plugin forwards exactly the router-owned endpoints — `/api/*`, `apiDocsPath`,
+`metricsPath` — and leaves page and asset paths to Vite; `apiHandler` mounts the Prometheus
+endpoint behind the same `METRICS_ENABLED` gate the serve command uses, so dev answers what serve
+answers.
 
 `kernel/healthcheck.ts` serves the health check directly from `Database.ping` — the health
 feature has no service of its own; the healthcheck CLI pings the same signal with a 2-second

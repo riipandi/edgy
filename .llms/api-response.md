@@ -28,8 +28,8 @@ Complete success response:
         // Rate limit information
         rate_limit?: ApiRateLimit
 
-        // How a cached read was answered: hit | miss | bypass (absent when nothing was cached)
-        cache?: 'hit' | 'miss' | 'bypass'
+        // How a cached read was answered: hit | miss | bypass | disabled (absent when nothing was cached)
+        cache?: 'hit' | 'miss' | 'bypass' | 'disabled'
 
         // Pagination information (HATEOAS-first)
         ...ApiPagination
