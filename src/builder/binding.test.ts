@@ -36,13 +36,13 @@ describe('the native binding resolver', () => {
   })
 
   it("copies this platform's binding into dist so the bundle runs standalone", () => {
-    withPlatform('darwin', 'arm64', () => {
-      const dist = tempDir()
-      copyNativeBinding(dist)
-      // The copy is dereferenced: a real package directory lands in dist.
-      const copied = path.join(dist, 'node_modules', '@tursodatabase')
-      expect(readdirSync(copied)).toContain('database-darwin-arm64')
-      expect(readdirSync(path.join(copied, 'database-darwin-arm64'))).toContain('package.json')
-    })
+    const dist = tempDir()
+    copyNativeBinding(dist)
+    // The copy is dereferenced: a real package directory lands in dist.
+    const copied = path.join(dist, 'node_modules', '@tursodatabase')
+    const binding = `database-${process.platform}-${process.arch}`
+    expect(readdirSync(copied).some((name) => name.startsWith(binding))).toBe(true)
+    const installed = readdirSync(copied).find((name) => name.startsWith(binding))
+    expect(readdirSync(path.join(copied, installed ?? ''))).toContain('package.json')
   })
 })
