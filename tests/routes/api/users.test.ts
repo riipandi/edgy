@@ -1,7 +1,7 @@
 import type { Layer } from 'effect'
 import { TypeID } from 'typeid-js'
 import { afterAll, describe, expect, it } from 'vite-plus/test'
-import { applicationServices } from '#/kernel/registry.ts'
+import { identityLayer } from '#/modules/identity/module.ts'
 import { toHandler } from '../../fixtures/api.ts'
 import { testConfig } from '../../fixtures/config.ts'
 import { migratedDatabaseFor } from '../../fixtures/database.ts'
@@ -15,7 +15,7 @@ const { handler: unavailableUsersHandler, dispose: disposeUnavailableUsersHandle
 // The write surface runs against the real service composition and its own
 // database, so created records never touch the fake the read tests share.
 const { handler: writeHandler, dispose: disposeWriteHandler } = toHandler(
-  applicationServices as Layer.Layer<any>,
+  identityLayer as Layer.Layer<any>,
   testConfig,
   migratedDatabaseFor('users-write.db')
 )

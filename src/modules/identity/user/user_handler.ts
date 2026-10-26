@@ -12,6 +12,8 @@ import { UserService } from './user_service.ts'
 const nocacheRequested = (request: HttpServerRequest.HttpServerRequest, baseUrl: string) =>
   new URL(request.url, baseUrl).searchParams.get('nocache') === '1'
 
+// A factory, not a module-scope layer: building the group layer eagerly would
+// make the `api` value import a runtime cycle (api.ts -> module -> here).
 export const usersHandlers = (httpApi: typeof api) =>
   HttpApiBuilder.group(httpApi, 'users', (handlers) =>
     handlers
