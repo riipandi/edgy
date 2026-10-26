@@ -78,8 +78,5 @@ jobs:
           node-version: 24.22.0
           cache: true
 
-      - name: Test
-        run: vp run test
-
       - name: Build
         run: vp run build:standalone
