@@ -110,21 +110,35 @@ export const assertNoExternalImports = (dir: string): void => {
 export const writeOxfile = (distDir: string, name: string): void => {
   writeFileSync(
     path.join(distDir, 'oxfile.toml'),
-    `version = 1
+    `#:schema https://raw.githubusercontent.com/Vladimir-Urik/OxMgr/refs/heads/master/schemas/oxfile.schema.json
+
+version = 1
+
+[defaults]
+restart_policy = "on_failure"
+max_restarts = 10
+stop_timeout_secs = 5
+health_interval_secs = 20
+health_timeout_secs = 4
+health_max_failures = 3
+stop_signal = "SIGTERM"
 
 [[apps]]
 name = "${name}"
 command = "node entry.js serve"
-restart_policy = "on-failure"
-stop_signal = "SIGTERM"
-stop_timeout_secs = 20
 health_cmd = "node entry.js healthcheck"
 
 # Set to true to run one worker per CPU (Node \`cluster\`, no code changes
 # needed). Before enabling: run migrations once outside cluster_mode, e.g.
 # \`node entry.js migrate:up\` — every clustered worker is a separate OS
 # process and would otherwise race to migrate the same database.
-cluster_mode = false
+cluster_instances = 4
+cluster_mode = true
+
+[apps.env]
+NODE_ENV = "production"
+RATE_LIMIT_ENABLED = "false"
+SERVER_HOST = "0.0.0.0"
 `
   )
 }

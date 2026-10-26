@@ -13,6 +13,7 @@
         "preview": "vp preview",
         "app": "node --env-file-if-exists=.env.local src/main.ts",
         "start": "node --env-file-if-exists=.env.local dist/entry.js serve",
+        "start:cluster": "oxmgr runtime ./oxfile.toml",
         "build:standalone": "vp build --mode standalone --minify",
         "docker:build": "docker build -f Dockerfile . --build-arg DISTROLESS_TAG=debug-nonroot -t $(node scripts/docker-ref.mjs -dev)",
         "docker:push": "docker push $(node scripts/docker-ref.mjs --image):latest-dev && docker push $(node scripts/docker-ref.mjs -dev)",
