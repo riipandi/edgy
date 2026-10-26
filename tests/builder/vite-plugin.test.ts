@@ -3,6 +3,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   rmSync,
   statSync,
   writeFileSync
@@ -168,5 +169,37 @@ describe('closeBundle', () => {
     expect(() => hooks(plugin).closeBundle.call({ environment: { name: 'effect' } })).toThrow(
       /leaked external imports/
     )
+  })
+
+  it('accepts a bare Node builtin specifier a dependency carried through unprefixed', () => {
+    const root = tempRoot()
+    const dist = path.join(root, 'dist')
+    mkdirSync(dist, { recursive: true })
+    writeFileSync(
+      path.join(dist, 'entry.js'),
+      `import { createRequire } from 'module'\nexport default createRequire\n`
+    )
+
+    const plugin = effectVite({ enabled: true })
+    hooks(plugin).configResolved({ root })
+    hooks(plugin).config({}, { command: 'build', mode: 'standalone' })
+    expect(() => hooks(plugin).closeBundle.call({ environment: { name: 'effect' } })).not.toThrow()
+  })
+
+  it('writes dist/oxfile.toml for a standalone build by default', () => {
+    const root = tempRoot()
+    const dist = path.join(root, 'dist')
+    mkdirSync(dist, { recursive: true })
+    writeFileSync(path.join(dist, 'entry.js'), 'export {}')
+
+    const plugin = effectVite({ enabled: true })
+    hooks(plugin).configResolved({ root })
+    hooks(plugin).config({}, { command: 'build', mode: 'standalone' })
+    hooks(plugin).closeBundle.call({ environment: { name: 'effect' } })
+
+    const oxfile = readFileSync(path.join(dist, 'oxfile.toml'), 'utf8')
+    expect(oxfile).toContain('cluster_mode = false')
+    expect(oxfile).toContain('command = "node entry.js serve"')
+    expect(oxfile).not.toContain('--auto-migrate')
   })
 })

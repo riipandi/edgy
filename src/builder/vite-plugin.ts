@@ -1,5 +1,5 @@
 import { Effect, Layer } from 'effect'
-import { chmodSync, existsSync, rmSync } from 'node:fs'
+import { chmodSync, existsSync, readFileSync, rmSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Plugin, ViteDevServer } from 'vite-plus'
@@ -9,7 +9,7 @@ import { migrateAndSeed } from '#/database/migrator.ts'
 import { apiHandler, apiDocsPath, metricsPath } from '#/kernel/http/api.ts'
 import { CoreLayer } from '#/kernel/layers.ts'
 import { copyNativeBinding } from './binding.ts'
-import { assertNoExternalImports, packageNameFor } from './helpers.ts'
+import { assertNoExternalImports, packageNameFor, writeOxfile } from './helpers.ts'
 import { toRequest, writeResponse } from './helpers.ts'
 
 const ENTRYPOINT = 'entry.js'
@@ -20,6 +20,9 @@ const prepare = Effect.gen(function* () {
 }).pipe(Effect.provide(DatabaseLayer.pipe(Layer.provideMerge(CoreLayer))))
 
 const entry = fileURLToPath(new URL('../main.ts', import.meta.url))
+const pkg = JSON.parse(
+  readFileSync(fileURLToPath(new URL('../../package.json', import.meta.url)), 'utf8')
+)
 
 interface EffectDevPluginOptions {
   enabled: boolean
@@ -127,6 +130,7 @@ export const effectVite = (opts: EffectDevPluginOptions): Plugin => {
       if (standaloneMode && this.environment?.name === 'effect') {
         assertNoExternalImports(distDir)
         copyNativeBinding(distDir)
+        writeOxfile(distDir, pkg.name)
       }
       // Dedupe stylex <outDir>/assets/stylex.css for bundles. Its styles already
       // ship inside the client's entry stylesheet, so drop the duplicate.

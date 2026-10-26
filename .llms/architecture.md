@@ -159,7 +159,22 @@ retries. `CacheableService.get` pairs the value with a `CacheStatus` (`hit` | `m
 `disabled`) — hit detection peeks the in-memory layer without populating; `bypass` skips read and
 fill. HTTP surfaces expose the status in the `x-cache` response header (the users API via a
 `WithHeaders` success schema, the SSR user page via `httpHeader` before the shell flush), and
-`?nocache=1` on either surface requests the bypass. Rate-limit windows live in the configured
-store: fixed-window counters in the database, or shared counters in Redis
-(`REDIS_ENABLE=true`). SQLite is the only engine: the local file and the remote Turso database are
-two transports of the same dialect, and no PostgreSQL adapter exists.
+`?nocache=1` on either surface requests the bypass. `Cache.make`'s own eviction (the non-Redis path)
+is a true LRU despite the "oldest entries" wording in its source comment — `get`/`peek` move a hit
+to the end of the map before capacity eviction drops from the front — and it deduplicates concurrent
+lookups for the same key into one fiber, a thundering-herd guard a hand-rolled LRU library would not
+give for free; there is no concrete gap motivating a swap to one.
+
+Rate-limit counters live in the configured store: a token bucket in the database, or a shared token
+bucket in Redis (`REDIS_ENABLE=true`) — chosen over a fixed window because a fixed window rejects
+every tenant behind a shared IP (CGNAT, a corporate NAT) together at the same reset edge, where
+continuous refill does not. An embedded KV store (LMDB) was evaluated as a faster, lower-contention
+alternative to the database backend and rejected for now: its JS loader locates its own platform
+binary via `import.meta.url`-relative introspection, which breaks once that loader is bundled into a
+single chunk at a path its own `package.json` no longer sits beside — the native binding itself can
+be copied into place (as the Turso engine's already is), but the loader never finds it there.
+Revisit only if the database backend's single-connection serialization under load is measured as a
+real bottleneck; the fix would need the engine kept external (unbundled) with its whole dependency
+tree copied into `dist/node_modules/`, not the native binding alone. SQLite is the only engine: the
+local file and the remote Turso database are two transports of the same dialect, and no PostgreSQL
+adapter exists.

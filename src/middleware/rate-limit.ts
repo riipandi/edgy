@@ -5,7 +5,7 @@ import * as HttpRouter from 'effect/http/HttpRouter'
 import * as HttpServerRequest from 'effect/http/HttpServerRequest'
 import * as HttpServerResponse from 'effect/http/HttpServerResponse'
 import { RateLimiter } from 'effect/persistence'
-import { sql, type Kysely } from 'kysely'
+import type { Kysely } from 'kysely'
 import { Database } from '#/database/adapter.ts'
 import type { DB } from '#/database/schema.ts'
 import { AppConfig } from '#/kernel/config/config.ts'
@@ -44,13 +44,13 @@ export class RateLimitCounter extends Context.Service<
 >()('RateLimitCounter') {}
 
 // ---------------------------------------------------------------------------
-// database backend: fixed-window counters in the rate_limits table
+// database backend: a token-bucket counter in the rate_limits table
 // ---------------------------------------------------------------------------
 
 export const RateLimitSchema = Schema.Struct({
   key: Schema.String,
-  window: Schema.String,
-  count: Schema.Number
+  tokens: Schema.Number,
+  last_refill: Schema.Number
 })
 
 // Table interface for Kysely
@@ -62,16 +62,49 @@ declare module '#/database/schema.ts' {
   }
 }
 
-const bumpWindow = (db: Kysely<DB>, key: string, bucket: string): Promise<number> =>
-  db
-    .insertInto('rate_limits')
-    .values({ key, window: bucket, count: 1 })
-    .onConflict((conflict) =>
-      conflict.columns(['key', 'window']).doUpdateSet({ count: sql`rate_limits.count + 1` })
-    )
-    .returning('count')
-    .executeTakeFirstOrThrow()
-    .then((row) => row.count)
+interface TokenBucketResult {
+  readonly tokens: number
+  readonly lastRefill: number
+  readonly allowed: boolean
+}
+
+// Token bucket, not fixed-window: a key shared by many real clients (CGNAT, a
+// corporate NAT, a VPN exit node — trust-proxy.ts already resolves the real
+// client IP behind a trusted reverse proxy, so this is the remaining shared-IP
+// case) would otherwise see every tenant behind it rejected together at the
+// fixed window's reset edge. Continuous refill smooths that burst without
+// discarding per-IP attribution. A rejected request never drains the bucket
+// below its refilled level, matching the Redis backend's `allowOverflow:
+// false` below. Read, decide, then write inside one transaction: this
+// database already serializes connection access (see dialect.ts), so the two
+// statements never interleave with a concurrent writer.
+const consumeTokenBucket = (
+  db: Kysely<DB>,
+  key: string,
+  limit: number,
+  refillRateMillis: number,
+  now: number
+): Promise<TokenBucketResult> =>
+  db.transaction().execute(async (trx) => {
+    const existing = await trx
+      .selectFrom('rate_limits')
+      .select(['tokens', 'last_refill'])
+      .where('key', '=', key)
+      .executeTakeFirst()
+    const refillAmount = existing ? Math.floor((now - existing.last_refill) / refillRateMillis) : 0
+    const refilled = existing ? Math.min(limit, existing.tokens + refillAmount) : limit
+    const lastRefill = existing ? existing.last_refill + refillAmount * refillRateMillis : now
+    const allowed = refilled >= 1
+    const tokens = allowed ? refilled - 1 : refilled
+    await trx
+      .insertInto('rate_limits')
+      .values({ key, tokens, last_refill: lastRefill })
+      .onConflict((conflict) =>
+        conflict.column('key').doUpdateSet({ tokens, last_refill: lastRefill })
+      )
+      .execute()
+    return { tokens, lastRefill, allowed }
+  })
 
 export const RateLimitCounterLayerDatabase = Layer.effect(
   RateLimitCounter,
@@ -91,23 +124,19 @@ export const RateLimitCounterLayerDatabase = Layer.effect(
     })
     const consume = (key: string, max: number, window: Duration.Duration) =>
       Effect.gen(function* () {
-        const windowMs = Duration.toMillis(window)
+        const refillRateMillis = Math.max(
+          1,
+          Math.floor(Duration.toMillis(window) / Math.max(1, max))
+        )
         const now = yield* Clock.currentTimeMillis
-        const bucketStart = Math.floor(now / windowMs) * windowMs
-        const bucket = String(bucketStart)
-        const count = yield* database
-          .query((db) => bumpWindow(db, key, bucket))
+        const { tokens, lastRefill, allowed } = yield* database
+          .query((db) => consumeTokenBucket(db, key, max, refillRateMillis, now))
           .pipe(Effect.mapError((cause) => new RateLimitError({ cause })))
-        if (count === 1)
-          // A fresh window for this key: every older window is expired.
-          yield* database
-            .query((db) => db.deleteFrom('rate_limits').where('window', '<', bucket).execute())
-            .pipe(Effect.ignore)
         return {
-          allowed: count <= max,
+          allowed,
           limit: max,
-          remaining: Math.max(0, max - count),
-          resetSeconds: Math.max(1, Math.ceil((bucketStart + windowMs - now) / 1000))
+          remaining: Math.max(0, tokens),
+          resetSeconds: Math.max(1, Math.ceil((lastRefill + refillRateMillis - now) / 1000))
         } satisfies ConsumeVerdict
       }).pipe(verdictSpan)
     return RateLimitCounter.of({ consume })
@@ -152,7 +181,7 @@ export const RateLimitCounterLayerRedis = (url: Redacted.Redacted) =>
         })
         const consume = (key: string, max: number, window: Duration.Duration) =>
           limiter
-            .consume({ key, limit: max, window, onExceeded: 'fail', algorithm: 'fixed-window' })
+            .consume({ key, limit: max, window, onExceeded: 'fail', algorithm: 'token-bucket' })
             .pipe(
               Effect.map((result) => ({
                 allowed: true,

@@ -138,8 +138,10 @@ server-rendered application answers those paths, not the API.
 The user routes use the configured rate limit. A rejected request returns `429` with `Retry-After`
 and `RateLimit-*` headers, and the same information in `metadata.rate_limit`
 (`{limit, remaining, reset}`, `reset` a Unix timestamp). A store that cannot be read returns `503`
-rather than an unthrottled request. The fixed-window counter is stored in the `rate_limits`
-database table, so separate server instances share the same limit.
+rather than an unthrottled request. The limit refills gradually (a token bucket, not a fixed
+window), so a client regains part of its budget continuously instead of waiting for the whole
+window to reset. The counter is stored in the `rate_limits` database table, so separate server
+instances share the same limit.
 
 `/api/health` is exempt from the rate limit: a readiness probe never consumes the budget, never
 trips the limit, and keeps answering when the limiter's store is down.

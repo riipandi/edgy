@@ -116,12 +116,14 @@ configuration parsing.
 | `RATE_LIMIT_WINDOW`    | `60000` | Rate-limit window in milliseconds.                                                     |
 | `TRUST_PROXY`          | `false` | Proxies that may set `X-Forwarded-For`: `true`, `false`, or comma-separated IPs/CIDRs. |
 
-Rate limiting applies only to the API routes. Its fixed-window counters live in the `rate_limits`
-database table by default, or in Redis when `REDIS_ENABLE=true`, which lets several instances share
-the limit. A store that cannot be read answers `503` instead of letting the request through
-unthrottled. `TRUST_PROXY` controls which reverse proxies may set the client address through
-`X-Forwarded-For` or `X-Real-IP`; requests that do not come through a trusted proxy are keyed by their
-own address, and a spoofed forwarded header from an untrusted peer is ignored. Cached user lookups
+Rate limiting applies only to the API routes. It refills gradually (a token bucket, not a fixed
+window): a client regains part of its budget continuously instead of waiting for the whole window
+to reset. The counters live in the `rate_limits` database table by default, or in Redis when
+`REDIS_ENABLE=true`, which lets several instances share the limit. A store that cannot be read
+answers `503` instead of letting the request through unthrottled. `TRUST_PROXY` controls which
+reverse proxies may set the client address through `X-Forwarded-For` or `X-Real-IP`; requests that
+do not come through a trusted proxy are keyed by their own address, and a spoofed forwarded header
+from an untrusted peer is ignored. Cached user lookups
 live in process memory by default, or in Redis when `REDIS_ENABLE=true`; a failed lookup is never
 cached.
 

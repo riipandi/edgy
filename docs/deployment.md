@@ -43,6 +43,13 @@ the locking it relies on. Deploy a remote Turso database (`DATABASE_URL` plus
 and cached lookups can be shared between instances through Redis when
 `REDIS_ENABLE=true`; without Redis each instance keeps its own counters and cache.
 
+A standalone build ships an [Oxmgr](https://github.com/Vladimir-Urik/OxMgr) config
+(`oxfile.toml`) for running one worker per CPU on a single host, which the
+multi-process database mode above supports. Using it is optional — a plain
+single-process deploy needs no changes — and cluster mode is off by default in
+the generated file. Run migrations once, separately from a multi-worker start,
+so two workers never race to migrate the same database.
+
 Set `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_HEADERS` for your
 collector. The server exports traces and metrics when `OTEL_SDK_DISABLED` is
 false; add `otlp` to `LOG_TRANSPORT` to export logs. Keep collector credentials

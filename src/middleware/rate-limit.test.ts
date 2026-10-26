@@ -71,6 +71,27 @@ it.effect('starts a fresh window after the bucket expires', () =>
   }).pipe(Effect.provide(counterLayer))
 )
 
+it.effect('refills gradually instead of resetting all at once', () =>
+  Effect.gen(function* () {
+    const counter = yield* RateLimitCounter
+    // limit 3 over 30s: one token every 10s.
+    yield* counter.consume('refill', 3, Duration.seconds(30))
+    yield* counter.consume('refill', 3, Duration.seconds(30))
+    yield* counter.consume('refill', 3, Duration.seconds(30))
+    expect((yield* counter.consume('refill', 3, Duration.seconds(30))).allowed).toBe(false)
+
+    // Half a refill interval: still empty, unlike a fixed window's all-or-nothing reset.
+    yield* TestClock.adjust('5 seconds')
+    expect((yield* counter.consume('refill', 3, Duration.seconds(30))).allowed).toBe(false)
+
+    // A full refill interval: exactly one token back, not the whole bucket.
+    yield* TestClock.adjust('5 seconds')
+    const refilled = yield* counter.consume('refill', 3, Duration.seconds(30))
+    expect(refilled).toMatchObject({ allowed: true, remaining: 0 })
+    expect((yield* counter.consume('refill', 3, Duration.seconds(30))).allowed).toBe(false)
+  }).pipe(Effect.provide(counterLayer))
+)
+
 it.effect('maps a store failure into a RateLimitError', () =>
   Effect.gen(function* () {
     const counter = yield* RateLimitCounter.pipe(

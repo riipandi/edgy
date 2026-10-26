@@ -1,6 +1,7 @@
 import { resolveModuleURL } from 'exsolve'
-import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import { builtinModules } from 'node:module'
 import path from 'node:path'
 import { Readable } from 'node:stream'
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web'
@@ -82,6 +83,10 @@ export const assertNoExternalImports = (dir: string): void => {
     }
     for (const spec of specifiers) {
       if (/^(?:\.|\/|#|node:|bun:)/.test(spec)) continue
+      // A dependency's own CommonJS source can `require('module')` (or `fs`,
+      // `path`, ...) without the `node:` prefix; rolldown's CJS interop
+      // carries that bare specifier through unchanged.
+      if (builtinModules.includes(spec)) continue
       // A bare specifier always starts with a name character; minified string
       // artifacts (embedded keyword tables and the like) rarely do.
       if (!/^[A-Za-z@]/.test(spec)) continue
@@ -94,6 +99,34 @@ export const assertNoExternalImports = (dir: string): void => {
       `standalone build leaked external imports:\n  ${[...new Set(offenders)].join('\n  ')}`
     )
   }
+}
+
+// A deploy convenience, not a requirement: OxMgr (https://github.com/Vladimir-Urik/OxMgr)
+// can run entry.js as a Node `cluster` fan-out across every CPU, transparent
+// to the server code (no custom cluster wiring here). Using OxMgr is entirely
+// optional — ignore the file and run entry.js directly and nothing changes.
+// cluster_mode defaults to off in the generated file so a plain deploy keeps
+// today's single-process behavior unless an operator opts in deliberately.
+export const writeOxfile = (distDir: string, name: string): void => {
+  writeFileSync(
+    path.join(distDir, 'oxfile.toml'),
+    `version = 1
+
+[[apps]]
+name = "${name}"
+command = "node entry.js serve"
+restart_policy = "on-failure"
+stop_signal = "SIGTERM"
+stop_timeout_secs = 20
+health_cmd = "node entry.js healthcheck"
+
+# Set to true to run one worker per CPU (Node \`cluster\`, no code changes
+# needed). Before enabling: run migrations once outside cluster_mode, e.g.
+# \`node entry.js migrate:up\` — every clustered worker is a separate OS
+# process and would otherwise race to migrate the same database.
+cluster_mode = false
+`
+  )
 }
 
 // Standalone code splitting: one chunk per top-level package. The group
