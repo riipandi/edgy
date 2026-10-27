@@ -26,4 +26,6 @@ const pageResponseMeta = createMiddleware().server(async ({ next }) => {
   return { ...carried, response: updated }
 })
 
-export const startInstance = createStart(() => ({ requestMiddleware: [pageResponseMeta] }))
+export const startInstance = createStart(() => ({
+  requestMiddleware: [pageResponseMeta]
+}))

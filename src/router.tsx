@@ -6,10 +6,14 @@ export function getRouter() {
   return createRouter({
     routeTree,
     scrollRestoration: true,
-    // Preload route loaders when a link gains pointer or keyboard intent;
-    // staleTime 0 keeps the navigation itself revalidating.
     defaultPreload: 'intent',
     defaultPreloadStaleTime: 0,
     ssr: { nonce: cspNonce }
   })
+}
+
+declare module '@tanstack/react-router' {
+  interface Register {
+    router: ReturnType<typeof getRouter>
+  }
 }
