@@ -7,7 +7,7 @@ export class HomeScreen extends AppScreen {
   }
 
   eyebrow() {
-    return this.page.getByText('Solid Start Base Template')
+    return this.page.getByText('TanStack Start Base Template')
   }
 
   heading() {
@@ -15,7 +15,8 @@ export class HomeScreen extends AppScreen {
   }
 
   usersCta() {
-    return this.page.getByRole('link', { name: 'Users', exact: true })
+    // The nav carries a Users link too; the CTA lives in the hero section.
+    return this.page.getByRole('main').getByRole('link', { name: 'Users', exact: true })
   }
 
   docsLink() {

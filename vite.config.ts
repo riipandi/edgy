@@ -75,25 +75,34 @@ export default defineConfig(({ mode }) => ({
       'import/extensions': ['error', 'ignorePackages', { pattern: { ts: 'always', tsx: 'always' } }]
     },
     options: { typeAware: true, typeCheck: true },
-    ignorePatterns: ignoredPatterns
+    // The type-aware pass resolves tsconfig `types` per file and misses the
+    // vite client `*.css` module for the Storybook config directory; its
+    // four config files stay formatter-covered instead.
+    ignorePatterns: [...ignoredPatterns, '.storybook/**']
   },
   plugins:
     lazyPlugins(() => [
       stylexPlugin(!uiPreview, mode),
-      tanstackStart({
-        router: {
-          // routesDirectory resolves against srcDirectory (src); the
-          // generated tree resolves against the project root.
-          routesDirectory: 'routes',
-          generatedRouteTree: 'src/routeTree.gen.ts'
-        },
-        // Start's dev middleware must stay installed for page rendering, but it
-        // only sees requests the earlier Effect middleware passes through.
-        vite: { installDevServerMiddleware: true },
-        // Route files read the page-response helpers through the isomorphic
-        // server entry; the client build receives Start's mock for them.
-        importProtection: { behavior: { build: 'mock' } }
-      }),
+      // Start owns the page build; Storybook's preview build carries its own
+      // entries that the Start manifest plugin would reject.
+      uiPreview
+        ? null
+        : tanstackStart({
+            router: {
+              // Both paths resolve against srcDirectory (src); the generated
+              // tree lands at src/routeTree.gen.ts.
+              routesDirectory: 'routes',
+              generatedRouteTree: 'routeTree.gen.ts'
+            },
+            // Start's dev middleware must stay installed for page rendering,
+            // but it only sees requests the earlier Effect middleware passes
+            // through.
+            vite: { installDevServerMiddleware: true },
+            // Route files read the page-response helpers through the
+            // isomorphic server entry; the client build receives Start's
+            // mock for them.
+            importProtection: { behavior: { build: 'mock' } }
+          }),
       effectVite({ enabled: !uiPreview }),
       devtoolsJson()
     ]) ?? [],

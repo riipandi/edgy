@@ -1,9 +1,9 @@
-import { defineMain } from 'storybook-solidjs-vite'
+import { defineMain } from '@storybook/react-vite/node'
 
 export default defineMain({
   stories: ['../src/**/*.stories.tsx'],
   addons: ['@storybook/addon-docs', '@storybook/addon-vitest'],
-  framework: 'storybook-solidjs-vite',
+  framework: '@storybook/react-vite',
   core: {
     disableTelemetry: true,
     disableWhatsNewNotifications: true

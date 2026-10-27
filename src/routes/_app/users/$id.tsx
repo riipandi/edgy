@@ -4,6 +4,10 @@ import { fx } from '#/resources/styles/core/utils.stylex.ts'
 import { styles as userStyles } from '#/resources/styles/pages/user.stylex.ts'
 import { sx } from '#/resources/styles/props.ts'
 
+function userTitle(data: Awaited<ReturnType<typeof getUser>> | undefined, id: string): string {
+  return data?.user === undefined ? 'User not found' : `User ${id} - Edgy`
+}
+
 function UserPage() {
   // The route's own useLoaderData call sits in a type cycle inside its
   // defining file, and Start's serialized fn type drops the top-level
@@ -31,7 +35,8 @@ function UserPage() {
 }
 
 export const Route = createFileRoute('/_app/users/$id')({
-  head: ({ params }) => ({ meta: [{ title: `User ${params.id} - Edgy` }] }),
-  loader: ({ params }) => getUser({ data: params.id }),
+  head: ({ loaderData, params }) => ({
+    meta: [{ title: userTitle(loaderData, params.id) }]
+  }),
   component: UserPage
 })
