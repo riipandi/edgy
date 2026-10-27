@@ -1,5 +1,6 @@
 import stylex from '@stylexjs/unplugin/vite'
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
+import react from '@vitejs/plugin-react'
 import { resolve } from 'node:path'
 import devtoolsJson from 'vite-plugin-devtools-json'
 import { defineConfig, lazyPlugins } from 'vite-plus'
@@ -101,6 +102,7 @@ export default defineConfig(({ mode }) => ({
             // mock for them.
             importProtection: { behavior: { build: 'mock' } }
           }),
+      react(),
       effectVite({ enabled: !uiPreview }),
       devtoolsJson()
     ]) ?? [],
