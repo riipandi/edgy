@@ -173,12 +173,6 @@ export const effectVite = (opts: EffectDevPluginOptions): Plugin[] => {
             .then((response) => writeResponse(req, res, response))
             .catch(next)
         })
-        return async () => {
-          await ready.then(
-            (handler) => handler.dispose(),
-            () => undefined
-          )
-        }
       }
     },
     {
