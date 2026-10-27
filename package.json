@@ -46,7 +46,6 @@
         "format": "vp fmt --write .",
         "lint": "vp lint --fix .",
         "typecheck": "tsc -b --noEmit",
-        "prebuild": "tsr generate",
         "prepare": "vp config"
     },
     "dependencies": {
@@ -73,7 +72,6 @@
         "@storybook/addon-vitest": "^10.6.4",
         "@storybook/react-vite": "10.6.4",
         "@stylexjs/unplugin": "^0.19.1",
-        "@tanstack/router-cli": "^1.167.46",
         "@types/node": "^26.6.5",
         "@types/react": "^19.3.0",
         "@types/react-dom": "^19.3.0",
