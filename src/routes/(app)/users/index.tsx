@@ -7,7 +7,13 @@ import { sx } from '#/resources/styles/props.ts'
 
 export const Route = createFileRoute('/(app)/users/')({
   head: () => ({ meta: [{ title: 'Users - Edgy' }] }),
-  loader: () => listUsers(),
+  loader: () =>
+    listUsers().catch((cause) => {
+      // Start serializes a loader error onto the error page; log the real
+      // cause server-side and rethrow a message safe to render.
+      console.error('users list loader failed', cause)
+      throw new Error('This page could not be loaded.')
+    }),
   component: UsersPage
 })
 

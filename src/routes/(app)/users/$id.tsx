@@ -1,4 +1,5 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
+import { setResponseStatus } from '@tanstack/react-start/server'
 import { getUser } from '#/modules/identity/user/user_fns.ts'
 import { fx } from '#/resources/styles/core/utils.stylex.ts'
 import { styles as userStyles } from '#/resources/styles/pages/user.stylex.ts'
@@ -35,7 +36,20 @@ function UserPage() {
 }
 
 export const Route = createFileRoute('/(app)/users/$id')({
-  loader: ({ params }) => getUser({ data: params.id }),
+  loader: ({ params }) =>
+    getUser({ data: params.id })
+      .then((data) => {
+        // A missing user is a routing fact, so the status is set during SSR
+        // while the not-found body still renders inside the shell.
+        if (import.meta.env.SSR && data?.user === undefined) setResponseStatus(404)
+        return data
+      })
+      .catch((cause) => {
+        // Start serializes a loader error onto the error page; log the real
+        // cause server-side and rethrow a message safe to render.
+        console.error('user detail loader failed', cause)
+        throw new Error('This page could not be loaded.')
+      }),
   head: ({ loaderData, params }) => ({
     meta: [{ title: userTitle(loaderData, params.id) }]
   }),
