@@ -6,6 +6,7 @@ import { Writable } from 'node:stream'
 import type { ViteDevServer } from 'vite-plus'
 import { afterAll, expect, it } from 'vite-plus/test'
 import { effectVite } from '#/builder/vite-plugin.ts'
+import { devAccessLog } from '#/middleware/dev-access-log.ts'
 
 // Regression for the dev access-log loss: vite runs the value returned from
 // configureServer as a post hook right after the internal middlewares are
@@ -93,11 +94,23 @@ it(
     const health = await respond('/api/health')
     expect(health.status).toBe(200)
 
+    // Dev page parity: the Start-side access log records page traffic through
+    // the same application runtime, skips Effect-owned paths, and honors the
+    // shared quiet list.
+    const next = async () => new Response(null, { status: 204 })
+    await devAccessLog(new Request('http://localhost:3000/some-page'), next)
+    await devAccessLog(new Request('http://localhost:3000/api/health'), next)
+    await devAccessLog(new Request('http://localhost:3000/_serverFn/data'), next)
+
     // The flush window is 250ms; the access record must reach the file sink.
     await new Promise((resolve) => setTimeout(resolve, 1000))
     const files = readdirSync(path.join(directory, 'logs'))
     expect(files).toHaveLength(1)
     const contents = readFileSync(path.join(directory, 'logs', files[0]!), 'utf8')
     expect(contents).toContain('/api/health')
+    expect(contents).toContain('GET /some-page 204')
+    // Effect-owned and quiet paths stay out of the Start-side record.
+    expect(contents).not.toContain('GET /api/health 204')
+    expect(contents).not.toContain('/_serverFn')
   }
 )

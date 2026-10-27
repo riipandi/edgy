@@ -48,6 +48,39 @@ const isClientAbort = (cause: Cause.Cause<unknown>): boolean =>
     (reason) => reason._tag === 'Interrupt' && reason.annotations.has(ClientAbort.key)
   )
 
+// The shared access record — one metric update plus one data-first log line.
+// The Effect middleware and the dev-side Start middleware both call it, so
+// dev and prod emit the same shape.
+export interface AccessInput {
+  readonly method: string
+  readonly path: string
+  readonly duration: number
+  readonly route?: string | undefined
+}
+
+export const recordAccess = (
+  input: AccessInput & { readonly status: number }
+): Effect.Effect<void> =>
+  Effect.gen(function* () {
+    const duration = Math.max(0, Math.round(input.duration))
+    yield* recordRequest(input.method, input.status, routeLabel(input.route), duration)
+    yield* Effect.logInfo(`${input.method} ${input.path} ${input.status} ${duration}ms`)
+  })
+
+export const recordAccessFailure = (
+  input: AccessInput & { readonly cause: Cause.Cause<unknown> }
+): Effect.Effect<void> =>
+  Effect.gen(function* () {
+    const duration = Math.max(0, Math.round(input.duration))
+    yield* recordRequest(input.method, 500, routeLabel(input.route), duration)
+    yield* Effect.logWarning(`${input.method} ${input.path} error ${duration}ms`, input.cause)
+  })
+
+export const isQuietRequestPath = (
+  pathname: string,
+  quietPaths: ReadonlyArray<QuietPath> = defaultQuietPaths
+): boolean => quietPaths.some((quiet) => isQuietPath(pathname, quiet))
+
 export const requestLogMiddleware = (options?: {
   readonly quietPaths?: ReadonlyArray<QuietPath>
 }) => {
@@ -59,7 +92,7 @@ export const requestLogMiddleware = (options?: {
           Effect.gen(function* () {
             const request = yield* HttpServerRequest.HttpServerRequest
             const path = new URL(request.originalUrl, baseUrl).pathname || '/'
-            const quiet = quietPaths.some((quietPath) => isQuietPath(path, quietPath))
+            const quiet = isQuietRequestPath(path, quietPaths)
             const started = yield* Clock.currentTimeMillis
             const outcome = yield* Effect.exit(effect)
             const duration = Math.max(0, (yield* Clock.currentTimeMillis) - started)
@@ -67,22 +100,26 @@ export const requestLogMiddleware = (options?: {
             if (Exit.isSuccess(outcome)) {
               if (quiet) return outcome.value
               const matched = yield* Effect.serviceOption(HttpRouter.RouteContext)
-              const route = routeLabel(
-                Option.isSome(matched) ? matched.value.route.path : undefined
-              )
-              yield* recordRequest(request.method, outcome.value.status, route, duration)
-              yield* Effect.logInfo(
-                `${request.method} ${path} ${outcome.value.status} ${duration}ms`
-              )
+              yield* recordAccess({
+                method: request.method,
+                path,
+                status: outcome.value.status,
+                duration,
+                route: Option.isSome(matched) ? matched.value.route.path : undefined
+              })
               return outcome.value
             }
 
             if (isClientAbort(outcome.cause)) return yield* Effect.failCause(outcome.cause)
 
             const matched = yield* Effect.serviceOption(HttpRouter.RouteContext)
-            const route = routeLabel(Option.isSome(matched) ? matched.value.route.path : undefined)
-            yield* recordRequest(request.method, 500, route, duration)
-            yield* Effect.logWarning(`${request.method} ${path} error ${duration}ms`, outcome.cause)
+            yield* recordAccessFailure({
+              method: request.method,
+              path,
+              duration,
+              route: Option.isSome(matched) ? matched.value.route.path : undefined,
+              cause: outcome.cause
+            })
             return yield* Effect.failCause(outcome.cause)
           })
         )

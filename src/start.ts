@@ -1,6 +1,12 @@
 import { createCsrfMiddleware, createMiddleware } from '@tanstack/react-start'
 import { createStart } from '@tanstack/react-start'
 import { runWithPageMeta, type PageMeta } from '#/kernel/page_meta.ts'
+import { devAccessLog } from '#/middleware/dev-access-log.ts'
+
+const devAccessLogMiddleware = createMiddleware().server(({ request, next }) =>
+  // Start's next carries an optional argument the access log never passes.
+  devAccessLog(request, next as unknown as () => Promise<Response>)
+)
 
 // Server functions are same-origin RPC: reject requests whose browser
 // cross-site markers say they did not originate from this app. Page
@@ -35,5 +41,5 @@ const pageResponseMeta = createMiddleware().server(async ({ next }) => {
 })
 
 export const startInstance = createStart(() => ({
-  requestMiddleware: [csrfMiddleware, pageResponseMeta]
+  requestMiddleware: [devAccessLogMiddleware, csrfMiddleware, pageResponseMeta]
 }))
