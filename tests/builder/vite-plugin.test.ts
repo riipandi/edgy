@@ -37,7 +37,6 @@ interface BuiltEnvironment {
         entryFileNames?: string
         chunkFileNames?: string
         codeSplitting?: { groups?: Array<{ name?: unknown; debugName?: string }> } | false
-        assetFileNames?: (asset: { names: ReadonlyArray<string> }) => string
       }
     }
   }
@@ -53,11 +52,20 @@ interface PluginHooks {
     env: { command: string; mode: string }
   ) => ResolvedPluginConfig | undefined
   configResolved?: (config: { root: string }) => void
-  buildStart?: () => void
+  buildStart?: (this: { environment?: { name?: string } }) => void
+  buildApp?: (builder?: unknown) => unknown
   closeBundle?: (this: { environment?: { name?: string } }) => void
 }
 
-const hooks = (plugin: Plugin): Required<PluginHooks> => plugin as never
+interface FinishHooks {
+  buildApp?: () => Promise<void> | void
+}
+
+const hooks = (plugin: Plugin[] | Plugin): Required<PluginHooks> =>
+  (Array.isArray(plugin) ? plugin[0] : plugin) as never
+
+const finishHooks = (plugin: Plugin[] | Plugin): Required<FinishHooks> =>
+  (Array.isArray(plugin) ? plugin[1] : undefined) as never
 
 describe('the config hook', () => {
   it('returns nothing outside the build command or when disabled', () => {
@@ -94,22 +102,20 @@ describe('the config hook', () => {
     expect(config.environments!.ssr).toMatchObject({ resolve: { noExternal: true } })
   })
 
-  it('routes the solid client assets to the client entry names', () => {
+  it('gives the client entry chunk its stable static-asset name', () => {
     const plugin = effectVite({ enabled: true })
     const config = hooks(plugin).config({}, { command: 'build', mode: 'production' })!
-    const naming = config.environments!.client!.build!.rolldownOptions!.output!.assetFileNames!
-    expect(naming({ names: ['virtual_solid:x'] } as never)).toBe(
-      'assets/entry-client-[hash][extname]'
-    )
-    expect(naming({ names: ['other'] } as never)).toBe('assets/[name]-[hash][extname]')
+    const output = config.environments!.client!.build!.rolldownOptions!.output!
+    expect(output.entryFileNames).toBe('assets/entry-client-[hash].js')
+    expect(output.chunkFileNames).toBe('assets/[name]-[hash].js')
   })
 })
 
 describe('buildStart', () => {
-  it('removes stale artifacts from the dist directory', () => {
+  it('removes stale artifacts from the dist directory in the effect environment', () => {
     const root = tempRoot()
     const dist = path.join(root, 'dist')
-    for (const stale of ['assets', 'chunks', 'node_modules']) {
+    for (const stale of ['assets', 'chunks', 'node_modules', 'server']) {
       mkdirSync(path.join(dist, stale), { recursive: true })
       writeFileSync(path.join(dist, stale, 'old.js'), 'stale')
     }
@@ -117,12 +123,28 @@ describe('buildStart', () => {
 
     const plugin = effectVite({ enabled: true })
     hooks(plugin).configResolved({ root })
-    hooks(plugin).buildStart()
+    hooks(plugin).buildStart.call({ environment: { name: 'effect' } })
 
     expect(existsSync(path.join(dist, 'assets'))).toBe(false)
     expect(existsSync(path.join(dist, 'chunks'))).toBe(false)
     expect(existsSync(path.join(dist, 'node_modules'))).toBe(false)
     expect(existsSync(path.join(dist, 'entry.js'))).toBe(false)
+    expect(existsSync(path.join(dist, 'server'))).toBe(false)
+  })
+
+  it('leaves the dist directory alone in the page environments Start builds', () => {
+    const root = tempRoot()
+    const dist = path.join(root, 'dist')
+    mkdirSync(dist, { recursive: true })
+    writeFileSync(path.join(dist, 'entry.js'), 'keep')
+
+    const plugin = effectVite({ enabled: true })
+    hooks(plugin).configResolved({ root })
+    for (const name of ['client', 'ssr']) {
+      hooks(plugin).buildStart.call({ environment: { name } })
+    }
+
+    expect(readFileSync(path.join(dist, 'entry.js'), 'utf8')).toBe('keep')
   })
 })
 
@@ -157,7 +179,7 @@ describe('closeBundle', () => {
     expect(existsSync(path.join(dist, 'entry.js'))).toBe(true)
   })
 
-  it('fails the standalone build when the bundle leaks a bare import', () => {
+  it('fails the standalone build when the bundle leaks a bare import', async () => {
     const root = tempRoot()
     const dist = path.join(root, 'dist')
     mkdirSync(dist, { recursive: true })
@@ -166,12 +188,10 @@ describe('closeBundle', () => {
     const plugin = effectVite({ enabled: true })
     hooks(plugin).configResolved({ root })
     hooks(plugin).config({}, { command: 'build', mode: 'standalone' })
-    expect(() => hooks(plugin).closeBundle.call({ environment: { name: 'effect' } })).toThrow(
-      /leaked external imports/
-    )
+    await expect(finishHooks(plugin).buildApp()).rejects.toThrow(/leaked external imports/)
   })
 
-  it('accepts a bare Node builtin specifier a dependency carried through unprefixed', () => {
+  it('accepts a bare Node builtin specifier a dependency carried through unprefixed', async () => {
     const root = tempRoot()
     const dist = path.join(root, 'dist')
     mkdirSync(dist, { recursive: true })
@@ -183,10 +203,10 @@ describe('closeBundle', () => {
     const plugin = effectVite({ enabled: true })
     hooks(plugin).configResolved({ root })
     hooks(plugin).config({}, { command: 'build', mode: 'standalone' })
-    expect(() => hooks(plugin).closeBundle.call({ environment: { name: 'effect' } })).not.toThrow()
+    await expect(finishHooks(plugin).buildApp()).resolves.toBeUndefined()
   })
 
-  it('writes dist/oxfile.toml for a standalone build by default', () => {
+  it('writes dist/oxfile.toml for a standalone build by default', async () => {
     const root = tempRoot()
     const dist = path.join(root, 'dist')
     mkdirSync(dist, { recursive: true })
@@ -195,11 +215,25 @@ describe('closeBundle', () => {
     const plugin = effectVite({ enabled: true })
     hooks(plugin).configResolved({ root })
     hooks(plugin).config({}, { command: 'build', mode: 'standalone' })
-    hooks(plugin).closeBundle.call({ environment: { name: 'effect' } })
+    await finishHooks(plugin).buildApp()
 
     const oxfile = readFileSync(path.join(dist, 'oxfile.toml'), 'utf8')
     expect(oxfile).toContain('cluster_mode = true')
     expect(oxfile).toContain('command = "node entry.js serve"')
     expect(oxfile).not.toContain('--auto-migrate')
+  })
+
+  it('writes no oxfile outside the standalone mode', async () => {
+    const root = tempRoot()
+    const dist = path.join(root, 'dist')
+    mkdirSync(dist, { recursive: true })
+    writeFileSync(path.join(dist, 'entry.js'), 'export {}')
+
+    const plugin = effectVite({ enabled: true })
+    hooks(plugin).configResolved({ root })
+    hooks(plugin).config({}, { command: 'build', mode: 'production' })
+    await finishHooks(plugin).buildApp()
+
+    expect(existsSync(path.join(dist, 'oxfile.toml'))).toBe(false)
   })
 })

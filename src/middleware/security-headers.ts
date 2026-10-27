@@ -18,7 +18,7 @@ const CSP_DIRECTIVES = [
   "form-action 'self'"
 ] as const
 
-// HTML responses stream Solid's inline hydration scripts, so they carry a
+// HTML responses stream inline hydration scripts, so they carry a
 // per-request nonce and 'strict-dynamic' to admit the module scripts those
 // bootstrap scripts inject.
 export const cspFor = (nonce?: string): string =>

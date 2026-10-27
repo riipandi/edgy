@@ -1,4 +1,5 @@
 import stylex from '@stylexjs/unplugin/vite'
+import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 import { resolve } from 'node:path'
 import devtoolsJson from 'vite-plugin-devtools-json'
 import { defineConfig, lazyPlugins } from 'vite-plus'
@@ -79,6 +80,17 @@ export default defineConfig(({ mode }) => ({
   plugins:
     lazyPlugins(() => [
       stylexPlugin(!uiPreview, mode),
+      tanstackStart({
+        router: {
+          // routesDirectory resolves against srcDirectory (src); the
+          // generated tree resolves against the project root.
+          routesDirectory: 'routes',
+          generatedRouteTree: 'src/routeTree.gen.ts'
+        },
+        // Start's dev middleware must stay installed for page rendering, but it
+        // only sees requests the earlier Effect middleware passes through.
+        vite: { installDevServerMiddleware: true }
+      }),
       effectVite({ enabled: !uiPreview }),
       devtoolsJson()
     ]) ?? [],

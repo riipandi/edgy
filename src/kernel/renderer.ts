@@ -1,4 +1,3 @@
-import { NodeHttpServerRequest } from '@effect/platform-node'
 import { Effect } from 'effect'
 import { InternalError, type RequestError } from 'effect/http/HttpServerError'
 import * as HttpServerError from 'effect/http/HttpServerError'
@@ -8,8 +7,8 @@ import * as HttpStaticServer from 'effect/http/HttpStaticServer'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { typeid } from 'typeid-js'
 import { AppConfig } from '#/kernel/config/config.ts'
+import { cspNonce } from '#/kernel/csp_nonce.ts'
 import { cspFor } from '#/middleware/security-headers.ts'
 import { UserService } from '#/modules/identity/user/user_service.ts'
 import { withUserService } from '#/modules/identity/user/user_ssr.ts'
@@ -36,34 +35,26 @@ const clientRoot = path.join(distRoot, 'client')
 
 const loadBundle = () =>
   import(pathToFileURL(path.join(distRoot, 'server/server.js')).href) as Promise<{
-    handleRequest: (
-      request: Request,
-      options?: {
-        readonly nonce?: string
-        readonly event?: { readonly nativeEvent?: unknown }
-      }
-    ) => Promise<Response>
+    default: {
+      fetch: (request: Request, options?: { context?: { nonce?: string } }) => Promise<Response>
+    }
   }>
 
 const renderFromBundle = Effect.gen(function* () {
   const request = yield* HttpServerRequest.HttpServerRequest
   const webRequest = yield* HttpServerRequest.toWeb(request)
   const userService = yield* UserService
-  const nonce = typeid('nonce').toString()
   const response = yield* Effect.tryPromise({
     try: async (signal) => {
       const serverBundle = await loadBundle()
       return withUserService(userService, () =>
-        serverBundle.handleRequest(new Request(webRequest, { signal }), {
-          nonce,
-          event: { nativeEvent: NodeHttpServerRequest.toIncomingMessage(request) }
-        })
+        serverBundle.default.fetch(new Request(webRequest, { signal }))
       )
     },
     catch: (cause) => new InternalError({ request, cause })
   })
   return HttpServerResponse.setHeaders({
-    'content-security-policy': cspFor(nonce)
+    'content-security-policy': cspFor(cspNonce)
   })(HttpServerResponse.fromWeb(response))
 })
 

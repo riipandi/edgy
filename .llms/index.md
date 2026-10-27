@@ -7,7 +7,7 @@
 | [architecture.md](./architecture.md) | Runtime composition, layer graphs, and subsystem boundaries.   |
 | [api-response.md](./api-response.md) | Canonical API response and error envelope specification.       |
 | [effect-docs.md](./effect-docs.md)   | Effect v4 documentation references and pinned modules.         |
-| [plans/](./plans/)                   | Execution contracts for pending or in-progress changes (clean).|
+| [plans/](./plans/)                   | Execution contracts for pending or in-progress changes. Newest: [plan-20261027_0605](./plans/plan-20261027_0605.md) (in-progress). |
 | [issues/](./issues/)                 | Live findings that outlive a session (none).                   |
 | [roadmap/](./roadmap/)               | Parked improvements with explicit triggers (none).             |
 | [handover/](./handover/)             | Session compactions and wave summaries (clean).                |

@@ -25,7 +25,6 @@
     },
     "files.readonlyInclude": {
         "**/.output/**": true,
-        "**/file-routes.d.ts": true,
         "**/routeTree.gen.ts": true,
         "**/routes.gen.ts": true,
         "**/codegen/**": true,
@@ -37,7 +36,6 @@
     },
     "files.watcherExclude": {
         "**/.output/**": true,
-        "**/file-routes.d.ts": true,
         "**/routeTree.gen.ts": true,
         "**/routes.gen.ts": true,
         "**/codegen/**": true,
@@ -50,7 +48,6 @@
     "search.exclude": {
         "**/.output/**": true,
         "**/.vitest/**": true,
-        "**/file-routes.d.ts": true,
         "**/routeTree.gen.ts": true,
         "**/routes.gen.ts": true,
         "**/codegen/**": true,
