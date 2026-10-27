@@ -59,13 +59,13 @@ curl 'http://localhost:3000/api/users?limit=10'
 
 The full documentation index lives in [docs/index.md](./docs/index.md):
 
-| Document                                 | What it covers                                            |
-| ---------------------------------------- | --------------------------------------------------------- |
-| [CLI](./docs/commandline.md)             | Commands, flags, confirmation, and cluster mode           |
-| [Configuration](./docs/configuration.md) | Environment variables, defaults, and Compose settings     |
-| [API endpoints](./docs/api-endpoint.md)  | Endpoint list, response envelopes, pagination, and errors |
+| Document                                 | What it covers                                                        |
+| ---------------------------------------- | --------------------------------------------------------------------- |
+| [CLI](./docs/commandline.md)             | Commands, flags, confirmation, and cluster mode                       |
+| [Configuration](./docs/configuration.md) | Environment variables, defaults, and Compose settings                 |
+| [API endpoints](./docs/api-endpoint.md)  | Endpoint list, response envelopes, pagination, and errors             |
 | [Development](./docs/development.md)     | Day-to-day workflow, database migrations, and SSR with TanStack Start |
-| [Deployment](./docs/deployment.md)       | Standalone builds, OxMgr process clustering, and Docker   |
+| [Deployment](./docs/deployment.md)       | Standalone builds, OxMgr process clustering, and Docker               |
 
 ## References
 

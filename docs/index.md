@@ -7,7 +7,7 @@ Human-facing documentation for the Edgy reference server.
 | [CLI](./commandline.md)             | CLI commands, flags, dry-run previews, and cluster supervision.         |
 | [Configuration](./configuration.md) | Environment variables, defaults, validation rules, and Compose options. |
 | [API endpoints](./api-endpoint.md)  | HTTP routes, response envelopes, pagination, health, and error shapes.  |
-| [Development](./development.md)     | Local dev server, database workflow, the React frontend, and testing.     |
+| [Development](./development.md)     | Local dev server, database workflow, the React frontend, and testing.   |
 | [Deployment](./deployment.md)       | Standalone builds, OxMgr process clustering, Docker, and telemetry.     |
 
 ## Reading order by goal

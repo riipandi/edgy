@@ -64,14 +64,14 @@ sequenceDiagram
 
 Route components live under `src/routes/`:
 
-| Directory / File                       | Purpose                                                             |
-| -------------------------------------- | ------------------------------------------------------------------- |
-| `src/routes/_app/index.tsx`            | Root landing page (links to `/users`).                              |
-| `src/routes/_app.tsx`                  | Pathless layout providing the global navigation bar and container.  |
-| `src/routes/_app/users.tsx`            | Users section layout wrapper.                                       |
-| `src/routes/_app/users/index.tsx`      | Users list page displaying paginated user cards.                    |
-| `src/routes/_app/users/$id.tsx`        | Dynamic user detail page rendering user profile information.        |
-| `src/routes/_app/$.tsx`                | Catch-all error page for unrecognized URLs.                         |
+| Directory / File                  | Purpose                                                            |
+| --------------------------------- | ------------------------------------------------------------------ |
+| `src/routes/_app/index.tsx`       | Root landing page (links to `/users`).                             |
+| `src/routes/_app.tsx`             | Pathless layout providing the global navigation bar and container. |
+| `src/routes/_app/users.tsx`       | Users section layout wrapper.                                      |
+| `src/routes/_app/users/index.tsx` | Users list page displaying paginated user cards.                   |
+| `src/routes/_app/users/$id.tsx`   | Dynamic user detail page rendering user profile information.       |
+| `src/routes/_app/$.tsx`           | Catch-all error page for unrecognized URLs.                        |
 
 ### Styling with StyleX
 

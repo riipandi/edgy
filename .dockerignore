@@ -30,7 +30,6 @@ npm-debug.log
 slim.report.json
 playwright-report/
 tests-results/
-file-routes.d.ts
 routeTree.gen.ts
 routes.gen.ts
 sbom-*
