@@ -1,4 +1,3 @@
-import solid from '@solidjs/vite-plugin'
 import { storybookTest } from '@storybook/addon-vitest/vitest-plugin'
 import stylex from '@stylexjs/unplugin/vite'
 import { globSync } from 'node:fs'
@@ -32,32 +31,11 @@ export const storybookProject = (mode: string): TestProjectConfiguration => {
         useCSSLayers: { before: ['reset'], prefix: 'stylex' },
         lightningcssOptions: { minify: mode !== 'development' }
       }),
-      solid({ diagnostics: false, extensions: ['.jsx', '.tsx'] }),
       storybookTest({
         configDir: fileURLToPath(new URL('./.storybook', import.meta.url)),
         storybookScript: 'vpr storybook'
-      }),
-      {
-        name: 'solid-storybook-deps',
-        enforce: 'post',
-        config(config) {
-          config.optimizeDeps ??= {}
-          const include = (config.optimizeDeps.include ?? []).filter(
-            (id) => !id.startsWith('solid-js/') && !id.startsWith('react')
-          )
-          include.push('solid-js/refresh')
-          config.optimizeDeps.include = include
-        }
-      }
+      })
     ],
-    resolve: {
-      alias: [
-        {
-          find: 'storybook-solidjs-vite/renderer/solid-legacy',
-          replacement: 'storybook-solidjs-vite/renderer/solid-next'
-        }
-      ]
-    },
     test: {
       name: 'storybook',
       browser: {

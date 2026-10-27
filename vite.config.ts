@@ -1,7 +1,4 @@
-import solid from '@solidjs/vite-plugin'
 import stylex from '@stylexjs/unplugin/vite'
-import solidLint from 'eslint-plugin-solid/configs/v2'
-import { fileRoutes } from 'filesystem-routing/vite'
 import { resolve } from 'node:path'
 import devtoolsJson from 'vite-plugin-devtools-json'
 import { defineConfig, lazyPlugins } from 'vite-plus'
@@ -70,17 +67,11 @@ export default defineConfig(({ mode }) => ({
     ignorePatterns: ignoredPatterns
   },
   lint: {
-    jsPlugins: [{ name: 'vite-plus', specifier: 'vite-plus/oxlint-plugin' }, 'eslint-plugin-solid'],
+    jsPlugins: [{ name: 'vite-plus', specifier: 'vite-plus/oxlint-plugin' }],
     plugins: ['import', 'unicorn', 'oxc', 'typescript'],
-    settings: solidLint.settings,
     rules: {
       'vite-plus/prefer-vite-plus-imports': 'error',
-      'import/extensions': [
-        'error',
-        'ignorePackages',
-        { pattern: { ts: 'always', tsx: 'always' } }
-      ],
-      ...solidLint.rules
+      'import/extensions': ['error', 'ignorePackages', { pattern: { ts: 'always', tsx: 'always' } }]
     },
     options: { typeAware: true, typeCheck: true },
     ignorePatterns: ignoredPatterns
@@ -88,12 +79,6 @@ export default defineConfig(({ mode }) => ({
   plugins:
     lazyPlugins(() => [
       stylexPlugin(!uiPreview, mode),
-      solid({
-        diagnostics: false,
-        extensions: ['.jsx', '.tsx'],
-        ...(uiPreview ? {} : { start: true, ssr: true })
-      }),
-      uiPreview ? null : fileRoutes({ types: true }),
       effectVite({ enabled: !uiPreview }),
       devtoolsJson()
     ]) ?? [],

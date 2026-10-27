@@ -8,14 +8,14 @@ minimumReleaseAgeExclude:
   - "@effect/*"
   - "@effect/platform-node"
   - "@effect/platform-node-shared"
-  - "@solidjs/*"
   - "@storybook/addon-vitest"
   - effect
-  - filesystem-routing
   - kysely
-  - solid-js
   - storybook
-  - storybook-solidjs-vite
+  - "@storybook/builder-vite@10.6.4"
+  - "@storybook/react-dom-shim@10.6.4"
+  - "@storybook/react-vite@10.6.4"
+  - "@storybook/react@10.6.4"
 
 catalog:
   "@vitest/coverage-v8": 5.0.5
@@ -33,11 +33,8 @@ peerDependencyRules:
     - vitest
   allowedVersions:
     vitest: "*"
-
 permissions:
-  "@solidjs/diagnostics":
+  '@tanstack/react-router':
     skills: true
-  "@solidjs/web":
-    skills: true
-  solid-js:
+  '@tanstack/react-start':
     skills: true

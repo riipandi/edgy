@@ -7,8 +7,7 @@
         "esModuleInterop": true,
         "exactOptionalPropertyTypes": true,
         "isolatedModules": true,
-        "jsx": "preserve",
-        "jsxImportSource": "@solidjs/web",
+        "jsx": "react-jsx",
         "lib": ["ESNext", "DOM"],
         "module": "ESNext",
         "moduleDetection": "force",
@@ -29,7 +28,7 @@
         "tsBuildInfoFile": ".output/tsconfig.tsbuildinfo",
         "types": ["vite-plus/client"],
         "useDefineForClassFields": true,
-        "verbatimModuleSyntax": true,
+        "verbatimModuleSyntax": false,
         "paths": { "#/*": ["./src/*"] }
     },
     "include": ["**/*.ts", "**/*.tsx"],
