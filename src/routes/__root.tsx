@@ -1,4 +1,7 @@
 import { HeadContent, Outlet, Scripts, createRootRoute } from '@tanstack/react-router'
+import { darkColors } from '#/resources/styles/core/themes.ts'
+import { styles as rootLayout } from '#/resources/styles/element/root-layout.stylex.ts'
+import { sx } from '#/resources/styles/props.ts'
 import '../assets/globals.css'
 
 export const Route = createRootRoute({
@@ -25,8 +28,10 @@ function RootComponent() {
         ) : null}
         <HeadContent />
       </head>
-      <body>
-        <Outlet />
+      <body {...sx(rootLayout.root)}>
+        <div {...sx(rootLayout.root, darkColors)}>
+          <Outlet />
+        </div>
         <Scripts />
       </body>
     </html>

@@ -89,7 +89,10 @@ export default defineConfig(({ mode }) => ({
         },
         // Start's dev middleware must stay installed for page rendering, but it
         // only sees requests the earlier Effect middleware passes through.
-        vite: { installDevServerMiddleware: true }
+        vite: { installDevServerMiddleware: true },
+        // Route files read the page-response helpers through the isomorphic
+        // server entry; the client build receives Start's mock for them.
+        importProtection: { behavior: { build: 'mock' } }
       }),
       effectVite({ enabled: !uiPreview }),
       devtoolsJson()

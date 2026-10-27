@@ -24,8 +24,9 @@ type Middleware = (
 ) => void
 
 const installPlugin = (
-  plugin: Plugin
+  plugin: Plugin | ReadonlyArray<Plugin>
 ): { middleware: Middleware; teardown: () => Promise<void> } => {
+  const main = Array.isArray(plugin) ? plugin[0] : plugin
   let middleware: Middleware = (_req, res) => {
     res.statusCode = 500
     res.end('middleware not installed')
@@ -35,7 +36,7 @@ const installPlugin = (
     middlewares: { use: (fn: Middleware) => (middleware = fn) }
   } as unknown as ViteDevServer
   const teardown = (
-    plugin.configureServer as (server: ViteDevServer) => (() => Promise<void>) | undefined
+    main.configureServer as (server: ViteDevServer) => (() => Promise<void>) | undefined
   )(fakeServer)
   return { middleware, teardown: teardown ?? (async () => undefined) }
 }

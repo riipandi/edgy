@@ -11,6 +11,6 @@ export class NotFoundScreen extends AppScreen {
   }
 
   docsLink() {
-    return this.page.getByRole('link', { name: 'docs.solidjs.com' })
+    return this.page.getByRole('link', { name: 'tanstack.com/start' })
   }
 }

@@ -10,8 +10,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { AppConfig } from '#/kernel/config/config.ts'
 import { cspNonce } from '#/kernel/csp_nonce.ts'
 import { cspFor } from '#/middleware/security-headers.ts'
+import { withUserService } from '#/modules/identity/user/user_context.ts'
 import { UserService } from '#/modules/identity/user/user_service.ts'
-import { withUserService } from '#/modules/identity/user/user_ssr.ts'
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url))
 

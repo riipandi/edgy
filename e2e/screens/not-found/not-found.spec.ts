@@ -6,7 +6,7 @@ test.describe('not found', () => {
 
     await expect(notFound.page).toHaveTitle('Not Found - Edgy')
     await expect(notFound.heading()).toBeVisible()
-    await expect(notFound.docsLink()).toHaveAttribute('href', 'https://docs.solidjs.com')
+    await expect(notFound.docsLink()).toHaveAttribute('href', 'https://tanstack.com/start/latest')
 
     await notFound.homeLink().click()
     await expect(home.heading()).toBeVisible()

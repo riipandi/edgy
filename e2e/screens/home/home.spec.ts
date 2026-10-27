@@ -3,7 +3,7 @@ import { expect, test } from '../../fixtures/test.ts'
 const featureTitles = [
   'File-Based Routing',
   'Effect API Server',
-  'Solid 2 Reactivity',
+  'React 19 Rendering',
   'StyleX Styling'
 ]
 
@@ -15,7 +15,7 @@ test.describe('home', () => {
     await expect(home.eyebrow()).toBeVisible()
     await expect(home.heading()).toBeVisible()
     await expect(home.usersCta()).toHaveAttribute('href', '/users')
-    await expect(home.docsLink()).toHaveAttribute('href', 'https://v2.solidjs.com/')
+    await expect(home.docsLink()).toHaveAttribute('href', 'https://tanstack.com/start/latest')
 
     for (const title of featureTitles) {
       await expect(home.featureCard(title)).toBeVisible()
