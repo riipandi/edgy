@@ -4,6 +4,7 @@ import type { GlobalContext } from '#/provider.tsx'
 import { darkColors } from '#/resources/styles/core/themes.ts'
 import { styles as rootLayout } from '#/resources/styles/element/root-layout.stylex.ts'
 import { sx } from '#/resources/styles/props.ts'
+import { ErrorBoundary } from './-boundaries.tsx'
 import '../assets/globals.css'
 
 export const Route = createRootRouteWithContext<GlobalContext>()({
@@ -15,6 +16,7 @@ export const Route = createRootRouteWithContext<GlobalContext>()({
     ],
     links: [{ rel: 'icon', href: '/favicon.ico' }]
   }),
+  errorComponent: ErrorBoundary,
   shellComponent: RootDocument
 })
 
