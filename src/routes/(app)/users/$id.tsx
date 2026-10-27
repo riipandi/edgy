@@ -1,23 +1,22 @@
+import { useSuspenseQuery } from '@tanstack/react-query'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { setStatus } from '#/kernel/ssr_status.ts'
-import { getUser } from '#/modules/identity/user/user_fns.ts'
+import { userQueryOptions } from '#/modules/identity/user/user_queries.ts'
+import type { UserResult } from '#/modules/identity/user/user_schema.ts'
 import { fx } from '#/resources/styles/core/utils.stylex.ts'
 import { styles as userStyles } from '#/resources/styles/pages/user.stylex.ts'
 import { sx } from '#/resources/styles/props.ts'
 
-function userTitle(data: Awaited<ReturnType<typeof getUser>> | undefined, id: string): string {
-  return data?.user === undefined ? 'User not found' : `User ${id} - Edgy`
+function userTitle(user: UserResult | null | undefined, id: string): string {
+  return user == null ? 'User not found' : `User ${id} - Edgy`
 }
 
 function UserPage() {
-  // The route's own useLoaderData call sits in a type cycle inside its
-  // defining file, and Start's serialized fn type drops the top-level
-  // undefined the handler really returns; the annotation states both truths.
-  const data: Awaited<ReturnType<typeof getUser>> | undefined = Route.useLoaderData()
-  const user = data?.user
+  const params = Route.useParams()
+  const { data: user } = useSuspenseQuery(userQueryOptions(params.id))
   return (
     <section {...sx(userStyles.card, userStyles.detailSection)}>
-      {user === undefined ? (
+      {user === null ? (
         <>
           <h2 {...sx(fx.h2, userStyles.detailTitle)}>User not found</h2>
           <p {...sx(fx.muted)}>The requested user does not exist.</p>
@@ -36,13 +35,14 @@ function UserPage() {
 }
 
 export const Route = createFileRoute('/(app)/users/$id')({
-  loader: ({ params }) =>
-    getUser({ data: params.id })
-      .then((data) => {
+  loader: ({ context, params }) =>
+    context.queryClient
+      .query({ ...userQueryOptions(params.id), staleTime: 'static' })
+      .then((user) => {
         // A missing user is a routing fact, so the status is set during SSR
         // while the not-found body still renders inside the shell.
-        if (data?.user === undefined) setStatus(404)
-        return data
+        if (user === null) setStatus(404)
+        return user
       })
       .catch((cause) => {
         // Start serializes a loader error onto the error page; log the real

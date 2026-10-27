@@ -1,13 +1,14 @@
+import { useSuspenseQuery } from '@tanstack/react-query'
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { listUsers } from '#/modules/identity/user/user_fns.ts'
+import { usersQueryOptions } from '#/modules/identity/user/user_queries.ts'
 import { fx } from '#/resources/styles/core/utils.stylex.ts'
 import { styles as userStyles } from '#/resources/styles/pages/user.stylex.ts'
 import { sx } from '#/resources/styles/props.ts'
 
 export const Route = createFileRoute('/(app)/users/')({
   head: () => ({ meta: [{ title: 'Users - Edgy' }] }),
-  loader: () =>
-    listUsers().catch((cause) => {
+  loader: ({ context }) =>
+    context.queryClient.query({ ...usersQueryOptions, staleTime: 'static' }).catch((cause) => {
       // Start serializes a loader error onto the error page; log the real
       // cause server-side and rethrow a message safe to render.
       console.error('users list loader failed', cause)
@@ -17,7 +18,7 @@ export const Route = createFileRoute('/(app)/users/')({
 })
 
 function UsersPage() {
-  const users = Route.useLoaderData()
+  const { data: users } = useSuspenseQuery(usersQueryOptions)
   return (
     <section {...sx(userStyles.card)}>
       <ul {...sx(userStyles.list)}>
