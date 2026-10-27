@@ -4,7 +4,7 @@ import { sx } from '#/resources/styles/props.ts'
 
 // A layout route: pairing users.tsx with the users/ directory nests
 // every page inside it under this component.
-export const Route = createFileRoute('/_app/users')({
+export const Route = createFileRoute('/(app)/users')({
   component: RouteComponent
 })
 

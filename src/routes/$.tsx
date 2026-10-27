@@ -7,7 +7,7 @@ import { sx } from '#/resources/styles/props.ts'
 // The catch-all route. setResponseStatus is a no-op in the browser and takes
 // effect when SSR is enabled; it runs in the loader so the status code is set
 // before the response head flushes.
-export const Route = createFileRoute('/_app/$')({
+export const Route = createFileRoute('/$')({
   head: () => ({ meta: [{ title: 'Not Found - Edgy' }] }),
   loader: () => {
     if (import.meta.env.SSR) setResponseStatus(404)

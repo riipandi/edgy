@@ -5,7 +5,7 @@ import { fx } from '#/resources/styles/core/utils.stylex.ts'
 import { styles as userStyles } from '#/resources/styles/pages/user.stylex.ts'
 import { sx } from '#/resources/styles/props.ts'
 
-export const Route = createFileRoute('/_app/users/')({
+export const Route = createFileRoute('/(app)/users/')({
   head: () => ({ meta: [{ title: 'Users - Edgy' }] }),
   loader: () => listUsers(),
   component: UsersPage

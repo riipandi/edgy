@@ -34,7 +34,8 @@ function UserPage() {
   )
 }
 
-export const Route = createFileRoute('/_app/users/$id')({
+export const Route = createFileRoute('/(app)/users/$id')({
+  loader: ({ params }) => getUser({ data: params.id }),
   head: ({ loaderData, params }) => ({
     meta: [{ title: userTitle(loaderData, params.id) }]
   }),

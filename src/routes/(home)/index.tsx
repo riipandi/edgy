@@ -11,7 +11,7 @@ const features: ReadonlyArray<readonly [string, string]> = [
   ['StyleX Styling', 'Type-safe, compile-time atomic styling with themed design tokens.']
 ]
 
-export const Route = createFileRoute('/_app/')({
+export const Route = createFileRoute('/(home)/')({
   head: () => ({ meta: [{ title: 'Home - Edgy' }] }),
   component: HomePage
 })
