@@ -77,7 +77,9 @@ export const apiHandler = async () => {
         Layer.provide(HttpServer.layerServices)
       ),
       LoggerLayer.pipe(Layer.provide(Layer.succeedContext(context)))
-    )
+    ),
+    // request-log owns the access line; see the serve composition.
+    { disableLogger: true }
   )
   return {
     ...handler,

@@ -1,5 +1,6 @@
-import { Clock, Effect, Exit, Option } from 'effect'
+import { Cause, Clock, Effect, Exit, Option } from 'effect'
 import * as HttpRouter from 'effect/http/HttpRouter'
+import { ClientAbort } from 'effect/http/HttpServerError'
 import * as HttpServerRequest from 'effect/http/HttpServerRequest'
 import { AppConfig } from '#/kernel/config/config.ts'
 import { recordRequest } from '#/observer/metrics.ts'
@@ -22,12 +23,12 @@ const isQuietPath = (pathname: string, quiet: QuietPath): boolean => {
 }
 
 // Browser and tooling probes, favicons, hashed bundles that never change, and
-// metric scrapers polling on a schedule. Quiet paths skip both the log line
-// and the metric record. The `/.well-known/` prefix is deliberately broad:
-// machine-to-machine discovery documents live there — devtool probes, ACME
-// challenges, security.txt, and the OAuth/OpenID set (`jwks.json`,
-// `openid-configuration`, `oauth-authorization-server`) this API will grow —
-// and none of them carry log or metric signal.
+// metric scrapers polling on a schedule. Quiet paths skip the log line and the
+// metric record while they succeed; a failure on a quiet path is still signal
+// and is logged like any other failure. Only the Chrome DevTools probe is
+// quiet inside `/.well-known/` — the other discovery documents (jwks.json,
+// openid-configuration, ACME challenges) are ordinary requests and stay
+// logged.
 const defaultQuietPaths: ReadonlyArray<QuietPath> = [
   { path: '/.well-known/appspecific/com.chrome.devtools.json', exact: true },
   { path: '/favicon' },
@@ -37,6 +38,15 @@ const defaultQuietPaths: ReadonlyArray<QuietPath> = [
   { path: '/__tsd/' },
   { path: '/metrics', exact: true }
 ]
+
+// A client disconnect surfaces as an interrupt tagged with the ClientAbort
+// annotation. The request never produced a response, so it is neither a
+// server fault nor a metric sample.
+const isClientAbort = (cause: Cause.Cause<unknown>): boolean =>
+  cause.reasons.length > 0 &&
+  cause.reasons.every(
+    (reason) => reason._tag === 'Interrupt' && reason.annotations.has(ClientAbort.key)
+  )
 
 export const requestLogMiddleware = (options?: {
   readonly quietPaths?: ReadonlyArray<QuietPath>
@@ -49,23 +59,31 @@ export const requestLogMiddleware = (options?: {
           Effect.gen(function* () {
             const request = yield* HttpServerRequest.HttpServerRequest
             const path = new URL(request.originalUrl, baseUrl).pathname || '/'
-            if (quietPaths.some((quiet) => isQuietPath(path, quiet))) return yield* effect
+            const quiet = quietPaths.some((quietPath) => isQuietPath(path, quietPath))
             const started = yield* Clock.currentTimeMillis
             const outcome = yield* Effect.exit(effect)
             const duration = Math.max(0, (yield* Clock.currentTimeMillis) - started)
-            const matched = yield* Effect.serviceOption(HttpRouter.RouteContext)
-            const route = routeLabel(Option.isSome(matched) ? matched.value.route.path : undefined)
 
-            if (Exit.isFailure(outcome)) {
-              yield* recordRequest(request.method, 500, route, duration)
-              yield* Effect.logWarning(`${request.method} ${path} error ${duration}ms`)
-              return yield* Effect.failCause(outcome.cause)
+            if (Exit.isSuccess(outcome)) {
+              if (quiet) return outcome.value
+              const matched = yield* Effect.serviceOption(HttpRouter.RouteContext)
+              const route = routeLabel(
+                Option.isSome(matched) ? matched.value.route.path : undefined
+              )
+              yield* recordRequest(request.method, outcome.value.status, route, duration)
+              yield* Effect.logInfo(
+                `${request.method} ${path} ${outcome.value.status} ${duration}ms`
+              )
+              return outcome.value
             }
 
-            const response = outcome.value
-            yield* recordRequest(request.method, response.status, route, duration)
-            yield* Effect.logInfo(`${request.method} ${path} ${response.status} ${duration}ms`)
-            return response
+            if (isClientAbort(outcome.cause)) return yield* Effect.failCause(outcome.cause)
+
+            const matched = yield* Effect.serviceOption(HttpRouter.RouteContext)
+            const route = routeLabel(Option.isSome(matched) ? matched.value.route.path : undefined)
+            yield* recordRequest(request.method, 500, route, duration)
+            yield* Effect.logWarning(`${request.method} ${path} error ${duration}ms`, outcome.cause)
+            return yield* Effect.failCause(outcome.cause)
           })
         )
       )

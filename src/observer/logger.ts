@@ -75,11 +75,28 @@ const makeFormatter = (format: LogFormat, colors: boolean): Logger.Logger<unknow
 const makeBatchedStdout = (formatter: Logger.Logger<unknown, string>, window: Duration.Input) =>
   Logger.batched(formatter, {
     window,
+    // A patched or closed stdout must not kill the flush fiber: fall back to
+    // stderr and always resume, or every later record buffers forever.
     flush: (lines) =>
       withinBudget(
         'stdout',
         Effect.callback<void>((resume) => {
-          process.stdout.write(`${lines.join('\n')}\n`, () => resume(Effect.void))
+          const line = `${lines.join('\n')}\n`
+          const fallback = () => {
+            try {
+              process.stderr.write(line)
+            } catch {
+              // no sink is reachable; drop the batch
+            }
+            resume(Effect.void)
+          }
+          try {
+            process.stdout.write(line, (error) =>
+              error === undefined || error === null ? resume(Effect.void) : fallback()
+            )
+          } catch {
+            fallback()
+          }
         })
       )
   })

@@ -17,29 +17,45 @@ const { handler, dispose } = toHandler(testServices, testConfig, undefined, [
 ])
 
 // A minimal router with a dying route plus a catch-all fallback (mirroring the
-// renderer) so unmatched paths still travel through the global middleware.
+// renderer) so unmatched paths still travel through the global middleware. A
+// quiet-path route that dies covers the quiet-failure row, and a route that
+// never completes covers the client-disconnect row.
 const lines: Array<string> = []
 const capture = Logger.layer([Logger.make((options) => lines.push(String(options.message)))])
-const { handler: failingHandler, dispose: disposeFailing } = HttpRouter.toWebHandler(
+const probeRouter = (quietFailure: boolean) =>
   HttpRouter.use((router) =>
     Effect.gen(function* () {
       yield* router.add('GET', '/boom', Effect.die(new Error('exploded')))
+      if (quietFailure) {
+        yield* router.add('GET', '/favicon.ico', Effect.die(new Error('favicon exploded')))
+        yield* router.add(
+          'GET',
+          '/disconnect',
+          Effect.never as Effect.Effect<HttpServerResponse.HttpServerResponse>
+        )
+      }
       yield* router.add('*', '*', Effect.succeed(HttpServerResponse.empty()))
     })
-  ).pipe(
-    // The capture logger rides the top-level merge: a provided layer's
-    // CurrentLoggers reference does not reach the request fibers.
-    Layer.provide(requestLogMiddleware() as Layer.Layer<any>),
-    Layer.provide(testConfig),
-    Layer.provide(HttpServer.layerServices),
-    (layer) => Layer.mergeAll(layer, capture)
-  ),
-  { disableLogger: true }
-)
+  )
+const probeHandler = (quietFailure: boolean) =>
+  HttpRouter.toWebHandler(
+    probeRouter(quietFailure).pipe(
+      // The capture logger rides the top-level merge: a provided layer's
+      // CurrentLoggers reference does not reach the request fibers.
+      Layer.provide(requestLogMiddleware() as Layer.Layer<any>),
+      Layer.provide(testConfig),
+      Layer.provide(HttpServer.layerServices),
+      (layer) => Layer.mergeAll(layer, capture)
+    ),
+    { disableLogger: true }
+  )
+const { handler: failingHandler, dispose: disposeFailing } = probeHandler(true)
+const { handler: quietHandler, dispose: disposeQuiet } = probeHandler(false)
 
 afterAll(() => {
   void dispose()
   void disposeFailing()
+  void disposeQuiet()
 })
 
 const seriesFor = (statusCode: string, route: string) =>
@@ -78,20 +94,70 @@ it('records a defect as a 500 and warns with the failing route', async () => {
 it('stays quiet for browser, tooling, and scraper noise', async () => {
   for (const url of [
     'http://localhost/.well-known/appspecific/com.chrome.devtools.json',
-    'http://localhost/.well-known/jwks.json',
     'http://localhost/favicon.ico',
     'http://localhost/assets/app-4f2a1b9c.js',
     'http://localhost/metrics'
   ]) {
     const before = lines.length
-    const response = await failingHandler(new Request(url))
+    const response = await quietHandler(new Request(url))
     expect(response.status).toBeLessThan(500)
     expect(lines.slice(before), url).toHaveLength(0)
   }
 
+  // The devtools probe is the only quiet document under /.well-known/; other
+  // discovery requests stay logged.
+  const before = lines.length
+  const jwks = await quietHandler(new Request('http://localhost/.well-known/jwks.json'))
+  expect(jwks.status).toBeLessThan(500)
+  expect(lines.slice(before)).toHaveLength(1)
+  expect(lines.some((line) => line.includes('GET /.well-known/jwks.json 204'))).toBe(true)
+
   const loud = await failingHandler(new Request('http://localhost/boom'))
   expect(loud.status).toBe(500)
   expect(lines.some((line) => line.includes('GET /boom error'))).toBe(true)
+})
+
+it('still warns and records metrics when a quiet path fails', async () => {
+  const { handler: quietFailingHandler, dispose: disposeQuietFailing } = probeHandler(true)
+  const linesBefore = lines.length
+  const crashedBefore = await Effect.runPromise(seriesFor('500', '/favicon.ico'))
+
+  const response = await quietFailingHandler(new Request('http://localhost/favicon.ico'))
+  expect(response.status).toBe(500)
+
+  const warnings = lines
+    .slice(linesBefore)
+    .filter((line) => line.includes('GET /favicon.ico error'))
+  expect(warnings).toHaveLength(1)
+
+  const crashedAfter = await Effect.runPromise(seriesFor('500', '/favicon.ico'))
+  expect(crashedAfter.count).toBeGreaterThan(crashedBefore.count)
+  void disposeQuietFailing()
+})
+
+it('does not record a client disconnect as a server fault', async () => {
+  const { handler: disconnectHandler, dispose: disposeDisconnect } = probeHandler(true)
+  const linesBefore = lines.length
+  const crashedBefore = await Effect.runPromise(seriesFor('500', '/disconnect'))
+
+  const controller = new AbortController()
+  const pending = disconnectHandler(
+    new Request('http://localhost/disconnect', { signal: controller.signal })
+  )
+  controller.abort()
+  await Promise.race([
+    pending.then(
+      (response) => response,
+      () => undefined
+    ),
+    new Promise((resolve) => setTimeout(resolve, 500))
+  ])
+  await new Promise((resolve) => setTimeout(resolve, 200))
+
+  expect(lines.slice(linesBefore).filter((line) => line.includes('disconnect'))).toHaveLength(0)
+  const crashedAfter = await Effect.runPromise(seriesFor('500', '/disconnect'))
+  expect(crashedAfter.count).toBe(crashedBefore.count)
+  void disposeDisconnect()
 })
 
 it('honors custom quiet paths in place of the defaults', async () => {

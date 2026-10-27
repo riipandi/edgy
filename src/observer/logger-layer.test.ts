@@ -1,5 +1,5 @@
 import { NodeServices } from '@effect/platform-node'
-import { Effect, Layer } from 'effect'
+import { Duration, Effect, Layer } from 'effect'
 import { FetchHttpClient } from 'effect/http'
 import { OtlpExporter, OtlpSerialization } from 'effect/observability'
 import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs'
@@ -111,4 +111,40 @@ it('writes nothing when no transport is selected', async () => {
   expect(writes.join('')).not.toContain('layer probe')
   // The file sink never opens, so the log directory is not even created.
   expect(() => readdirSync(path.join(directory, 'logs'))).toThrowError(/ENOENT/)
+})
+
+it('falls back to stderr when stdout cannot accept writes', async () => {
+  const directory = tempDir()
+  const stderrLines: Array<string> = []
+  const originalOut = process.stdout.write.bind(process)
+  const originalErr = process.stderr.write.bind(process)
+  process.stdout.write = (() => {
+    throw new TypeError('stdout unavailable')
+  }) as typeof process.stdout.write
+  process.stderr.write = ((chunk: unknown, callback?: (error?: Error) => void) => {
+    stderrLines.push(String(chunk))
+    if (typeof callback === 'function') callback()
+    return true
+  }) as typeof process.stderr.write
+  try {
+    await Effect.runPromise(
+      Effect.logInfo('fallback probe').pipe(
+        Effect.provide(
+          LoggerLayer.pipe(
+            Layer.provide(loggerDeps),
+            Layer.provide(
+              loggingConfig(
+                { transport: ['console'], flushInterval: Duration.millis(1) },
+                directory
+              )
+            )
+          )
+        )
+      )
+    )
+  } finally {
+    process.stdout.write = originalOut
+    process.stderr.write = originalErr
+  }
+  expect(stderrLines.join('')).toContain('fallback probe')
 })

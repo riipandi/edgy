@@ -24,7 +24,9 @@ export const server = Layer.unwrap(
     const withMetrics = config.observability.metricsEnabled
       ? routes.pipe(Layer.provide(PrometheusMetrics.layerHttp({ path: metricsPath })))
       : routes
-    return HttpRouter.serve(withMetrics).pipe(
+    // request-log owns the access line; the framework's per-response record
+    // would duplicate it and leak causes the middleware already carries.
+    return HttpRouter.serve(withMetrics, { disableLogger: true }).pipe(
       Layer.provide(gracefulServerLayer({ host: config.server.host, port: config.server.port }))
     )
   })
