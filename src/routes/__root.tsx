@@ -1,10 +1,12 @@
-import { HeadContent, Outlet, Scripts, createRootRoute } from '@tanstack/react-router'
+import { HeadContent, Scripts, createRootRouteWithContext } from '@tanstack/react-router'
+import type { ReactNode } from 'react'
+import type { GlobalContext } from '#/provider.tsx'
 import { darkColors } from '#/resources/styles/core/themes.ts'
 import { styles as rootLayout } from '#/resources/styles/element/root-layout.stylex.ts'
 import { sx } from '#/resources/styles/props.ts'
 import '../assets/globals.css'
 
-export const Route = createRootRoute({
+export const Route = createRootRouteWithContext<GlobalContext>()({
   head: () => ({
     meta: [
       { charSet: 'utf-8' },
@@ -13,10 +15,10 @@ export const Route = createRootRoute({
     ],
     links: [{ rel: 'icon', href: '/favicon.ico' }]
   }),
-  component: RootComponent
+  shellComponent: RootDocument
 })
 
-function RootComponent() {
+function RootDocument({ children }: { children: ReactNode }) {
   return (
     <html lang='en'>
       <head>
@@ -29,9 +31,7 @@ function RootComponent() {
         <HeadContent />
       </head>
       <body {...sx(rootLayout.root)}>
-        <div {...sx(rootLayout.root, darkColors)}>
-          <Outlet />
-        </div>
+        <div {...sx(rootLayout.root, darkColors)}>{children}</div>
         <Scripts />
       </body>
     </html>
