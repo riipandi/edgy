@@ -1,5 +1,13 @@
-import { createMiddleware, createStart } from '@tanstack/react-start'
+import { createCsrfMiddleware, createMiddleware } from '@tanstack/react-start'
+import { createStart } from '@tanstack/react-start'
 import { runWithPageMeta, type PageMeta } from '#/kernel/page_meta.ts'
+
+// Server functions are same-origin RPC: reject requests whose browser
+// cross-site markers say they did not originate from this app. Page
+// requests and /api/* pass through untouched.
+const csrfMiddleware = createCsrfMiddleware({
+  filter: (ctx) => ctx.handlerType === 'serverFn'
+})
 
 // The server-function handlers record their page-read metadata in the
 // request store; this middleware copies it onto the HTML response before
@@ -27,5 +35,5 @@ const pageResponseMeta = createMiddleware().server(async ({ next }) => {
 })
 
 export const startInstance = createStart(() => ({
-  requestMiddleware: [pageResponseMeta]
+  requestMiddleware: [csrfMiddleware, pageResponseMeta]
 }))
