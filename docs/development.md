@@ -64,15 +64,15 @@ sequenceDiagram
 
 Route components live under `src/routes/`:
 
-| Directory / File                    | Purpose                                                                          |
-| ----------------------------------- | -------------------------------------------------------------------------------- |
-| `src/routes/__root.tsx`             | Root document shell, global error boundary, and head metadata.                   |
-| `src/routes/(home)/index.tsx`       | Landing page (links to the users list).                                          |
-| `src/routes/(app)/route.tsx`        | Pathless route group providing the navigation bar and container.                 |
-| `src/routes/(app)/users/route.tsx`  | Layout route sharing the users section heading and container.                    |
-| `src/routes/(app)/users/index.tsx`  | Users list page.                                                                 |
-| `src/routes/(app)/users/$id.tsx`    | User detail page.                                                                |
-| `src/routes/$.tsx`                  | Catch-all page for unrecognized URLs (answers 404 during SSR).                   |
+| Directory / File                   | Purpose                                                          |
+| ---------------------------------- | ---------------------------------------------------------------- |
+| `src/routes/__root.tsx`            | Root document shell, global error boundary, and head metadata.   |
+| `src/routes/(home)/index.tsx`      | Landing page (links to the users list).                          |
+| `src/routes/(app)/route.tsx`       | Pathless route group providing the navigation bar and container. |
+| `src/routes/(app)/users/route.tsx` | Layout route sharing the users section heading and container.    |
+| `src/routes/(app)/users/index.tsx` | Users list page.                                                 |
+| `src/routes/(app)/users/$id.tsx`   | User detail page.                                                |
+| `src/routes/$.tsx`                 | Catch-all page for unrecognized URLs (answers 404 during SSR).   |
 
 Files starting with `-` are not routes: `-boundaries.tsx` holds the global error surface and `-devtools.tsx` the development devtools panel.
 

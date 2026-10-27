@@ -29,10 +29,12 @@ const isQuietPath = (pathname: string, quiet: QuietPath): boolean => {
 // `openid-configuration`, `oauth-authorization-server`) this API will grow —
 // and none of them carry log or metric signal.
 const defaultQuietPaths: ReadonlyArray<QuietPath> = [
-  { path: '/.well-known/' },
+  { path: '/.well-known/appspecific/com.chrome.devtools.json', exact: true },
   { path: '/favicon' },
   { path: '/apple-touch-icon' },
   { path: '/assets/' },
+  { path: '/_serverFn/' },
+  { path: '/__tsd/' },
   { path: '/metrics', exact: true }
 ]
 

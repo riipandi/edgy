@@ -28,7 +28,7 @@ function RootDocument({ children }: { children: ReactNode }) {
       <head>
         {import.meta.env.DEV ? (
           <>
-            <link href='/virtual:stylex.css' rel='stylesheet' />
+            <link href='/virtual:stylex.css' rel='stylesheet' suppressHydrationWarning />
             <script src='/@id/virtual:stylex:runtime' type='module' />
           </>
         ) : null}
