@@ -89,9 +89,12 @@ export default defineConfig(({ mode }) => ({
       uiPreview
         ? null
         : tanstackStart({
+            // Both paths are absolute: the generator resolves its values
+            // against srcDirectory, and relative strings once sent it to
+            // src/src/.
             router: {
-              routesDirectory: 'routes',
-              generatedRouteTree: 'routeTree.gen.ts'
+              routesDirectory: resolve('./src/routes'),
+              generatedRouteTree: resolve('./src/routeTree.gen.ts')
             },
             // Start's dev middleware must stay installed for page rendering,
             // but it only sees requests the earlier Effect middleware passes
