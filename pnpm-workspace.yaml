@@ -6,16 +6,11 @@ minimumReleaseAge: 1440
 
 minimumReleaseAgeExclude:
   - "@effect/*"
-  - "@effect/platform-node"
-  - "@effect/platform-node-shared"
+  - "@storybook/*"
   - "@storybook/addon-vitest"
   - effect
   - kysely
   - storybook
-  - "@storybook/builder-vite@10.6.4"
-  - "@storybook/react-dom-shim@10.6.4"
-  - "@storybook/react-vite@10.6.4"
-  - "@storybook/react@10.6.4"
 
 catalog:
   "@vitest/coverage-v8": 5.0.5

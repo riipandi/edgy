@@ -10,7 +10,7 @@ const ignoredPatterns = [
   '.output',
   '.storage',
   '.wrangler',
-  '.llms/**', // the documentation ledger wraps at full width; not formatter-owned
+  '.llms/**',
   '**/*.yml',
   '**/*.yaml',
   '**/*.toml',
@@ -89,8 +89,6 @@ export default defineConfig(({ mode }) => ({
         ? null
         : tanstackStart({
             router: {
-              // Both paths resolve against srcDirectory (src); the generated
-              // tree lands at src/routeTree.gen.ts.
               routesDirectory: 'routes',
               generatedRouteTree: 'routeTree.gen.ts'
             },
