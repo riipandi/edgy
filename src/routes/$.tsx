@@ -1,17 +1,14 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { setResponseStatus } from '@tanstack/react-start/server'
+import { setStatus } from '#/kernel/ssr_status.ts'
 import { fx } from '#/resources/styles/core/utils.stylex.ts'
 import { styles as notFound } from '#/resources/styles/pages/not-found.stylex.ts'
 import { sx } from '#/resources/styles/props.ts'
 
-// The catch-all route. setResponseStatus is a no-op in the browser and takes
-// effect when SSR is enabled; it runs in the loader so the status code is set
-// before the response head flushes.
+// The catch-all route. The loader answers 404 during SSR while the not-found
+// body still renders inside the shell.
 export const Route = createFileRoute('/$')({
   head: () => ({ meta: [{ title: 'Not Found - Edgy' }] }),
-  loader: () => {
-    if (import.meta.env.SSR) setResponseStatus(404)
-  },
+  loader: () => setStatus(404),
   component: NotFoundPage
 })
 

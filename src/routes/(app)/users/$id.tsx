@@ -1,5 +1,5 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { setResponseStatus } from '@tanstack/react-start/server'
+import { setStatus } from '#/kernel/ssr_status.ts'
 import { getUser } from '#/modules/identity/user/user_fns.ts'
 import { fx } from '#/resources/styles/core/utils.stylex.ts'
 import { styles as userStyles } from '#/resources/styles/pages/user.stylex.ts'
@@ -41,7 +41,7 @@ export const Route = createFileRoute('/(app)/users/$id')({
       .then((data) => {
         // A missing user is a routing fact, so the status is set during SSR
         // while the not-found body still renders inside the shell.
-        if (import.meta.env.SSR && data?.user === undefined) setResponseStatus(404)
+        if (data?.user === undefined) setStatus(404)
         return data
       })
       .catch((cause) => {
