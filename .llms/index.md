@@ -11,7 +11,7 @@
 | [audit/](./audit/)                   | Evidence-based audits. Newest: [audit-20261027_2042](./audit/audit-20261027_2042.md) (behaviour logging), [audit-20261027_1835](./audit/audit-20261027_1835.md) (TanStack Start SSR configuration), [audit-20261027_1759](./audit/audit-20261027_1759.md) (React migration surface). |
 | [issues/](./issues/)                 | Live findings that outlive a session (none).                   |
 | [roadmap/](./roadmap/)               | Parked improvements with explicit triggers (none).             |
-| [handover/](./handover/)             | Session compactions and wave summaries. Newest: [handover-20261027_1935](./handover/handover-20261027_1935.md). |
+| [handover/](./handover/)             | Session compactions and wave summaries. Newest: [handover-20261027_2132](./handover/handover-20261027_2132.md) (behaviour logging), [handover-20261027_1935](./handover/handover-20261027_1935.md). |
 | [audit/](./audit/)                   | Point-in-time surface and security audit records (clean).      |
 | [archive/](./archive/)               | Terminal ledger documents. Newest: [plan-20261027_1935](./archive/plan-20261027_1935.md), [handover-20261027_1835](./archive/handover-20261027_1835.md), [plan-20261027_1835](./archive/plan-20261027_1835.md). |
 | [docs/](../docs/index.md)            | Human-facing setup, API, configuration, and operations guides. |
