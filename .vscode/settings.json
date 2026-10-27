@@ -26,7 +26,6 @@
     "files.readonlyInclude": {
         "**/.output/**": true,
         "**/routeTree.gen.ts": true,
-        "**/routes.gen.ts": true,
         "**/codegen/**": true,
         "**/build/**": true,
         "**/dist/**": true,
@@ -37,7 +36,6 @@
     "files.watcherExclude": {
         "**/.output/**": true,
         "**/routeTree.gen.ts": true,
-        "**/routes.gen.ts": true,
         "**/codegen/**": true,
         "**/build/**": true,
         "**/dist/**": true,
@@ -49,7 +47,6 @@
         "**/.output/**": true,
         "**/.vitest/**": true,
         "**/routeTree.gen.ts": true,
-        "**/routes.gen.ts": true,
         "**/codegen/**": true,
         "**/build/**": true,
         "**/dist/**": true,

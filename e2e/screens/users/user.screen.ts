@@ -3,7 +3,7 @@ import { AppScreen } from '../shared/app.screen.ts'
 
 export class UserScreen extends AppScreen {
   async open(id: string) {
-    await this.page.goto(routes.user(id))
+    return this.page.goto(routes.user(id))
   }
 
   name() {

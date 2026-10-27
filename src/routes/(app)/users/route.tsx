@@ -2,8 +2,8 @@ import { Outlet, createFileRoute } from '@tanstack/react-router'
 import { fx } from '#/resources/styles/core/utils.stylex.ts'
 import { sx } from '#/resources/styles/props.ts'
 
-// A layout route: pairing users.tsx with the users/ directory nests
-// every page inside it under this component.
+// A layout route: the users/ directory nests every page under this
+// component so the directory heading and container are shared.
 export const Route = createFileRoute('/(app)/users')({
   component: RouteComponent
 })
