@@ -2,7 +2,7 @@
 
 ## Stack
 
-Edgy is a modular TypeScript ESM application running on Node.js 24.22 or newer. The runtime and HTTP composition use `effect` and `@effect/platform-node`. Persistence is managed by Kysely over SQLite through Turso's drivers: `@tursodatabase/database` for local files with multiprocess WAL support, and `@tursodatabase/serverless` over HTTP for remote Turso databases. Frontend pages are server-rendered React 19 components through TanStack Start (`@tanstack/react-start`, `@tanstack/react-router`) with build-time CSS extraction via StyleX. Builds and testing run through Vite and `vite-plus` (`vp`/`vpr`), with standalone deployment bundling and optional multi-core process clustering through OxMgr (`oxfile.toml`).
+Edgy is a modular TypeScript ESM application running on Node.js 24.22 or newer. The runtime and HTTP composition use `effect` and `@effect/platform-node`. Persistence is managed by Kysely over SQLite through Turso's drivers: `@tursodatabase/database` for local files with multiprocess WAL support, and `@tursodatabase/serverless` over HTTP for remote Turso databases. Frontend pages are server-rendered React 19 components through TanStack Start (`@tanstack/react-start`, `@tanstack/react-router`) with page data served through TanStack Query (`@tanstack/react-query` + `@tanstack/react-router-ssr-query`) and build-time CSS extraction via StyleX; the TanStack devtools panel runs in development only. Builds and testing run through Vite and `vite-plus` (`vp`/`vpr`), with standalone deployment bundling and optional multi-core process clustering through OxMgr (`oxfile.toml`).
 
 ```mermaid
 graph TD

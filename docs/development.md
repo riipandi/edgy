@@ -64,14 +64,27 @@ sequenceDiagram
 
 Route components live under `src/routes/`:
 
-| Directory / File                  | Purpose                                                            |
-| --------------------------------- | ------------------------------------------------------------------ |
-| `src/routes/_app/index.tsx`       | Root landing page (links to `/users`).                             |
-| `src/routes/_app.tsx`             | Pathless layout providing the global navigation bar and container. |
-| `src/routes/_app/users.tsx`       | Users section layout wrapper.                                      |
-| `src/routes/_app/users/index.tsx` | Users list page displaying paginated user cards.                   |
-| `src/routes/_app/users/$id.tsx`   | Dynamic user detail page rendering user profile information.       |
-| `src/routes/_app/$.tsx`           | Catch-all error page for unrecognized URLs.                        |
+| Directory / File                    | Purpose                                                                          |
+| ----------------------------------- | -------------------------------------------------------------------------------- |
+| `src/routes/__root.tsx`             | Root document shell, global error boundary, and head metadata.                   |
+| `src/routes/(home)/index.tsx`       | Landing page (links to the users list).                                          |
+| `src/routes/(app)/route.tsx`        | Pathless route group providing the navigation bar and container.                 |
+| `src/routes/(app)/users/route.tsx`  | Layout route sharing the users section heading and container.                    |
+| `src/routes/(app)/users/index.tsx`  | Users list page.                                                                 |
+| `src/routes/(app)/users/$id.tsx`    | User detail page.                                                                |
+| `src/routes/$.tsx`                  | Catch-all page for unrecognized URLs (answers 404 during SSR).                   |
+
+Files starting with `-` are not routes: `-boundaries.tsx` holds the global error surface and `-devtools.tsx` the development devtools panel.
+
+### Developer tools
+
+When the dev server runs, a TanStack devtools panel is available in the bottom-left corner of every page. It shows live query and router state:
+
+- Press `Shift+D` to open or close the panel, `Alt+CtrlOrMeta` to toggle component inspection.
+- `hideUntilHover` keeps the trigger out of the way; hovering the bottom-left edge reveals it.
+- The panel is compiled out of production builds — it never appears on deployed environments.
+
+Page data flows through TanStack Query: loaders prefetch inside the router before render, so pages arrive with data already present, and the cache serves subsequent visits until the router revalidates.
 
 ### Styling with StyleX
 
