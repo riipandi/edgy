@@ -5,6 +5,7 @@ import { darkColors } from '#/resources/styles/core/themes.ts'
 import { styles as rootLayout } from '#/resources/styles/element/root-layout.stylex.ts'
 import { sx } from '#/resources/styles/props.ts'
 import { ErrorBoundary } from './-boundaries.tsx'
+import DevTools from './-devtools.tsx'
 import '../assets/globals.css'
 
 export const Route = createRootRouteWithContext<GlobalContext>()({
@@ -21,6 +22,7 @@ export const Route = createRootRouteWithContext<GlobalContext>()({
 })
 
 function RootDocument({ children }: { children: ReactNode }) {
+  const { queryClient } = Route.useRouteContext()
   return (
     <html lang='en'>
       <head>
@@ -33,7 +35,10 @@ function RootDocument({ children }: { children: ReactNode }) {
         <HeadContent />
       </head>
       <body {...sx(rootLayout.root)}>
-        <div {...sx(rootLayout.root, darkColors)}>{children}</div>
+        <div {...sx(rootLayout.root, darkColors)}>
+          {children}
+          {import.meta.env.DEV ? <DevTools queryClient={queryClient} /> : null}
+        </div>
         <Scripts />
       </body>
     </html>

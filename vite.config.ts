@@ -1,4 +1,5 @@
 import stylex from '@stylexjs/unplugin/vite'
+import { devtools } from '@tanstack/devtools-vite'
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 import react from '@vitejs/plugin-react'
 import { resolve } from 'node:path'
@@ -84,6 +85,9 @@ export default defineConfig(({ mode }) => ({
   plugins:
     lazyPlugins(() => [
       stylexPlugin(!uiPreview, mode),
+      // The devtools vite plugin serves the TanStack devtools panel assets in
+      // development; it stays out of the Storybook preview like Start.
+      uiPreview ? null : devtools(),
       // Start owns the page build; Storybook's preview build carries its own
       // entries that the Start manifest plugin would reject.
       uiPreview
