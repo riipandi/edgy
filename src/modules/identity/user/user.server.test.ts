@@ -1,7 +1,7 @@
 import { Effect } from 'effect'
 import { TypeID } from 'typeid-js'
 import { expect, it, vi } from 'vite-plus/test'
-import { runWithPageMeta, type PageMeta } from '#/kernel/page_meta.ts'
+import { runWithPageMeta, type PageMeta } from '#/kernel/pagemeta.ts'
 import { fetchUserPage } from './user.server.ts'
 import { withUserService } from './user_context.ts'
 import type { User } from './user_schema.ts'

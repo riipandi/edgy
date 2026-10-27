@@ -2,7 +2,7 @@ import { getRequest } from '@tanstack/react-start/server'
 // Server-only readers behind the page loaders. Import only from
 // createServerFn handlers or other server modules.
 import { Effect } from 'effect'
-import { getPageMeta } from '#/kernel/page_meta.ts'
+import { getPageMeta } from '#/kernel/pagemeta.ts'
 import { runWithUserService } from './user_context.ts'
 import { parseUserId, toUserResult, type UserIdType, type UserResult } from './user_schema.ts'
 

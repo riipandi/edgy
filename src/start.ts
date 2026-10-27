@@ -1,6 +1,6 @@
 import { createCsrfMiddleware, createMiddleware } from '@tanstack/react-start'
 import { createStart } from '@tanstack/react-start'
-import { runWithPageMeta, type PageMeta } from '#/kernel/page_meta.ts'
+import { runWithPageMeta, type PageMeta } from '#/kernel/pagemeta.ts'
 import { devAccessLog } from '#/middleware/dev-access-log.ts'
 
 const devAccessLogMiddleware = createMiddleware().server(({ request, next }) =>
