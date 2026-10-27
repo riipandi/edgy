@@ -134,9 +134,20 @@ export default defineConfig(({ mode }) => ({
       {
         extends: true,
         test: {
-          name: 'unit',
+          name: 'client',
           environment: 'jsdom',
-          include: ['src/**/*.test.{ts,tsx}'],
+          include: ['src/routes/**/*.test.{ts,tsx}', 'src/resources/**/*.test.{ts,tsx}'],
+          globals: false,
+          isolate: false
+        }
+      },
+      {
+        extends: true,
+        test: {
+          name: 'server',
+          environment: 'jsdom',
+          include: ['src/**/*.test.ts'],
+          exclude: ['src/routes/**', 'src/resources/**'],
           globals: false,
           isolate: false
         }
