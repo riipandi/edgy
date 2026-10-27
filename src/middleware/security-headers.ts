@@ -33,25 +33,39 @@ export const cspFor = (nonce?: string): string =>
 export const docsCspFor = (): string =>
   [`script-src 'self' 'unsafe-inline'`, ...CSP_DIRECTIVES].join('; ')
 
-export const securityHeaders = {
-  'content-security-policy': cspFor(),
-  'referrer-policy': 'strict-origin-when-cross-origin',
-  'x-content-type-options': 'nosniff',
-  'x-frame-options': 'DENY'
-} as const
-
-export const applySecurityHeaders = (response: HttpServerResponse.HttpServerResponse) =>
-  response.headers['content-security-policy'] === undefined
-    ? HttpServerResponse.setHeaders(securityHeaders)(response)
-    : response
+// A response that already carries a CSP (the renderer's nonced page CSP)
+// keeps it; the remaining hardening headers are set regardless so no
+// response path loses them. Callers with a route-specific CSP pass it as
+// the fallback.
+export const applySecurityHeaders =
+  (csp: string = cspFor()) =>
+  (response: HttpServerResponse.HttpServerResponse) => {
+    const based =
+      response.headers['content-security-policy'] === undefined
+        ? HttpServerResponse.setHeader(response, 'content-security-policy', csp)
+        : response
+    return HttpServerResponse.setHeaders({
+      'referrer-policy': 'strict-origin-when-cross-origin',
+      'x-content-type-options': 'nosniff',
+      'x-frame-options': 'DENY'
+    })(based)
+  }
 
 export const securityHeadersMiddleware = HttpRouter.middleware(
-  (httpEffect) => Effect.map(httpEffect, applySecurityHeaders),
+  (httpEffect) => Effect.map(httpEffect, applySecurityHeaders()),
   { global: true }
 )
 
+// The docs layer overrides the global CSP (the global middleware runs
+// outside it and has already stamped the default) and still carries the
+// hardening headers.
 export const docsSecurityHeadersMiddleware = HttpRouter.middleware((httpEffect) =>
   Effect.map(httpEffect, (response) =>
-    HttpServerResponse.setHeader(response, 'content-security-policy', docsCspFor())
+    HttpServerResponse.setHeaders({
+      'content-security-policy': docsCspFor(),
+      'referrer-policy': 'strict-origin-when-cross-origin',
+      'x-content-type-options': 'nosniff',
+      'x-frame-options': 'DENY'
+    })(response)
   )
 ).layer

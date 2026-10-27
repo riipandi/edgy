@@ -8,7 +8,6 @@ import {
   cspFor,
   docsCspFor,
   docsSecurityHeadersMiddleware,
-  securityHeaders,
   securityHeadersMiddleware
 } from '#/middleware/security-headers.ts'
 
@@ -47,15 +46,19 @@ it('sets the hardening headers on every response', async () => {
   expect(csp).toContain('unsafe-inline')
 })
 
-it('omits script-src when no nonce is given', () => {
-  expect(securityHeaders['content-security-policy']).not.toContain('script-src')
-})
-
-it('leaves a response that already carries a CSP untouched', () => {
+it('keeps a response CSP and still adds the hardening headers', () => {
   const withCsp = HttpServerResponse.setHeaders({
     'content-security-policy': "script-src 'self'"
   })(HttpServerResponse.empty())
-  expect(applySecurityHeaders(withCsp).headers['content-security-policy']).toBe("script-src 'self'")
+  const hardened = applySecurityHeaders()(withCsp)
+  expect(hardened.headers['content-security-policy']).toBe("script-src 'self'")
+  expect(hardened.headers['x-content-type-options']).toBe('nosniff')
+  expect(hardened.headers['x-frame-options']).toBe('DENY')
+  expect(hardened.headers['referrer-policy']).toBe('strict-origin-when-cross-origin')
+})
+
+it('answers no script-src when no nonce is given', () => {
+  expect(cspFor()).not.toContain('script-src')
 })
 
 it('builds a nonce CSP that keeps the strict-dynamic chain', () => {
