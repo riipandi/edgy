@@ -1,5 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { paths } from '#/paths.ts'
+import { Link, createFileRoute } from '@tanstack/react-router'
 import { fx } from '#/resources/styles/core/utils.stylex.ts'
 import { styles as home } from '#/resources/styles/pages/home.stylex.ts'
 import { sx } from '#/resources/styles/props.ts'
@@ -29,9 +28,9 @@ function HomePage() {
           and the essentials you need to build from scratch.
         </p>
         <div {...sx(home.ctaRow)}>
-          <a {...sx(home.buttonPrimary, fx.focusable)} href={paths.users()}>
+          <Link {...sx(home.buttonPrimary, fx.focusable)} to='/users'>
             Users
-          </a>
+          </Link>
           <a
             href='https://tanstack.com/start/latest'
             {...sx(home.buttonNeutral, fx.focusable)}
@@ -60,7 +59,7 @@ function HomePage() {
         <p {...sx(home.quickStartTitle)}>Quick Start</p>
         <ul {...sx(home.quickStartList)}>
           <li>
-            Edit <code {...sx(home.code)}>src/routes/_app/index.tsx</code> to customize the home
+            Edit <code {...sx(home.code)}>src/routes/(home)/index.tsx</code> to customize the home
             page.
           </li>
           <li>
