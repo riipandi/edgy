@@ -567,7 +567,6 @@
 ### Reactivity
 
 - [atom-react](https://effect.website/docs/v4/api/atom-react)
-- [atom-solid](https://effect.website/docs/v4/api/atom-solid)
 - [atom-vue](https://effect.website/docs/v4/api/atom-vue)
 
 ### [Telemetry](https://effect.website/docs/v4/api/opentelemetry)

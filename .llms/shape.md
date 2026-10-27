@@ -2,7 +2,7 @@
 
 ## Stack
 
-Edgy is a modular TypeScript ESM application running on Node.js 24.22 or newer. The runtime and HTTP composition use `effect` and `@effect/platform-node`. Persistence is managed by Kysely over SQLite through Turso's drivers: `@tursodatabase/database` for local files with multiprocess WAL support, and `@tursodatabase/serverless` over HTTP for remote Turso databases. Frontend pages are server-rendered with SolidJS 2.0 (`solid-js`, `@solidjs/web`, `@solidjs/router`) with build-time CSS extraction via StyleX. Builds and testing run through Vite and `vite-plus` (`vp`/`vpr`), with standalone deployment bundling and optional multi-core process clustering through OxMgr (`oxfile.toml`).
+Edgy is a modular TypeScript ESM application running on Node.js 24.22 or newer. The runtime and HTTP composition use `effect` and `@effect/platform-node`. Persistence is managed by Kysely over SQLite through Turso's drivers: `@tursodatabase/database` for local files with multiprocess WAL support, and `@tursodatabase/serverless` over HTTP for remote Turso databases. Frontend pages are server-rendered React 19 components through TanStack Start (`@tanstack/react-start`, `@tanstack/react-router`) with build-time CSS extraction via StyleX. Builds and testing run through Vite and `vite-plus` (`vp`/`vpr`), with standalone deployment bundling and optional multi-core process clustering through OxMgr (`oxfile.toml`).
 
 ```mermaid
 graph TD
@@ -12,7 +12,7 @@ graph TD
     subgraph Core ["Application Core"]
         Server --> Router["HttpRouter & Middleware Stack (src/kernel/http/stack.ts)"]
         Router --> API["Effect HttpApi Subsystem (src/kernel/http/api.ts)"]
-        Router --> SSR["SolidJS 2.0 SSR Streamer (src/kernel/renderer.ts)"]
+        Router --> SSR["TanStack Start SSR (src/kernel/renderer.ts)"]
         
         API --> Reg["Module Registry (src/kernel/registry.ts)"]
         Reg --> Identity["Identity Module (src/modules/identity)"]
@@ -50,7 +50,7 @@ graph TD
 | `src/modules/`                     | Self-contained domain modules (`identity/user`) containing route, handler, service, repo.  |
 | `src/database/`                    | Turso Kysely dialect (`dialect.ts`), adapter (`adapter.ts`), migrator, schema, seeders.   |
 | `src/middleware/`, `src/observer/` | HTTP middlewares (CORS, error reshaping, rate limit, request-id, log) and OpenTelemetry.  |
-| `src/routes/`, `src/resources/`    | File-based SolidJS routes, shared components, and StyleX styling definitions.              |
+| `src/routes/`, `src/resources/`    | TanStack Start file routes, shared components, and StyleX styling definitions.            |
 | `src/builder/`                     | Vite plugins, standalone dependency inlining, leak verification, and oxfile generation.   |
 | `tests/`                           | Integration tests, API tests, and test fixtures; unit tests sit beside their source files. |
 

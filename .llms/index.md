@@ -10,7 +10,7 @@
 | [plans/](./plans/)                   | Execution contracts for pending or in-progress changes. Newest: [plan-20261027_0605](./plans/plan-20261027_0605.md) (in-progress). |
 | [issues/](./issues/)                 | Live findings that outlive a session (none).                   |
 | [roadmap/](./roadmap/)               | Parked improvements with explicit triggers (none).             |
-| [handover/](./handover/)             | Session compactions and wave summaries (clean).                |
+| [handover/](./handover/)             | Session compactions and wave summaries. Newest: [handover-20261027_0605](./handover/handover-20261027_0605.md). |
 | [audit/](./audit/)                   | Point-in-time surface and security audit records (clean).      |
 | [archive/](./archive/)               | Terminal ledger documents (clean).                             |
 | [docs/](../docs/index.md)            | Human-facing setup, API, configuration, and operations guides. |

@@ -35,7 +35,7 @@ To automatically apply migrations before starting the dev server, set `DATABASE_
 
 ## Frontend architecture
 
-The server renders HTML pages using SolidJS 2.0 with compile-time CSS extraction powered by StyleX.
+The server renders HTML pages using React 19 with TanStack Start's streaming SSR and compile-time CSS extraction powered by StyleX.
 
 ### SSR and hydration lifecycle
 
@@ -44,34 +44,34 @@ sequenceDiagram
     autonumber
     actor Browser
     participant Server as HTTP Server
-    participant Router as SolidJS Router & SSR Streamer
+    participant Router as TanStack Start Router & SSR Streamer
     participant Service as Application Domain Service
 
     Browser->>Server: HTTP GET /users
     Server->>Router: Dispatch Request URL
-    Router->>Service: Load Initial Page Data (In-Memory Resolution)
+    Router->>Service: Load Initial Page Data (Server Function)
     Service-->>Router: Return User Collection
     Router->>Server: Stream Rendered HTML Shell (with TypeID Script Nonce)
     Server-->>Browser: Stream First Byte & Rendered Markup
     Browser->>Browser: Paint HTML Immediately (Fast First Contentful Paint)
     Browser->>Server: Fetch Client JavaScript & StyleX CSS Bundles
     Server-->>Browser: Return Bundled Assets
-    Browser->>Browser: Hydrate Interactive Islands
-    Note over Browser: Subsequent navigations execute client-side via Solid Router
+    Browser->>Browser: Hydrate the Rendered Page
+    Note over Browser: Subsequent navigations run client-side via TanStack Router
 ```
 
 ### File-based routing
 
 Route components live under `src/routes/`:
 
-| Directory / File                   | Purpose                                                             |
-| ---------------------------------- | ------------------------------------------------------------------- |
-| `src/routes/index.tsx`             | Root landing page (redirects to `/users`).                          |
-| `src/routes/(app).tsx`             | Top-level layout providing the global navigation bar and container. |
-| `src/routes/(app)/users.tsx`       | Users section layout wrapper.                                       |
-| `src/routes/(app)/users/index.tsx` | Users list page displaying paginated user cards.                    |
-| `src/routes/(app)/users/[id].tsx`  | Dynamic user detail page rendering user profile information.        |
-| `src/routes/(app)/[...404].tsx`    | Catch-all error page for unrecognized URLs.                         |
+| Directory / File                       | Purpose                                                             |
+| -------------------------------------- | ------------------------------------------------------------------- |
+| `src/routes/_app/index.tsx`            | Root landing page (links to `/users`).                              |
+| `src/routes/_app.tsx`                  | Pathless layout providing the global navigation bar and container.  |
+| `src/routes/_app/users.tsx`            | Users section layout wrapper.                                       |
+| `src/routes/_app/users/index.tsx`      | Users list page displaying paginated user cards.                    |
+| `src/routes/_app/users/$id.tsx`        | Dynamic user detail page rendering user profile information.        |
+| `src/routes/_app/$.tsx`                | Catch-all error page for unrecognized URLs.                         |
 
 ### Styling with StyleX
 
@@ -82,7 +82,7 @@ Styles are authored as typed TypeScript objects and compiled into zero-runtime C
 - Components apply styles using the `sx` prop helper:
 
 ```tsx
-<h2 {...sx(fx.h2, userStyles.detailTitle)}>{user().name}</h2>
+<h2 {...sx(fx.h2, userStyles.detailTitle)}>{user.name}</h2>
 ```
 
 ## Testing

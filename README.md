@@ -9,10 +9,11 @@ dependency injection, HTTP routing, middleware, structured logging, and telemetr
 provides the query builder over SQLite through Turso's engine — a local file with multi-process WAL support,
 or a remote database over HTTP.
 
-It also serves HTML pages: server-rendered [Solid](https://v2.solidjs.com) components with a
-file-based router, styled with [StyleX](https://stylexjs.com/), interactive where they need to be.
-[Vite](https://vite.dev) builds the server and browser assets; standalone mode bundles dependencies
-into a single executable script with optional [OxMgr](https://github.com/Vladimir-Urik/OxMgr) cluster supervision.
+It also serves HTML pages: server-rendered [React](https://react.dev) components through
+[TanStack Start](https://tanstack.com/start/latest), styled with [StyleX](https://stylexjs.com/),
+interactive where they need to be. [Vite](https://vite.dev) builds the server and browser assets;
+standalone mode bundles dependencies into a single executable script with optional
+[OxMgr](https://github.com/Vladimir-Urik/OxMgr) cluster supervision.
 
 ## Features
 
@@ -23,7 +24,7 @@ into a single executable script with optional [OxMgr](https://github.com/Vladimi
 - **Observable** — exports OpenTelemetry traces and metrics over OTLP into the bundled ClickStack dashboard.
 - **Configurable** — typed, startup-validated environment configuration with automated example generation.
 - **One database, two transports** — local SQLite file via Turso's native engine (multiprocess WAL), or remote Turso over HTTP.
-- **Server-rendered pages** — streamed SolidJS 2.0 pages with file-based routing and zero-runtime StyleX styles.
+- **Server-rendered pages** — streamed React 19 pages with file-based routing and zero-runtime StyleX styles.
 - **Standalone and clustering** — `vpr build:standalone` emits a self-contained bundle ready for OxMgr multi-worker clustering.
 
 ## Requirements
@@ -63,7 +64,7 @@ The full documentation index lives in [docs/index.md](./docs/index.md):
 | [CLI](./docs/commandline.md)             | Commands, flags, confirmation, and cluster mode           |
 | [Configuration](./docs/configuration.md) | Environment variables, defaults, and Compose settings     |
 | [API endpoints](./docs/api-endpoint.md)  | Endpoint list, response envelopes, pagination, and errors |
-| [Development](./docs/development.md)     | Day-to-day workflow, database migrations, and SolidJS SSR |
+| [Development](./docs/development.md)     | Day-to-day workflow, database migrations, and SSR with TanStack Start |
 | [Deployment](./docs/deployment.md)       | Standalone builds, OxMgr process clustering, and Docker   |
 
 ## References
@@ -71,7 +72,7 @@ The full documentation index lives in [docs/index.md](./docs/index.md):
 - Effect — [getting started](https://effect.website/docs/v4/getting-started) · [Config](https://effect.website/docs/v4/api/effect/Config) · [Logger](https://effect.website/docs/v4/api/effect/Logger) · [Schema](https://effect.website/docs/v4/api/effect/Schema) · [CLI](https://effect.website/docs/v4/api/effect/cli/Command)
 - Effect HTTP — [HTTP APIs](https://effect.website/docs/v4/platform/http)
 - Kysely — [documentation](https://kysely.dev)
-- Frontend — [Solid](https://v2.solidjs.com) · [Solid Router](https://v2.solidjs.com/routing/solid-router) · [Vite](https://vite.dev/guide/) · [StyleX](https://stylexjs.com/)
+- Frontend — [React](https://react.dev) · [TanStack Start](https://tanstack.com/start/latest) · [TanStack Router](https://tanstack.com/router/latest) · [Vite](https://vite.dev/guide/) · [StyleX](https://stylexjs.com/)
 - Database — [Turso](https://turso.tech) · [Kysely dialect](https://github.com/tursodatabase/kysely-libsql)
 - Process Manager — [OxMgr](https://github.com/Vladimir-Urik/OxMgr)
 

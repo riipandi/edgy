@@ -37,7 +37,7 @@ graph TD
 - `CoreLayer` provides Node platform services, parsed configuration (`AppConfig`), structured logging (`LoggerLayer`), and OpenTelemetry tracing/metrics (`TelemetryRuntimeLayer`, `RuntimeMetricsLayer`).
 - `ApplicationLayer` provides domain feature services by layering `moduleServiceLayer` over `DatabaseLayer`. The serve command wraps this layer around both automatic migrations and the HTTP server scope, allowing database connections to be shared safely.
 
-`kernel/runtime.ts` manages a singleton `ManagedRuntime` constructed from `ApplicationLayer` and `CoreLayer`. It controls application lifecycle and disposal (`applicationContext()`, `disposeUserRuntime()`). SolidJS SSR utilizes this runtime during development and bridges request-scoped services via Node's `AsyncLocalStorage` in production.
+`kernel/runtime.ts` manages a singleton `ManagedRuntime` constructed from `ApplicationLayer` and `CoreLayer`. It controls application lifecycle and disposal (`applicationContext()`, `disposeUserRuntime()`). Start server functions utilize this runtime and bridge request-scoped services via Node's `AsyncLocalStorage`.
 
 ## Module registry pattern
 
@@ -130,11 +130,14 @@ Persistence utilizes Kysely over SQLite via a unified custom dialect in `src/dat
 
 ## SSR and hydration architecture
 
-- **Server-Side Streaming**: `src/kernel/renderer.ts` streams SolidJS 2.0 components using `@solidjs/web`. Document shells are defined in `src/Document.tsx`.
-- **Script Nonce Hardening**: Every page render mints a TypeID nonce (`nonce_...`), embeds it into hydration scripts, and issues a strict CSP header (`script-src 'self' 'nonce-...' 'strict-dynamic'`).
-- **Isomorphic Fetch Bridge**: `src/modules/identity/user/user_fn.ts` provides universal data-fetching functions. In the browser, it issues standard `fetch('/api/users')`. On the server during SSR, calls resolve directly against `UserService` in memory.
-- **Zero-Runtime CSS**: Page styles in `src/resources/styles/` are authored with StyleX and extracted to static CSS bundles at build time.
-- **File routes**: `filesystem-routing/vite` scans `src/routes` and serves the manifest as `virtual:file-routes`. `src/router.ts` passes `pageRoutes` to `@solidjs/router/fs`. `@solidjs/router` does not write route types. `fileRoutes({ types: true })` writes gitignored `file-routes.d.ts` as a literal tuple (so path-derived route types survive) only from the Vite plugin's `buildStart`. A clean checkout has no declaration until `vp dev` or `vp build` runs, so CI builds before lint and typecheck. The package forbids also referencing `filesystem-routing/types`.
+- **Rendering pipeline**: The Effect listener forwards page requests to TanStack Start's `fetch` handler. In production `src/kernel/renderer.ts` imports the built server bundle and calls its default `fetch(request)`; in `vpr dev` Start's dev middleware renders pages inside Vite. Start owns the document shell, streaming, and hydration; the Effect server keeps `/api/*`, metrics, middleware, and static assets.
+- **Script Nonce Hardening**: `src/kernel/csp_nonce.ts` mints one TypeID nonce per process and shares it with the router factory (via `globalThis`) and the renderer; the router factory stamps it onto streamed scripts through `ssr.nonce`, and the renderer issues the CSP header (`script-src 'self' 'nonce-...' 'strict-dynamic'`).
+- **Server functions**: Page data crosses the client boundary only through `createServerFn` (`src/modules/identity/user/user_fns.ts` wraps `user.server.ts`). Handlers resolve `UserService` through the request-scoped AsyncLocalStorage (`user_context.ts`) and read `nocache` from `getRequest()`. `/api/*` remains the public HTTP contract; a server function is an internal RPC endpoint, not an API.
+- **The x-cache bridge**: `setResponseHeader` inside a server function does not reach the HTML response. The handler records the cache verdict on the request-scoped page meta (`src/kernel/page_meta.ts`), and the Start request middleware in `src/start.ts` copies it onto the outgoing HTML response.
+- **Zero-Runtime CSS**: Page styles in `src/resources/styles/` are authored with StyleX and extracted to static CSS bundles at build time. `sx` (`src/resources/styles/props.ts`) maps style compositions to a `className` prop.
+- **Route tree generation**: The Start plugin's router generator scans `src/routes` and writes the gitignored `src/routeTree.gen.ts` when its computed content changes. Both `router.routesDirectory` and `router.generatedRouteTree` resolve against `srcDirectory`; a clean checkout has no declaration until `vp dev` or `vp build` runs, so CI builds before lint and typecheck.
+
+Decision record (2026-10-27, from `plans/plan-20261027_0605.md`): **TanStack Start renders pages inside the Effect server; Effect remains the only listener.** Start owns the document shell, streaming, hydration, and the generated route tree; the Effect listener forwards page requests to Start's `fetch`. Rejected: the manual Router recipe with `entry-client`/`entry-server` — it adds a second server the listener would have to duplicate. Rejected: Nitro — it replaces the listener this repository's middleware stack is built around. **Page data moves to `createServerFn`; `/api/*` stays the public contract.** Loaders call server functions; handlers call `UserService` through the existing runtime. Rejected: keeping an `import.meta.env.SSR` branch in shared modules (preserves the old stack's shape), and SSR-side HTTP calls to `/api` (rendering would depend on the listener calling itself).
 
 ## Process lifecycle and graceful shutdown
 
