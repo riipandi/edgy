@@ -82,7 +82,7 @@ export const UserIdParams = Schema.Struct({
   )
 })
 
-export function generateUserId(uuid?: string): UserIdType {
+export function defineUserId(uuid?: string): UserIdType {
   return uuid ? TypeID.fromUUID('user', uuid) : typeid('user')
 }
 

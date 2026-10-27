@@ -7,7 +7,7 @@ import type {
   ListUsersResult,
   UpdateUserPatch
 } from './user_repo.ts'
-import { parseUserId, generateUserId, UserSchema } from './user_schema.ts'
+import { parseUserId, defineUserId, UserSchema } from './user_schema.ts'
 import type { User, UserIdType } from './user_schema.ts'
 
 export interface UserResult {
@@ -71,7 +71,7 @@ export const UserServiceLayer = Layer.effect(
       Effect.fail<UserWriteError>(new UserEmailConflict({ email }))
     const create = (values: CreateUserValues): Effect.Effect<User, UserWriteError> =>
       Effect.flatMap(repo.findByEmail(values.email), (existing) =>
-        existing === undefined ? repo.create(generateUserId(), values) : conflict(values.email)
+        existing === undefined ? repo.create(defineUserId(), values) : conflict(values.email)
       )
     const update = (
       id: UserIdType,
