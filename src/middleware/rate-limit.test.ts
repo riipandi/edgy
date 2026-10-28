@@ -2,12 +2,18 @@ import { it } from '@effect/vitest'
 import { Duration, Effect, Layer, Tracer } from 'effect'
 import { TestClock } from 'effect/testing'
 import { expect } from 'vite-plus/test'
+import { Database } from '#/database/adapter.ts'
 import { testConfig } from '../../tests/fixtures/config.ts'
-import { migratedDatabase, unwritableStoreService } from '../../tests/fixtures/database.ts'
+import {
+  migratedDatabase,
+  migratedDatabaseFor,
+  unwritableStoreService
+} from '../../tests/fixtures/database.ts'
 import {
   RateLimitCounter,
   RateLimitCounterLayer,
-  RateLimitCounterLayerDatabase
+  RateLimitCounterLayerDatabase,
+  SWEEP_EVERY
 } from './rate-limit.ts'
 
 const recorded: Array<Tracer.NativeSpan> = []
@@ -114,4 +120,34 @@ it.effect('routes to the sqlite counter while redis is disabled', () =>
     const consumes = recorded.filter((span) => span.name === 'rate-limit.consume')
     expect(consumes.at(-1)?.attributes.get('store')).toBe('sqlite')
   })
+)
+
+const pruneDatabase = migratedDatabaseFor('rate-limit-prune.db')
+const pruneLayer = Layer.provideMerge(
+  RateLimitCounterLayerDatabase.pipe(Layer.provide(pruneDatabase), Layer.provide(testConfig)),
+  pruneDatabase
+)
+
+it.effect('sweeps fully-expired rows on the write path', () =>
+  Effect.gen(function* () {
+    const database = yield* Database
+    // TestClock starts at 0; a limit-5/60s bucket is fully expired once
+    // last_refill + 60s falls at or before now, so -120s qualifies and 0 does not.
+    yield* database.query((db) =>
+      db
+        .insertInto('rate_limits')
+        .values([
+          { key: 'expired-a', tokens: 0, last_refill: -120000 },
+          { key: 'expired-b', tokens: 2, last_refill: -120000 },
+          { key: 'live', tokens: 1, last_refill: 0 }
+        ])
+        .execute()
+    )
+    const counter = yield* RateLimitCounter
+    for (let index = 0; index < SWEEP_EVERY; index += 1) {
+      yield* counter.consume('sweeper', 5, Duration.seconds(60))
+    }
+    const rows = yield* database.query((db) => db.selectFrom('rate_limits').selectAll().execute())
+    expect(rows.map((row) => row.key).sort()).toEqual(['live', 'sweeper'])
+  }).pipe(Effect.provide(pruneLayer))
 )

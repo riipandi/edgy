@@ -78,22 +78,36 @@ interface TokenBucketResult {
 // false` below. Read, decide, then write inside one transaction: this
 // database already serializes connection access (see dialect.ts), so the two
 // statements never interleave with a concurrent writer.
+//
+// The write path is also the only pruning scheduler this table has: a fully
+// expired row is dropped instead of upserted, and every SWEEP_EVERY-th
+// consume sweeps every fully expired row. All rows share the config's single
+// window/max pair, so one call's full-refill span is a valid expiry bound
+// for every row in the table.
+const SWEEP_EVERY = 20
+export { SWEEP_EVERY }
+
 const consumeTokenBucket = (
   db: Kysely<DB>,
   key: string,
   limit: number,
   refillRateMillis: number,
-  now: number
+  now: number,
+  sweep: boolean
 ): Promise<TokenBucketResult> =>
   db.transaction().execute(async (trx) => {
+    const windowMillis = limit * refillRateMillis
     const existing = await trx
       .selectFrom('rate_limits')
       .select(['tokens', 'last_refill'])
       .where('key', '=', key)
       .executeTakeFirst()
-    const refillAmount = existing ? Math.floor((now - existing.last_refill) / refillRateMillis) : 0
-    const refilled = existing ? Math.min(limit, existing.tokens + refillAmount) : limit
-    const lastRefill = existing ? existing.last_refill + refillAmount * refillRateMillis : now
+    const stale = existing !== undefined && existing.last_refill + windowMillis <= now
+    if (stale) await trx.deleteFrom('rate_limits').where('key', '=', key).execute()
+    const live = existing !== undefined && !stale
+    const refillAmount = live ? Math.floor((now - existing.last_refill) / refillRateMillis) : 0
+    const refilled = live ? Math.min(limit, existing.tokens + refillAmount) : limit
+    const lastRefill = live ? existing.last_refill + refillAmount * refillRateMillis : now
     const allowed = refilled >= 1
     const tokens = allowed ? refilled - 1 : refilled
     await trx
@@ -103,6 +117,11 @@ const consumeTokenBucket = (
         conflict.column('key').doUpdateSet({ tokens, last_refill: lastRefill })
       )
       .execute()
+    if (sweep)
+      await trx
+        .deleteFrom('rate_limits')
+        .where('last_refill', '<=', now - windowMillis)
+        .execute()
     return { tokens, lastRefill, allowed }
   })
 
@@ -122,6 +141,7 @@ export const RateLimitCounterLayerDatabase = Layer.effect(
       }),
       onFailure: { 'limiter.verdict': 'unavailable' }
     })
+    let consumes = 0
     const consume = (key: string, max: number, window: Duration.Duration) =>
       Effect.gen(function* () {
         const refillRateMillis = Math.max(
@@ -129,8 +149,9 @@ export const RateLimitCounterLayerDatabase = Layer.effect(
           Math.floor(Duration.toMillis(window) / Math.max(1, max))
         )
         const now = yield* Clock.currentTimeMillis
+        const sweep = (consumes = (consumes + 1) % SWEEP_EVERY) === 0
         const { tokens, lastRefill, allowed } = yield* database
-          .query((db) => consumeTokenBucket(db, key, max, refillRateMillis, now))
+          .query((db) => consumeTokenBucket(db, key, max, refillRateMillis, now, sweep))
           .pipe(Effect.mapError((cause) => new RateLimitError({ cause })))
         return {
           allowed,
