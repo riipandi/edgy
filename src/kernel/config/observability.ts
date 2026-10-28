@@ -1,6 +1,9 @@
 import { choice, group, milliseconds, secret, text, flag, type ValueOf } from './field.ts'
 
-const DEV_HEADERS = 'authorization=edgy-dev-ingestion-key'
+// The development OTLP ingestion key. It is the default header value only in
+// development; a production boot that enables telemetry while it is still
+// active fails fast (see the config validation).
+export const DEV_HEADERS = 'authorization=edgy-dev-ingestion-key'
 
 export const observabilityConfig = group(
   {

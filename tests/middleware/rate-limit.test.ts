@@ -96,6 +96,27 @@ describe('rate limit middleware', () => {
     }
   })
 
+  it('keys clients by forwarded-for when the socket address is absent', async () => {
+    const { handler, dispose } = serveWith({ rateLimitMax: 1 })
+    try {
+      const first = await handler(
+        new Request('http://localhost/api/ok', { headers: { 'x-forwarded-for': '203.0.113.10' } })
+      )
+      expect(first.status).toBe(200)
+      const repeat = await handler(
+        new Request('http://localhost/api/ok', { headers: { 'x-forwarded-for': '203.0.113.10' } })
+      )
+      expect(repeat.status).toBe(429)
+      // A different client keeps its own budget.
+      const other = await handler(
+        new Request('http://localhost/api/ok', { headers: { 'x-forwarded-for': '203.0.113.11' } })
+      )
+      expect(other.status).toBe(200)
+    } finally {
+      await dispose()
+    }
+  })
+
   it('limits the subtree of an exact exclusion', async () => {
     const { handler, dispose } = serveWith(
       { rateLimitMax: 2 },

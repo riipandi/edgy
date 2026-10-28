@@ -63,3 +63,24 @@ describe('the OTLP transport requires telemetry', () => {
     ).rejects.toThrow(/OTLP logging requires telemetry to be enabled/)
   })
 })
+
+describe('the dev OTLP headers are gated to development', () => {
+  it('fails fast in production while telemetry runs on the dev key', async () => {
+    await expect(resolved({ NODE_ENV: 'production' })).rejects.toThrow(
+      /OTEL_EXPORTER_OTLP_HEADERS: the development ingestion key is active in production/
+    )
+  })
+
+  it('accepts an explicit header value in production', async () => {
+    const config = await resolved({
+      NODE_ENV: 'production',
+      OTEL_EXPORTER_OTLP_HEADERS: 'authorization=prod-key'
+    })
+    expect(config.app.nodeEnv).toBe('production')
+  })
+
+  it('leaves a telemetry-off production boot alone', async () => {
+    const config = await resolved({ NODE_ENV: 'production', OTEL_SDK_DISABLED: 'true' })
+    expect(telemetryEnabled(config.observability)).toBe(false)
+  })
+})

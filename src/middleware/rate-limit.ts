@@ -281,7 +281,14 @@ export const rateLimitMiddleware = (options?: {
           const { pathname } = new URL(request.url, config.app.baseUrl)
           if (exclusions.some((exclusion) => excludedPath(pathname, exclusion)))
             return yield* httpEffect
-          const key = Option.getOrUndefined(request.remoteAddress) ?? 'local'
+          // The socket address attributes the client; without one (a socket
+          // transport, an in-process call), the forwarded-for header is the
+          // next identity, and only a request carrying neither shares the
+          // single 'local' bucket.
+          const key =
+            Option.getOrUndefined(request.remoteAddress) ??
+            request.headers['x-forwarded-for'] ??
+            'local'
           const verdict = yield* counter
             .consume(key, rateLimitMax, rateLimitWindow)
             .pipe(Effect.catchTag('RateLimitError', () => Effect.succeed('unavailable' as const)))

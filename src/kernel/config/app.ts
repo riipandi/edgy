@@ -1,6 +1,6 @@
 import { Config, Effect } from 'effect'
 import type { ConfigError } from 'effect/Config'
-import { custom, group, invalid, type ValueOf } from './field.ts'
+import { choice, custom, group, invalid, type ValueOf } from './field.ts'
 
 /**
  * Normalizes APP_BASE_URL to its origin. Relative request paths are resolved
@@ -24,6 +24,12 @@ export const parseBaseUrl = (raw: string): Effect.Effect<string, ConfigError> =>
 
 export const appUrlConfig = group(
   {
+    nodeEnv: choice(
+      'NODE_ENV',
+      ['development', 'test', 'production'],
+      'development',
+      'Runtime environment; production gates dev-only defaults'
+    ),
     baseUrl: custom(
       {
         name: 'APP_BASE_URL',

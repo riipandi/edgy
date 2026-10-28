@@ -6,7 +6,7 @@ import { testDatabasePath, testDatabaseUrl } from './database-url.ts'
 const databasePath = testDatabasePath('config.db')
 
 export const config: AppConfigShape = {
-  app: { baseUrl: 'http://localhost:3000' },
+  app: { nodeEnv: 'test', baseUrl: 'http://localhost:3000' },
   server: { host: '127.0.0.1', port: 0 },
   database: {
     url: testDatabaseUrl('config.db'),
