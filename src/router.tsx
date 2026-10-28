@@ -1,17 +1,18 @@
 import { createRouter } from '@tanstack/react-router'
 import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query'
-import { cspNonce } from '#/kernel/csp_nonce.ts'
+import { getCspNonce } from '#/kernel/csp_nonce.ts'
 import { getContext, RootProvider } from './provider.tsx'
 import { routeTree } from './routes.gen.ts'
 
 export function getRouter() {
   const { queryClient } = getContext()
+  const nonce = getCspNonce()
   const router = createRouter({
     routeTree,
     scrollRestoration: true,
     defaultPreload: 'intent',
     defaultPreloadStaleTime: 0,
-    ssr: { nonce: cspNonce },
+    ssr: nonce === undefined ? {} : { nonce },
     context: { queryClient },
     Wrap: ({ children }) => <RootProvider queryClient={queryClient}>{children}</RootProvider>
   })

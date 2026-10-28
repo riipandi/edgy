@@ -8,7 +8,7 @@ import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { AppConfig } from '#/kernel/config/config.ts'
-import { cspNonce } from '#/kernel/csp_nonce.ts'
+import { withCspNonce } from '#/kernel/csp_nonce.ts'
 import { cspFor } from '#/middleware/security-headers.ts'
 import { withUserService } from '#/modules/identity/user/user_context.ts'
 import { UserService } from '#/modules/identity/user/user_service.ts'
@@ -44,18 +44,20 @@ const renderFromBundle = Effect.gen(function* () {
   const request = yield* HttpServerRequest.HttpServerRequest
   const webRequest = yield* HttpServerRequest.toWeb(request)
   const userService = yield* UserService
-  const response = yield* Effect.tryPromise({
-    try: async (signal) => {
-      const serverBundle = await loadBundle()
-      return withUserService(userService, () =>
-        serverBundle.default.fetch(new Request(webRequest, { signal }))
-      )
-    },
+  const rendered = yield* Effect.tryPromise({
+    try: async (signal) =>
+      withCspNonce((nonce) =>
+        withUserService(userService, async () => {
+          const serverBundle = await loadBundle()
+          const response = await serverBundle.default.fetch(new Request(webRequest, { signal }))
+          return { nonce, response }
+        })
+      ),
     catch: (cause) => new InternalError({ request, cause })
   })
   return HttpServerResponse.setHeaders({
-    'content-security-policy': cspFor(cspNonce)
-  })(HttpServerResponse.fromWeb(response))
+    'content-security-policy': cspFor(rendered.nonce)
+  })(HttpServerResponse.fromWeb(rendered.response))
 })
 
 let staticHandlerMemo:

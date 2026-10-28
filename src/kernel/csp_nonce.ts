@@ -1,12 +1,19 @@
+import { AsyncLocalStorage } from 'node:async_hooks'
 import { typeid } from 'typeid-js'
 
-// One nonce per process: the Effect renderer writes it into the CSP header
-// and the Start router stamps it onto its streamed scripts. The entry bundle
-// and the page bundle each inline this module, so they resolve the shared
-// global to agree on the value.
-const nonceKey = Symbol.for('edgy.csp-nonce')
-const existing = Reflect.get(globalThis, nonceKey) as string | undefined
-const nonce = existing ?? typeid('nonce').toString()
-if (existing === undefined) Reflect.set(globalThis, nonceKey, nonce)
+// One nonce per request: the renderer mints it, writes it into the CSP
+// header, and the Start router reads it from the request context to stamp
+// its streamed scripts. The entry bundle and the page bundle each inline
+// this module, so the shared global keeps them on one storage.
+const nonceStorageKey = Symbol.for('edgy.csp-nonce-storage')
+const nonceStorage =
+  (Reflect.get(globalThis, nonceStorageKey) as AsyncLocalStorage<string> | undefined) ??
+  new AsyncLocalStorage<string>()
+Reflect.set(globalThis, nonceStorageKey, nonceStorage)
 
-export const cspNonce = nonce
+export const withCspNonce = <A>(run: (nonce: string) => Promise<A>): Promise<A> => {
+  const nonce = typeid('nonce').toString()
+  return nonceStorage.run(nonce, () => run(nonce))
+}
+
+export const getCspNonce = (): string | undefined => nonceStorage.getStore()
