@@ -15,6 +15,16 @@ it('decodeCursor returns undefined for a token that is not valid JSON', () => {
   expect(decodeCursor('not-a-real-cursor')).toBeUndefined()
 })
 
+it.each([
+  ['null', 'bnVsbA'],
+  ['an array', 'W10'],
+  ['a number', 'Mw'],
+  ['an empty object', 'e30'],
+  ['an object with a non-primitive value', 'eyJhIjp7ImIiOjF9fQ']
+])('decodeCursor returns undefined for %s', (_label, token) => {
+  expect(decodeCursor(token)).toBeUndefined()
+})
+
 const Query = Schema.Struct(PaginationFields)
 
 it('PaginationFields accepts an in-range limit and rejects an out-of-range one', () => {

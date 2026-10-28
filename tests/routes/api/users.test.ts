@@ -55,6 +55,16 @@ describe('GET /api/users', () => {
     expect(metadata).toMatchObject({ limit: 20, has_more: false, next_cursor: null })
   })
 
+  it('responds 400 with INVALID_CURSOR for a cursor that parses but has the wrong shape', async () => {
+    const response = await handler(
+      new Request(`http://localhost/api/users?cursor=${Buffer.from('null').toString('base64url')}`)
+    )
+    expect(response.status).toBe(400)
+    const body = await response.json()
+    expect(body.status).toBe('error')
+    expect(body.error).toMatchObject({ code: 'INVALID_CURSOR', retryable: false })
+  })
+
   it('maps repository failures to a sanitized 503 error envelope', async () => {
     const response = await unavailableUsersHandler(new Request('http://localhost/api/users'))
     expect(response.status).toBe(503)

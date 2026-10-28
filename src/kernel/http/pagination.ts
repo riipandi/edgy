@@ -29,9 +29,20 @@ export const encodeCursor = (payload: CursorPayload): string =>
   Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url')
 
 export const decodeCursor = <T extends CursorPayload>(cursor: string): T | undefined => {
+  let parsed: unknown
   try {
-    return JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8')) as T
+    parsed = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'))
   } catch {
     return undefined
   }
+  if (
+    typeof parsed !== 'object' ||
+    parsed === null ||
+    Array.isArray(parsed) ||
+    Object.keys(parsed).length === 0 ||
+    !Object.values(parsed).every((value) => typeof value === 'string' || typeof value === 'number')
+  ) {
+    return undefined
+  }
+  return parsed as T
 }
