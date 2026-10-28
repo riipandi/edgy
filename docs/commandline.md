@@ -29,7 +29,7 @@ serve                  Start the HTTP application server
 The server intercepts `SIGINT` and `SIGTERM` signals and manages orderly process shutdown:
 
 1. Stops accepting incoming HTTP connections.
-2. Waits up to 20 seconds for in-flight requests to complete.
+2. Drops idle connections immediately and gives in-flight requests a bounded drain window (default 10 seconds) before closing any remaining sockets.
 3. Closes database connection pools and flushes pending writes.
 4. Closes Redis clients and flushes structured logs.
 5. Emits `Application terminated` and exits with code `0`. A second signal forces immediate termination (`128 + signal`).

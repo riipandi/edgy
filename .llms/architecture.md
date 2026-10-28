@@ -126,7 +126,7 @@ Persistence utilizes Kysely over SQLite via a unified custom dialect in `src/dat
 ## Cache and rate limiting
 
 - **Cache Subsystem (`src/kernel/cache.ts`)**: Lookups use `Cacheable.Class`. By default, entries reside in a bounded in-memory LRU cache with concurrent lookup deduplication. Enabling `REDIS_ENABLE=true` switches to a shared Redis store (`PersistedCache`, Redis DB 1) with graceful fallback to un-cached database reads upon Redis disruption.
-- **Rate Limiting (`src/middleware/rate-limit.ts`)**: Employs a token-bucket algorithm rather than a fixed window. Tokens refill continuously (`refillRateMillis = window / limit`). Counters persist to the `rate_limits` table in SQLite by default, or to Redis (DB 2) when enabled. A database or cache outage causes the rate limiter to fail closed with a `503 DATABASE_ERROR`.
+- **Rate Limiting (`src/middleware/rate-limit.ts`)**: Employs a token-bucket algorithm rather than a fixed window. Tokens refill continuously (`refillRateMillis = window / limit`). Counters persist to the `rate_limits` table in SQLite by default, or to Redis (DB 2) when enabled. A database or cache outage causes the rate limiter to fail closed with a `503 DATABASE_ERROR`. Bucket keys attribute to the client socket address, falling back to `x-forwarded-for`, then `local`; expired rows are pruned on the write path every 20 consumes.
 
 ## SSR and hydration architecture
 
@@ -147,11 +147,13 @@ Decision record (2026-10-27, from `archive/plan-20261027_1835.md`): **Page navig
 
 Decision record (2026-10-27, from `archive/plan-20261027_0605.md`): **TanStack Start renders pages inside the Effect server; Effect remains the only listener.** Start owns the document shell, streaming, hydration, and the generated route tree; the Effect listener forwards page requests to Start's `fetch`. Rejected: the manual Router recipe with `entry-client`/`entry-server` — it adds a second server the listener would have to duplicate. Rejected: Nitro — it replaces the listener this repository's middleware stack is built around. **Page data moves to `createServerFn`; `/api/*` stays the public contract.** Loaders call server functions; handlers call `UserService` through the existing runtime. Rejected: keeping an `import.meta.env.SSR` branch in shared modules (preserves the old stack's shape), and SSR-side HTTP calls to `/api` (rendering would depend on the listener calling itself).
 
+Decision record (2026-10-29, from `plans/plan-20261029_0447.md`): **the 2026-10-29 audit fixes landed as D1–D3.** D1 — unique-constraint conflicts map at the repository layer: `user_repo.ts` matches the SQLite cause chain (`isEmailTaken`) and raises `UserEmailConflict`, so the race between the service's existence pre-check and the insert cannot leak a raw 503; the pre-check stays as a fast path. Rejected: mapping in the handler (every write path must remember it) and mapping in the middleware (loses which constraint fired). D2 — expired `rate_limits` rows are pruned opportunistically on the write path (every 20 consumes) instead of a background sweeper: the write path already touches the table, so pruning adds one bounded DELETE per sweep with no new lifecycle to supervise. Rejected: an interval sweeper (a second lifecycle to keep alive for a table that self-heals on traffic). D3 — the OTLP development header default is gated at boot: `NODE_ENV=production` + telemetry enabled + the dev default headers fail startup with a named error; telemetry-off production boots stay untouched. F5 (CORS any-origin with credentials until auth lands), F9 (unauthenticated `/metrics`), and F10 (best-effort cache invalidation) are parked as roadmap entries — each needs a design decision (an auth surface; a deployment policy; a stronger invalidation guarantee) rather than a patch.
+
 ## Process lifecycle and graceful shutdown
 
 - Positional CLI parsing in `src/command/root.ts` selects the execution runtime. The `serve` command bypasses `runMain` to ensure async finalizers run reliably during termination.
 - `src/kernel/graceful.ts` registers signal handlers for `SIGINT` and `SIGTERM`. Shutdown proceeds in strict order:
-  1. Stop accepting new HTTP connections and drain in-flight requests (20s timeout).
+  1. Stop accepting new HTTP connections: idle connections drop immediately, in-flight requests get a bounded drain window (`drainTimeout`, default 10 seconds), then remaining sockets close.
   2. Flush and close database connections (`Database connection closed`).
   3. Disconnect Redis stores and flush logs.
   4. Emit `Application terminated` and exit `0`. A second signal forces immediate exit with status `128 + signum`.

@@ -16,6 +16,7 @@ vpr app generate:config --overwrite
 | `SERVER_HOST`      | `0.0.0.0`               | Network interface address for HTTP listener.                                             |
 | `SERVER_PORT`      | `3000`                  | Port for HTTP listener.                                                                  |
 | `API_DOCS_ENABLED` | `false`                 | Enable interactive Scalar API docs (`/api-docs`) and OpenAPI spec (`/api/openapi.json`). |
+| `NODE_ENV`         | `development`           | Runtime mode: `development`, `test`, or `production`.                                    |
 
 `APP_BASE_URL` must be an absolute `http` or `https` URL. Trailing paths are stripped automatically.
 
@@ -76,7 +77,7 @@ Rate limiting uses a continuous-refill token bucket algorithm. Counters are stor
 | `METRICS_ENABLED`                | `false`                 | Mount Prometheus scrape endpoint at `/metrics` and start runtime sampler. |
 | `OTEL_SDK_DISABLED`              | `false`                 | Disable OpenTelemetry tracing and metric exports.                         |
 | `OTEL_EXPORTER_OTLP_ENDPOINT`    | `http://localhost:4318` | Base URL for OTLP HTTP collector.                                         |
-| `OTEL_EXPORTER_OTLP_HEADERS`     | development key         | Comma-separated authentication headers for collector.                     |
+| `OTEL_EXPORTER_OTLP_HEADERS`     | development key         | Comma-separated authentication headers for collector. The development default is rejected at boot when `NODE_ENV=production` and telemetry is enabled. |
 | `OTEL_SERVICE_NAME`              | `edgy`                  | Service identifier attached to exported traces and metrics.               |
 | `OTEL_EXPORT_INTERVAL`           | `5000`                  | Batch export interval for telemetry in milliseconds.                      |
 | `OTEL_EXPORTER_OTLP_COMPRESSION` | `gzip`                  | OTLP payload compression: `gzip` or `none`.                               |

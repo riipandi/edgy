@@ -152,7 +152,7 @@ When `metadata.has_more` is `false`, `next_cursor` and `links.next` are `null`. 
 ```
 
 - If all registered dependencies are operational within the 2-second timeout, it returns `200` with `status: "ok"`.
-- If any component is down or times out, it fails closed with `503` and `status: "unhealthy"`.
+- If any component is down or times out, it fails closed with `503` and `status: "unhealthy"`. The unhealthy body names the failing dependency with a stable `error: "unavailable"` code; the raw failure detail goes to the server logs, not the response.
 - This probe does not use the standard API response envelope and is completely exempt from rate limiting.
 
 ## Users resource
