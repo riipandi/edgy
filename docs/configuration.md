@@ -72,15 +72,15 @@ Rate limiting uses a continuous-refill token bucket algorithm. Counters are stor
 
 ## Observability settings
 
-| Variable                         | Default                 | Description                                                               |
-| -------------------------------- | ----------------------- | ------------------------------------------------------------------------- |
-| `METRICS_ENABLED`                | `false`                 | Mount Prometheus scrape endpoint at `/metrics` and start runtime sampler. |
-| `OTEL_SDK_DISABLED`              | `false`                 | Disable OpenTelemetry tracing and metric exports.                         |
-| `OTEL_EXPORTER_OTLP_ENDPOINT`    | `http://localhost:4318` | Base URL for OTLP HTTP collector.                                         |
+| Variable                         | Default                 | Description                                                                                                                                            |
+| -------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `METRICS_ENABLED`                | `false`                 | Mount Prometheus scrape endpoint at `/metrics` and start runtime sampler.                                                                              |
+| `OTEL_SDK_DISABLED`              | `false`                 | Disable OpenTelemetry tracing and metric exports.                                                                                                      |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`    | `http://localhost:4318` | Base URL for OTLP HTTP collector.                                                                                                                      |
 | `OTEL_EXPORTER_OTLP_HEADERS`     | development key         | Comma-separated authentication headers for collector. The development default is rejected at boot when `NODE_ENV=production` and telemetry is enabled. |
-| `OTEL_SERVICE_NAME`              | `edgy`                  | Service identifier attached to exported traces and metrics.               |
-| `OTEL_EXPORT_INTERVAL`           | `5000`                  | Batch export interval for telemetry in milliseconds.                      |
-| `OTEL_EXPORTER_OTLP_COMPRESSION` | `gzip`                  | OTLP payload compression: `gzip` or `none`.                               |
+| `OTEL_SERVICE_NAME`              | `edgy`                  | Service identifier attached to exported traces and metrics.                                                                                            |
+| `OTEL_EXPORT_INTERVAL`           | `5000`                  | Batch export interval for telemetry in milliseconds.                                                                                                   |
+| `OTEL_EXPORTER_OTLP_COMPRESSION` | `gzip`                  | OTLP payload compression: `gzip` or `none`.                                                                                                            |
 
 ## Docker Compose stack settings
 
