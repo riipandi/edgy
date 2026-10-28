@@ -98,7 +98,8 @@ export default defineConfig(({ mode }) => ({
             // src/src/.
             router: {
               routesDirectory: resolve('./src/routes'),
-              generatedRouteTree: resolve('./src/routeTree.gen.ts')
+              generatedRouteTree: resolve('./src/routes.gen.ts'),
+              tmpDir: resolve('./.output/tanstack')
             },
             // Start's dev middleware must stay installed for page rendering,
             // but it only sees requests the earlier Effect middleware passes

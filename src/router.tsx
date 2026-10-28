@@ -2,7 +2,7 @@ import { createRouter } from '@tanstack/react-router'
 import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query'
 import { cspNonce } from '#/kernel/csp_nonce.ts'
 import { getContext, RootProvider } from './provider.tsx'
-import { routeTree } from './routeTree.gen.ts'
+import { routeTree } from './routes.gen.ts'
 
 export function getRouter() {
   const { queryClient } = getContext()

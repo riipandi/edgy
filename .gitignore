@@ -82,7 +82,7 @@ release/
 cloudflare-env.d.ts
 pnpm-exec-summary.json
 app.config.timestamp_*.js
-routeTree.gen.ts
+routes.gen.ts
 slim.report.json
 styled-system/
 RELEASE.md
