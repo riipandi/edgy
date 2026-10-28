@@ -35,7 +35,7 @@ it.effect('marks the failing check down and keeps the rest up', () =>
     expect(report.details.database?.status).toBe('up')
     expect(report.details.cache).toMatchObject({
       status: 'down',
-      error: 'connection refused'
+      error: 'unavailable'
     })
   })
 )
@@ -66,6 +66,6 @@ it.effect('a per-check timeout overrides the shared budget', () =>
 it.effect('non-error failures still render a message', () =>
   Effect.gen(function* () {
     const report = yield* runHealthChecks([{ name: 'cache', check: Effect.fail('offline') }])
-    expect(report.details.cache).toMatchObject({ status: 'down', error: 'offline' })
+    expect(report.details.cache).toMatchObject({ status: 'down', error: 'unavailable' })
   })
 )

@@ -55,10 +55,15 @@ const runCheck = <R>(
     return [input.name, { status: 'up', timestamp }] as const
   }).pipe(
     Effect.catch((error) =>
-      Effect.succeed([
-        input.name,
-        { status: 'down', timestamp: new Date().toISOString(), error: describeError(error) }
-      ] as const)
+      Effect.logWarning(`Health check ${input.name} failed`).pipe(
+        Effect.annotateLogs('error', describeError(error)),
+        Effect.as([
+          input.name,
+          // The raw detail stays in the logs; the report carries a stable
+          // code so the response body never echoes a dependency's error text.
+          { status: 'down', timestamp: new Date().toISOString(), error: 'unavailable' }
+        ] as const)
+      )
     )
   )
 }
