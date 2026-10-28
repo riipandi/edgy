@@ -50,9 +50,20 @@ describe('GET /api/health', () => {
     expect(health.status).toBe(200)
     expect((await health.json()).status).toBe('ok')
 
-    // The throttled routes keep failing closed on the same store.
+    // The throttled routes keep failing closed on the same store, with the
+    // error envelope the contract requires.
     const limited = await unwritableStoreHandler(new Request('http://localhost/api/users'))
     expect(limited.status).toBe(503)
-    expect(await limited.json()).toEqual({ _tag: 'ServiceUnavailable' })
+    const body = (await limited.json()) as {
+      status: string
+      message: string
+      error: { code: string; retryable: boolean }
+      metadata: { status_code: number }
+    }
+    expect(body.status).toBe('error')
+    expect(body.message).toBe('Rate limit store unavailable')
+    expect(body.error.code).toBe('RATE_LIMIT_STORE_UNAVAILABLE')
+    expect(body.error.retryable).toBe(true)
+    expect(body.metadata.status_code).toBe(503)
   })
 })

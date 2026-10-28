@@ -10,7 +10,9 @@ import { Database } from '#/database/adapter.ts'
 import type { DB } from '#/database/schema.ts'
 import { AppConfig } from '#/kernel/config/config.ts'
 import { redisUrlForDatabase } from '#/kernel/config/redis.ts'
+import { ApiRateLimitedError, ApiServiceUnavailableError } from '#/kernel/http/errors.ts'
 import { RateLimitVerdict } from '#/kernel/http/request-context.ts'
+import { errorBody } from '#/kernel/http/respond.ts'
 import { awaitRedis } from '#/kernel/redis-boot.ts'
 import { withDependencyTelemetry } from '#/observer/dependencies.ts'
 
@@ -293,21 +295,36 @@ export const rateLimitMiddleware = (options?: {
             .consume(key, rateLimitMax, rateLimitWindow)
             .pipe(Effect.catchTag('RateLimitError', () => Effect.succeed('unavailable' as const)))
           if (verdict === 'unavailable')
-            return HttpServerResponse.jsonUnsafe({ _tag: 'ServiceUnavailable' }, { status: 503 })
+            return HttpServerResponse.jsonUnsafe(
+              yield* errorBody(
+                new ApiServiceUnavailableError({
+                  code: 'RATE_LIMIT_STORE_UNAVAILABLE',
+                  retryable: true
+                }),
+                503,
+                'Rate limit store unavailable'
+              ),
+              { status: 503 }
+            )
           const headers = {
             'ratelimit-limit': String(verdict.limit),
             'ratelimit-reset': String(verdict.resetSeconds),
             'ratelimit-remaining': String(verdict.remaining)
           }
           if (!verdict.allowed) {
-            return HttpServerResponse.setStatus(429)(
-              HttpServerResponse.text('Too Many Requests')
-            ).pipe(
-              HttpServerResponse.setHeaders({
-                ...headers,
-                'retry-after': String(verdict.resetSeconds)
-              })
-            )
+            const body = yield* errorBody(
+              new ApiRateLimitedError({
+                code: 'RATE_LIMITED',
+                retryable: true,
+                details: { retry_after: verdict.resetSeconds }
+              }),
+              429,
+              'Too Many Requests'
+            ).pipe(Effect.provideService(RateLimitVerdict, Option.some(verdict)))
+            return HttpServerResponse.setHeaders({
+              ...headers,
+              'retry-after': String(verdict.resetSeconds)
+            })(HttpServerResponse.jsonUnsafe(body, { status: 429 }))
           }
           const response = yield* httpEffect.pipe(
             Effect.provideService(RateLimitVerdict, Option.some(verdict))

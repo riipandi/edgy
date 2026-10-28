@@ -1,8 +1,11 @@
-import { Layer } from 'effect'
+import { Effect, Layer } from 'effect'
 import * as HttpRouter from 'effect/http/HttpRouter'
 import * as HttpServer from 'effect/http/HttpServer'
 import * as HttpServerResponse from 'effect/http/HttpServerResponse'
+import type { Kysely } from 'kysely'
 import { afterAll, describe, expect, it } from 'vite-plus/test'
+import { Database, DatabaseError } from '#/database/adapter.ts'
+import type { DB } from '#/database/schema.ts'
 import { AppConfig, type AppConfigShape } from '#/kernel/config/config.ts'
 import { rateLimitMiddleware, type RateLimitExclusion } from '#/middleware/rate-limit.ts'
 import { toHandler } from '../fixtures/api.ts'
@@ -15,10 +18,14 @@ import { testServices } from '../fixtures/users.ts'
 let databaseSuffix = 0
 const serveWith = (
   security: Partial<AppConfigShape['security']>,
-  options?: { excludePaths?: ReadonlyArray<RateLimitExclusion> }
+  options?: {
+    excludePaths?: ReadonlyArray<RateLimitExclusion>
+    database?: Layer.Layer<Database, DatabaseError, never>
+  }
 ) => {
   databaseSuffix += 1
-  const database = migratedDatabaseFor(`middleware-rate-limit-${databaseSuffix}.db`)
+  const database =
+    options?.database ?? migratedDatabaseFor(`middleware-rate-limit-${databaseSuffix}.db`)
   const built = HttpRouter.toWebHandler(
     // The limiter is route-scoped: it must be provided INTO the route layer,
     // exactly as the api composition does. A nested route proves whether an
@@ -57,7 +64,25 @@ describe('rate limit middleware', () => {
 
       const rejected = await handler(new Request('http://localhost/api/ok'))
       expect(rejected.status).toBe(429)
-      expect(await rejected.text()).toBe('Too Many Requests')
+      expect(rejected.headers.get('content-type')).toContain('application/json')
+      const body = (await rejected.json()) as {
+        status: string
+        message: string
+        error: { code: string; retryable: boolean; details: { retry_after: number } }
+        metadata: {
+          status_code: number
+          request_id: string
+          rate_limit?: { limit: number; remaining: number; reset: number }
+        }
+      }
+      expect(body.status).toBe('error')
+      expect(body.message).toBe('Too Many Requests')
+      expect(body.error.code).toBe('RATE_LIMITED')
+      expect(body.error.retryable).toBe(true)
+      expect(body.error.details.retry_after).toBeGreaterThanOrEqual(1)
+      expect(body.metadata.status_code).toBe(429)
+      expect(body.metadata.rate_limit?.limit).toBe(2)
+      expect(body.metadata.rate_limit?.remaining).toBe(0)
       expect(Number(rejected.headers.get('retry-after'))).toBeGreaterThanOrEqual(1)
     } finally {
       await dispose()
@@ -91,6 +116,33 @@ describe('rate limit middleware', () => {
           expect(response.headers.get('ratelimit-limit')).toBeNull()
         }
       }
+    } finally {
+      await dispose()
+    }
+  })
+
+  it('answers a store failure with the error envelope', async () => {
+    const storeDown = Layer.succeed(Database, {
+      db: {} as Kysely<DB>,
+      query: () => Effect.fail(new DatabaseError({ cause: 'store down' })),
+      read: () => Effect.fail(new DatabaseError({ cause: 'store down' })),
+      ping: Effect.fail(new DatabaseError({ cause: 'store down' }))
+    })
+    const { handler, dispose } = serveWith({}, { database: storeDown })
+    try {
+      const response = await handler(new Request('http://localhost/api/ok'))
+      expect(response.status).toBe(503)
+      const body = (await response.json()) as {
+        status: string
+        message: string
+        error: { code: string; retryable: boolean }
+        metadata: { status_code: number; request_id: string }
+      }
+      expect(body.status).toBe('error')
+      expect(body.message).toBe('Rate limit store unavailable')
+      expect(body.error.code).toBe('RATE_LIMIT_STORE_UNAVAILABLE')
+      expect(body.error.retryable).toBe(true)
+      expect(body.metadata.status_code).toBe(503)
     } finally {
       await dispose()
     }
@@ -185,7 +237,17 @@ describe('the composed api routes', () => {
   it('responds 429 once the max is exceeded', async () => {
     const response = await limitedHandler(new Request('http://localhost/api/users', { headers }))
     expect(response.status).toBe(429)
-    expect(await response.text()).toBe('Too Many Requests')
+    const body = (await response.json()) as {
+      status: string
+      error: { code: string; retryable: boolean; details: { retry_after: number } }
+      metadata: { status_code: number; request_id: string; rate_limit?: { remaining: number } }
+    }
+    expect(body.status).toBe('error')
+    expect(body.error.code).toBe('RATE_LIMITED')
+    expect(body.error.retryable).toBe(true)
+    expect(body.error.details.retry_after).toBeGreaterThanOrEqual(1)
+    expect(body.metadata.status_code).toBe(429)
+    expect(body.metadata.rate_limit?.remaining).toBe(0)
     expect(response.headers.get('ratelimit-remaining')).toBe('0')
     expect(Number(response.headers.get('retry-after'))).toBeGreaterThanOrEqual(1)
   })
