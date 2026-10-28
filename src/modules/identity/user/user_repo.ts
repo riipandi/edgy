@@ -34,6 +34,25 @@ export class UserRepositoryError extends Schema.TaggedError<UserRepositoryError>
   }
 }
 
+export class UserEmailConflict extends Schema.TaggedError<UserEmailConflict>()(
+  'UserEmailConflict',
+  { email: Schema.String }
+) {
+  override get message(): string {
+    return `A user with email ${this.email} already exists`
+  }
+}
+
+// The local driver reports unique violations as a plain Error whose message
+// carries the constraint (code is a useless "GenericFailure"); the remote
+// transport is assumed to relay the same SQLite text.
+const isEmailTaken = (cause: unknown): boolean => {
+  for (let current = cause; current instanceof Error; current = current.cause) {
+    if (/UNIQUE constraint failed: users\.email/.test(current.message)) return true
+  }
+  return false
+}
+
 export interface CreateUserValues {
   readonly email: string
   readonly name: string | null
@@ -57,11 +76,11 @@ export class UserRepository extends Context.Service<
     readonly create: (
       id: UserIdType,
       values: CreateUserValues
-    ) => Effect.Effect<User, UserRepositoryError>
+    ) => Effect.Effect<User, UserRepositoryError | UserEmailConflict>
     readonly update: (
       id: UserIdType,
       patch: UpdateUserPatch
-    ) => Effect.Effect<User | undefined, UserRepositoryError>
+    ) => Effect.Effect<User | undefined, UserRepositoryError | UserEmailConflict>
     readonly remove: (id: UserIdType) => Effect.Effect<boolean, UserRepositoryError>
   }
 >()('UserRepository') {}
@@ -135,7 +154,13 @@ export const UserRepositoryLayer = Layer.effect(
           }
           return db.insertInto('users').values(row).returningAll().executeTakeFirstOrThrow()
         })
-        .pipe(Effect.mapError(mapError))
+        .pipe(
+          Effect.mapError((cause) =>
+            isEmailTaken(cause)
+              ? new UserEmailConflict({ email: values.email })
+              : new UserRepositoryError({ cause })
+          )
+        )
     const update = (id: UserIdType, patch: UpdateUserPatch) =>
       database
         .query((db) =>
@@ -151,7 +176,13 @@ export const UserRepositoryLayer = Layer.effect(
             .returningAll()
             .executeTakeFirst()
         )
-        .pipe(Effect.mapError(mapError))
+        .pipe(
+          Effect.mapError((cause) =>
+            patch.email !== undefined && isEmailTaken(cause)
+              ? new UserEmailConflict({ email: patch.email })
+              : new UserRepositoryError({ cause })
+          )
+        )
     const remove = (id: UserIdType) =>
       database
         .query((db) =>

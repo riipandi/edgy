@@ -1,6 +1,6 @@
 import { Context, Effect, Layer, Schema } from 'effect'
 import { Cacheable, type CacheStatus } from '#/kernel/cache.ts'
-import { UserRepository, UserRepositoryError } from './user_repo.ts'
+import { UserRepository, UserRepositoryError, UserEmailConflict } from './user_repo.ts'
 import type {
   CreateUserValues,
   ListUsersOptions,
@@ -13,15 +13,6 @@ import type { User, UserIdType } from './user_schema.ts'
 export interface UserResult {
   readonly user: User | undefined
   readonly cache: CacheStatus
-}
-
-export class UserEmailConflict extends Schema.TaggedError<UserEmailConflict>()(
-  'UserEmailConflict',
-  { email: Schema.String }
-) {
-  override get message(): string {
-    return `A user with email ${this.email} already exists`
-  }
 }
 
 export class UserService extends Context.Service<

@@ -190,6 +190,14 @@ describe('POST /api/users', () => {
     })
   })
 
+  it('responds 409 (not 503) when two concurrent creates take one email', async () => {
+    const [first, second] = await Promise.all([
+      post('/api/users', { email: 'race@example.com' }),
+      post('/api/users', { email: 'race@example.com' })
+    ])
+    expect([first.status, second.status].sort((a, b) => a - b)).toEqual([201, 409])
+  })
+
   it('responds 400 with a validation error envelope for a blank email', async () => {
     const response = await post('/api/users', { email: '   ' })
     expect(response.status).toBe(400)
