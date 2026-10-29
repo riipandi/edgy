@@ -1,7 +1,7 @@
 import { Effect } from 'effect'
 import * as HttpApiBuilder from 'effect/http-api/HttpApiBuilder'
 import * as HttpServerRequest from 'effect/http/HttpServerRequest'
-import { AppConfig } from '#/kernel/config/config.ts'
+import { AppConfig, type AppConfigShape } from '#/kernel/config/config.ts'
 import type { api } from '#/kernel/http/api.ts'
 import {
   ApiConflictError,
@@ -15,9 +15,11 @@ import type { ListCursor } from './user_repo.ts'
 import { parseUserId, toUserResult } from './user_schema.ts'
 import { UserService } from './user_service.ts'
 
-// `?nocache=1` skips the cache for that request: no read, no fill.
-const nocacheRequested = (request: HttpServerRequest.HttpServerRequest, baseUrl: string) =>
-  new URL(request.url, baseUrl).searchParams.get('nocache') === '1'
+// `?nocache=1` skips the cache for that request: no read, no fill. A
+// debugging affordance; production clients always read through the cache.
+const nocacheRequested = (request: HttpServerRequest.HttpServerRequest, config: AppConfigShape) =>
+  config.app.nodeEnv !== 'production' &&
+  new URL(request.url, config.app.baseUrl).searchParams.get('nocache') === '1'
 
 const userNotFound = () =>
   respondError(
@@ -83,16 +85,14 @@ export const usersHandlers = (httpApi: typeof api) =>
         Effect.flatMap(AppConfig, (config) =>
           Effect.flatMap(HttpServerRequest.HttpServerRequest, (request) =>
             Effect.flatMap(UserService, (service) =>
-              service
-                .find(parseUserId(params.id), nocacheRequested(request, config.app.baseUrl))
-                .pipe(
-                  Effect.flatMap((result) =>
-                    result.user === undefined
-                      ? userNotFound()
-                      : respondSuccess(toUserResult(result.user), { cache: result.cache })
-                  ),
-                  Effect.catchTag('UserRepositoryError', databaseUnavailable)
-                )
+              service.find(parseUserId(params.id), nocacheRequested(request, config)).pipe(
+                Effect.flatMap((result) =>
+                  result.user === undefined
+                    ? userNotFound()
+                    : respondSuccess(toUserResult(result.user), { cache: result.cache })
+                ),
+                Effect.catchTag('UserRepositoryError', databaseUnavailable)
+              )
             )
           )
         )

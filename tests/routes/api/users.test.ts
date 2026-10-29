@@ -1,9 +1,10 @@
-import type { Layer } from 'effect'
+import { Layer } from 'effect'
 import { TypeID } from 'typeid-js'
 import { afterAll, describe, expect, it } from 'vite-plus/test'
+import { AppConfig } from '#/kernel/config/config.ts'
 import { identityLayer } from '#/modules/identity/module.ts'
 import { toHandler } from '../../fixtures/api.ts'
-import { testConfig } from '../../fixtures/config.ts'
+import { config, testConfig } from '../../fixtures/config.ts'
 import { migratedDatabaseFor } from '../../fixtures/database.ts'
 import { testServices, unavailableUserService, users } from '../../fixtures/users.ts'
 
@@ -105,6 +106,25 @@ describe('GET /api/users/:id', () => {
     )
     expect(response.status).toBe(200)
     expect((await response.json()).metadata.cache).toBe('bypass')
+  })
+
+  it('ignores the nocache query param in production', async () => {
+    const { handler: productionHandler, dispose: disposeProduction } = toHandler(
+      testServices,
+      Layer.succeed(AppConfig, {
+        ...config,
+        app: { ...config.app, nodeEnv: 'production' }
+      })
+    )
+    try {
+      const response = await productionHandler(
+        new Request(`http://localhost/api/users/${users[0]!.id}?nocache=1`)
+      )
+      expect(response.status).toBe(200)
+      expect((await response.json()).metadata.cache).toBe('disabled')
+    } finally {
+      await disposeProduction()
+    }
   })
 
   it('responds 400 with a validation error envelope for a non-TypeID id', async () => {

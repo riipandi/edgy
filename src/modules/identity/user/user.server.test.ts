@@ -71,6 +71,22 @@ it('bypasses the cache when the page request asks for it', async () => {
   expect(state.cache).toBe('bypass')
 })
 
+it('ignores the bypass in production', async () => {
+  requestState.url = 'http://localhost/users/x?nocache=1'
+  vi.stubEnv('NODE_ENV', 'production')
+  try {
+    const state: PageMeta = {}
+    const seen: { bypass?: boolean } = {}
+    const result = await read(fakeService({ user: ada, cache: 'disabled' }, seen), state)
+
+    expect(seen.bypass).toBe(false)
+    expect(result?.cache).toBe('disabled')
+    expect(state.cache).toBe('disabled')
+  } finally {
+    vi.unstubAllEnvs()
+  }
+})
+
 it('publishes the status even when the id matches no user', async () => {
   requestState.url = 'http://localhost/users/x'
   const state: PageMeta = {}

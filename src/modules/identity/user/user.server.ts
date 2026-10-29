@@ -17,7 +17,8 @@ export const fetchUsersPage = (): Promise<readonly UserResult[]> =>
 
 // The route boundary receives the raw route param; an unparseable id
 // resolves to no user instead of failing the render. `?nocache=1` on the
-// page request skips the cache for that read.
+// page request skips the cache for that read — a debugging affordance that
+// production ignores, so clients always read through the cache there.
 export const fetchUserPage = async (
   id: string
 ): Promise<{ user: UserResult; cache: string } | undefined> => {
@@ -27,7 +28,11 @@ export const fetchUserPage = async (
   } catch {
     return undefined
   }
-  const bypass = new URL(getRequest().url).searchParams.get('nocache') === '1'
+  // The loader runs outside the Effect context; NODE_ENV is the same signal
+  // the config system resolves nodeEnv from, so the two cannot diverge.
+  const bypass =
+    process.env.NODE_ENV !== 'production' &&
+    new URL(getRequest().url).searchParams.get('nocache') === '1'
   return runWithUserService((service) =>
     Effect.map(service.find(userId, bypass), (result) => {
       // The request middleware reads this back and publishes it as x-cache
