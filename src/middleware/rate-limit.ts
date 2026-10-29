@@ -14,6 +14,7 @@ import { ApiRateLimitedError, ApiServiceUnavailableError } from '#/kernel/http/e
 import { RateLimitVerdict } from '#/kernel/http/request-context.ts'
 import { errorBody } from '#/kernel/http/respond.ts'
 import { awaitRedis } from '#/kernel/redis-boot.ts'
+import { xForwardedClient } from '#/middleware/trust-proxy.ts'
 import { withDependencyTelemetry } from '#/observer/dependencies.ts'
 
 export class RateLimitError extends Data.TaggedError('RateLimitError')<{
@@ -284,12 +285,16 @@ export const rateLimitMiddleware = (options?: {
           if (exclusions.some((exclusion) => excludedPath(pathname, exclusion)))
             return yield* httpEffect
           // The socket address attributes the client; without one (a socket
-          // transport, an in-process call), the forwarded-for header is the
-          // next identity, and only a request carrying neither shares the
-          // single 'local' bucket.
+          // transport, an in-process call), the forwarded-for chain is the
+          // next identity, keyed on its rightmost untrusted entry so a
+          // list-valued header does not merge clients into one bucket, and
+          // only a request carrying neither shares the single 'local' bucket.
+          const forwarded = request.headers['x-forwarded-for']
           const key =
             Option.getOrUndefined(request.remoteAddress) ??
-            request.headers['x-forwarded-for'] ??
+            (forwarded === undefined
+              ? undefined
+              : xForwardedClient(forwarded, config.security.trustProxy)) ??
             'local'
           const verdict = yield* counter
             .consume(key, rateLimitMax, rateLimitWindow)

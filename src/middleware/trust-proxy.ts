@@ -6,7 +6,7 @@ import { isTrustedProxy, type TrustProxy } from '#/kernel/config/security.ts'
 
 // The rightmost X-Forwarded-For entry that is not itself a trusted proxy;
 // when every entry is trusted, the chain's leftmost entry is the client.
-const xForwardedClient = (header: string, trust: TrustProxy): string | undefined => {
+export const xForwardedClient = (header: string, trust: TrustProxy): string | undefined => {
   const entries = header
     .split(',')
     .map((entry) => entry.trim())

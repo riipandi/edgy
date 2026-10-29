@@ -3,6 +3,7 @@ import * as HttpRouter from 'effect/http/HttpRouter'
 import * as HttpServer from 'effect/http/HttpServer'
 import * as HttpServerResponse from 'effect/http/HttpServerResponse'
 import type { Kysely } from 'kysely'
+import { BlockList } from 'node:net'
 import { afterAll, describe, expect, it } from 'vite-plus/test'
 import { Database, DatabaseError } from '#/database/adapter.ts'
 import type { DB } from '#/database/schema.ts'
@@ -164,6 +165,58 @@ describe('rate limit middleware', () => {
         new Request('http://localhost/api/ok', { headers: { 'x-forwarded-for': '203.0.113.11' } })
       )
       expect(other.status).toBe(200)
+    } finally {
+      await dispose()
+    }
+  })
+
+  it('keys a list-valued forwarded-for header on its rightmost entry', async () => {
+    const { handler, dispose } = serveWith({ rateLimitMax: 1 })
+    try {
+      const chain = '203.0.113.10, 198.51.100.4, 192.0.2.9'
+      const first = await handler(
+        new Request('http://localhost/api/ok', { headers: { 'x-forwarded-for': chain } })
+      )
+      expect(first.status).toBe(200)
+      // A proxy prepending its own address leaves the client at the right;
+      // the same client keeps one bucket.
+      const repeat = await handler(
+        new Request('http://localhost/api/ok', {
+          headers: { 'x-forwarded-for': `10.0.0.1, ${chain}` }
+        })
+      )
+      expect(repeat.status).toBe(429)
+      // A different rightmost entry is a different client.
+      const other = await handler(
+        new Request('http://localhost/api/ok', {
+          headers: { 'x-forwarded-for': '203.0.113.10, 192.0.2.8' }
+        })
+      )
+      expect(other.status).toBe(200)
+    } finally {
+      await dispose()
+    }
+  })
+
+  it('walks past trusted rightmost proxies when keying the forwarded-for chain', async () => {
+    const { handler, dispose } = serveWith({
+      rateLimitMax: 1,
+      trustProxy: { trustAll: true, proxies: new BlockList() }
+    })
+    try {
+      const first = await handler(
+        new Request('http://localhost/api/ok', {
+          headers: { 'x-forwarded-for': '203.0.113.10, 10.0.0.1' }
+        })
+      )
+      expect(first.status).toBe(200)
+      // The trusted rightmost proxy is not the client; the entry before it is.
+      const repeat = await handler(
+        new Request('http://localhost/api/ok', {
+          headers: { 'x-forwarded-for': '203.0.113.10, 10.0.0.2' }
+        })
+      )
+      expect(repeat.status).toBe(429)
     } finally {
       await dispose()
     }
