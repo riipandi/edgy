@@ -20,6 +20,7 @@ catalog:
 
 overrides:
   uuid: ^14.0.3
+  seroval@<1.6.11: ">=1.6.11"
   vite@*: "catalog:"
   vitest@*: "catalog:"
 
@@ -29,6 +30,8 @@ peerDependencyRules:
   allowedVersions:
     vitest: "*"
 permissions:
+  '@tanstack/devtools-vite':
+    skills: true
   '@tanstack/react-router':
     skills: true
   '@tanstack/react-start':
