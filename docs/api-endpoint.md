@@ -165,17 +165,17 @@ When `metadata.has_more` is `false`, `next_cursor` and `links.next` are `null`. 
 
 ## Standard error codes
 
-| Error code          | Status | Meaning                                                             |
-| ------------------- | ------ | ------------------------------------------------------------------- |
-| `VALIDATION_FAILED` | `400`  | Request body or query parameters failed schema validation.          |
-| `INVALID_CURSOR`    | `400`  | Pagination cursor was malformed or incompatible with selected sort. |
-| `NOT_FOUND`         | `404`  | Requested API path or HTTP method is not registered.                |
-| `USER_NOT_FOUND`    | `404`  | Specified user ID does not match an existing record.                |
-| `EMAIL_CONFLICT`    | `409`  | Submitted email address is already registered to another user.      |
-| `RATE_LIMITED`      | `429`  | Request rate exceeded client quota.                                 |
-| `INTERNAL_ERROR`    | `500`  | Unexpected server defect occurred.                                  |
-| `DATABASE_ERROR`    | `503`  | Database was unreachable or timed out.                              |
-| `RATE_LIMIT_STORE_UNAVAILABLE` | `503` | Rate limiter storage was unreachable or timed out.         |
+| Error code                     | Status | Meaning                                                             |
+| ------------------------------ | ------ | ------------------------------------------------------------------- |
+| `VALIDATION_FAILED`            | `400`  | Request body or query parameters failed schema validation.          |
+| `INVALID_CURSOR`               | `400`  | Pagination cursor was malformed or incompatible with selected sort. |
+| `NOT_FOUND`                    | `404`  | Requested API path or HTTP method is not registered.                |
+| `USER_NOT_FOUND`               | `404`  | Specified user ID does not match an existing record.                |
+| `EMAIL_CONFLICT`               | `409`  | Submitted email address is already registered to another user.      |
+| `RATE_LIMITED`                 | `429`  | Request rate exceeded client quota.                                 |
+| `INTERNAL_ERROR`               | `500`  | Unexpected server defect occurred.                                  |
+| `DATABASE_ERROR`               | `503`  | Database was unreachable or timed out.                              |
+| `RATE_LIMIT_STORE_UNAVAILABLE` | `503`  | Rate limiter storage was unreachable or timed out.                  |
 
 ## Rate limiting
 

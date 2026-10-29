@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test'
-import { getCspNonce, withCspNonce } from '#/kernel/csp_nonce.ts'
+import { withCspNonce } from '#/kernel/csp_nonce.server.ts'
+import { getCspNonce } from '#/kernel/csp_nonce.ts'
 
 describe('the csp nonce storage', () => {
   it('mints a distinct nonce per request', async () => {
