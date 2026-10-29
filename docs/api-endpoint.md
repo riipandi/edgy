@@ -74,7 +74,7 @@ Every API response under `/api/*` (with the exception of `/api/health`) conforms
 - `metadata.status_code`: Matches the HTTP response status code.
 - `metadata.request_id`: Correlates with the `x-request-id` response header for tracing and audit logs.
 - `metadata.trace_id`: Present when OpenTelemetry tracing is active.
-- `metadata.cache`: Emitted on cached lookups (`hit`, `miss`, `bypass`, or `disabled`). Pass `?nocache=1` to bypass the cache.
+- `metadata.cache`: Emitted on cached lookups (`hit`, `miss`, `bypass`, or `disabled`). Pass `?nocache=1` to bypass the cache — a debugging affordance that production ignores.
 
 ### Error envelope
 
@@ -158,7 +158,7 @@ When `metadata.has_more` is `false`, `next_cursor` and `links.next` are `null`. 
 ## Users resource
 
 - `GET /api/users`: Returns a paginated list of user records.
-- `GET /api/users/:id`: Looks up a user by their TypeID (`user_...`). Accepts `?nocache=1` to force cache refresh.
+- `GET /api/users/:id`: Looks up a user by their TypeID (`user_...`). Accepts `?nocache=1` to force cache refresh (debugging affordance; ignored in production).
 - `POST /api/users`: Creates a user with initial role `10` (SUBSCRIBER). Payload requires `email` (valid email, max 254 chars), optional `name` (max 200 chars), and optional `avatar_url` (absolute URL, max 2048 chars).
 - `PATCH /api/users/:id`: Updates user fields. Absent fields remain untouched; sending `null` clears optional fields. Duplicate emails trigger `409 EMAIL_CONFLICT`.
 - `DELETE /api/users/:id`: Hard-deletes the user record and invalidates cached data.
@@ -174,7 +174,8 @@ When `metadata.has_more` is `false`, `next_cursor` and `links.next` are `null`. 
 | `EMAIL_CONFLICT`    | `409`  | Submitted email address is already registered to another user.      |
 | `RATE_LIMITED`      | `429`  | Request rate exceeded client quota.                                 |
 | `INTERNAL_ERROR`    | `500`  | Unexpected server defect occurred.                                  |
-| `DATABASE_ERROR`    | `503`  | Database or rate limiter storage was unreachable or timed out.      |
+| `DATABASE_ERROR`    | `503`  | Database was unreachable or timed out.                              |
+| `RATE_LIMIT_STORE_UNAVAILABLE` | `503` | Rate limiter storage was unreachable or timed out.         |
 
 ## Rate limiting
 
@@ -183,7 +184,7 @@ API endpoints enforce a token-bucket rate limiter identified by client IP. The b
 - When quota is exceeded, responses return status `429 Too Many Requests`.
 - Standard headers `Retry-After`, `RateLimit-Limit`, `RateLimit-Remaining`, and `RateLimit-Reset` indicate when more capacity will be available.
 - Response `metadata.rate_limit` carries `{ limit, remaining, reset }`.
-- Storage failures fail closed (`503 DATABASE_ERROR`) to protect system stability.
+- Storage failures fail closed with the error envelope (`503 RATE_LIMIT_STORE_UNAVAILABLE`, `retryable: true`) to protect system stability.
 
 ## Interactive documentation
 
