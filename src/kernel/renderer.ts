@@ -15,30 +15,41 @@ import { UserService } from '#/modules/identity/user/user_service.ts'
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url))
 
-// The bundled server lives under <root>/server while client assets sit under
-// <root>/client; resolve the root by probing for the server bundle beside the
-// entry or up the tree from the source layout during development.
-const distRoot = (() => {
-  const probe = (dir: string): boolean => existsSync(path.join(dir, 'server/server.js'))
-  let dir = moduleDir
+// The bundled server lives under <root>/dist/server while client assets sit
+// under <root>/dist/client; resolve the root by probing for the server bundle
+// beside the entry or up the tree from the source layout during development.
+export const resolveDistRoot = (fromDir: string): string | undefined => {
+  const probe = (dir: string): string | undefined => {
+    if (existsSync(path.join(dir, 'server/server.js'))) return dir
+    const nested = path.join(dir, 'dist')
+    return existsSync(path.join(nested, 'server/server.js')) ? nested : undefined
+  }
+  let dir = fromDir
   for (let i = 0; i < 6; i++) {
-    if (probe(dir)) return dir
-    if (path.basename(dir) === 'dist') return dir
+    const found = probe(dir)
+    if (found !== undefined) return found
     const parent = path.dirname(dir)
     if (parent === dir) break
     dir = parent
   }
-  return path.resolve(moduleDir, '../dist')
-})()
+  return undefined
+}
 
-const clientRoot = path.join(distRoot, 'client')
+const distRoot = resolveDistRoot(moduleDir)
 
-const loadBundle = () =>
-  import(pathToFileURL(path.join(distRoot, 'server/server.js')).href) as Promise<{
+const clientRoot = path.join(distRoot ?? moduleDir, 'client')
+
+const loadBundle = () => {
+  if (distRoot === undefined)
+    return Promise.reject(
+      new Error('SSR server bundle not found: build the app before serving pages')
+    )
+  return import(pathToFileURL(path.join(distRoot, 'server/server.js')).href) as Promise<{
     default: {
       fetch: (request: Request, options?: { context?: { nonce?: string } }) => Promise<Response>
     }
   }>
+}
 
 const renderFromBundle = Effect.gen(function* () {
   const request = yield* HttpServerRequest.HttpServerRequest
