@@ -8,15 +8,25 @@ minimumReleaseAgeExclude:
   - "@effect/*"
   - "@storybook/*"
   - "@storybook/addon-vitest"
+  - "@voidzero-dev/vite-plus-core"
+  - "@voidzero-dev/vite-plus-darwin-arm64"
+  - "@voidzero-dev/vite-plus-darwin-x64"
+  - "@voidzero-dev/vite-plus-linux-arm64-gnu"
+  - "@voidzero-dev/vite-plus-linux-arm64-musl"
+  - "@voidzero-dev/vite-plus-linux-x64-gnu"
+  - "@voidzero-dev/vite-plus-linux-x64-musl"
+  - "@voidzero-dev/vite-plus-win32-arm64-msvc"
+  - "@voidzero-dev/vite-plus-win32-x64-msvc"
   - effect
   - kysely
   - storybook
+  - vite-plus
 
 catalog:
-  "@vitest/coverage-v8": 5.0.5
-  vite-plus: 1.4.0
-  vite: npm:@voidzero-dev/vite-plus-core@1.4.0
-  vitest: 5.0.5
+  "@vitest/coverage-v8": 5.1.0
+  vite-plus: 1.5.0
+  vite: npm:@voidzero-dev/vite-plus-core@1.5.0
+  vitest: 5.1.0
 
 overrides:
   uuid: ^14.0.3
