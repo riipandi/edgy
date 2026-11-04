@@ -68,7 +68,7 @@ export const isTrustedProxy = (trust: TrustProxy, address: string): boolean =>
 
 export const securityConfig = group(
   {
-    rateLimitEnabled: flag('RATE_LIMIT_ENABLED', true, 'Enable API rate limiting'),
+    rateLimitEnabled: flag('RATE_LIMIT_ENABLED', false, 'Enable API rate limiting'),
     rateLimitMax: int('RATE_LIMIT_MAX', 100, 'Requests allowed per client per window', 1),
     rateLimitWindow: milliseconds(
       'RATE_LIMIT_WINDOW',

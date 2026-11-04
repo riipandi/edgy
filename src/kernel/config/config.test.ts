@@ -24,7 +24,7 @@ describe('appConfig', () => {
       transport: ['console', 'file'],
       format: 'pretty'
     })
-    expect(config.security).toMatchObject({ rateLimitEnabled: true, corsEnabled: true })
+    expect(config.security).toMatchObject({ rateLimitEnabled: false, corsEnabled: true })
     expect(config.cache).toMatchObject({ enabled: true, maxEntries: 256 })
     expect(Duration.toMillis(config.cache.ttl)).toBe(30_000)
     expect(config.redis.enabled).toBe(false)
