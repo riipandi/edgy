@@ -3,7 +3,7 @@ import { Effect, Option } from 'effect'
 import * as HttpServerRequest from 'effect/http/HttpServerRequest'
 import { BlockList } from 'node:net'
 import { expect } from 'vite-plus/test'
-import type { TrustProxy } from '#/kernel/config/security.ts'
+import type { TrustProxy } from '#/kernel/config/validators.ts'
 import { resolveClientIp } from './trust-proxy.ts'
 
 const trustNone: TrustProxy = { trustAll: false, proxies: new BlockList() }

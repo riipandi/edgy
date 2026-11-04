@@ -8,7 +8,7 @@ import type { CompiledQuery, QueryResult, TransactionSettings } from 'kysely'
 import { chmodSync, existsSync, mkdirSync, readdirSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 import type { DB } from '#/database/schema.ts'
-import type { DatabaseTarget } from '#/kernel/config/database.ts'
+import type { DatabaseTarget } from '#/kernel/config/validators.ts'
 
 /** One bound for a remote statement; the local engine's busy timeout is the same. */
 const REMOTE_QUERY_TIMEOUT_MS = 5_000

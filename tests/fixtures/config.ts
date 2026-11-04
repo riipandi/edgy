@@ -48,6 +48,15 @@ export const config: AppConfigShape = {
     exportInterval: Duration.millis(5_000),
     compression: 'gzip'
   },
+  mailer: {
+    fromEmail: 'mailer@example.com',
+    fromName: 'Edgy Mailer',
+    smtpHost: 'localhost',
+    smtpPort: 1025,
+    smtpUsername: 'maileruser1',
+    smtpPassword: Redacted.make('mailerpass1'),
+    smtpSecure: false
+  },
   docs: { enabled: false }
 }
 

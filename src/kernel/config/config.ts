@@ -1,15 +1,18 @@
 import { Config, ConfigProvider, Context, Effect, Layer } from 'effect'
-import { appUrlConfig } from './app.ts'
-import { cacheConfig } from './cache.ts'
-import { databaseConfig } from './database.ts'
-import { docsConfig } from './docs.ts'
+import {
+  appUrlConfig,
+  cacheConfig,
+  databaseConfig,
+  docsConfig,
+  loggingConfig,
+  mailerConfig,
+  observabilityConfig,
+  redisConfig,
+  securityConfig,
+  serverConfig
+} from './definitions.ts'
 import { group, type ValueOf } from './field.ts'
-import { loggingConfig } from './logging.ts'
-import { mailerConfig } from './mailer.ts'
-import { observabilityConfig, telemetryEnabled } from './observability.ts'
-import { redisConfig } from './redis.ts'
-import { securityConfig } from './security.ts'
-import { serverConfig } from './server.ts'
+import { telemetryEnabled } from './helpers.ts'
 
 export const appConfig = group({
   app: appUrlConfig,
@@ -50,4 +53,4 @@ export const ConfigLayer: Layer.Layer<AppConfig, Config.ConfigError> = Layer.eff
   validatedConfig
 )
 
-export type { LogFormat } from './logging.ts'
+export type { LogFormat } from './definitions.ts'

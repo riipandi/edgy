@@ -2,7 +2,8 @@ import { Effect, Option } from 'effect'
 import * as HttpRouter from 'effect/http/HttpRouter'
 import * as HttpServerRequest from 'effect/http/HttpServerRequest'
 import { AppConfig } from '#/kernel/config/config.ts'
-import { isTrustedProxy, type TrustProxy } from '#/kernel/config/security.ts'
+import { isTrustedProxy } from '#/kernel/config/helpers.ts'
+import type { TrustProxy } from '#/kernel/config/validators.ts'
 
 // The rightmost X-Forwarded-For entry that is not itself a trusted proxy;
 // when every entry is trusted, the chain's leftmost entry is the client.

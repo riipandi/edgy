@@ -6,7 +6,7 @@ import type { SchemaError } from 'effect/Schema'
 import { awaitRedis } from '#/kernel/redis-boot.ts'
 import { annotateSpan, withDependencyTelemetry } from '#/observer/dependencies.ts'
 import { AppConfig } from './config/config.ts'
-import { redisUrlForDatabase } from './config/redis.ts'
+import { redisUrlForDatabase } from './config/helpers.ts'
 
 /**
  * The surface a `Cacheable.Class` tag carries: a keyed lookup with failure
