@@ -71,9 +71,9 @@ COPY --from=base /tmp/tini /usr/bin/tini
 # Define the host and port to listen on.
 # Prevent load certs from system (/etc/ssl/certs/ca-certificates.crt)
 ENV PATH="/usr/bin:/usr/local/bin:/busybox:/nodejs/bin:$PATH"
-ARG SERVER_HOST=0.0.0.0 SERVER_PORT=3000 TZ=UTC
+ARG SERVER_HOST=0.0.0.0 SERVER_PORT=3000 TZ=UTC APP_MODE=production
 ENV SERVER_HOST=$SERVER_HOST SERVER_PORT=$SERVER_PORT TZ=$TZ
-ENV TINI_SUBREAPER=true NODE_ENV=production
+ENV TINI_SUBREAPER=true APP_MODE=$APP_MODE
 ENV SSL_CERT_FILE= SSL_CERT_DIR=
 
 WORKDIR /app
@@ -82,10 +82,9 @@ USER nonroot:nonroot
 EXPOSE $SERVER_PORT/tcp
 
 # Healthcheck to monitor application status
-# Exec form: distroless ships no /bin/sh, and only the debug variants ship /busybox.
-HEALTHCHECK --interval=30s --timeout=3s --start-period=10s \
-    --retries=3 CMD ["/app/entry.js", "healthcheck"]
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD ["/app/entry.js", "healthcheck"]
 
-# SHELL: /busybox/sh
+# SHELL: /busybox/sh (distroless ships no /bin/sh)
 ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["/app/entry.js", "serve", "--auto-migrate"]
