@@ -4,7 +4,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?style=flat-square&logo=typescript&logoColor=white)](./tsconfig.json)
 [![Turso](https://img.shields.io/badge/Turso-v0.8-3178c6?style=flat-square&logo=turso&logoColor=white)](https://turso.tech)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](./LICENSE)
-[![Contribution](https://img.shields.io/badge/Contributions%20Welcome-black?style=flat-square&logo=lightning&logoColor=white)](https://github.com/riipandi/edgy/pulse)
+[![Contribution](https://img.shields.io/badge/Contributions%20Welcome-1b1c22?style=flat-square&logo=lightning&logoColor=white)](https://github.com/riipandi/edgy/pulse)
 <!--[![Release](https://img.shields.io/github/v/release/riipandi/edgy?style=flat-square&logo=docker&color=orange)](https://github.com/riipandi/edgy/releases)-->
 <!--[![Test](https://github.com/riipandi/edgy/actions/workflows/test.yml/badge.svg)](https://github.com/riipandi/edgy/actions/workflows/test.yml)-->
 
