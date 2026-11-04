@@ -42,13 +42,13 @@ const apiFallbacks = HttpRouter.use((router) =>
 export const apiRoutes = Layer.unwrap(
   Effect.gen(function* () {
     const config = yield* AppConfig
-    const openapiPath = config.docs.enabled ? openApiPath : undefined
+    const openapiPath = config.app.docsEnabled ? openApiPath : undefined
     const routes = HttpApiBuilder.layer(api, { openapiPath }).pipe(
       Layer.provide(moduleHandlerLayer(api)),
       Layer.provide(rateLimitMiddleware({ excludePaths: [{ path: '/api/health', exact: true }] }))
     )
     const withFallbacks = Layer.mergeAll(routes, apiFallbacks)
-    return config.docs.enabled
+    return config.app.docsEnabled
       ? Layer.mergeAll(
           withFallbacks,
           HttpApiScalar.layer(api, { path: apiDocsPath }).pipe(

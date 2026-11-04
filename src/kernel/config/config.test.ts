@@ -30,7 +30,7 @@ describe('appConfig', () => {
     expect(Duration.toMillis(config.cache.ttl)).toBe(30_000)
     expect(config.redis.enabled).toBe(false)
     expect(config.observability).toMatchObject({ serviceName: 'edgy', compression: 'gzip' })
-    expect(config.docs.enabled).toBe(false)
+    expect(config.app.docsEnabled).toBe(false)
     expect(telemetryEnabled(config.observability)).toBe(true)
   })
 

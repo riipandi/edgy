@@ -6,7 +6,7 @@ import { testDatabasePath, testDatabaseUrl } from './database-url.ts'
 const databasePath = testDatabasePath('config.db')
 
 export const config: AppConfigShape = {
-  app: { appMode: 'test', baseUrl: 'http://localhost:3000' },
+  app: { appMode: 'test', baseUrl: 'http://localhost:3000', docsEnabled: false },
   server: { host: '127.0.0.1', port: 0 },
   database: {
     url: testDatabaseUrl('config.db'),
@@ -56,8 +56,7 @@ export const config: AppConfigShape = {
     smtpUsername: 'maileruser1',
     smtpPassword: Redacted.make('mailerpass1'),
     smtpSecure: false
-  },
-  docs: { enabled: false }
+  }
 }
 
 export const testConfig = Layer.succeed(AppConfig, config)
@@ -67,4 +66,7 @@ export const limitedConfig = Layer.succeed(AppConfig, {
   security: { ...config.security, rateLimitMax: 2 }
 })
 
-export const docsConfig = Layer.succeed(AppConfig, { ...config, docs: { enabled: true } })
+export const docsConfig = Layer.succeed(AppConfig, {
+  ...config,
+  app: { ...config.app, docsEnabled: true }
+})

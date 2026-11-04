@@ -1,21 +1,12 @@
 import { Config, ConfigProvider, Context, Effect, Layer } from 'effect'
-import {
-  appUrlConfig,
-  cacheConfig,
-  databaseConfig,
-  docsConfig,
-  loggingConfig,
-  mailerConfig,
-  observabilityConfig,
-  redisConfig,
-  securityConfig,
-  serverConfig
-} from './definitions.ts'
+import { applicationConfig, databaseConfig, serverConfig, loggingConfig } from './definitions.ts'
+import { mailerConfig, observabilityConfig, redisConfig } from './definitions.ts'
+import { securityConfig, cacheConfig } from './definitions.ts'
 import { group, type ValueOf } from './field.ts'
 import { telemetryEnabled } from './helpers.ts'
 
 export const appConfig = group({
-  app: appUrlConfig,
+  app: applicationConfig,
   server: serverConfig,
   database: databaseConfig,
   logging: loggingConfig,
@@ -23,8 +14,7 @@ export const appConfig = group({
   cache: cacheConfig,
   redis: redisConfig,
   mailer: mailerConfig,
-  observability: observabilityConfig,
-  docs: docsConfig
+  observability: observabilityConfig
 })
 
 const validatedConfig = appConfig.config.pipe(

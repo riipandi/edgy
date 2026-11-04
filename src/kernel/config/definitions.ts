@@ -25,7 +25,7 @@ import {
   type DatabaseTarget
 } from './validators.ts'
 
-export const appUrlConfig = group(
+export const applicationConfig = group(
   {
     appMode: choice(
       'APP_MODE',
@@ -44,12 +44,17 @@ export const appUrlConfig = group(
         Config.withDefault('http://localhost:3000'),
         Config.mapEffect(parseBaseUrl)
       )
+    ),
+    docsEnabled: flag(
+      'APP_OPENAPI_ENABLED',
+      false,
+      'Expose the OpenAPI document and the Scalar API reference for the API'
     )
   },
   'App'
 )
 
-export type AppUrlConfig = ValueOf<typeof appUrlConfig>
+export type ApplicationConfig = ValueOf<typeof applicationConfig>
 
 export const serverConfig = group(
   {
@@ -237,15 +242,4 @@ export const observabilityConfig = group(
     )
   },
   'Observability'
-)
-
-export const docsConfig = group(
-  {
-    enabled: flag(
-      'APP_OPENAPI_ENABLED',
-      false,
-      'Expose the OpenAPI document and the Scalar API reference for the API'
-    )
-  },
-  'Docs'
 )
