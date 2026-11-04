@@ -11,7 +11,6 @@ export const config: AppConfigShape = {
   database: {
     url: testDatabaseUrl('config.db'),
     token: Redacted.make(''),
-    autoMigrate: false,
     target: { kind: 'local', path: databasePath }
   },
   logging: {

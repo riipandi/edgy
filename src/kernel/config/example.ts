@@ -12,23 +12,12 @@ const describe = (spec: FieldSpec): string => {
 
 /** Renders the example dotenv file from the configuration declarations. */
 export const renderExample = (specs: readonly FieldSpec[]): string => {
-  const sections = new Map<string, FieldSpec[]>()
-  for (const spec of specs) {
-    const title = spec.section ?? 'General'
-    sections.set(title, [...(sections.get(title) ?? []), spec])
-  }
+  const sorted = [...specs].sort((a, b) => a.name.localeCompare(b.name))
+  const lines = sorted.flatMap((spec) => [
+    `# ${spec.description} (${describe(spec)})`,
+    `${spec.name}=${/[\s#]/.test(spec.default) ? `"${spec.default}"` : spec.default}`,
+    ''
+  ])
 
-  const blocks = [...sections]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([title, fields]) => {
-      const sorted = [...fields].sort((a, b) => a.name.localeCompare(b.name))
-      const lines = sorted.flatMap((spec) => [
-        `# ${spec.description} (${describe(spec)})`,
-        `${spec.name}=${/[\s#]/.test(spec.default) ? `"${spec.default}"` : spec.default}`,
-        ''
-      ])
-      return [`# --- ${title} ---`, ...lines].join('\n')
-    })
-
-  return `${[HEADER.join('\n'), '', ...blocks].join('\n').trimEnd()}\n`
+  return `${[HEADER.join('\n'), '', ...lines].join('\n').trimEnd()}\n`
 }

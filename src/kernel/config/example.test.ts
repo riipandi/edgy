@@ -28,9 +28,7 @@ it('renders grouped config values with usable defaults', () => {
     }
   ])
 
-  expect(result).toContain(
-    '# --- Server ---\n# HTTP listener address (string)\nSERVER_HOST=0.0.0.0'
-  )
+  expect(result).toContain('# HTTP listener address (string)\nSERVER_HOST=0.0.0.0')
   expect(result).toContain('OTEL_EXPORTER_OTLP_HEADERS=authorization=edgy-dev-ingestion-key')
   expect(result).toContain('# Console output format (enum: pretty | json)\nLOG_FORMAT=pretty')
 })

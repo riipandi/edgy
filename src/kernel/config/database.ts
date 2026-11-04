@@ -1,6 +1,6 @@
 import { Config, Effect, Redacted } from 'effect'
 import type { ConfigError } from 'effect/Config'
-import { flag, group, invalid, secret, text, type Node, type ValueOf } from './field.ts'
+import { group, invalid, secret, text, type Node, type ValueOf } from './field.ts'
 
 /** A URL Kysely is pointed at: a local engine file, or a Turso database over HTTP. */
 export type DatabaseTarget =
