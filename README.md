@@ -33,8 +33,9 @@ standalone mode bundles dependencies into a single executable script with option
 
 ## Requirements
 
-- **Node.js >= 24.22** — required for native TypeScript execution.
-- **pnpm 12** — declared via `devEngines`; `npx` is intentionally rejected.
+- **Node.js >= 24.22** — the application runtime.
+- **pnpm 12.14** — declared via `devEngines`.
+- **Vite+ >= 1.0** — the unified toolchain.
 
 ## Getting started
 
