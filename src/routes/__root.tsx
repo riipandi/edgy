@@ -6,7 +6,7 @@ import { styles as rootLayout } from '#/resources/styles/element/root-layout.sty
 import { sx } from '#/resources/styles/props.ts'
 import { ErrorBoundary } from './-boundaries.tsx'
 import DevTools from './-devtools.tsx'
-import '../assets/globals.css'
+import '../resources/assets/globals.css'
 
 export const Route = createRootRouteWithContext<GlobalContext>()({
   head: () => ({
