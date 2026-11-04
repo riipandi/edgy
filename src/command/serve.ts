@@ -2,7 +2,6 @@ import { Effect, Layer } from 'effect'
 import { CliError, Command, Flag } from 'effect/cli'
 import { migrateToLatest } from '#/database/migrator.ts'
 import { runSeeders, SEEDERS } from '#/database/seeder.ts'
-import { AppConfig } from '#/kernel/config/config.ts'
 import { awaitShutdownSignal } from '#/kernel/graceful.ts'
 import { server } from '#/kernel/http/server.ts'
 import { ApplicationLayer } from '#/kernel/layers.ts'
@@ -35,13 +34,12 @@ export const serveCmd = Command.make(
   },
   (config) =>
     Effect.gen(function* () {
-      const appConfig = yield* AppConfig
-      const autoMigrate = config.autoMigrate || appConfig.database.autoMigrate
+      const autoMigrate = config.autoMigrate
       if (config.seed && !autoMigrate)
         return yield* Effect.fail(
           new CliError.UserError({
-            cause: '--seed requires --auto-migrate or DATABASE_AUTO_MIGRATE=true',
-            userMessage: '--seed requires --auto-migrate or DATABASE_AUTO_MIGRATE=true'
+            cause: '--seed requires --auto-migrate',
+            userMessage: '--seed requires --auto-migrate'
           })
         )
       // Migrations and requests must share one layer build: a second build

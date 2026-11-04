@@ -188,7 +188,7 @@ API endpoints enforce a token-bucket rate limiter identified by client IP. The b
 
 ## Interactive documentation
 
-When enabled (`API_DOCS_ENABLED=true`):
+When enabled (`APP_OPENAPI_ENABLED=true`):
 
 - `/api-docs`: Interactive documentation interface powered by Scalar.
 - `/api/openapi.json`: OpenAPI 3.1 specification describing schemas, parameters, and responses.

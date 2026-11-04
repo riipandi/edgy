@@ -7,6 +7,6 @@ it.effect('refuses --seed without --auto-migrate', () =>
   Effect.gen(function* () {
     const directory = yield* tempDirectory
     const result = yield* runCli(['serve', '--seed'], databaseEnv(directory))
-    expect(failureOf(result)).toBe('--seed requires --auto-migrate or DATABASE_AUTO_MIGRATE=true')
+    expect(failureOf(result)).toBe('--seed requires --auto-migrate')
   })
 )

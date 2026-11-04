@@ -104,8 +104,7 @@ const fields = group(
       'file:./storage/data/app.db',
       'Turso database URL: a file: URI for a local database, or a remote URL'
     ),
-    token: secret('DATABASE_TOKEN', '', 'Turso auth token, required for a remote database'),
-    autoMigrate: flag('DATABASE_AUTO_MIGRATE', false, 'Apply pending migrations before serving')
+    token: secret('DATABASE_TOKEN', '', 'Turso auth token, required for a remote database')
   },
   'Database'
 )

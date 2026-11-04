@@ -26,7 +26,6 @@ vpr app generate:config --overwrite
 | ----------------------- | ---------------------------- | --------------------------------------------------------------------------- |
 | `DATABASE_URL`          | `file:./storage/data/app.db` | Database connection string: local file path or remote Turso URI.            |
 | `DATABASE_TOKEN`        | _(empty)_                    | Authentication token for remote Turso databases (required for remote URLs). |
-| `DATABASE_AUTO_MIGRATE` | `false`                      | Automatically run pending database migrations on server startup.            |
 
 `DATABASE_URL` supports two execution transports:
 

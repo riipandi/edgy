@@ -5,7 +5,6 @@ const address = new URL(ENV.baseURL)
 
 const serverEnv = {
   DATABASE_URL: 'file:.output/e2e/e2e.db',
-  DATABASE_AUTO_MIGRATE: 'true',
   LOG_LEVEL: 'Debug',
   OTEL_SDK_DISABLED: 'true',
   RATE_LIMIT_MAX: '100000'

@@ -28,7 +28,7 @@ vpr app migrate:up       # run pending migrations
 vpr app migrate:seed     # insert sample fixture data
 ```
 
-To automatically apply migrations before starting the dev server, set `DATABASE_AUTO_MIGRATE=true` in `.env.local` or pass `--auto-migrate` to the serve command.
+To automatically apply migrations before starting the dev server, pass `--auto-migrate` to the serve command.
 
 > [!NOTE]
 > In-memory databases (`:memory:`) are explicitly disabled because healthcheck probes, migration commands, and server processes run in independent OS processes and require shared access to the file.

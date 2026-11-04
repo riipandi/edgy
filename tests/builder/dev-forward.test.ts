@@ -13,7 +13,7 @@ import { quietConsole } from '../fixtures/console.ts'
 const directory = mkdtempSync(path.join(tmpdir(), 'edgy-dev-plugin-'))
 process.env['DATABASE_URL'] ??= `file:${path.join(directory, 'dev.db')}`
 process.env['METRICS_ENABLED'] = 'true'
-process.env['API_DOCS_ENABLED'] = 'true'
+process.env['APP_OPENAPI_ENABLED'] = 'true'
 
 afterAll(quietConsole())
 

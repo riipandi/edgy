@@ -18,14 +18,17 @@ export const renderExample = (specs: readonly FieldSpec[]): string => {
     sections.set(title, [...(sections.get(title) ?? []), spec])
   }
 
-  const blocks = [...sections].map(([title, fields]) => {
-    const lines = fields.flatMap((spec) => [
-      `# ${spec.description} (${describe(spec)})`,
-      `${spec.name}=${/[\s#]/.test(spec.default) ? `"${spec.default}"` : spec.default}`,
-      ''
-    ])
-    return [`# --- ${title} ---`, ...lines].join('\n')
-  })
+  const blocks = [...sections]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([title, fields]) => {
+      const sorted = [...fields].sort((a, b) => a.name.localeCompare(b.name))
+      const lines = sorted.flatMap((spec) => [
+        `# ${spec.description} (${describe(spec)})`,
+        `${spec.name}=${/[\s#]/.test(spec.default) ? `"${spec.default}"` : spec.default}`,
+        ''
+      ])
+      return [`# --- ${title} ---`, ...lines].join('\n')
+    })
 
   return `${[HEADER.join('\n'), '', ...blocks].join('\n').trimEnd()}\n`
 }
