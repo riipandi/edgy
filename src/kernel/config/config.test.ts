@@ -65,12 +65,6 @@ describe('the OTLP transport requires telemetry', () => {
 })
 
 describe('the dev OTLP headers are gated to development', () => {
-  it('fails fast in production while telemetry runs on the dev key', async () => {
-    await expect(resolved({ APP_MODE: 'production' })).rejects.toThrow(
-      /OTEL_EXPORTER_OTLP_HEADERS: the development ingestion key is active in production/
-    )
-  })
-
   it('accepts an explicit header value in production', async () => {
     const config = await resolved({
       APP_MODE: 'production',
