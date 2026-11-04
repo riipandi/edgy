@@ -136,7 +136,7 @@ cluster_instances = 4
 cluster_mode = true
 
 [apps.env]
-NODE_ENV = "production"
+APP_MODE = "production"
 RATE_LIMIT_ENABLED = "false"
 SERVER_HOST = "0.0.0.0"
 `

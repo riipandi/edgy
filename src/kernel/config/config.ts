@@ -37,7 +37,7 @@ const validatedConfig = appConfig.config.pipe(
       // The dev ingestion key is inert while telemetry is off; the gate fires
       // only when a production boot would actually export with it.
       if (
-        config.app.nodeEnv === 'production' &&
+        config.app.appMode === 'production' &&
         telemetryEnabled(config.observability) &&
         Redacted.value(config.observability.headers) === DEV_HEADERS
       ) {

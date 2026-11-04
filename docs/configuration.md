@@ -16,7 +16,7 @@ vpr app generate:config --overwrite
 | `SERVER_HOST`      | `0.0.0.0`               | Network interface address for HTTP listener.                                             |
 | `SERVER_PORT`      | `3000`                  | Port for HTTP listener.                                                                  |
 | `API_DOCS_ENABLED` | `false`                 | Enable interactive Scalar API docs (`/api-docs`) and OpenAPI spec (`/api/openapi.json`). |
-| `NODE_ENV`         | `development`           | Runtime mode: `development`, `test`, or `production`.                                    |
+| `APP_MODE`         | `development`           | Runtime mode: `development`, `test`, or `production`.                                    |
 
 `APP_BASE_URL` must be an absolute `http` or `https` URL. Trailing paths are stripped automatically.
 

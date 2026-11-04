@@ -24,11 +24,11 @@ export const parseBaseUrl = (raw: string): Effect.Effect<string, ConfigError> =>
 
 export const appUrlConfig = group(
   {
-    nodeEnv: choice(
-      'NODE_ENV',
+    appMode: choice(
+      'APP_MODE',
       ['development', 'test', 'production'],
       'development',
-      'Runtime environment; production gates dev-only defaults'
+      'Runtime mode; production gates dev-only defaults'
     ),
     baseUrl: custom(
       {
