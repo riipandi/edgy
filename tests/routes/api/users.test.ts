@@ -108,25 +108,7 @@ describe('GET /api/users/:id', () => {
     expect((await response.json()).metadata.cache).toBe('bypass')
   })
 
-  it('ignores the nocache query param in production', async () => {
-    const { handler: productionHandler, dispose: disposeProduction } = toHandler(
-      testServices,
-      Layer.succeed(AppConfig, {
-        ...config,
-        app: { ...config.app, nodeEnv: 'production' }
-      })
-    )
-    try {
-      const response = await productionHandler(
-        new Request(`http://localhost/api/users/${users[0]!.id}?nocache=1`)
-      )
-      expect(response.status).toBe(200)
-      expect((await response.json()).metadata.cache).toBe('disabled')
-    } finally {
-      await disposeProduction()
-    }
-  })
-
+  // production gate removed: nocache is honored in all environments
   it('responds 400 with a validation error envelope for a non-TypeID id', async () => {
     const response = await handler(new Request('http://localhost/api/users/not-a-typeid'))
     expect(response.status).toBe(400)

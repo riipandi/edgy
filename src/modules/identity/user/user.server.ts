@@ -28,11 +28,7 @@ export const fetchUserPage = async (
   } catch {
     return undefined
   }
-  // The loader runs outside the Effect context; NODE_ENV is the same signal
-  // the config system resolves nodeEnv from, so the two cannot diverge.
-  const bypass =
-    process.env.NODE_ENV !== 'production' &&
-    new URL(getRequest().url).searchParams.get('nocache') === '1'
+  const bypass = new URL(getRequest().url).searchParams.get('nocache') === '1'
   return runWithUserService((service) =>
     Effect.map(service.find(userId, bypass), (result) => {
       // The request middleware reads this back and publishes it as x-cache

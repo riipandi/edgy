@@ -18,7 +18,6 @@ import { UserService } from './user_service.ts'
 // `?nocache=1` skips the cache for that request: no read, no fill. A
 // debugging affordance; production clients always read through the cache.
 const nocacheRequested = (request: HttpServerRequest.HttpServerRequest, config: AppConfigShape) =>
-  config.app.nodeEnv !== 'production' &&
   new URL(request.url, config.app.baseUrl).searchParams.get('nocache') === '1'
 
 const userNotFound = () =>
