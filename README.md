@@ -1,12 +1,12 @@
 # Edgy
 
-[![Node.js](https://img.shields.io/badge/Node.js-%3E%3D24.22-3c873a?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/en/download)
-[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?style=flat-square&logo=typescript&logoColor=white)](./tsconfig.json)
-[![Turso](https://img.shields.io/badge/Turso-v0.8-07ac87?style=flat-square&logo=turso&logoColor=white)](https://turso.tech)
-[![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](./LICENSE)
-[![Contribution](https://img.shields.io/badge/Contributions%20Welcome-2c2f38?style=flat-square&logo=lightning&logoColor=white)](./CONTRIBUTING.md)
-<!--[![Release](https://img.shields.io/github/v/release/riipandi/edgy?style=flat-square&logo=docker&color=orange)](https://github.com/riipandi/edgy/releases)-->
-<!--[![Test](https://github.com/riipandi/edgy/actions/workflows/test.yml/badge.svg)](https://github.com/riipandi/edgy/actions/workflows/test.yml)-->
+[![Node.js](https://img.shields.io/badge/Node.js-%3E%3D24.22-3c873a?style=flat&logo=node.js&logoColor=white)](https://nodejs.org/en/download)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?style=flat&logo=typescript&logoColor=white)](./tsconfig.json)
+[![Turso](https://img.shields.io/badge/Turso-v0.8-07ac87?style=flat&logo=turso&logoColor=white)](https://turso.tech)
+[![License](https://img.shields.io/badge/License-MIT-blue?style=flat)](./LICENSE)
+[![Contribution](https://img.shields.io/badge/Contributions%20Welcome-2c2f38?style=flat&logo=lightning&logoColor=white)](./CONTRIBUTING.md)
+[![Release](https://img.shields.io/github/v/release/riipandi/edgy?style=flat&logo=docker&color=orange)](https://github.com/riipandi/edgy/releases)
+[![Test](https://github.com/riipandi/edgy/actions/workflows/test.yml/badge.svg)](https://github.com/riipandi/edgy/actions/workflows/test.yml)
 
 A small, opinionated reference server built with [Effect](https://effect.website) for typed errors,
 dependency injection, HTTP routing, middleware, structured logging, and telemetry. [Kysely](https://kysely.dev)
