@@ -1,10 +1,9 @@
 import { Layer } from 'effect'
 import { TypeID } from 'typeid-js'
 import { afterAll, describe, expect, it } from 'vite-plus/test'
-import { AppConfig } from '#/kernel/config/config.ts'
 import { identityLayer } from '#/modules/identity/module.ts'
 import { toHandler } from '../../fixtures/api.ts'
-import { config, testConfig } from '../../fixtures/config.ts'
+import { testConfig } from '../../fixtures/config.ts'
 import { migratedDatabaseFor } from '../../fixtures/database.ts'
 import { testServices, unavailableUserService, users } from '../../fixtures/users.ts'
 

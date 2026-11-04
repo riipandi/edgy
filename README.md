@@ -1,8 +1,12 @@
 # Edgy
 
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D24.22-3c873a?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
-[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?style=flat-square&logo=typescript&logoColor=white)](tsconfig.json)
-[![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?style=flat-square&logo=typescript&logoColor=white)](./tsconfig.json)
+[![Turso](https://img.shields.io/badge/Turso-v0.8-3178c6?style=flat-square&logo=turso&logoColor=white)](https://turso.tech)
+[![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](./LICENSE)
+[![Contribution](https://img.shields.io/badge/Contributions%20Welcome-black?style=flat-square&logo=lightning&logoColor=white)](https://github.com/riipandi/edgy/pulse)
+<!--[![Release](https://img.shields.io/github/v/release/riipandi/edgy?style=flat-square&logo=docker&color=orange)](https://github.com/riipandi/edgy/releases)-->
+<!--[![Test](https://github.com/riipandi/edgy/actions/workflows/test.yml/badge.svg)](https://github.com/riipandi/edgy/actions/workflows/test.yml)-->
 
 A small, opinionated reference server built with [Effect](https://effect.website) for typed errors,
 dependency injection, HTTP routing, middleware, structured logging, and telemetry. [Kysely](https://kysely.dev)
@@ -35,46 +39,24 @@ standalone mode bundles dependencies into a single executable script with option
 ## Getting started
 
 ```bash
-vp install
+vp install               # install dependencies
+vpr compose:up           # local development stack
 vpr app migrate:up       # run database migrations
 vpr app migrate:seed     # insert sample fixture data
 vpr dev                  # http://localhost:3000 (hot reloading enabled)
 vpr test                 # run test suite
-vpr compose:up           # local ClickStack collector and UI for telemetry
 ```
 
 Settings are optional environment variables. See [Configuration](./docs/configuration.md) for defaults and rules.
 
-Verify it is up:
-
-```bash
-curl http://localhost:3000/api/health
-# {"status":"ok","details":{"database":{"status":"up","timestamp":"2026-10-26T17:00:00.000Z"}}}
-
-curl 'http://localhost:3000/api/users?limit=10'
-# {"status":"success","data":[{"id":"user_01m5k7w3p8fvx9r2c4t6y0hq1d","email":"ada@example.com","name":"Ada Lovelace"}, ...],"metadata":{"status_code":200,"request_id":"req_...","limit":10,"has_more":true,"next_cursor":"..."},"links":{"self":"...","first":"...","next":"..."}}
-```
-
 ## Documentation
 
-The full documentation index lives in [docs/index.md](./docs/index.md):
+Refer to [docs/index.md](./docs/index.md) for more detailed documentation.
 
-| Document                                 | What it covers                                                        |
-| ---------------------------------------- | --------------------------------------------------------------------- |
-| [CLI](./docs/commandline.md)             | Commands, flags, confirmation, and cluster mode                       |
-| [Configuration](./docs/configuration.md) | Environment variables, defaults, and Compose settings                 |
-| [API endpoints](./docs/api-endpoint.md)  | Endpoint list, response envelopes, pagination, and errors             |
-| [Development](./docs/development.md)     | Day-to-day workflow, database migrations, and SSR with TanStack Start |
-| [Deployment](./docs/deployment.md)       | Standalone builds, OxMgr process clustering, and Docker               |
+## Contributions
 
-## References
-
-- Effect — [getting started](https://effect.website/docs/v4/getting-started) · [Config](https://effect.website/docs/v4/api/effect/Config) · [Logger](https://effect.website/docs/v4/api/effect/Logger) · [Schema](https://effect.website/docs/v4/api/effect/Schema) · [CLI](https://effect.website/docs/v4/api/effect/cli/Command)
-- Effect HTTP — [HTTP APIs](https://effect.website/docs/v4/platform/http)
-- Kysely — [documentation](https://kysely.dev)
-- Frontend — [React](https://react.dev) · [TanStack Start](https://tanstack.com/start/latest) · [TanStack Router](https://tanstack.com/router/latest) · [Vite](https://vite.dev/guide/) · [StyleX](https://stylexjs.com/)
-- Database — [Turso](https://turso.tech) · [Kysely dialect](https://github.com/tursodatabase/kysely-libsql)
-- Process Manager — [OxMgr](https://github.com/Vladimir-Urik/OxMgr)
+Contributions are welcome! Please open a pull requests for your changes and tickets
+in case you would like to discuss something or have a question.
 
 ## License
 
