@@ -7,7 +7,7 @@ export const DEV_HEADERS = 'authorization=edgy-dev-ingestion-key'
 
 export const observabilityConfig = group(
   {
-    metricsEnabled: flag('METRICS_ENABLED', false, 'Expose Prometheus metrics at /metrics'),
+    metricsEnabled: flag('OTEL_METRICS_ENABLED', false, 'Expose Prometheus metrics at /metrics'),
     sdkDisabled: flag('OTEL_SDK_DISABLED', false, 'Disable trace and metric export'),
     endpoint: text(
       'OTEL_EXPORTER_OTLP_ENDPOINT',

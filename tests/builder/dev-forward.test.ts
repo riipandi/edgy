@@ -12,7 +12,7 @@ import { quietConsole } from '../fixtures/console.ts'
 // are on so the forwarded scrape and reference endpoints can be asserted on.
 const directory = mkdtempSync(path.join(tmpdir(), 'edgy-dev-plugin-'))
 process.env['DATABASE_URL'] ??= `file:${path.join(directory, 'dev.db')}`
-process.env['METRICS_ENABLED'] = 'true'
+process.env['OTEL_METRICS_ENABLED'] = 'true'
 process.env['APP_OPENAPI_ENABLED'] = 'true'
 
 afterAll(quietConsole())
