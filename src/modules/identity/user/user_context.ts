@@ -3,8 +3,8 @@ import { AsyncLocalStorage } from 'node:async_hooks'
 import { applicationRuntime } from '#/kernel/runtime.ts'
 import { UserService } from './user_service.ts'
 
-// The page bundle and the app bundle each inline this module; the shared
-// symbol keeps them on one request context.
+// The page bundle and the app bundle each inline this module;
+// the shared symbol keeps them on one request context.
 const requestServiceKey = Symbol.for('edgy.user-service-context')
 const requestService =
   (Reflect.get(globalThis, requestServiceKey) as

@@ -1,4 +1,5 @@
-import { HeadContent, Scripts, createRootRouteWithContext } from '@tanstack/react-router'
+import { HeadContent, Scripts } from '@tanstack/react-router'
+import { createRootRouteWithContext } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import type { GlobalContext } from '#/provider.tsx'
 import { darkColors } from '#/resources/styles/core/themes.ts'
@@ -35,10 +36,8 @@ function RootDocument({ children }: { children: ReactNode }) {
         <HeadContent />
       </head>
       <body {...sx(rootLayout.root)}>
-        <div {...sx(rootLayout.root, darkColors)}>
-          {children}
-          {import.meta.env.DEV ? <DevTools queryClient={queryClient} /> : null}
-        </div>
+        <div {...sx(rootLayout.root, darkColors)}>{children}</div>
+        <DevTools queryClient={queryClient} />
         <Scripts />
       </body>
     </html>
