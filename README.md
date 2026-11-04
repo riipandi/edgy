@@ -4,9 +4,9 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?style=flat&logo=typescript&logoColor=white)](./tsconfig.json)
 [![Turso](https://img.shields.io/badge/Turso-v0.8-07ac87?style=flat&logo=turso&logoColor=white)](https://turso.tech)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=flat)](./LICENSE)
-[![Contribution](https://img.shields.io/badge/Contributions%20Welcome-2c2f38?style=flat&logo=lightning&logoColor=white)](./CONTRIBUTING.md)
-[![Release](https://img.shields.io/github/v/release/riipandi/edgy?style=flat&logo=docker&color=orange)](https://github.com/riipandi/edgy/releases)
 [![Test](https://github.com/riipandi/edgy/actions/workflows/test.yml/badge.svg)](https://github.com/riipandi/edgy/actions/workflows/test.yml)
+[![Contribution](https://img.shields.io/badge/Contributions%20Welcome-2c2f38?style=flat&logo=lightning&logoColor=white)](./CONTRIBUTING.md)
+<!--[![Release](https://img.shields.io/github/v/release/riipandi/edgy?style=flat&logo=docker&color=orange)](https://github.com/riipandi/edgy/releases)-->
 
 A small, opinionated reference server built with [Effect](https://effect.website) for typed errors,
 dependency injection, HTTP routing, middleware, structured logging, and telemetry. [Kysely](https://kysely.dev)
