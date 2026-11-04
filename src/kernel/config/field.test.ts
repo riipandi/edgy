@@ -1,17 +1,7 @@
 import { Cause, Config, ConfigProvider, Duration, Effect, Redacted } from 'effect'
 import { describe, expect, it } from 'vite-plus/test'
-import {
-  choice,
-  choiceList,
-  flag,
-  group,
-  int,
-  logLevel,
-  milliseconds,
-  port,
-  secret,
-  text
-} from './field.ts'
+import { choice, choiceList, flag, group, int } from './field.ts'
+import { logLevel, milliseconds, port, secret, text } from './field.ts'
 
 const fromEnv = (env: Record<string, string>) =>
   ConfigProvider.layer(ConfigProvider.fromEnvRecord(env))

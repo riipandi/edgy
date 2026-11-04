@@ -10,13 +10,13 @@ vpr app generate:config --overwrite
 
 ## General settings
 
-| Variable           | Default                 | Description                                                                              |
-| ------------------ | ----------------------- | ---------------------------------------------------------------------------------------- |
-| `APP_BASE_URL`     | `http://localhost:3000` | Canonical public origin; relative URLs are resolved against this base.                   |
-| `SERVER_HOST`      | `0.0.0.0`               | Network interface address for HTTP listener.                                             |
-| `SERVER_PORT`      | `3000`                  | Port for HTTP listener.                                                                  |
-| `API_DOCS_ENABLED` | `false`                 | Enable interactive Scalar API docs (`/api-docs`) and OpenAPI spec (`/api/openapi.json`). |
-| `APP_MODE`         | `development`           | Runtime mode: `development`, `test`, or `production`.                                    |
+| Variable              | Default                 | Description                                                                              |
+| --------------------- | ----------------------- | ---------------------------------------------------------------------------------------- |
+| `APP_BASE_URL`        | `http://localhost:3000` | Canonical public origin; relative URLs are resolved against this base.                   |
+| `SERVER_HOST`         | `0.0.0.0`               | Network interface address for HTTP listener.                                             |
+| `SERVER_PORT`         | `3000`                  | Port for HTTP listener.                                                                  |
+| `APP_OPENAPI_ENABLED` | `false`                 | Enable interactive Scalar API docs (`/api-docs`) and OpenAPI spec (`/api/openapi.json`). |
+| `APP_MODE`            | `development`           | Runtime mode: `development`, `test`, or `production`.                                    |
 
 `APP_BASE_URL` must be an absolute `http` or `https` URL. Trailing paths are stripped automatically.
 
@@ -59,7 +59,7 @@ When `REDIS_ENABLE=true`, user lookups are cached in Redis database index `1`, a
 | ---------------------- | ------- | ------------------------------------------------------------------------------- |
 | `CORS_ENABLED`         | `true`  | Enable Cross-Origin Resource Sharing middleware.                                |
 | `CORS_ALLOWED_ORIGINS` | `*`     | Comma-separated list of permitted origins. Empty or `*` permits all origins.    |
-| `RATE_LIMIT_ENABLED`   | `true`  | Enforce token-bucket rate limiting on `/api/*` routes.                          |
+| `RATE_LIMIT_ENABLED`   | `false` | Enforce token-bucket rate limiting on `/api/*` routes.                          |
 | `RATE_LIMIT_MAX`       | `100`   | Maximum token bucket capacity per window (minimum `1`).                         |
 | `RATE_LIMIT_WINDOW`    | `60000` | Rate limit window duration in milliseconds (default: 1 minute).                 |
 | `TRUST_PROXY`          | `false` | Trusted reverse proxy configuration: `true`, `false`, or comma-separated CIDRs. |
@@ -69,11 +69,23 @@ When `REDIS_ENABLE=true`, user lookups are cached in Redis database index `1`, a
 
 Rate limiting uses a continuous-refill token bucket algorithm. Counters are stored in the database `rate_limits` table by default or in Redis when `REDIS_ENABLE=true`.
 
+## Mailer settings
+
+| Variable               | Default              | Description                     |
+| ---------------------- | -------------------- | ------------------------------- |
+| `MAILER_FROM_EMAIL`    | `mailer@example.com` | Default sender email address.   |
+| `MAILER_FROM_NAME`     | `Edgy Mailer`        | Default sender display name.    |
+| `MAILER_SMTP_HOST`     | `localhost`          | SMTP server hostname.           |
+| `MAILER_SMTP_PORT`     | `1025`               | SMTP server port.               |
+| `MAILER_SMTP_USERNAME` | `maileruser1`        | SMTP authentication username.   |
+| `MAILER_SMTP_PASSWORD` | `mailerpass1`        | SMTP authentication password.   |
+| `MAILER_SMTP_SECURE`   | `false`              | Enable TLS for SMTP connection. |
+
 ## Observability settings
 
 | Variable                         | Default                 | Description                                                                                                                                            |
 | -------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `METRICS_ENABLED`                | `false`                 | Mount Prometheus scrape endpoint at `/metrics` and start runtime sampler.                                                                              |
+| `OTEL_METRICS_ENABLED`           | `false`                 | Mount Prometheus scrape endpoint at `/metrics` and start runtime sampler.                                                                              |
 | `OTEL_SDK_DISABLED`              | `false`                 | Disable OpenTelemetry tracing and metric exports.                                                                                                      |
 | `OTEL_EXPORTER_OTLP_ENDPOINT`    | `http://localhost:4318` | Base URL for OTLP HTTP collector.                                                                                                                      |
 | `OTEL_EXPORTER_OTLP_HEADERS`     | development key         | Comma-separated authentication headers for collector. The development default is rejected at boot when `APP_MODE=production` and telemetry is enabled. |

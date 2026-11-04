@@ -1,13 +1,8 @@
 import { Effect, Redacted } from 'effect'
 import { describe, expect, it } from 'vite-plus/test'
-import {
-  parseBaseUrl,
-  parseOriginList,
-  parseRedisUrl,
-  parseTrustProxy,
-  resolveDatabaseTarget,
-  type DatabaseTarget
-} from './validators.ts'
+import { parseBaseUrl, parseOriginList, parseTrustProxy } from './validators.ts'
+import { parseRedisUrl, resolveDatabaseTarget } from './validators.ts'
+import type { DatabaseTarget } from './validators.ts'
 
 const resolveBaseUrl = (value: string) => Effect.runPromise(parseBaseUrl(value))
 

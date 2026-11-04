@@ -46,7 +46,7 @@ graph TD
 | `src/kernel/registry.ts`           | Single file where feature modules wire their HttpApi groups, handlers, and service layers. |
 | `src/kernel/runtime.ts`            | `ManagedRuntime` lifecycle ownership and disposal for SSR and development adapters.        |
 | `src/kernel/http/`                 | HTTP server, middleware stack, envelope factories (`envelope.ts`), responder (`respond.ts`). |
-| `src/kernel/config/`               | Validated typed configuration definitions for app, server, database, redis, logging, etc. |
+| `src/kernel/config/`               | Validated typed configuration: definitions (`definitions.ts`), validators (`validators.ts`), runtime helpers (`helpers.ts`), DSL builder (`field.ts`), and composition root (`config.ts`). |
 | `src/modules/`                     | Self-contained domain modules (`identity/user`) containing route, handler, service, repo.  |
 | `src/database/`                    | Turso Kysely dialect (`dialect.ts`), adapter (`adapter.ts`), migrator, schema, seeders.   |
 | `src/middleware/`, `src/observer/` | HTTP middlewares (CORS, error reshaping, rate limit, request-id, log) and OpenTelemetry.  |

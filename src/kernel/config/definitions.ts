@@ -1,29 +1,11 @@
 import { Config, Effect, Redacted } from 'effect'
-import {
-  choice,
-  choiceList,
-  custom,
-  flag,
-  group,
-  int,
-  logLevel,
-  milliseconds,
-  port,
-  secret,
-  text,
-  type Node,
-  type ValueOf
-} from './field.ts'
+import { choice, choiceList, custom, flag, group } from './field.ts'
+import { int, logLevel, milliseconds, port, secret, text } from './field.ts'
+import type { Node, ValueOf } from './field.ts'
 import { DEV_HEADERS } from './helpers.ts'
-import {
-  isCleartext,
-  parseBaseUrl,
-  parseOriginList,
-  parseRedisUrl,
-  parseTrustProxy,
-  resolveDatabaseTarget,
-  type DatabaseTarget
-} from './validators.ts'
+import { isCleartext, parseBaseUrl, parseOriginList } from './validators.ts'
+import { parseRedisUrl, parseTrustProxy, resolveDatabaseTarget } from './validators.ts'
+import type { DatabaseTarget } from './validators.ts'
 
 export const applicationConfig = group(
   {

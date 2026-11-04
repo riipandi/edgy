@@ -1,12 +1,7 @@
 import { Effect } from 'effect'
 import { describe, expect, it } from 'vite-plus/test'
-import {
-  isTrustedProxy,
-  redisDatabases,
-  redisUrlFor,
-  redisUrlForDatabase,
-  telemetryEnabled
-} from './helpers.ts'
+import { isTrustedProxy, telemetryEnabled } from './helpers.ts'
+import { redisDatabases, redisUrlFor, redisUrlForDatabase } from './helpers.ts'
 import { parseTrustProxy } from './validators.ts'
 
 describe('redisUrlFor', () => {
