@@ -5,6 +5,7 @@ import { databaseConfig } from './database.ts'
 import { docsConfig } from './docs.ts'
 import { group, type ValueOf } from './field.ts'
 import { loggingConfig } from './logging.ts'
+import { mailerConfig } from './mailer.ts'
 import { observabilityConfig, telemetryEnabled } from './observability.ts'
 import { redisConfig } from './redis.ts'
 import { securityConfig } from './security.ts'
@@ -18,6 +19,7 @@ export const appConfig = group({
   security: securityConfig,
   cache: cacheConfig,
   redis: redisConfig,
+  mailer: mailerConfig,
   observability: observabilityConfig,
   docs: docsConfig
 })
